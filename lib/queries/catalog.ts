@@ -791,7 +791,7 @@ export type CatalogCoursePanelItem = {
 };
 
 export async function getCourseLearningModes(
-  templateId: string
+  stationId: string
 ): Promise<CatalogCoursePanelItem[]> {
   const supabase = await createClient();
 
@@ -810,7 +810,7 @@ export async function getCourseLearningModes(
       created_at,
       updated_at
     `)
-    .eq("template_id", templateId)
+    .eq("station_id", stationId)
     .eq("active", true)
     .order("display_order", {
       ascending: true,
@@ -831,7 +831,7 @@ export async function getCourseLearningModes(
 }
 
 export async function getCourseResultTabs(
-  templateId: string
+  stationId: string
 ): Promise<CatalogCoursePanelItem[]> {
   const supabase = await createClient();
 
@@ -850,7 +850,7 @@ export async function getCourseResultTabs(
       created_at,
       updated_at
     `)
-    .eq("template_id", templateId)
+    .eq("station_id", stationId)
     .eq("active", true)
     .order("display_order", {
       ascending: true,

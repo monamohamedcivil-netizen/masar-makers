@@ -14,7 +14,6 @@ import {
   getCareerPaths,
   getCatalogCourseBySlug,
   getCourseLearningModes,
-  getCoursePanelSections,
   getCourseResultTabs,
   getJourneyModules,
   getStationBySlug,
@@ -41,7 +40,6 @@ import type {
   CatalogCourse,
   CatalogCoursePanelItem,
   CatalogJourney,
-  CatalogPanelSection,
   CatalogStation,
 } from "@/lib/queries/catalog";
 
@@ -61,7 +59,6 @@ type CoursePageData = {
   reviews: Review[];
   learningModes: CatalogCoursePanelItem[];
   resultTabs: CatalogCoursePanelItem[];
-  panelSections: CatalogPanelSection[];
 };
 
 export const dynamic = "force-dynamic";
@@ -128,7 +125,6 @@ export default async function CoursePage({
   reviews: courseReviews,
   learningModes,
   resultTabs,
-  panelSections,
 } = pageData;
 
   return (
@@ -165,7 +161,6 @@ export default async function CoursePage({
   reviews={courseReviews}
   learningModes={learningModes}
   resultTabs={resultTabs}
-  panelSections={panelSections}
   learningColumnTitle={
     station.learning_column_title ??
     "اختر طريقة التعلم"
@@ -470,14 +465,7 @@ const resultTabs =
   await getCourseResultTabs(
     station.id
   );
-
-  const panelSections =
-  await getCoursePanelSections(
-    representativeCourse.id,
-    "professional"
-  );
-  
-  return {
+return {
   course,
   path,
   station,
