@@ -38,8 +38,7 @@ import type {
 
 import type {
   CatalogCoursePanelItem,
-
-} from "@/lib/queries/catalog";
+} from "@/lib/queries/catalog/panels";
 
 import {
   useBuilder,

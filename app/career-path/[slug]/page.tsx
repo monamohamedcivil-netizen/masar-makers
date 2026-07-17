@@ -14,7 +14,7 @@ import AnnouncementBar from "@/sections/AnnouncementBar";
 import PathSwitcher from "@/components/career-paths/PathSwitcher";
 import PathRoadmap from "@/components/career-paths/PathRoadmap";
 
-import { getCareerPathBySlug } from "@/lib/queries/catalog";
+import { getCareerPathBySlug } from "@/lib/queries/catalog/career-paths";
 
 import type { Course } from "@/data/types";
 

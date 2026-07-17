@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getCareerPaths } from "@/lib/queries/catalog";
+
+import { getCareerPaths } from "@/lib/queries/catalog/career-paths";
 
 export const dynamic = "force-dynamic";
 
@@ -7,9 +8,11 @@ export default async function AdminCoursesPage() {
   const paths = await getCareerPaths();
 
   return (
-    <main className="min-h-screen bg-[#F7F8FA] p-8" dir="rtl">
+    <main
+      className="min-h-screen bg-[#F7F8FA] p-8"
+      dir="rtl"
+    >
       <div className="mx-auto max-w-7xl">
-
         <div className="mb-8">
           <h1 className="text-3xl font-black text-[#07152E]">
             إدارة المحتوى
@@ -45,13 +48,12 @@ export default async function AdminCoursesPage() {
                 {path.description}
               </p>
 
-              <div className="mt-6 text-[#D49319] font-black">
+              <div className="mt-6 font-black text-[#D49319]">
                 {path.course_stations.length} محطة →
               </div>
             </Link>
           ))}
         </div>
-
       </div>
     </main>
   );

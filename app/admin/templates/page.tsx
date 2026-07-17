@@ -1,15 +1,11 @@
-import {
-  getCourseTemplates,
-} from "@/lib/queries/catalog";
+import { getCourseTemplates } from "@/lib/queries/catalog/templates";
 
 import CourseTemplatesManager from "@/components/admin/CourseTemplatesManager";
 
-export const dynamic =
-  "force-dynamic";
+export const dynamic = "force-dynamic";
 
 export default async function TemplatesPage() {
-  const templates =
-    await getCourseTemplates();
+  const templates = await getCourseTemplates();
 
   return (
     <main

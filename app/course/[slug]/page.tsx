@@ -10,14 +10,18 @@ import {
   CourseStats,
 } from "@/components/course";
 
+import { getCareerPaths } from "@/lib/queries/catalog/career-paths";
+
+import { getCatalogCourseBySlug } from "@/lib/queries/catalog/courses";
+
 import {
-  getCareerPaths,
-  getCatalogCourseBySlug,
   getCourseLearningModes,
   getCourseResultTabs,
-  getJourneyModules,
-  getStationBySlug,
-} from "@/lib/queries/catalog";
+} from "@/lib/queries/catalog/panels";
+
+import { getJourneyModules } from "@/lib/queries/catalog/journeys";
+
+import { getStationBySlug } from "@/lib/queries/catalog/stations";
 
 import {
   getCourse,
@@ -37,11 +41,23 @@ import type {
 
 import type {
   CatalogCareerPath,
+} from "@/lib/queries/catalog/career-paths";
+
+import type {
   CatalogCourse,
+} from "@/lib/queries/catalog/courses";
+
+import type {
   CatalogCoursePanelItem,
+} from "@/lib/queries/catalog/panels";
+
+import type {
   CatalogJourney,
+} from "@/lib/queries/catalog/journeys";
+
+import type {
   CatalogStation,
-} from "@/lib/queries/catalog";
+} from "@/lib/queries/catalog/stations";
 
 type CoursePageProps = {
   params: Promise<{

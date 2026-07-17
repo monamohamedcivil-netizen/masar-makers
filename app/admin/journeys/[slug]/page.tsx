@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { getJourneyBySlug } from "@/lib/queries/catalog";
+import { getJourneyBySlug } from "@/lib/queries/catalog/journeys";
 
 import JourneyAdminPanel from "@/components/admin/JourneyAdminPanel";
 
@@ -15,18 +15,15 @@ type Props = {
 export default async function JourneyPage({
   params,
 }: Props) {
-
   const { slug } = await params;
 
-  const journey =
-    await getJourneyBySlug(slug);
+  const journey = await getJourneyBySlug(slug);
 
   if (!journey) {
     notFound();
   }
 
   return (
-
     <main
       dir="rtl"
       className="
@@ -35,17 +32,11 @@ export default async function JourneyPage({
         p-8
       "
     >
-
       <div className="mx-auto max-w-[1600px]">
-
         <JourneyAdminPanel
           journeyTitle={journey.title}
         />
-
       </div>
-
     </main>
-
   );
-
 }

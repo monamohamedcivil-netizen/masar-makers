@@ -31,7 +31,7 @@ import {
 
 import type {
   CatalogPanelSection,
-} from "@/lib/queries/catalog";
+} from "@/lib/queries/catalog/panels";
 
 type PanelSectionsManagerProps = {
   courseId: string;

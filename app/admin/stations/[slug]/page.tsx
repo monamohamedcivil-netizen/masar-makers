@@ -6,8 +6,9 @@ import CoursePanelControlsManager from "@/components/admin/course/CoursePanelCon
 import {
   getCourseLearningModes,
   getCourseResultTabs,
-  getStationBySlug,
-} from "@/lib/queries/catalog";
+} from "@/lib/queries/catalog/panels";
+
+import { getStationBySlug } from "@/lib/queries/catalog/stations";
 
 type AdminStationPageProps = {
   params: Promise<{
@@ -40,7 +41,6 @@ export default async function AdminStationPage({
       className="min-h-screen bg-[#F7F8FA] px-5 py-8 lg:px-8"
     >
       <div className="mx-auto max-w-[1450px]">
-        {/* عنوان الصفحة */}
         <header
           className="
             mb-7 flex flex-col gap-5
@@ -48,7 +48,6 @@ export default async function AdminStationPage({
             border border-[#DCE3EB]
             bg-white px-6 py-5
             shadow-[0_12px_32px_rgba(7,21,46,0.06)]
-
             md:flex-row
             md:items-center
             md:justify-between
@@ -98,14 +97,13 @@ export default async function AdminStationPage({
           </div>
         </header>
 
-        {/* إدارة أزرار الـPanel */}
-      <CoursePanelControlsManager
-  stationId={station.id}
-  stationTitle={station.title}
-  stationSlug={station.slug}
-  learningModes={learningModes}
-  resultTabs={resultTabs}
-/>
+        <CoursePanelControlsManager
+          stationId={station.id}
+          stationTitle={station.title}
+          stationSlug={station.slug}
+          learningModes={learningModes}
+          resultTabs={resultTabs}
+        />
       </div>
     </main>
   );

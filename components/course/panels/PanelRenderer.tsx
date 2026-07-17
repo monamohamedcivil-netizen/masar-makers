@@ -4,7 +4,7 @@ import PanelSection from "./PanelSection";
 
 import type {
   CatalogPanelSection,
-} from "@/lib/queries/catalog";
+} from "@/lib/queries/catalog/panels";
 
 type Props = {
   sections: CatalogPanelSection[];

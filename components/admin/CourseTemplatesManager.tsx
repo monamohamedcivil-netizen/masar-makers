@@ -29,7 +29,7 @@ import {
 
 import type {
   CatalogCourseTemplate,
-} from "@/lib/queries/catalog";
+} from "@/lib/queries/catalog/templates";
 
 type CourseTemplatesManagerProps = {
   templates: CatalogCourseTemplate[];
