@@ -21,7 +21,7 @@ const labels = {
     home: "مركز الرحلات",
     about: "عن الأكاديمية",
     careerPaths: "المسارات المهنية",
-    journeys: "رحلتي التعليمية",
+    journeys: "رحلاتي التعليمية",
     contact: "اتصل بنا",
     openMenu: "فتح القائمة",
     closeMenu: "إغلاق القائمة",
@@ -32,7 +32,7 @@ const labels = {
     home: "Journey Center",
     about: "About Academy",
     careerPaths: "Career Paths",
-    journeys: "My Learning Journey",
+    journeys: "My Learning Journeys",
     contact: "Contact Us",
     openMenu: "Open menu",
     closeMenu: "Close menu",
@@ -42,7 +42,16 @@ const labels = {
 } as const;
 
 function detectActiveItem(pathname: string): ActiveItem {
-  if (pathname.startsWith("/dashboard") || pathname.startsWith("/journeys")) return "journeys";
+  if (
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/journeys") ||
+    pathname.startsWith("/student") ||
+    pathname.startsWith("/workspace") ||
+    pathname.startsWith("/my-learning")
+  ) {
+    return "journeys";
+  }
+
   if (pathname.startsWith("/career-path")) return "career-paths";
   if (pathname.startsWith("/about")) return "about";
   return "home";
@@ -53,25 +62,37 @@ export default function Navbar({ activeItem }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [locale, setLocale] = useState<Locale>("ar");
+  const [localeReady, setLocaleReady] = useState(false);
 
-  const currentItem = activeItem ?? detectActiveItem(pathname);
+  const detectedItem = detectActiveItem(pathname);
+  const currentItem = detectedItem === "home" && activeItem ? activeItem : detectedItem;
   const text = labels[locale];
 
   useEffect(() => {
-    const savedLocale = window.localStorage.getItem("masar-locale") as Locale | null;
-    if (savedLocale === "ar" || savedLocale === "en") setLocale(savedLocale);
+    const savedLocale = window.localStorage.getItem(
+      "masar-locale"
+    ) as Locale | null;
+
+    if (savedLocale === "ar" || savedLocale === "en") {
+      setLocale(savedLocale);
+    }
+
+    setLocaleReady(true);
 
     const handleScroll = () => setScrolled(window.scrollY > 30);
     handleScroll();
     window.addEventListener("scroll", handleScroll);
+
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   useEffect(() => {
+    if (!localeReady) return;
+
     document.documentElement.lang = locale;
     document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
     window.localStorage.setItem("masar-locale", locale);
-  }, [locale]);
+  }, [locale, localeReady]);
 
   useEffect(() => setMobileOpen(false), [pathname]);
 
@@ -79,7 +100,7 @@ export default function Navbar({ activeItem }: NavbarProps) {
     () => [
       { id: "home" as const, href: "/", label: text.home, protected: false },
       { id: "about" as const, href: "/about", label: text.about, protected: true },
-      { id: "career-paths" as const, href: "/career-path", label: text.careerPaths, protected: true },
+      { id: "career-paths" as const, href: "/career-path/road-design", label: text.careerPaths, protected: true },
       { id: "journeys" as const, href: "/dashboard", label: text.journeys, protected: true },
     ],
     [text]
@@ -134,11 +155,20 @@ export default function Navbar({ activeItem }: NavbarProps) {
         <div className="flex shrink-0 items-center gap-5 xl:gap-10">
           <Link href="/" aria-label={text.homeAria} className="flex items-center">
             <h1 className="whitespace-nowrap text-[22px] font-black tracking-tight sm:text-[25px]">
-              <span className="text-white">صناعــ</span>
-              <span className="mr-2 text-[#F7B548]">ــالمسار</span>
+              {locale === "ar" ? (
+                <>
+                  <span className="text-white">صناعــ</span>
+                  <span className="mr-2 text-[#F7B548]">ــالمسار</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-white">Masar</span>
+                  <span className="ml-2 text-[#F7B548]">Makers</span>
+                </>
+              )}
             </h1>
           </Link>
-          <div className="hidden lg:block"><NavbarUser /></div>
+          <div className="hidden lg:block"><NavbarUser locale={locale} /></div>
         </div>
 
         <nav className="hidden items-center gap-7 xl:gap-9 lg:flex">
@@ -182,7 +212,7 @@ export default function Navbar({ activeItem }: NavbarProps) {
         <div className="border-t border-white/10 bg-[#07152E]/98 px-4 pb-5 pt-4 shadow-2xl backdrop-blur-xl lg:hidden">
           <nav className="mx-auto flex max-w-[1480px] flex-col gap-2">
             {links.map((link) => renderLink(link, true))}
-            <div className="mt-2 border-t border-white/10 pt-4"><NavbarUser /></div>
+            <div className="mt-2 border-t border-white/10 pt-4"><NavbarUser locale={locale} /></div>
           </nav>
         </div>
       )}
