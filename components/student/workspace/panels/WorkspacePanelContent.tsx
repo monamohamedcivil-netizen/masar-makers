@@ -28,14 +28,12 @@ export default function WorkspacePanelContent({ panel, data }: Props) {
     case "course-list":
       return (
         <CourseListPanel
-          courses={data.careerCourses}
-          pending={data.pendingCourses}
+          courses={data.activeCourses ?? []}
+          pending={data.pendingCourses ?? []}
         />
       );
 
     case "empty-journey":
-      if (panel.id === "one-day" && data.oneDayCourses.length) return <CourseListPanel courses={data.oneDayCourses} pending={[]} />;
-      if (panel.id === "free" && data.freeCourses.length) return <CourseListPanel courses={data.freeCourses} pending={[]} />;
       return (
         <EmptyPanel
           icon={panel.settings?.accent === "free" ? Sparkles : panel.icon}
@@ -49,7 +47,14 @@ export default function WorkspacePanelContent({ panel, data }: Props) {
       return <NextStepPanel data={data} />;
 
     case "certificates":
-      return <CertificatesPanel certificates={data.certificates} />;
+      return (
+        <EmptyPanel
+          icon={FileCheck2}
+          title="لا توجد شهادات بعد"
+          text="أكمل أول رحلة لتظهر شهادتك هنا."
+          href="/career-path"
+        />
+      );
 
     case "achievement-card":
       return (
@@ -60,10 +65,24 @@ export default function WorkspacePanelContent({ panel, data }: Props) {
       );
 
     case "surveys":
-      return <SurveysPanel surveys={data.surveys} />;
+      return (
+        <EmptyPanel
+          icon={ClipboardList}
+          title="لا توجد استبيانات"
+          text="ستظهر الاستبيانات المطلوبة هنا تلقائيًا."
+          href="/dashboard"
+        />
+      );
 
     case "projects":
-      return <ProjectsPanel projects={data.projects} />;
+      return (
+        <EmptyPanel
+          icon={FileUp}
+          title="مشاريعك"
+          text="ستظهر هنا المشاريع التي ترفعها ضمن رحلاتك."
+          href="/dashboard"
+        />
+      );
 
     default:
       return null;
@@ -77,7 +96,10 @@ function CourseListPanel({
   courses: StudentDashboardData["activeCourses"];
   pending: StudentDashboardData["pendingCourses"];
 }) {
-  if (!courses.length && !pending.length) {
+  const safeCourses = courses ?? [];
+  const safePending = pending ?? [];
+
+  if (!safeCourses.length && !safePending.length) {
     return (
       <EmptyPanel
         icon={BookOpenCheck}
@@ -90,21 +112,21 @@ function CourseListPanel({
 
   return (
     <div className="space-y-6">
-      {courses.length > 0 ? (
+      {safeCourses.length > 0 ? (
         <div className="grid gap-5 md:grid-cols-2">
-          {courses.map((course) => (
+          {safeCourses.map((course) => (
             <StudentCourseCard key={course.enrollmentId} course={course} />
           ))}
         </div>
       ) : null}
 
-      {pending.length > 0 ? (
+      {safePending.length > 0 ? (
         <div>
           <h3 className="mb-3 text-sm font-black text-amber-700">
             بانتظار الاعتماد
           </h3>
           <div className="grid gap-5 md:grid-cols-2">
-            {pending.map((course) => (
+            {safePending.map((course) => (
               <StudentCourseCard
                 key={course.enrollmentId}
                 course={course}
@@ -165,21 +187,6 @@ function NextStepPanel({ data }: { data: StudentDashboardData }) {
       </Link>
     </div>
   );
-}
-
-function CertificatesPanel({ certificates }: { certificates: StudentDashboardData["certificates"] }) {
-  if (!certificates.length) return <EmptyPanel icon={FileCheck2} title="لا توجد شهادات بعد" text="أكمل أول رحلة لتظهر شهادتك هنا." href="/career-path" />;
-  return <div className="grid gap-4 md:grid-cols-2">{certificates.map((item) => <div key={item.id} className="border border-slate-200 bg-slate-50 p-5"><div className="flex items-center justify-between"><FileCheck2 className="text-[#C88712]" /><span className="text-[10px] font-black text-slate-500">{item.certificateNumber}</span></div><h3 className="mt-4 font-black">{item.courseTitle}</h3><p className="mt-1 text-xs font-semibold text-slate-500">صدرت في {new Date(item.issuedAt).toLocaleDateString("ar-SA")}</p>{item.fileUrl ? <a href={item.fileUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex h-10 items-center bg-[#07152E] px-4 text-xs font-black text-[#F7B548]">عرض الشهادة</a> : null}</div>)}</div>;
-}
-
-function SurveysPanel({ surveys }: { surveys: StudentDashboardData["surveys"] }) {
-  if (!surveys.length) return <EmptyPanel icon={ClipboardList} title="لا توجد استبيانات" text="ستظهر الاستبيانات المطلوبة هنا تلقائيًا." href="/dashboard" />;
-  return <div className="space-y-3">{surveys.map((survey) => <div key={survey.id} className="flex flex-col gap-3 border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3">{survey.completed ? <CheckCircle2 className="text-emerald-600" /> : <ClipboardList className="text-[#C88712]" />}<div><h3 className="font-black">{survey.title}</h3><p className="text-xs font-semibold text-slate-500">{survey.completed ? "تم إرسال الاستبيان" : "بانتظار إجابتك"}</p></div></div>{!survey.completed && survey.formUrl ? <a href={survey.formUrl} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center justify-center bg-[#07152E] px-4 text-xs font-black text-[#F7B548]">ابدأ الاستبيان</a> : null}</div>)}</div>;
-}
-
-function ProjectsPanel({ projects }: { projects: StudentDashboardData["projects"] }) {
-  if (!projects.length) return <EmptyPanel icon={FileUp} title="مشاريعك" text="ستظهر هنا المشاريع التي ترفعها ضمن رحلاتك." href="/dashboard" />;
-  return <div className="grid gap-4 md:grid-cols-2">{projects.map((project) => <div key={project.id} className="border border-slate-200 bg-slate-50 p-5"><div className="flex items-center justify-between"><FileUp className="text-[#C88712]" /><span className="text-[10px] font-black text-slate-500">{project.status}</span></div><h3 className="mt-4 font-black">{project.title}</h3>{project.description ? <p className="mt-1 text-sm font-semibold text-slate-500">{project.description}</p> : null}{project.projectUrl ? <a href={project.projectUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex text-xs font-black text-[#9A6711]">عرض المشروع</a> : null}</div>)}</div>;
 }
 
 function AchievementCard({
