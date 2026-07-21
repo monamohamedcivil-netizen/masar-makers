@@ -111,44 +111,41 @@ export async function getCourseResultTabs(
 /**
  * قراءة جميع Panels الخاصة بقالب معين.
  */
+
 export async function getPanelsByTemplateId(
   templateId: string
 ): Promise<CatalogCoursePanel[]> {
+  if (!templateId) {
+    throw new Error("Template ID غير موجود.");
+  }
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("course_panels")
-    .select(`
-      id,
-      template_id,
-      panel_component,
-      title,
-      description,
-      icon,
-      layout_type,
-      display_order,
-      active,
-      created_at,
-      updated_at
-    `)
+  .select(`
+  id,
+  template_id,
+  panel_component,
+  title,
+  description,
+  icon,
+  layout_type,
+  display_order,
+  active,
+  created_at,
+  updated_at
+`)
     .eq("template_id", templateId)
-    .eq("active", true)
     .order("display_order", {
       ascending: true,
     });
 
   if (error) {
-    console.error("Failed to load panels:", {
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-      code: error.code,
-    });
+  console.error("SUPABASE ERROR", error);
 
-    throw new Error(
-      `تعذر تحميل Panels: ${error.message}`
-    );
-  }
+  throw error;
+}
 
   return (data ?? []) as CatalogCoursePanel[];
 }
@@ -185,6 +182,7 @@ export async function getPanelItems(
       created_at,
       updated_at
     `)
+    
     .eq("panel_id", panelId)
     .eq("active", true)
     .order("display_order", {
@@ -217,7 +215,7 @@ export async function getPanelSections(
   panelId: string
 ): Promise<CatalogPanelSection[]> {
   const supabase = await createClient();
-
+   console.log("panelId =", panelId);
   const { data, error } = await supabase
     .from("course_panel_sections")
     .select(`
@@ -230,6 +228,7 @@ export async function getPanelSections(
       created_at,
       updated_at
     `)
+ 
     .eq("panel_id", panelId)
     .eq("active", true)
     .order("display_order", {

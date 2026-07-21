@@ -24,6 +24,16 @@ import { getJourneyModules } from "@/lib/queries/catalog/journeys";
 import { getStationBySlug } from "@/lib/queries/catalog/stations";
 
 import {
+  getCourseScreenContent,
+} from "@/lib/actions/course-screen-content";
+
+import type {
+  ProfessionalPanelDraft,
+  ProfessionalContentBlock,
+  ProfessionalJourneyColumn,
+} from "@/components/course/editor";
+
+import {
   getCourse,
   getCourseReviews,
   getFreeSession,
@@ -59,6 +69,9 @@ import type {
   CatalogStation,
 } from "@/lib/queries/catalog/stations";
 
+import CourseActionButton from "@/components/course/CourseActionButton";
+import { getEnrollment } from "@/lib/actions/enroll";
+
 type CoursePageProps = {
   params: Promise<{
     slug: string;
@@ -75,6 +88,7 @@ type CoursePageData = {
   reviews: Review[];
   learningModes: CatalogCoursePanelItem[];
   resultTabs: CatalogCoursePanelItem[];
+  initialProfessionalContent: Partial<ProfessionalPanelDraft> | null;
 };
 
 export const dynamic = "force-dynamic";
@@ -127,6 +141,10 @@ export default async function CoursePage({
   const pageData =
     await loadCoursePageData(slug);
 
+const enrollment = pageData
+  ? await getEnrollment(slug)
+  : null;
+
   if (!pageData) {
     notFound();
   }
@@ -141,6 +159,7 @@ export default async function CoursePage({
   reviews: courseReviews,
   learningModes,
   resultTabs,
+  initialProfessionalContent,
 } = pageData;
 
   return (
@@ -172,6 +191,7 @@ export default async function CoursePage({
   mode="student"
   stationId={station.id}
   course={course}
+  enrollmentStatus={enrollment?.status ?? null}
   freeSessions={freeSessions}
   workshops={workshops}
   reviews={courseReviews}
@@ -185,6 +205,7 @@ export default async function CoursePage({
     station.result_column_title ??
     "نتائج الرحلة"
   }
+  initialProfessionalContent={initialProfessionalContent}
 />
     </main>
   );
@@ -481,6 +502,18 @@ const resultTabs =
   await getCourseResultTabs(
     station.id
   );
+
+const storedProfessionalScreen =
+  await getCourseScreenContent(
+    station.id,
+    "professional"
+  );
+
+const initialProfessionalContent =
+  mapStoredProfessionalContent(
+    storedProfessionalScreen
+  );
+
 return {
   course,
   path,
@@ -491,7 +524,138 @@ return {
   reviews,
   learningModes,
   resultTabs,
+  initialProfessionalContent,
 };
+}
+
+/* ==================================================
+   Professional screen content
+================================================== */
+
+type StoredCourseScreenContent = {
+  screen_title?: string | null;
+  column_count?: number | null;
+  column_one_title?: string | null;
+  column_two_title?: string | null;
+  content?: unknown;
+};
+
+function mapStoredProfessionalContent(
+  row: StoredCourseScreenContent | null
+): Partial<ProfessionalPanelDraft> | null {
+  if (!row) {
+    return null;
+  }
+
+  const rawContent =
+    row.content &&
+    typeof row.content === "object"
+      ? (row.content as Record<string, unknown>)
+      : {};
+
+  /*
+   * الشكل الجديد:
+   * يتم حفظ ProfessionalPanelDraft كاملًا داخل content.
+   */
+  if (Array.isArray(rawContent.blocks)) {
+    return {
+      ...(rawContent as Partial<ProfessionalPanelDraft>),
+      screenTitle:
+        typeof rawContent.screenTitle === "string"
+          ? rawContent.screenTitle
+          : row.screen_title ?? undefined,
+      columnCount:
+        rawContent.columnCount === 2 ||
+        row.column_count === 2
+          ? 2
+          : 1,
+      columnOneTitle:
+        typeof rawContent.columnOneTitle === "string"
+          ? rawContent.columnOneTitle
+          : row.column_one_title ?? undefined,
+      columnTwoTitle:
+        typeof rawContent.columnTwoTitle === "string"
+          ? rawContent.columnTwoTitle
+          : row.column_two_title ?? undefined,
+    };
+  }
+
+  /*
+   * دعم البيانات التي حُفظت قبل هذا التعديل، وكان شكلها:
+   * content: { columns: [{ title, blocks }, ...] }
+   */
+  const columns = Array.isArray(rawContent.columns)
+    ? rawContent.columns
+    : [];
+
+  const blocks = columns.flatMap(
+    (column, columnIndex) => {
+      if (
+        !column ||
+        typeof column !== "object"
+      ) {
+        return [];
+      }
+
+      const record =
+        column as Record<string, unknown>;
+
+      if (!Array.isArray(record.blocks)) {
+        return [];
+      }
+
+      const journey: ProfessionalJourneyColumn =
+  columnIndex === 0
+    ? "fundamental"
+    : "advanced";
+
+return record.blocks.map(
+  (block): ProfessionalContentBlock => ({
+    ...(block as ProfessionalContentBlock),
+    journey,
+  })
+);
+    }
+  );
+
+  return {
+    screenTitle:
+      row.screen_title ??
+      "رحلة الاحتراف المتكاملة",
+    columnCount:
+      row.column_count === 2 ? 2 : 1,
+    columnOneTitle:
+      row.column_one_title ??
+      getStoredColumnTitle(columns, 0) ??
+      "رحلة الأساسيات",
+    columnTwoTitle:
+      row.column_two_title ??
+      getStoredColumnTitle(columns, 1) ??
+      "الرحلة المتقدمة",
+    blocks,
+  };
+}
+
+function getStoredColumnTitle(
+  columns: unknown[],
+  index: number
+): string | null {
+  const column = columns[index];
+
+  if (
+    !column ||
+    typeof column !== "object"
+  ) {
+    return null;
+  }
+
+  const title =
+    (column as Record<string, unknown>)
+      .title;
+
+  return typeof title === "string"
+    ? title
+    : null;
 }
 
 /* ==================================================

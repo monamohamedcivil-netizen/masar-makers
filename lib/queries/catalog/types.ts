@@ -213,3 +213,38 @@ export type CatalogCourseTemplate = {
   created_at: string;
   updated_at: string;
 };
+
+export type PanelBlockType =
+  | "heading"
+  | "text"
+  | "image"
+  | "video"
+  | "learning_outcomes"
+  | "downloads"
+  | "faq"
+  | "cta";
+
+export type CatalogPanelBlock = {
+  id: string;
+
+  panel_id: string;
+  section_id: string | null;
+
+  block_type: PanelBlockType;
+
+  title: string | null;
+  subtitle: string | null;
+  content: string | null;
+
+  media_url: string | null;
+  icon: string | null;
+
+  data: Record<string, unknown>;
+
+  display_order: number;
+  active: boolean;
+
+  created_at: string;
+  updated_at: string;
+  
+};

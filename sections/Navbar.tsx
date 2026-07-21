@@ -1,197 +1,191 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { Menu } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Languages, Menu, X } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
+import { usePathname } from "next/navigation";
 
 import AuthLink from "@/components/AuthLink";
 import NavbarUser from "@/components/auth/NavbarUser";
 
+type ActiveItem = "home" | "about" | "career-paths" | "journeys";
+type Locale = "ar" | "en";
+
 type NavbarProps = {
-  activeItem?: "home" | "about" | "journeys" | "achievements";
+  activeItem?: ActiveItem;
 };
 
-export default function Navbar({
-  activeItem,
-}: NavbarProps) {
+const labels = {
+  ar: {
+    home: "مركز الرحلات",
+    about: "عن الأكاديمية",
+    careerPaths: "المسارات المهنية",
+    journeys: "رحلتي التعليمية",
+    contact: "اتصل بنا",
+    openMenu: "فتح القائمة",
+    closeMenu: "إغلاق القائمة",
+    homeAria: "العودة إلى الصفحة الرئيسية",
+    language: "English",
+  },
+  en: {
+    home: "Journey Center",
+    about: "About Academy",
+    careerPaths: "Career Paths",
+    journeys: "My Learning Journey",
+    contact: "Contact Us",
+    openMenu: "Open menu",
+    closeMenu: "Close menu",
+    homeAria: "Return to homepage",
+    language: "العربية",
+  },
+} as const;
+
+function detectActiveItem(pathname: string): ActiveItem {
+  if (pathname.startsWith("/dashboard") || pathname.startsWith("/journeys")) return "journeys";
+  if (pathname.startsWith("/career-path")) return "career-paths";
+  if (pathname.startsWith("/about")) return "about";
+  return "home";
+}
+
+export default function Navbar({ activeItem }: NavbarProps) {
+  const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [locale, setLocale] = useState<Locale>("ar");
+
+  const currentItem = activeItem ?? detectActiveItem(pathname);
+  const text = labels[locale];
 
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 30);
-    };
+    const savedLocale = window.localStorage.getItem("masar-locale") as Locale | null;
+    if (savedLocale === "ar" || savedLocale === "en") setLocale(savedLocale);
 
+    const handleScroll = () => setScrolled(window.scrollY > 30);
+    handleScroll();
     window.addEventListener("scroll", handleScroll);
-
-    return () =>
-      window.removeEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const navLinkClass = (
-    item: NavbarProps["activeItem"]
-  ) => `
-    group relative text-[15px] font-semibold
-    transition duration-300
-    ${
-      activeItem === item
-        ? "text-[#F7B548]"
-        : "text-white hover:text-[#F7B548]"
-    }
-  `;
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
+    window.localStorage.setItem("masar-locale", locale);
+  }, [locale]);
+
+  useEffect(() => setMobileOpen(false), [pathname]);
+
+  const links = useMemo(
+    () => [
+      { id: "home" as const, href: "/", label: text.home, protected: false },
+      { id: "about" as const, href: "/about", label: text.about, protected: true },
+      { id: "career-paths" as const, href: "/career-path", label: text.careerPaths, protected: true },
+      { id: "journeys" as const, href: "/dashboard", label: text.journeys, protected: true },
+    ],
+    [text]
+  );
+
+  const navLinkClass = (item: ActiveItem) =>
+    `group relative text-[15px] font-semibold transition duration-300 ${
+      currentItem === item ? "text-[#F7B548]" : "text-white hover:text-[#F7B548]"
+    }`;
+
+  const renderLink = (link: (typeof links)[number], mobile = false) => {
+    const className = mobile
+      ? `flex min-h-12 items-center rounded-xl px-4 text-sm font-black transition ${
+          currentItem === link.id
+            ? "bg-[#F7B548] text-[#07152E]"
+            : "text-white hover:bg-white/10 hover:text-[#F7B548]"
+        }`
+      : navLinkClass(link.id);
+
+    const content = (
+      <>
+        {link.label}
+        {!mobile && (
+          <span
+            className={`absolute -bottom-2 right-0 h-[2px] bg-[#F7B548] transition-all duration-300 ${
+              currentItem === link.id ? "w-full" : "w-0 group-hover:w-full"
+            }`}
+          />
+        )}
+      </>
+    );
+
+    return link.protected ? (
+      <AuthLink key={link.id} href={link.href} className={className}>
+        {content}
+      </AuthLink>
+    ) : (
+      <Link key={link.id} href={link.href} className={className}>
+        {content}
+      </Link>
+    );
+  };
 
   return (
     <header
-      dir="rtl"
-      className={`
-        fixed inset-x-0 top-0 z-[100]
-        h-[55px]
-        transition-all duration-500
-        ${
-          scrolled
-            ? "bg-[#07152E]/95 shadow-xl backdrop-blur-xl"
-            : "bg-[#07152E]"
-        }
-      `}
+      dir={locale === "ar" ? "rtl" : "ltr"}
+      className={`fixed inset-x-0 top-0 z-[100] h-[55px] transition-all duration-500 ${
+        scrolled ? "bg-[#07152E]/95 shadow-xl backdrop-blur-xl" : "bg-[#07152E]"
+      }`}
     >
-      <div className="mx-auto flex h-full max-w-[1480px] items-center justify-between px-6 lg:px-10">
-        {/* Right: Logo + User */}
-        <div className="flex shrink-0 items-center gap-15">
-          <Link
-            href="/"
-            aria-label="العودة إلى الصفحة الرئيسية"
-            className="flex items-center"
-          >
-            <h1 className="text-[25px] font-black tracking-tight">
-              <span className="text-white">
-                صناعــ
-              </span>
-
-              <span className="mr-2 text-[#F7B548]">
-               ــالمسار
-              </span>
+      <div className="mx-auto flex h-full max-w-[1480px] items-center justify-between px-4 sm:px-6 lg:px-10">
+        <div className="flex shrink-0 items-center gap-5 xl:gap-10">
+          <Link href="/" aria-label={text.homeAria} className="flex items-center">
+            <h1 className="whitespace-nowrap text-[22px] font-black tracking-tight sm:text-[25px]">
+              <span className="text-white">صناعــ</span>
+              <span className="mr-2 text-[#F7B548]">ــالمسار</span>
             </h1>
           </Link>
-
-          <NavbarUser />
+          <div className="hidden lg:block"><NavbarUser /></div>
         </div>
 
-        {/* Center Navigation */}
-        <nav className="hidden items-center gap-9 lg:flex">
-          <Link
-            href="/"
-            className={navLinkClass("home")}
-          >
-            مركز الرحلات
-
-            <span
-              className={`
-                absolute -bottom-2 right-0 h-[2px]
-                bg-[#F7B548] transition-all duration-300
-                ${
-                  activeItem === "home"
-                    ? "w-full"
-                    : "w-0 group-hover:w-full"
-                }
-              `}
-            />
-          </Link>
-
-          <AuthLink
-            href="/about"
-            className={navLinkClass("about")}
-          >
-            عن الأكاديمية
-
-            <span
-              className={`
-                absolute -bottom-2 right-0 h-[2px]
-                bg-[#F7B548] transition-all duration-300
-                ${
-                  activeItem === "about"
-                    ? "w-full"
-                    : "w-0 group-hover:w-full"
-                }
-              `}
-            />
-          </AuthLink>
-
-          <AuthLink
-            href="/journeys"
-            className={navLinkClass("journeys")}
-          >
-            رحلاتي التعليمية
-
-            <span
-              className={`
-                absolute -bottom-2 right-0 h-[2px]
-                bg-[#F7B548] transition-all duration-300
-                ${
-                  activeItem === "journeys"
-                    ? "w-full"
-                    : "w-0 group-hover:w-full"
-                }
-              `}
-            />
-          </AuthLink>
-
-          <AuthLink
-            href="/achievements"
-            className={navLinkClass("achievements")}
-          >
-            إنجازاتي
-
-            <span
-              className={`
-                absolute -bottom-2 right-0 h-[2px]
-                bg-[#F7B548] transition-all duration-300
-                ${
-                  activeItem === "achievements"
-                    ? "w-full"
-                    : "w-0 group-hover:w-full"
-                }
-              `}
-            />
-          </AuthLink>
+        <nav className="hidden items-center gap-7 xl:gap-9 lg:flex">
+          {links.map((link) => renderLink(link))}
         </nav>
 
-        {/* Left */}
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={() => setLocale((value) => (value === "ar" ? "en" : "ar"))}
+            className="flex h-9 items-center gap-2 rounded-xl border border-white/20 px-3 text-xs font-black text-white transition hover:border-[#F7B548] hover:text-[#F7B548]"
+            aria-label="تغيير اللغة"
+          >
+            <Languages size={16} />
+            <span>{text.language}</span>
+          </button>
+
           <a
             href="https://wa.me/201031885659?text=السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار."
             target="_blank"
             rel="noopener noreferrer"
-            className="
-              hidden h-7 w-7 items-center justify-center
-              rounded-full bg-[#25D366] text-white
-              shadow-lg transition duration-300
-              hover:scale-110
-              hover:shadow-[0_0_22px_rgba(37,211,102,.55)]
-              lg:flex
-            "
+            className="hidden h-7 w-7 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition hover:scale-110 hover:shadow-[0_0_22px_rgba(37,211,102,.55)] xl:flex"
             aria-label="تواصل معنا عبر واتساب"
           >
             <FaWhatsapp size={22} />
           </a>
-
-          <span className="hidden text-[14px] font-bold text-white lg:block">
-            اتصل بنا
-          </span>
+          <span className="hidden text-[14px] font-bold text-white xl:block">{text.contact}</span>
 
           <button
             type="button"
-            aria-label="فتح القائمة"
-            className="
-              flex h-10 w-10 items-center justify-center
-              rounded-xl border border-white/20
-              text-white transition hover:bg-white/10
-              lg:hidden
-            "
+            onClick={() => setMobileOpen((value) => !value)}
+            aria-label={mobileOpen ? text.closeMenu : text.openMenu}
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 text-white transition hover:bg-white/10 lg:hidden"
           >
-            <Menu size={21} />
+            {mobileOpen ? <X size={21} /> : <Menu size={21} />}
           </button>
         </div>
       </div>
+
+      {mobileOpen && (
+        <div className="border-t border-white/10 bg-[#07152E]/98 px-4 pb-5 pt-4 shadow-2xl backdrop-blur-xl lg:hidden">
+          <nav className="mx-auto flex max-w-[1480px] flex-col gap-2">
+            {links.map((link) => renderLink(link, true))}
+            <div className="mt-2 border-t border-white/10 pt-4"><NavbarUser /></div>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }

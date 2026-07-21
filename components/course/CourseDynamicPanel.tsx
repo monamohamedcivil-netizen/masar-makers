@@ -14,6 +14,10 @@ import {
   Target,
 } from "lucide-react";
 
+import CourseActionButton from "./CourseActionButton";
+
+import type { EnrollmentStatus } from "@/lib/actions/enroll";
+
 import type {
   Course,
   CoursePanelTab,
@@ -40,18 +44,22 @@ type CourseDynamicPanelProps = {
   panelVisible: boolean;
   onEditPanel?: () => void;
   onAddPanelContent?: () => void;
+  panelContents?: any[];
+  enrollmentStatus?: EnrollmentStatus | null;
 };
 
 export default function CourseDynamicPanel({
   mode = "student",
   activePanel,
   course,
+  enrollmentStatus,
   freeSessions,
   workshops,
   reviews,
   panelVisible,
   onEditPanel,
   onAddPanelContent,
+  panelContents,
 }: CourseDynamicPanelProps) {
   if (activePanel === "outcome") {
     return (
@@ -362,21 +370,10 @@ export default function CourseDynamicPanel({
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  className="
-                    flex h-9 shrink-0
-                    items-center justify-center
-                    gap-2 bg-[#F7B548]
-                    px-5 text-[11px]
-                    font-black text-[#07152E]
-                    transition
-                    hover:bg-[#FFC967]
-                  "
-                >
-                  اشترك الآن
-                  <ArrowLeft size={13} />
-                </button>
+                <CourseActionButton
+                  courseId={String(course.id)}
+                  enrollmentStatus={enrollmentStatus}
+                />
               </article>
             ))}
           </div>
@@ -391,9 +388,11 @@ export default function CourseDynamicPanel({
     <ProfessionalPanel
       mode={mode}
       course={course}
+      enrollmentStatus={enrollmentStatus}
       panelVisible={panelVisible}
       onEditPanel={onEditPanel}
       onAddPanelContent={onAddPanelContent}
+      panelContents={panelContents}
     />
   );
 }
@@ -405,16 +404,27 @@ export default function CourseDynamicPanel({
 function ProfessionalPanel({
   mode,
   course,
+  enrollmentStatus,
   panelVisible,
   onEditPanel,
   onAddPanelContent,
+  panelContents,
 }: {
   mode: PlatformPanelMode;
   course: Course;
+  enrollmentStatus?: EnrollmentStatus | null;
   panelVisible: boolean;
   onEditPanel?: () => void;
   onAddPanelContent?: () => void;
+  panelContents?: any[];
+  
 }) {
+  console.log("ProfessionalPanel props:", {
+  panelContents,
+  panelContentsType: typeof panelContents,
+  panelContentsLength: panelContents?.length,
+});
+  console.log("ProfessionalPanel", panelContents);
   const variants = [...(course.variants ?? [])]
     .filter((v) => v.active)
     .sort((a, b) => a.order - b.order);
@@ -447,22 +457,66 @@ function ProfessionalPanel({
       onEdit={onEditPanel}
       onAddContent={onAddPanelContent}
     >
-      {course.professionalJourneyStatus ===
-      "coming_soon" ? (
-        <JourneyComingSoon
-          journeyId={
-            course.professionalJourneyId
-          }
-          journeyTitle={`رحلة احتراف ${course.title}`}
-        />
-      ) : comparison ? (
-        <ProfessionalScreen
-          integrated={integrated}
-          foundation={fundamental}
-          advanced={advanced}
-        />
-      ) : (
-        <SingleJourney course={course} />
+      
+
+    {panelContents && panelContents.length > 0 ? (
+  <div className="grid grid-cols-1 md:grid-cols-2">
+    {(["fundamental" , "advanced"] as const).map((journey) => (
+      <div
+        key={journey}
+        className="min-h-[260px] space-y-4 border-x p-5"
+      >
+        {panelContents
+          .filter((content) => content.journey === journey)
+          .map((content, index) => (
+            <div
+              key={`${journey}-${index}`}
+              className="rounded-xl border bg-white p-4"
+            >
+              <h3 className="mb-4 text-right text-lg font-black">
+                {content.title}
+              </h3>
+
+              <div className="space-y-3">
+                {content.items?.map((item: any, i: number) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between gap-4 rounded-lg border p-3"
+                  >
+                    <div className="min-w-0 flex-1 text-right">
+                      <div className="font-bold">
+                        {item.title}
+                      </div>
+
+                      {item.description && (
+                        <div className="mt-1 text-sm text-slate-600">
+                          {item.description}
+                        </div>
+                      )}
+                    </div>
+
+                    {item.hasButton && (
+                      <a
+                        href={item.buttonLink}
+                        className="shrink-0 rounded-lg bg-[#07152E] px-4 py-2 text-sm font-bold text-white"
+                      >
+                        {item.buttonText}
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+      </div>
+    ))}
+  </div>
+) : (
+  
+  <SingleJourney
+    course={course}
+    enrollmentStatus={enrollmentStatus}
+  />
       )}
     </PanelShell>
   );
@@ -471,18 +525,21 @@ type ProfessionalScreenProps = {
   integrated?: CourseVariant;
   foundation: CourseVariant;
   advanced: CourseVariant;
+  enrollmentStatus?: EnrollmentStatus | null;
 };
 
 function ProfessionalScreen({
   integrated,
   foundation,
   advanced,
+  enrollmentStatus,
 }: ProfessionalScreenProps) {
   return (
     <JourneyComparisonCard
       integrated={integrated}
       foundation={foundation}
       advanced={advanced}
+      enrollmentStatus={enrollmentStatus}
     />
   );
 }
@@ -490,12 +547,14 @@ type JourneyComparisonCardProps = {
   integrated?: CourseVariant;
   foundation: CourseVariant;
   advanced: CourseVariant;
+  enrollmentStatus?: EnrollmentStatus | null;
 };
 
 function JourneyComparisonCard({
   integrated,
   foundation,
   advanced,
+  enrollmentStatus,
 }: JourneyComparisonCardProps) {
   return (
     <div className="overflow-hidden bg-white">
@@ -526,28 +585,10 @@ function JourneyComparisonCard({
         </div>
 
         {/* زر الاشتراك يسارًا */}
-        <button
-          type="button"
-          className="
-            flex h-[42px] w-full shrink-0
-            items-center justify-center
-            gap-2 rounded-lg
-            bg-[#F7B548] px-6
-            text-[14px] font-black
-            text-[#07152E]
-            shadow-[0_8px_18px_rgba(247,181,72,0.20)]
-            transition duration-200
-
-            hover:-translate-y-0.5
-            hover:bg-[#FFC966]
-            hover:shadow-[0_10px_22px_rgba(247,181,72,0.28)]
-
-            sm:w-[155px]
-          "
-        >
-          اشترك الآن
-          <ArrowLeft size={14} />
-        </button>
+        <CourseActionButton
+          courseId={String(integrated?.id ?? foundation.id)}
+          enrollmentStatus={enrollmentStatus}
+        />
       </div>
 
       {/* الأساسيات والمتقدمة */}
@@ -556,12 +597,14 @@ function JourneyComparisonCard({
           variant={foundation}
           title="رحلة الأساسيات"
           theme="foundation"
+          enrollmentStatus={enrollmentStatus}
         />
 
         <JourneyComparisonColumn
           variant={advanced}
           title="الرحلة المتقدمة"
           theme="advanced"
+          enrollmentStatus={enrollmentStatus}
         />
       </div>
     </div>
@@ -572,12 +615,14 @@ type JourneyComparisonColumnProps = {
   variant: CourseVariant;
   title: string;
   theme: "foundation" | "advanced";
+  enrollmentStatus?: EnrollmentStatus | null;
 };
 
 function JourneyComparisonColumn({
   variant,
   title,
   theme,
+  enrollmentStatus,
 }: JourneyComparisonColumnProps) {
   const isFoundation =
     theme === "foundation";
@@ -619,21 +664,12 @@ function JourneyComparisonColumn({
           {title}
         </h3>
 
-        <button
-          type="button"
-          className="
-            h-8 shrink-0
-            rounded-full bg-white
-            px-5 text-[11px]
-            font-black text-[#07152E]
-            transition duration-200
-
-            hover:bg-[#F7B548]
-            hover:-translate-y-0.5
-          "
-        >
-          اشترك الآن
-        </button>
+        <div className="w-[155px] shrink-0">
+          <CourseActionButton
+            courseId={String(variant.id)}
+            enrollmentStatus={enrollmentStatus}
+          />
+        </div>
       </div>
 
       {/* محتوى الرحلة */}
@@ -721,8 +757,10 @@ function JourneyComparisonColumn({
 
 function SingleJourney({
   course,
+  enrollmentStatus,
 }: {
   course: Course;
+  enrollmentStatus?: EnrollmentStatus | null;
 }) {
   const curriculum = [
     ...(course.curriculum ?? []),
@@ -746,19 +784,12 @@ function SingleJourney({
           رحلة احتراف {course.title}
         </h3>
 
-        <button
-          type="button"
-          className="
-            flex h-9 shrink-0
-            items-center justify-center
-            gap-2 bg-[#F7B548]
-            px-4 text-[12px]
-            font-black text-[#07152E]
-          "
-        >
-          اشترك في الرحلة
-          <ArrowLeft size={13} />
-        </button>
+        <div className="w-full sm:w-[190px]">
+          <CourseActionButton
+            courseId={String(course.id)}
+            enrollmentStatus={enrollmentStatus}
+          />
+        </div>
       </div>
 
       {curriculum.length > 0 ? (

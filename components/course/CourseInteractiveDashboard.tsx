@@ -1,5 +1,22 @@
 "use client";
 
+import type {
+  CatalogBuiltTemplatePage,
+} from "@/lib/queries/catalog/page-builder";
+
+import CourseRenderer from "@/components/course/renderer/CourseRenderer";
+
+import {
+  ProfessionalPanelEditor,
+  createInitialProfessionalPanel,
+  normalizeProfessionalPanel,
+  type ProfessionalPanelDraft,
+} from "@/components/course/editor";
+
+import {
+  saveCourseScreenContent,
+} from "@/lib/actions/course-screen-content";
+
 import {
   useEffect,
   useMemo,
@@ -22,6 +39,7 @@ import {
 } from "next/navigation";
 
 import CourseDynamicPanel from "./CourseDynamicPanel";
+import ProfessionalPanelViewer from "./ProfessionalPanelViewer";
 import SideMenu from "./SideMenu";
 
 import type {
@@ -48,6 +66,7 @@ import {
   swapPanelOrder,
 } from "@/lib/actions/builder";
 
+import type { EnrollmentStatus } from "@/lib/actions/enroll";
 
 export type PlatformPageMode =
   | "student"
@@ -57,25 +76,25 @@ export type PlatformPageMode =
 
 type CourseInteractiveDashboardProps = {
   mode?: PlatformPageMode;
-
   stationId: string;
-
+  builderPage?: CatalogBuiltTemplatePage;
   course: Course;
+  enrollmentStatus?: EnrollmentStatus | null;
   freeSessions: FreeSession[];
   workshops: Workshop[];
   reviews: Review[];
-
-  learningModes:
-    CatalogCoursePanelItem[];
-
-  resultTabs:
-    CatalogCoursePanelItem[];
-
-    
-  
-
+  learningModes: CatalogCoursePanelItem[];
+  resultTabs: CatalogCoursePanelItem[];
   learningColumnTitle?: string;
   resultColumnTitle?: string;
+
+  /**
+   * محتوى شاشة رحلة الاحتراف المحمّل من Supabase في الصفحة الأب.
+   * في حالة عدم تمريره، يبدأ المحرر بقيم افتراضية فارغة.
+   */
+  initialProfessionalContent?:
+    | Partial<ProfessionalPanelDraft>
+    | null;
 };
 
 const panelIconMap = {
@@ -84,33 +103,40 @@ const panelIconMap = {
   rocket: Rocket,
   target: Target,
   gift: Gift,
-  "message-square-quote":
-    MessageSquareQuote,
+  "message-square-quote": MessageSquareQuote,
 } as const;
 
 export default function CourseInteractiveDashboard({
   mode = "student",
   stationId,
   course,
+  enrollmentStatus,
   freeSessions,
   workshops,
   reviews,
+  builderPage,
   learningModes,
   resultTabs,
-  
-  learningColumnTitle =
-    "اختر طريقة التعلم",
-  resultColumnTitle =
-    "نتائج الرحلة",
+  learningColumnTitle = "اختر طريقة التعلم",
+  resultColumnTitle = "نتائج الرحلة",
+  initialProfessionalContent = null,
 }: CourseInteractiveDashboardProps) {
   const router = useRouter();
 
+  const [isPending, startTransition] =
+    useTransition();
 
+  const [isSavingProfessional, setIsSavingProfessional] =
+    useState(false);
 
-  const [
-    isPending,
-    startTransition,
-  ] = useTransition();
+  const [professionalContent, setProfessionalContent] =
+    useState<ProfessionalPanelDraft>(() =>
+      initialProfessionalContent
+        ? normalizeProfessionalPanel(
+            initialProfessionalContent
+          )
+        : createInitialProfessionalPanel()
+    );
 
   const {
     mode: builderMode,
@@ -119,90 +145,70 @@ export default function CourseInteractiveDashboard({
   } = useBuilder();
 
   const normalizedMode =
-    mode === "admin"
-      ? "edit"
-      : builderMode;
+    mode === "admin" ? "edit" : builderMode;
 
-  const isEditMode =
-    normalizedMode === "edit";
+  const isEditMode = normalizedMode === "edit";
 
   const mappedLearningItems =
     useMemo<PanelMenuItemData[]>(
       () =>
-        learningModes.map(
-          (item) => ({
-            databaseId: item.id,
-
-            id:
-              item.panel_component as CoursePanelTab,
-
-            title: item.title,
-
-            icon:
-              panelIconMap[
-                item.icon as keyof typeof panelIconMap
-              ] ?? PlayCircle,
-
-            displayOrder:
-              item.display_order,
-          })
-        ),
+        learningModes.map((item) => ({
+          databaseId: item.id,
+          id:
+            item.panel_component as CoursePanelTab,
+          title: item.title,
+          icon:
+            panelIconMap[
+              item.icon as keyof typeof panelIconMap
+            ] ?? PlayCircle,
+          displayOrder: item.display_order,
+        })),
       [learningModes]
     );
 
   const mappedResultItems =
     useMemo<PanelMenuItemData[]>(
       () =>
-        resultTabs.map(
-          (item) => ({
-            databaseId: item.id,
-
-            id:
-              item.panel_component as CoursePanelTab,
-
-            title: item.title,
-
-            icon:
-              panelIconMap[
-                item.icon as keyof typeof panelIconMap
-              ] ?? Target,
-
-            displayOrder:
-              item.display_order,
-          })
-        ),
+        resultTabs.map((item) => ({
+          databaseId: item.id,
+          id:
+            item.panel_component as CoursePanelTab,
+          title: item.title,
+          icon:
+            panelIconMap[
+              item.icon as keyof typeof panelIconMap
+            ] ?? Target,
+          displayOrder: item.display_order,
+        })),
       [resultTabs]
     );
 
   const defaultPanel =
     mappedLearningItems.find(
-      (item) =>
-        item.id === "professional"
+      (item) => item.id === "professional"
     )?.id ??
     mappedLearningItems[0]?.id ??
     mappedResultItems[0]?.id ??
     "professional";
 
-  const [
-    activePanel,
-    setActivePanel,
-  ] =
-    useState<CoursePanelTab>(
-      defaultPanel
-    );
+  const [activePanel, setActivePanel] =
+    useState<CoursePanelTab>(defaultPanel);
 
-  const [
-    displayedPanel,
-    setDisplayedPanel,
-  ] =
-    useState<CoursePanelTab>(
-      defaultPanel
-    );
+  const [displayedPanel, setDisplayedPanel] =
+    useState<CoursePanelTab>(defaultPanel);
 
-  const [
-    panelVisible,
-    setPanelVisible,
-  ] = useState(true);
+  const [panelVisible, setPanelVisible] =
+    useState(true);
+
+  useEffect(() => {
+    setProfessionalContent(
+      initialProfessionalContent
+        ? normalizeProfessionalPanel(
+            initialProfessionalContent
+          )
+        : createInitialProfessionalPanel()
+    );
+  }, [initialProfessionalContent, stationId]);
 
   useEffect(() => {
     const availablePanels = [
@@ -212,9 +218,7 @@ export default function CourseInteractiveDashboard({
 
     if (
       availablePanels.length > 0 &&
-      !availablePanels.includes(
-        activePanel
-      )
+      !availablePanels.includes(activePanel)
     ) {
       setActivePanel(defaultPanel);
       setDisplayedPanel(defaultPanel);
@@ -227,52 +231,38 @@ export default function CourseInteractiveDashboard({
   ]);
 
   useEffect(() => {
-    if (
-      activePanel === displayedPanel
-    ) {
+    if (activePanel === displayedPanel) {
       return;
     }
 
     setPanelVisible(false);
 
-    const timer =
-      window.setTimeout(() => {
-        setDisplayedPanel(
-          activePanel
-        );
+    const timer = window.setTimeout(() => {
+      setDisplayedPanel(activePanel);
 
-        window.requestAnimationFrame(
-          () => {
-            setPanelVisible(true);
-          }
-        );
-      }, 160);
+      window.requestAnimationFrame(() => {
+        setPanelVisible(true);
+      });
+    }, 160);
 
     return () => {
       window.clearTimeout(timer);
     };
-  }, [
-    activePanel,
-    displayedPanel,
-  ]);
+  }, [activePanel, displayedPanel]);
 
   const openItemEditor = (
     table:
       | "course_learning_modes"
       | "course_result_tabs",
-    group:
-      | "learning"
-      | "result",
+    group: "learning" | "result",
     item: PanelMenuItemData
   ) => {
     openPanelItemEditor({
       table,
-      recordId:
-        item.databaseId,
+      recordId: item.databaseId,
       group,
       title: item.title,
-      displayOrder:
-        item.displayOrder,
+      displayOrder: item.displayOrder,
       active: true,
     });
   };
@@ -281,34 +271,21 @@ export default function CourseInteractiveDashboard({
     table:
       | "course_learning_modes"
       | "course_result_tabs",
-    group:
-      | "learning"
-      | "result",
+    group: "learning" | "result",
     nextOrder: number
   ) => {
     selectElement({
       id: crypto.randomUUID(),
-
       type: "panel-item",
-
       label: "إضافة زر جديد",
-
       value: "",
-
       originalValue: "",
-
       table,
-
       field: "title",
-
       group,
-
       recordId: "",
-
       pageType: stationId,
-
       displayOrder: nextOrder,
-
       scope: "page",
     });
   };
@@ -319,60 +296,42 @@ export default function CourseInteractiveDashboard({
       | "course_result_tabs",
     items: PanelMenuItemData[],
     item: PanelMenuItemData,
-    direction:
-      | "up"
-      | "down"
+    direction: "up" | "down"
   ) => {
     if (isPending) {
       return;
     }
 
-    const currentIndex =
-      items.findIndex(
-        (currentItem) =>
-          currentItem.databaseId ===
-          item.databaseId
-      );
+    const currentIndex = items.findIndex(
+      (currentItem) =>
+        currentItem.databaseId === item.databaseId
+    );
 
     const targetIndex =
       direction === "up"
         ? currentIndex - 1
         : currentIndex + 1;
 
-    const targetItem =
-      items[targetIndex];
+    const targetItem = items[targetIndex];
 
-    if (
-      currentIndex < 0 ||
-      !targetItem
-    ) {
+    if (currentIndex < 0 || !targetItem) {
       return;
     }
 
     startTransition(async () => {
-      const result =
-        await swapPanelOrder({
-          table,
-
-          firstId:
-            item.databaseId,
-
-          firstOrder:
-            item.displayOrder,
-
-          secondId:
-            targetItem.databaseId,
-
-          secondOrder:
-            targetItem.displayOrder,
-        });
+      const result = await swapPanelOrder({
+        table,
+        firstId: item.databaseId,
+        firstOrder: item.displayOrder,
+        secondId: targetItem.databaseId,
+        secondOrder: targetItem.displayOrder,
+      });
 
       if (!result.success) {
         window.alert(
           result.message ??
             "تعذر تغيير ترتيب الأزرار."
         );
-
         return;
       }
 
@@ -380,27 +339,107 @@ export default function CourseInteractiveDashboard({
     });
   };
 
+  const handleSaveProfessional = async (
+    value: ProfessionalPanelDraft
+  ) => {
+    setIsSavingProfessional(true);
+
+    try {
+      await saveCourseScreenContent({
+        stationId,
+        panelComponent: "professional",
+        screenTitle: value.screenTitle,
+        columnCount: value.columnCount,
+        columnOneTitle: value.columnOneTitle,
+        columnTwoTitle: value.columnTwoTitle,
+
+        /*
+         * نحفظ المسودة كاملة داخل JSON حتى يمكن استعادتها
+         * بعد تحديث الصفحة دون فقد العناوين الفرعية أو الأزرار
+         * أو القوائم أو الصور أو الفيديوهات.
+         */
+        content: value,
+      });
+
+      setProfessionalContent(value);
+      window.alert("تم حفظ شاشة رحلة الاحتراف بنجاح.");
+      router.refresh();
+ } catch (error) {
+  console.error(
+    "Failed to save professional panel:",
+    error
+  );
+
+  const errorMessage =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "حدث خطأ غير معروف أثناء الحفظ.";
+
+  window.alert(
+    `حدث خطأ أثناء حفظ شاشة رحلة الاحتراف:\n\n${errorMessage}`
+  );
+} finally {
+  setIsSavingProfessional(false);
+}
+  };
+
+  const renderCenterContent = () => {
+    if (
+      isEditMode &&
+      displayedPanel === "professional"
+    ) {
+      return (
+        <ProfessionalPanelEditor
+          value={professionalContent}
+          onChange={setProfessionalContent}
+          onSave={handleSaveProfessional}
+          isSaving={isSavingProfessional}
+        />
+      );
+    }
+
+    if (builderPage) {
+      return <CourseRenderer page={builderPage} />;
+    }
+
+    if (displayedPanel === "professional") {
+      return (
+        <ProfessionalPanelViewer
+          stationId={stationId}
+         courseId={course.slug}
+          enrollmentStatus={enrollmentStatus}
+          value={professionalContent}
+        />
+      );
+    }
+
+    return (
+      <CourseDynamicPanel
+        mode={normalizedMode}
+        activePanel={displayedPanel}
+        course={course}
+        enrollmentStatus={enrollmentStatus}
+        freeSessions={freeSessions}
+        workshops={workshops}
+        reviews={reviews}
+        panelVisible={panelVisible}
+        onEditPanel={() => {}}
+        onAddPanelContent={() => {}}
+        panelContents={[]}
+      />
+    );
+  };
+
   return (
     <section
       dir="rtl"
-      className="
-        bg-[#F7F8FA]
-        px-4 pb-12 pt-7
-        sm:px-6
-      "
+      className="bg-[#F7F8FA] px-4 pb-12 pt-7 sm:px-6"
     >
       <div className="mx-auto max-w-[1580px]">
         {isEditMode && (
-          <div
-            className="
-              mb-4 flex flex-wrap
-              items-center justify-between
-              gap-3 rounded-[18px]
-              border border-[#DCE3EB]
-              bg-white px-4 py-3
-              shadow-[0_10px_28px_rgba(7,21,46,0.07)]
-            "
-          >
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[#DCE3EB] bg-white px-4 py-3 shadow-[0_10px_28px_rgba(7,21,46,0.07)]">
             <div>
               <p className="text-[13px] font-black text-[#07152E]">
                 وضع تحرير الصفحة
@@ -411,18 +450,8 @@ export default function CourseInteractiveDashboard({
               </p>
             </div>
 
-            <div
-              className="
-                flex items-center gap-2
-                rounded-full
-                bg-[#FFF7E3]
-                px-3 py-1.5
-                text-[11px] font-black
-                text-[#B87508]
-              "
-            >
+            <div className="flex items-center gap-2 rounded-full bg-[#FFF7E3] px-3 py-1.5 text-[11px] font-black text-[#B87508]">
               <Eye size={15} />
-
               {isPending
                 ? "جارٍ ترتيب الأزرار..."
                 : "معاينة مباشرة"}
@@ -430,80 +459,33 @@ export default function CourseInteractiveDashboard({
           </div>
         )}
 
-        <div
-          className="
-            relative flex flex-col
-            items-stretch gap-4
-
-            lg:flex-row
-            lg:items-start
-            lg:gap-0
-          "
-        >
-          <div
-            className="
-              order-1 w-full
-
-              lg:relative
-              lg:z-10
-              lg:mt-[76px]
-              lg:w-[205px]
-              lg:shrink-0
-
-              xl:w-[220px]
-            "
-          >
+        <div className="relative flex flex-col items-stretch gap-4 lg:flex-row lg:items-start lg:gap-0">
+          <div className="order-1 w-full lg:relative lg:z-10 lg:mt-[76px] lg:w-[205px] lg:shrink-0 xl:w-[220px]">
             <SideMenu
               mode={normalizedMode}
-              title={
-                learningColumnTitle
-              }
-              items={
-                mappedLearningItems
-              }
-              activePanel={
-                activePanel
-              }
-              onChange={
-                setActivePanel
-              }
+              title={learningColumnTitle}
+              items={mappedLearningItems}
+              activePanel={activePanel}
+              onChange={setActivePanel}
               onEditTitle={() =>
                 selectElement({
-                  id:
-                    `learning-column-title-${stationId}`,
-
+                  id: `learning-column-title-${stationId}`,
                   type: "title",
-
-                  label:
-                    "عنوان عمود طريقة التعلم",
-
-                  value:
-                    learningColumnTitle,
-
-                  originalValue:
-                    learningColumnTitle,
-
+                  label: "عنوان عمود طريقة التعلم",
+                  value: learningColumnTitle,
+                  originalValue: learningColumnTitle,
                   scope: "page",
-
-                  table:
-                    "course_stations",
-
-                  recordId:
-                    stationId,
-
-                  field:
-                    "learning_column_title",
-
-                  group:
-                    "learning",
+                  table: "course_stations",
+                  recordId: stationId,
+                  field: "learning_column_title",
+                  group: "learning",
                 })
               }
               onAdd={() =>
                 createItem(
                   "course_learning_modes",
                   "learning",
-                  mappedLearningItems.length +
-                    1
+                  mappedLearningItems.length + 1
                 )
               }
               onEditItem={(item) =>
@@ -532,102 +514,36 @@ export default function CourseInteractiveDashboard({
             />
           </div>
 
-          <div
-            className="
-              order-3 w-full min-w-0
-
-              lg:order-2
-              lg:relative
-              lg:z-20
-              lg:-mx-1
-              lg:flex-1
-            "
-          >
-      
-            <CourseDynamicPanel
-              mode={normalizedMode}
-              activePanel={
-                displayedPanel
-              }
-              course={course}
-              freeSessions={
-                freeSessions
-              }
-              workshops={workshops}
-              reviews={reviews}
-              panelVisible={
-                panelVisible
-              }
-              onEditPanel={() => {}}
-              onAddPanelContent={() => {}}
-            />
+          <div className="order-3 w-full min-w-0 lg:order-2 lg:relative lg:z-20 lg:-mx-1 lg:flex-1">
+            {renderCenterContent()}
           </div>
 
-          <div
-            className="
-              order-2 w-full
-
-              lg:order-3
-              lg:relative
-              lg:z-10
-              lg:mt-[76px]
-              lg:w-[205px]
-              lg:shrink-0
-
-              xl:w-[220px]
-            "
-          >
+          <div className="order-2 w-full lg:order-3 lg:relative lg:z-10 lg:mt-[76px] lg:w-[205px] lg:shrink-0 xl:w-[220px]">
             <SideMenu
               mode={normalizedMode}
-              title={
-                resultColumnTitle
-              }
-              items={
-                mappedResultItems
-              }
-              activePanel={
-                activePanel
-              }
-              onChange={
-                setActivePanel
-              }
+              title={resultColumnTitle}
+              items={mappedResultItems}
+              activePanel={activePanel}
+              onChange={setActivePanel}
               onEditTitle={() =>
                 selectElement({
-                  id:
-                    `result-column-title-${stationId}`,
-
+                  id: `result-column-title-${stationId}`,
                   type: "title",
-
-                  label:
-                    "عنوان عمود نتائج الرحلة",
-
-                  value:
-                    resultColumnTitle,
-
-                  originalValue:
-                    resultColumnTitle,
-
+                  label: "عنوان عمود نتائج الرحلة",
+                  value: resultColumnTitle,
+                  originalValue: resultColumnTitle,
                   scope: "page",
-
-                  table:
-                    "course_stations",
-
-                  recordId:
-                    stationId,
-
-                  field:
-                    "result_column_title",
-
-                  group:
-                    "result",
+                  table: "course_stations",
+                  recordId: stationId,
+                  field: "result_column_title",
+                  group: "result",
                 })
               }
               onAdd={() =>
                 createItem(
                   "course_result_tabs",
                   "result",
-                  mappedResultItems.length +
-                    1
+                  mappedResultItems.length + 1
                 )
               }
               onEditItem={(item) =>

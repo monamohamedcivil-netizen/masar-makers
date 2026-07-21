@@ -8,3 +8,6 @@ export * from "./journeys";
 
 export * from "./panels";
 export * from "./templates";
+export * from "./blocks";
+
+export * from "./page-builder";

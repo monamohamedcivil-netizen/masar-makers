@@ -4,12 +4,15 @@ import {
   Check,
   CirclePlus,
   Crown,
+  Layers3,
   Loader2,
   Pencil,
   Save,
   Trash2,
   X,
 } from "lucide-react";
+
+import Link from "next/link";
 
 import {
   useState,
@@ -478,6 +481,24 @@ export default function CourseTemplatesManager({
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
+                 <Link
+  href={`/admin/page-builder/${template.id}`}
+  className="
+    col-span-2
+    flex h-10 items-center
+    justify-center gap-2
+    rounded-xl
+    bg-[#07152E]
+    text-[11px]
+    font-black
+    text-white
+    transition
+    hover:bg-[#17345C]
+  "
+>
+  <Layers3 size={14} />
+  إدارة المحتوى
+</Link>
                   <button
                     type="button"
                     onClick={() =>
