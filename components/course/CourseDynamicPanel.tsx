@@ -16,7 +16,7 @@ import {
 
 import CourseActionButton from "./CourseActionButton";
 
-import type { EnrollmentStatus } from "@/lib/actions/enroll";
+import type { EnrollmentStatus, EnrollmentStatusMap } from "@/lib/actions/enroll";
 
 import type {
   Course,
@@ -28,6 +28,8 @@ import type {
 } from "@/data/types";
 
 import JourneyComingSoon from "./JourneyComingSoon";
+import ProfessionalPanelViewer from "./ProfessionalPanelViewer";
+import type { ProfessionalPanelDraft } from "@/components/course/editor";
 
 export type PlatformPanelMode =
   | "student"
@@ -46,6 +48,9 @@ type CourseDynamicPanelProps = {
   onAddPanelContent?: () => void;
   panelContents?: any[];
   enrollmentStatus?: EnrollmentStatus | null;
+  enrollmentStatuses?: EnrollmentStatusMap;
+  stationId?: string;
+  screenContent?: ProfessionalPanelDraft | null;
 };
 
 export default function CourseDynamicPanel({
@@ -53,6 +58,7 @@ export default function CourseDynamicPanel({
   activePanel,
   course,
   enrollmentStatus,
+  enrollmentStatuses,
   freeSessions,
   workshops,
   reviews,
@@ -60,7 +66,20 @@ export default function CourseDynamicPanel({
   onEditPanel,
   onAddPanelContent,
   panelContents,
+  stationId,
+  screenContent,
 }: CourseDynamicPanelProps) {
+  if (screenContent && stationId) {
+    return (
+      <ProfessionalPanelViewer
+        stationId={stationId}
+        courseId={course.slug}
+        panelComponent={activePanel}
+        enrollmentStatuses={enrollmentStatuses}
+        value={screenContent}
+      />
+    );
+  }
   if (activePanel === "outcome") {
     return (
       <PanelShell

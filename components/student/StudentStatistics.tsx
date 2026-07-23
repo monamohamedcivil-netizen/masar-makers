@@ -9,8 +9,8 @@ type StudentStatisticsProps = {
 
 export default function StudentStatistics({ data }: StudentStatisticsProps) {
   return (
-    <section className="border-b border-[#DCE2EA] bg-[#F8FAFC] px-3 py-5 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[1500px] space-y-6">
+    <section className="border-b border-[#DCE2EA] bg-[#CDD8E6] px-3 py-2 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1400px] space-y-2">
         <StatisticGroup
           title="إحصائيات رحلاتي التعليمية"
           icon={GraduationCap}

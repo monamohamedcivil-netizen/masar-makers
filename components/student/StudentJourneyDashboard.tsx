@@ -25,6 +25,16 @@ export default function StudentJourneyDashboard({ data }: Props) {
     data.completedCourses.length +
     data.pendingCourses.length;
 
+  const oneDayCount = data.oneDayJourneyGroups.reduce(
+    (total, group) => total + group.journeys.length,
+    0,
+  );
+
+  const freeCount = data.freeJourneyGroups.reduce(
+    (total, group) => total + group.journeys.length,
+    0,
+  );
+
   const statistics: StudentStatisticsData = {
     learning: [
       {
@@ -32,7 +42,7 @@ export default function StudentJourneyDashboard({ data }: Props) {
         label: "المسارات والرحلات",
         icon: Layers3,
         splitValue: {
-          primaryValue: 1,
+          primaryValue: data.careerPaths.length,
           primaryLabel: "مسارات",
           secondaryValue: totalCourses,
           secondaryLabel: "كورسات",
@@ -42,15 +52,21 @@ export default function StudentJourneyDashboard({ data }: Props) {
         id: "one-day",
         label: "رحلات اليوم الواحد",
         icon: Zap,
-        value: 0,
-        secondaryText: "سيتم دعمها قريباً",
+        value: oneDayCount,
+        secondaryText:
+          oneDayCount > 0
+            ? "رحلات متاحة في حسابك"
+            : "لا توجد رحلات بعد",
       },
       {
         id: "free",
         label: "الرحلات المجانية",
         icon: Sparkles,
-        value: 0,
-        secondaryText: "سيتم دعمها قريباً",
+        value: freeCount,
+        secondaryText:
+          freeCount > 0
+            ? "رحلات مجانية متاحة"
+            : "ابدأ أول رحلة مجانية",
       },
       {
         id: "surveys",
@@ -93,9 +109,17 @@ export default function StudentJourneyDashboard({ data }: Props) {
   };
 
   return (
-    <div dir="rtl" className="min-h-[calc(100vh-55px)] bg-[#F7F8FA] pb-10 pt-[55px] text-[#07152E]">
-      <StudentStatistics data={statistics} />
-      <StudentWorkspace definition={studentWorkspaceDefinition} data={data} />
+    <div dir="rtl" className="bg-white text-[#07152E]">
+     <section className="border-b border-[#C9D4DF] bg-[#DCE7F2]">
+        <StudentStatistics data={statistics} />
+      </section>
+
+      <div className="bg-white pt-6">
+        <StudentWorkspace
+          definition={studentWorkspaceDefinition}
+          data={data}
+        />
+      </div>
     </div>
   );
 }

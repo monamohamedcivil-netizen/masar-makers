@@ -42,9 +42,10 @@ export function createEmptyListItem(): ProfessionalListItem {
     hasButton: false,
     buttonText: "شاهد الآن",
     buttonLink: "",
-    buttonMode: "link_and_whatsapp",
+    buttonMode: "link",
   };
-}
+};
+
 
 export function createEmptyListBlock(
   journey: ProfessionalJourneyColumn,
@@ -100,7 +101,7 @@ export function createInitialProfessionalPanel(): ProfessionalPanelDraft {
     screenTitle: "رحلة الاحتراف المتكاملة",
     screenSubtitle: "تشمل رحلة الأساسيات + الرحلة المتقدمة",
     screenAction: createDefaultAction("اشترك الآن"),
-    columnCount: 2,
+    columnCount: 1,
     columnOneTitle: "رحلة الأساسيات",
     columnOneAction: createDefaultAction("اشترك الآن"),
     columnTwoTitle: "الرحلة المتقدمة",
@@ -115,12 +116,12 @@ function normalizeAction(
 ): ProfessionalActionConfig {
   const fallback = createDefaultAction(fallbackLabel);
 
-  const validModes: ProfessionalActionMode[] = [
+ const validModes: ProfessionalActionMode[] = [
     "enrollment",
+    "free",
     "whatsapp",
     "link",
-    "link_and_whatsapp",
-  ];
+];
 
   const savedMode =
     value?.mode && validModes.includes(value.mode)
@@ -176,10 +177,9 @@ export function normalizeProfessionalPanel(
 
         return {
           ...block,
-          items: block.items.map((item) => ({
+         items: block.items.map((item) => ({
             ...item,
-            buttonMode:
-              item.buttonMode ?? "link_and_whatsapp",
+            buttonMode: item.buttonMode ?? "link",
           })),
         };
       })

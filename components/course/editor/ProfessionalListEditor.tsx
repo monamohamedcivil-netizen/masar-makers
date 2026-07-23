@@ -155,7 +155,7 @@ export default function ProfessionalListEditor({
                           : {
                               buttonText: "شاهد الآن",
                               buttonLink: "",
-                              buttonMode: "link_and_whatsapp",
+                              buttonMode: "link",
                             }),
                       });
                     }}
@@ -192,13 +192,17 @@ export default function ProfessionalListEditor({
                         }
                         className={inputClassName}
                       >
-                        <option value="whatsapp">واتساب فقط</option>
-                        <option value="link">فتح الرابط فقط</option>
-                        <option value="link_and_whatsapp">فتح الرابط + واتساب</option>
+                       <option value="enrollment">اشتراك (يتطلب موافقة)</option>
+
+<option value="free">رحلة مجانية</option>
+
+<option value="link">فتح رابط</option>
+
+<option value="whatsapp">واتساب</option>
                       </select>
                     </EditorField>
 
-                    {item.buttonMode !== "whatsapp" && (
+                   {item.buttonMode === "free" && (
                     <EditorField label="رابط الزر">
                       <div className="relative">
                         <Link2
@@ -218,6 +222,7 @@ export default function ProfessionalListEditor({
                         />
                       </div>
                     </EditorField>
+                    
                     )}
                   </div>
                 )}

@@ -7,122 +7,27 @@ import { getEnrollmentRequests } from "@/lib/actions/admin/enrollments";
 
 export const dynamic = "force-dynamic";
 
-type UnknownRecord = Record<string, unknown>;
-
-function asRecord(value: unknown): UnknownRecord {
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value)
-  ) {
-    return value as UnknownRecord;
-  }
-
-  return {};
-}
-
-function asString(
-  value: unknown,
-  fallback = "",
-): string {
-  return typeof value === "string" ? value : fallback;
-}
-
-function extractRequests(result: unknown): unknown[] {
-  if (Array.isArray(result)) {
-    return result;
-  }
-
-  const record = asRecord(result);
-
-  if (Array.isArray(record.data)) {
-    return record.data;
-  }
-
-  if (Array.isArray(record.enrollments)) {
-    return record.enrollments;
-  }
-
-  return [];
-}
-
-function normalizeRequest(
-  value: unknown,
+function toTableRow(
+  request: Awaited<ReturnType<typeof getEnrollmentRequests>>[number],
 ): EnrollmentRequestRow {
-  const request = asRecord(value);
-
-  const profile = asRecord(
-    request.profile ??
-      request.profiles ??
-      request.student,
-  );
-
-  const course = asRecord(
-    request.course ?? request.courses,
-  );
-
-  const station = asRecord(
-    request.station ?? request.stations,
-  );
-
   return {
-    id: asString(request.id),
-
-    studentName:
-      asString(request.studentName) ||
-      asString(request.student_name) ||
-      asString(request.full_name) ||
-      asString(profile.full_name) ||
-      asString(profile.name) ||
-      "طالب بدون اسم",
-
-    studentEmail:
-      asString(request.studentEmail) ||
-      asString(request.student_email) ||
-      asString(request.email) ||
-      asString(profile.email),
-
-    studentPhone:
-      asString(request.studentPhone) ||
-      asString(request.student_phone) ||
-      asString(request.phone) ||
-      asString(profile.phone) ||
-      asString(profile.whatsapp_number),
-
-    courseTitle:
-      asString(request.courseTitle) ||
-      asString(request.course_title) ||
-      asString(course.title_ar) ||
-      asString(course.title) ||
-      asString(course.name),
-
-    stationTitle:
-      asString(request.stationTitle) ||
-      asString(request.station_title) ||
-      asString(station.title_ar) ||
-      asString(station.title) ||
-      asString(station.name),
-
-    journeyType:
-      asString(request.journeyType) ||
-      asString(request.journey_type) ||
-      asString(request.type) ||
-      "career_path",
-
-    status: asString(request.status, "pending"),
-
-    createdAt:
-      asString(request.createdAt) ||
-      asString(request.created_at),
+    id: request.id,
+    studentName: request.student.name,
+    studentEmail: request.student.email,
+    studentPhone: request.student.phone ?? "",
+    courseTitle: request.course.title,
+    stationTitle: request.station.title ?? "",
+    journeyType: request.journeyType,
+    actionKey: request.actionKey ?? "",
+    actionTitle: request.actionTitle ?? "",
+    status: request.status,
+    createdAt: request.createdAt,
   };
 }
 
 export default async function EnrollmentRequestsPage() {
-  const result = await getEnrollmentRequests();
-
-  const requests = extractRequests(result)
-    .map(normalizeRequest)
-    .filter((request) => request.id);
+  const enrollmentRequests = await getEnrollmentRequests();
+  const requests = enrollmentRequests.map(toTableRow);
 
   const pendingCount = requests.filter(
     (request) => request.status === "pending",

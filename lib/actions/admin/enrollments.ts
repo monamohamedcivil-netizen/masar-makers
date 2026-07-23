@@ -12,6 +12,8 @@ export interface AdminEnrollmentRequest {
   courseId: string;
   stationId: string | null;
   journeyType: string;
+  actionKey: string | null;
+  actionTitle: string | null;
   status: EnrollmentStatus;
   createdAt: string;
   updatedAt: string | null;
@@ -37,16 +39,18 @@ export interface AdminActionResult {
   message?: string;
 }
 
-/**
- * يتحقق من أن المستخدم الحالي أدمن.
- *
- * يعتمد على وجود:
- * app_metadata.role = "admin"
- * أو:
- * user_metadata.role = "admin"
- *
- * إذا كنتِ تستخدمين نظام صلاحيات مختلفًا، سنعدّل هذه الدالة فقط لاحقًا.
- */
+type EnrollmentRow = {
+  id: string;
+  user_id: string;
+  course_id: string;
+  journey_type: string | null;
+  action_key: string | null;
+  action_title: string | null;
+  status: EnrollmentStatus;
+  created_at: string;
+  updated_at: string | null;
+};
+
 async function requireAdmin() {
   const supabase = await createClient();
 
@@ -69,10 +73,7 @@ async function requireAdmin() {
     throw new Error("FORBIDDEN");
   }
 
-  return {
-    supabase,
-    user,
-  };
+  return { supabase };
 }
 
 function getStudentName(profile: Record<string, unknown> | undefined) {
@@ -109,7 +110,8 @@ function getCourseTitle(course: Record<string, unknown> | undefined) {
   if (!course) return "كورس غير معروف";
 
   return String(
-    course.title ??
+    course.title_ar ??
+      course.title ??
       course.name ??
       course.course_title ??
       "كورس غير معروف",
@@ -124,33 +126,34 @@ function getCourseSlug(course: Record<string, unknown> | undefined) {
 function getStationTitle(station: Record<string, unknown> | undefined) {
   if (!station) return null;
 
-  const title = station.title ?? station.name ?? station.station_title;
+  const title =
+    station.title_ar ??
+    station.title ??
+    station.name ??
+    station.station_title;
+
   return title ? String(title) : null;
 }
 
-/**
- * جلب جميع طلبات الاشتراك للوحة التحكم.
- *
- * يتم جلب البيانات على مراحل حتى لا نعتمد على أسماء العلاقات
- * التلقائية في Supabase.
- */
 export async function getEnrollmentRequests(): Promise<
   AdminEnrollmentRequest[]
 > {
   const { supabase } = await requireAdmin();
 
-  const { data: enrollments, error: enrollmentsError } = await supabase
+  const { data, error } = await supabase
     .from("enrollments")
     .select(
-      "id,user_id,course_id,station_id,journey_type,status,created_at,updated_at",
+      "id,user_id,course_id,journey_type,action_key,action_title,status,created_at,updated_at",
     )
     .order("created_at", { ascending: false });
 
-  if (enrollmentsError) {
-    throw new Error(enrollmentsError.message);
+  if (error) {
+    throw new Error(error.message);
   }
 
-  if (!enrollments?.length) {
+  const enrollments = (data ?? []) as EnrollmentRow[];
+
+  if (enrollments.length === 0) {
     return [];
   }
 
@@ -162,28 +165,13 @@ export async function getEnrollmentRequests(): Promise<
     new Set(enrollments.map((item) => item.course_id).filter(Boolean)),
   );
 
-  const stationIds = Array.from(
-    new Set(enrollments.map((item) => item.station_id).filter(Boolean)),
-  ) as string[];
-
-  const [
-    { data: profiles },
-    { data: courses },
-    { data: stations },
-  ] = await Promise.all([
+  const [{ data: profiles }, { data: courses }] = await Promise.all([
     userIds.length
       ? supabase.from("profiles").select("*").in("id", userIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
 
     courseIds.length
       ? supabase.from("courses").select("*").in("id", courseIds)
-      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
-
-    stationIds.length
-      ? supabase
-  .from("course_stations")
-  .select("*")
-  .in("id", stationIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
   ]);
 
@@ -201,6 +189,29 @@ export async function getEnrollmentRequests(): Promise<
     ]),
   );
 
+  /*
+   * The current enrollment insert stores course_id and journey_type.
+   * The station is derived automatically from the course record.
+   */
+  const stationIds = Array.from(
+    new Set(
+      (courses ?? [])
+        .map((course) =>
+          String(
+            (course as Record<string, unknown>).station_id ?? "",
+          ),
+        )
+        .filter(Boolean),
+    ),
+  );
+
+  const { data: stations } = stationIds.length
+    ? await supabase
+        .from("course_stations")
+        .select("*")
+        .in("id", stationIds)
+    : { data: [] as Record<string, unknown>[] };
+
   const stationsMap = new Map(
     (stations ?? []).map((station) => [
       String((station as Record<string, unknown>).id),
@@ -211,19 +222,32 @@ export async function getEnrollmentRequests(): Promise<
   return enrollments.map((enrollment) => {
     const profile = profilesMap.get(enrollment.user_id);
     const course = coursesMap.get(enrollment.course_id);
-    const station = enrollment.station_id
-      ? stationsMap.get(enrollment.station_id)
+
+    const stationId = course?.station_id
+      ? String(course.station_id)
+      : null;
+
+    const station = stationId
+      ? stationsMap.get(stationId)
       : undefined;
 
     return {
       id: enrollment.id,
       userId: enrollment.user_id,
       courseId: enrollment.course_id,
-      stationId: enrollment.station_id,
-      journeyType: enrollment.journey_type,
-      status: enrollment.status as EnrollmentStatus,
+      stationId,
+
+      /*
+       * Important: journey type belongs to the enrollment request,
+       * not to the course record.
+       */
+      journeyType: enrollment.journey_type?.trim() || "career_path",
+      actionKey: enrollment.action_key?.trim() || null,
+      actionTitle: enrollment.action_title?.trim() || null,
+
+      status: enrollment.status,
       createdAt: enrollment.created_at,
-      updatedAt: enrollment.updated_at ?? null,
+      updatedAt: enrollment.updated_at,
 
       student: {
         name: getStudentName(profile),
@@ -272,6 +296,7 @@ async function changeEnrollmentStatus(
   }
 
   revalidatePath("/admin");
+  revalidatePath("/admin/dashboard");
   revalidatePath("/admin/students/enrollment-requests");
   revalidatePath("/dashboard");
 

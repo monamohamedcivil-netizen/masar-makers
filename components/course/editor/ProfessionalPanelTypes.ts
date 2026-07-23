@@ -4,9 +4,9 @@ export type ProfessionalJourneyColumn =
 
 export type ProfessionalActionMode =
   | "enrollment"
+  | "free"
   | "whatsapp"
-  | "link"
-  | "link_and_whatsapp";
+  | "link";
 
 export type ProfessionalVideoProvider =
   | "youtube"

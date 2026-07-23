@@ -38,7 +38,6 @@ import {
   useRouter,
 } from "next/navigation";
 
-import CourseDynamicPanel from "./CourseDynamicPanel";
 import ProfessionalPanelViewer from "./ProfessionalPanelViewer";
 import SideMenu from "./SideMenu";
 
@@ -66,7 +65,7 @@ import {
   swapPanelOrder,
 } from "@/lib/actions/builder";
 
-import type { EnrollmentStatus } from "@/lib/actions/enroll";
+import type { EnrollmentStatusMap } from "@/lib/actions/enroll";
 
 export type PlatformPageMode =
   | "student"
@@ -79,7 +78,7 @@ type CourseInteractiveDashboardProps = {
   stationId: string;
   builderPage?: CatalogBuiltTemplatePage;
   course: Course;
-  enrollmentStatus?: EnrollmentStatus | null;
+  enrollmentStatuses?: EnrollmentStatusMap;
   freeSessions: FreeSession[];
   workshops: Workshop[];
   reviews: Review[];
@@ -88,13 +87,11 @@ type CourseInteractiveDashboardProps = {
   learningColumnTitle?: string;
   resultColumnTitle?: string;
 
-  /**
-   * محتوى شاشة رحلة الاحتراف المحمّل من Supabase في الصفحة الأب.
-   * في حالة عدم تمريره، يبدأ المحرر بقيم افتراضية فارغة.
-   */
-  initialProfessionalContent?:
-    | Partial<ProfessionalPanelDraft>
-    | null;
+  /** محتوى كل زر، مفهرس بقيمة panel_component. */
+  initialPanelContents?: Record<
+    string,
+    Partial<ProfessionalPanelDraft> | null
+  >;
 };
 
 const panelIconMap = {
@@ -110,7 +107,7 @@ export default function CourseInteractiveDashboard({
   mode = "student",
   stationId,
   course,
-  enrollmentStatus,
+  enrollmentStatuses,
   freeSessions,
   workshops,
   reviews,
@@ -119,24 +116,34 @@ export default function CourseInteractiveDashboard({
   resultTabs,
   learningColumnTitle = "اختر طريقة التعلم",
   resultColumnTitle = "نتائج الرحلة",
-  initialProfessionalContent = null,
+  initialPanelContents = {},
 }: CourseInteractiveDashboardProps) {
   const router = useRouter();
 
   const [isPending, startTransition] =
     useTransition();
 
-  const [isSavingProfessional, setIsSavingProfessional] =
+  const [isSavingPanel, setIsSavingPanel] =
     useState(false);
 
-  const [professionalContent, setProfessionalContent] =
-    useState<ProfessionalPanelDraft>(() =>
-      initialProfessionalContent
-        ? normalizeProfessionalPanel(
-            initialProfessionalContent
-          )
-        : createInitialProfessionalPanel()
+  const normalizePanelMap = (
+    values: Record<
+      string,
+      Partial<ProfessionalPanelDraft> | null
+    >
+  ): Record<string, ProfessionalPanelDraft> =>
+    Object.fromEntries(
+      Object.entries(values).map(([key, value]) => [
+        key,
+        value
+          ? normalizeProfessionalPanel(value)
+          : createInitialProfessionalPanel(),
+      ])
     );
+
+  const [panelContents, setPanelContents] = useState<
+    Record<string, ProfessionalPanelDraft>
+  >(() => normalizePanelMap(initialPanelContents));
 
   const {
     mode: builderMode,
@@ -201,14 +208,8 @@ export default function CourseInteractiveDashboard({
     useState(true);
 
   useEffect(() => {
-    setProfessionalContent(
-      initialProfessionalContent
-        ? normalizeProfessionalPanel(
-            initialProfessionalContent
-          )
-        : createInitialProfessionalPanel()
-    );
-  }, [initialProfessionalContent, stationId]);
+    setPanelContents(normalizePanelMap(initialPanelContents));
+  }, [initialPanelContents, stationId]);
 
   useEffect(() => {
     const availablePanels = [
@@ -339,63 +340,67 @@ export default function CourseInteractiveDashboard({
     });
   };
 
-  const handleSaveProfessional = async (
+  const currentPanelContent =
+    panelContents[displayedPanel] ??
+    createInitialProfessionalPanel();
+
+  const updateCurrentPanelContent = (
     value: ProfessionalPanelDraft
   ) => {
-    setIsSavingProfessional(true);
+    setPanelContents((current) => ({
+      ...current,
+      [displayedPanel]: value,
+    }));
+  };
+
+  const handleSavePanel = async (
+    value: ProfessionalPanelDraft
+  ) => {
+    setIsSavingPanel(true);
 
     try {
       await saveCourseScreenContent({
         stationId,
-        panelComponent: "professional",
+        panelComponent: displayedPanel,
         screenTitle: value.screenTitle,
         columnCount: value.columnCount,
         columnOneTitle: value.columnOneTitle,
         columnTwoTitle: value.columnTwoTitle,
-
-        /*
-         * نحفظ المسودة كاملة داخل JSON حتى يمكن استعادتها
-         * بعد تحديث الصفحة دون فقد العناوين الفرعية أو الأزرار
-         * أو القوائم أو الصور أو الفيديوهات.
-         */
         content: value,
       });
 
-      setProfessionalContent(value);
-      window.alert("تم حفظ شاشة رحلة الاحتراف بنجاح.");
+      updateCurrentPanelContent(value);
+      window.alert("تم حفظ الشاشة بنجاح.");
       router.refresh();
- } catch (error) {
-  console.error(
-    "Failed to save professional panel:",
-    error
-  );
+    } catch (error) {
+      console.error("Failed to save panel:", error);
 
-  const errorMessage =
-    error instanceof Error
-      ? error.message
-      : typeof error === "string"
-        ? error
-        : "حدث خطأ غير معروف أثناء الحفظ.";
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "حدث خطأ غير معروف أثناء الحفظ.";
 
-  window.alert(
-    `حدث خطأ أثناء حفظ شاشة رحلة الاحتراف:\n\n${errorMessage}`
-  );
-} finally {
-  setIsSavingProfessional(false);
-}
+      window.alert(
+        `حدث خطأ أثناء حفظ الشاشة:
+
+${errorMessage}`
+      );
+    } finally {
+      setIsSavingPanel(false);
+    }
   };
 
   const renderCenterContent = () => {
-    if (
-      isEditMode &&
-      displayedPanel === "professional"
-    ) {
+    if (isEditMode) {
       return (
         <ProfessionalPanelEditor
-          value={professionalContent}
-          onChange={setProfessionalContent}
-          onSave={handleSaveProfessional}
-          isSaving={isSavingProfessional}
+          key={`${stationId}-${displayedPanel}-editor`}
+          value={currentPanelContent}
+          onChange={updateCurrentPanelContent}
+          onSave={handleSavePanel}
+          isSaving={isSavingPanel}
         />
       );
     }
@@ -404,30 +409,14 @@ export default function CourseInteractiveDashboard({
       return <CourseRenderer page={builderPage} />;
     }
 
-    if (displayedPanel === "professional") {
-      return (
-        <ProfessionalPanelViewer
-          stationId={stationId}
-         courseId={course.slug}
-          enrollmentStatus={enrollmentStatus}
-          value={professionalContent}
-        />
-      );
-    }
-
     return (
-      <CourseDynamicPanel
-        mode={normalizedMode}
-        activePanel={displayedPanel}
-        course={course}
-        enrollmentStatus={enrollmentStatus}
-        freeSessions={freeSessions}
-        workshops={workshops}
-        reviews={reviews}
-        panelVisible={panelVisible}
-        onEditPanel={() => {}}
-        onAddPanelContent={() => {}}
-        panelContents={[]}
+      <ProfessionalPanelViewer
+        key={`${stationId}-${displayedPanel}-viewer`}
+        stationId={stationId}
+        courseId={course.slug}
+        panelComponent={displayedPanel}
+        enrollmentStatuses={enrollmentStatuses}
+        value={currentPanelContent}
       />
     );
   };

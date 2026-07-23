@@ -4,7 +4,7 @@ import { CheckCircle2, Play, Rocket } from "lucide-react";
 
 import PlatformActionButton from "./PlatformActionButton";
 
-import type { EnrollmentStatus } from "@/lib/actions/enroll";
+import type { EnrollmentStatusMap } from "@/lib/actions/enroll";
 import type {
   ProfessionalActionConfig,
   ProfessionalContentBlock,
@@ -15,14 +15,16 @@ import type {
 type ProfessionalPanelViewerProps = {
   stationId: string;
   courseId: string;
-  enrollmentStatus?: EnrollmentStatus | null;
+  panelComponent?: string;
+  enrollmentStatuses?: EnrollmentStatusMap;
   value: ProfessionalPanelDraft;
 };
 
 export default function ProfessionalPanelViewer({
   stationId,
   courseId,
-  enrollmentStatus,
+  panelComponent = "professional",
+  enrollmentStatuses,
   value,
 }: ProfessionalPanelViewerProps) {
   const fundamentalBlocks = value.blocks.filter(
@@ -34,7 +36,10 @@ export default function ProfessionalPanelViewer({
   );
 
   return (
-    <section className="overflow-hidden rounded-[28px] border border-[#F7B548]/35 bg-[#07152E] shadow-[0_24px_70px_rgba(7,21,46,0.20)]">
+    <section
+      data-panel-component={panelComponent}
+      className="overflow-hidden rounded-[28px] border border-[#F7B548]/35 bg-[#07152E] shadow-[0_24px_70px_rgba(7,21,46,0.20)]"
+    >
       <header className="flex flex-col gap-4 border-b border-white/10 px-5 py-6 sm:px-7 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-start gap-3">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#F7B548]/15 text-[#F7B548]">
@@ -56,15 +61,23 @@ export default function ProfessionalPanelViewer({
 
         {value.screenAction.enabled && (
           <PlatformActionButton
-            label={value.screenAction.label || "ابدأ الرحلة"}
+            label={value.screenAction.label || "اشترك الآن"}
             mode={value.screenAction.mode}
             link={value.screenAction.link}
-            courseId={value.screenAction.courseSlug || courseId}
+            courseId={courseId}
             stationId={stationId}
             journeyType={
-              value.screenAction.journeyType || "integrated"
+              panelComponent === "free"
+                ? "free"
+                : panelComponent === "workshop"
+                  ? "workshop"
+                  : "integrated"
             }
-            enrollmentStatus={enrollmentStatus}
+            actionKey={`${panelComponent}:screen`}
+            actionTitle={value.screenAction.label || value.screenTitle}
+            enrollmentStatus={
+              enrollmentStatuses?.[`${panelComponent}:screen`] ?? null
+            }
             className="min-w-[180px]"
           />
         )}
@@ -80,7 +93,8 @@ export default function ProfessionalPanelViewer({
         <ViewerColumn
           stationId={stationId}
           courseId={courseId}
-          enrollmentStatus={enrollmentStatus}
+          panelComponent={panelComponent}
+          enrollmentStatuses={enrollmentStatuses}
           journey="fundamental"
           title={value.columnOneTitle}
           action={value.columnOneAction}
@@ -91,7 +105,8 @@ export default function ProfessionalPanelViewer({
           <ViewerColumn
             stationId={stationId}
             courseId={courseId}
-            enrollmentStatus={enrollmentStatus}
+            panelComponent={panelComponent}
+            enrollmentStatuses={enrollmentStatuses}
             journey="advanced"
             title={value.columnTwoTitle}
             action={value.columnTwoAction}
@@ -106,7 +121,8 @@ export default function ProfessionalPanelViewer({
 type ViewerColumnProps = {
   stationId: string;
   courseId: string;
-  enrollmentStatus?: EnrollmentStatus | null;
+  panelComponent?: string;
+  enrollmentStatuses?: EnrollmentStatusMap;
   journey: ProfessionalJourneyColumn;
   title: string;
   action: ProfessionalActionConfig;
@@ -116,7 +132,8 @@ type ViewerColumnProps = {
 function ViewerColumn({
   stationId,
   courseId,
-  enrollmentStatus,
+  panelComponent = "professional",
+  enrollmentStatuses,
   journey,
   title,
   action,
@@ -136,13 +153,19 @@ function ViewerColumn({
 
         {action.enabled && (
           <PlatformActionButton
-            label={action.label || "ابدأ الرحلة"}
+            label={action.label || "اشترك الآن"}
             mode={action.mode}
             link={action.link}
-            courseId={action.courseSlug || courseId}
+            courseId={courseId}
             stationId={stationId}
-            journeyType={action.journeyType || journey}
-            enrollmentStatus={enrollmentStatus}
+            journeyType={resolveJourneyType(panelComponent, journey)}
+            actionKey={`${panelComponent}:column:${journey}`}
+            actionTitle={action.label || title}
+            enrollmentStatus={
+              enrollmentStatuses?.[
+                `${panelComponent}:column:${journey}`
+              ] ?? null
+            }
             className="min-w-[180px]"
           />
         )}
@@ -153,6 +176,9 @@ function ViewerColumn({
           <ViewerBlock
             key={block.id}
             stationId={stationId}
+            courseId={courseId}
+            panelComponent={panelComponent}
+            enrollmentStatuses={enrollmentStatuses}
             block={block}
           />
         ))}
@@ -163,12 +189,17 @@ function ViewerColumn({
 
 function ViewerBlock({
   stationId,
+  courseId,
+  panelComponent,
+  enrollmentStatuses,
   block,
 }: {
   stationId: string;
+  courseId: string;
+  panelComponent: string;
+  enrollmentStatuses?: EnrollmentStatusMap;
   block: ProfessionalContentBlock;
 }) {
-  void stationId;
 
   if (block.type === "image") {
     return (
@@ -280,7 +311,7 @@ function ViewerBlock({
       hasButton: boolean;
       buttonLink?: string;
       buttonText?: string;
-      buttonMode?: "whatsapp" | "link" | "link_and_whatsapp";
+      buttonMode?: "enrollment" | "free" | "whatsapp" | "link";
     }>;
   };
 
@@ -314,10 +345,21 @@ function ViewerBlock({
             </div>
 
             {item.hasButton && (
-              <PlatformActionButton
+             <PlatformActionButton
                 label={item.buttonText || "عرض"}
                 mode={item.buttonMode || "link"}
                 link={item.buttonLink}
+                courseId={courseId}
+                stationId={stationId}
+                journeyType={resolveJourneyType(panelComponent, block.journey)}
+                actionKey={`${panelComponent}:item:${item.id}`}
+                actionTitle={item.title}
+                enrollmentStatus={
+                  enrollmentStatuses?.[
+                    `${panelComponent}:item:${item.id}`
+                  ] ?? null
+                }
+                itemTitle={item.title}
                 className="rounded-xl bg-[#07152E] px-4 py-2 text-xs font-black text-white transition hover:bg-[#214B75]"
               />
             )}
@@ -326,6 +368,26 @@ function ViewerBlock({
       </div>
     </div>
   );
+}
+
+
+function resolveJourneyType(
+  panelComponent: string,
+  blockJourney: ProfessionalJourneyColumn,
+): string {
+  if (panelComponent === "free") {
+    return "free";
+  }
+
+  if (panelComponent === "workshop") {
+    return "workshop";
+  }
+
+  if (panelComponent === "professional") {
+    return blockJourney;
+  }
+
+  return panelComponent || blockJourney;
 }
 
 function getYouTubeThumbnail(videoUrl: string): string {

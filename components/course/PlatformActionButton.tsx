@@ -7,9 +7,9 @@ import type { EnrollmentStatus } from "@/lib/actions/enroll";
 
 type PlatformActionMode =
   | "enrollment"
+  | "free"
   | "whatsapp"
-  | "link"
-  | "link_and_whatsapp";
+  | "link";
 
 type PlatformActionButtonProps = {
   label: string;
@@ -19,6 +19,9 @@ type PlatformActionButtonProps = {
   stationId?: string;
   journeyType?: string;
   enrollmentStatus?: EnrollmentStatus | null;
+  actionKey?: string;
+  actionTitle?: string;
+  itemTitle?: string;
   className?: string;
   children?: ReactNode;
 };
@@ -31,22 +34,36 @@ export default function PlatformActionButton({
   stationId,
   journeyType,
   enrollmentStatus,
+  actionKey,
+  actionTitle,
+  itemTitle,
   className = "",
   children,
 }: PlatformActionButtonProps) {
-  if (mode === "enrollment") {
+ if (mode === "enrollment" || mode === "free") {
     if (!courseId) {
       return null;
     }
 
     return (
       <div className={className}>
-        <CourseActionButton
-          courseId={courseId}
-          stationId={stationId}
-          journeyType={journeyType}
-          enrollmentStatus={enrollmentStatus}
-        />
+       <CourseActionButton
+    courseId={courseId}
+
+    label={label}
+
+    mode={mode}
+
+    stationId={stationId}
+
+    journeyType={journeyType}
+
+    enrollmentStatus={enrollmentStatus}
+    actionKey={actionKey}
+    actionTitle={actionTitle}
+    itemTitle={itemTitle}
+    link={link}
+/>
       </div>
     );
   }
@@ -66,19 +83,14 @@ export default function PlatformActionButton({
   }
 
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className={className}
-    >
+    <a href={href} target="_blank" rel="noreferrer" className={className}>
       {children ?? label}
     </a>
   );
 }
 
 function buildActionHref(
-  mode: Exclude<PlatformActionMode, "enrollment">,
+    mode: Exclude<PlatformActionMode, "enrollment" | "free">,
   rawLink?: string | null,
 ): string {
   const link = rawLink?.trim();
@@ -87,7 +99,7 @@ function buildActionHref(
     return "";
   }
 
-  if (mode === "whatsapp" || mode === "link_and_whatsapp") {
+  if (mode === "whatsapp") {
     if (
       link.startsWith("https://wa.me/") ||
       link.startsWith("https://api.whatsapp.com/") ||
@@ -97,7 +109,6 @@ function buildActionHref(
     }
 
     const phone = link.replace(/[^0-9]/g, "");
-
     return phone ? `https://wa.me/${phone}` : "";
   }
 

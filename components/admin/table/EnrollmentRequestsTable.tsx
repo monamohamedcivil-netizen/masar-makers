@@ -19,6 +19,8 @@ export interface EnrollmentRequestRow {
   courseTitle: string;
   stationTitle: string;
   journeyType: string;
+  actionKey: string;
+  actionTitle: string;
   status: string;
   createdAt: string;
 }
@@ -74,6 +76,8 @@ export default function EnrollmentRequestsTable({
         request.studentPhone,
         request.courseTitle,
         request.stationTitle,
+        request.actionTitle,
+        request.actionKey,
         request.journeyType,
       ]
         .join(" ")
@@ -136,7 +140,7 @@ export default function EnrollmentRequestsTable({
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px] text-right">
+          <table className="w-full min-w-[1280px] text-right">
             <thead className="bg-slate-50">
               <tr className="border-b border-slate-200">
                 <th className="px-5 py-4 text-xs font-black text-slate-500">
@@ -148,7 +152,11 @@ export default function EnrollmentRequestsTable({
                 </th>
 
                 <th className="px-5 py-4 text-xs font-black text-slate-500">
-                  الرحلة
+                  العنصر
+                </th>
+
+                <th className="px-5 py-4 text-xs font-black text-slate-500">
+                  نوع الرحلة
                 </th>
 
                 <th className="px-5 py-4 text-xs font-black text-slate-500">
@@ -207,6 +215,21 @@ export default function EnrollmentRequestsTable({
                     {request.stationTitle && (
                       <p className="mt-1 text-xs text-slate-500">
                         {request.stationTitle}
+                      </p>
+                    )}
+                  </td>
+
+                  <td className="px-5 py-4">
+                    <p className="font-bold text-[#07152E]">
+                      {request.actionTitle || request.courseTitle || "—"}
+                    </p>
+
+                    {request.actionKey && (
+                      <p
+                        className="mt-1 max-w-[260px] truncate font-mono text-[10px] text-slate-400"
+                        title={request.actionKey}
+                      >
+                        {request.actionKey}
                       </p>
                     )}
                   </td>

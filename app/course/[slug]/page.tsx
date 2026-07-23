@@ -70,7 +70,7 @@ import type {
 } from "@/lib/queries/catalog/stations";
 
 import CourseActionButton from "@/components/course/CourseActionButton";
-import { getEnrollment } from "@/lib/actions/enroll";
+import { getEnrollmentStatuses } from "@/lib/actions/enroll";
 
 type CoursePageProps = {
   params: Promise<{
@@ -88,7 +88,10 @@ type CoursePageData = {
   reviews: Review[];
   learningModes: CatalogCoursePanelItem[];
   resultTabs: CatalogCoursePanelItem[];
-  initialProfessionalContent: Partial<ProfessionalPanelDraft> | null;
+  initialPanelContents: Record<
+    string,
+    Partial<ProfessionalPanelDraft> | null
+  >;
 };
 
 export const dynamic = "force-dynamic";
@@ -141,9 +144,9 @@ export default async function CoursePage({
   const pageData =
     await loadCoursePageData(slug);
 
-const enrollment = pageData
-  ? await getEnrollment(slug)
-  : null;
+const enrollmentStatuses = pageData
+  ? await getEnrollmentStatuses(slug)
+  : {};
 
   if (!pageData) {
     notFound();
@@ -159,7 +162,7 @@ const enrollment = pageData
   reviews: courseReviews,
   learningModes,
   resultTabs,
-  initialProfessionalContent,
+  initialPanelContents,
 } = pageData;
 
   return (
@@ -191,7 +194,7 @@ const enrollment = pageData
   mode="student"
   stationId={station.id}
   course={course}
-  enrollmentStatus={enrollment?.status ?? null}
+  enrollmentStatuses={enrollmentStatuses}
   freeSessions={freeSessions}
   workshops={workshops}
   reviews={courseReviews}
@@ -205,7 +208,7 @@ const enrollment = pageData
     station.result_column_title ??
     "نتائج الرحلة"
   }
-  initialProfessionalContent={initialProfessionalContent}
+  initialPanelContents={initialPanelContents}
 />
     </main>
   );
@@ -503,16 +506,38 @@ const resultTabs =
     station.id
   );
 
-const storedProfessionalScreen =
-  await getCourseScreenContent(
-    station.id,
-    "professional"
-  );
+const panelComponents = Array.from(
+  new Set(
+    [...learningModes, ...resultTabs]
+      .map((item) => item.panel_component)
+      .filter(
+        (value): value is string =>
+          typeof value === "string" &&
+          value.trim().length > 0
+      )
+  )
+);
 
-const initialProfessionalContent =
-  mapStoredProfessionalContent(
-    storedProfessionalScreen
-  );
+const storedPanelEntries = await Promise.all(
+  panelComponents.map(async (panelComponent) => {
+    const storedScreen = await getCourseScreenContent(
+      station.id,
+      panelComponent
+    );
+
+    return [
+      panelComponent,
+      mapStoredProfessionalContent(storedScreen),
+    ] as const;
+  })
+);
+
+const initialPanelContents = Object.fromEntries(
+  storedPanelEntries
+) as Record<
+  string,
+  Partial<ProfessionalPanelDraft> | null
+>;
 
 return {
   course,
@@ -524,7 +549,7 @@ return {
   reviews,
   learningModes,
   resultTabs,
-  initialProfessionalContent,
+  initialPanelContents,
 };
 }
 
