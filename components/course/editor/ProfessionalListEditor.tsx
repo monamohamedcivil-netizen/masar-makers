@@ -155,7 +155,7 @@ export default function ProfessionalListEditor({
                           : {
                               buttonText: "شاهد الآن",
                               buttonLink: "",
-                              buttonMode: "link",
+                              buttonMode: "enrollment",
                             }),
                       });
                     }}
@@ -195,10 +195,6 @@ export default function ProfessionalListEditor({
                        <option value="enrollment">اشتراك (يتطلب موافقة)</option>
 
 <option value="free">رحلة مجانية</option>
-
-<option value="link">فتح رابط</option>
-
-<option value="whatsapp">واتساب</option>
                       </select>
                     </EditorField>
 

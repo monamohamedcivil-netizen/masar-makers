@@ -11,12 +11,24 @@ import type { WorkspaceDefinition, WorkspacePanelId } from "./types";
 type Props = {
   definition: WorkspaceDefinition;
   data: StudentDashboardData;
+  initialPanelId?: WorkspacePanelId;
 };
 
-export default function StudentWorkspace({ definition, data }: Props) {
-  const [activePanelId, setActivePanelId] = useState<WorkspacePanelId>(
-    definition.defaultPanelId,
-  );
+export default function StudentWorkspace({
+  definition,
+  data,
+  initialPanelId,
+}: Props) {
+  const validInitialPanel =
+    initialPanelId &&
+    definition.panels.some(
+      (panel) => panel.id === initialPanelId
+    )
+      ? initialPanelId
+      : definition.defaultPanelId;
+
+  const [activePanelId, setActivePanelId] =
+    useState<WorkspacePanelId>(validInitialPanel);
 
   const orderedPanels = useMemo(
     () => [...definition.panels].sort((a, b) => a.order - b.order),
@@ -39,13 +51,13 @@ export default function StudentWorkspace({ definition, data }: Props) {
     <section className="mx-auto max-w-[1500px] px-3 py-5 sm:px-6 lg:px-8">
       <div className="grid min-h-[610px] gap-4 lg:grid-cols-[230px_minmax(0,1fr)_230px] xl:grid-cols-[250px_minmax(0,1fr)_250px]">
         <aside className="hidden lg:block order-3 lg:order-3">
-  <WorkspaceSidebar
-    title="إنجازاتي"
-    panels={achievementPanels}
-    activePanelId={activePanel.id}
-    onSelect={setActivePanelId}
-  />
-</aside>
+          <WorkspaceSidebar
+            title="إنجازاتي"
+            panels={achievementPanels}
+            activePanelId={activePanel.id}
+            onSelect={setActivePanelId}
+          />
+        </aside>
 
         <main className="order-2 min-w-0 overflow-hidden border border-[#DCE2EA] bg-white shadow-[0_10px_28px_rgba(7,21,46,0.07)]">
           <div className="flex gap-2 overflow-x-auto border-b border-slate-200 bg-[#07152E] p-3 lg:hidden">
@@ -72,13 +84,13 @@ export default function StudentWorkspace({ definition, data }: Props) {
         </main>
 
         <aside className="hidden lg:block order-1 lg:order-1">
-  <WorkspaceSidebar
-    title="رحلاتي"
-    panels={learningPanels}
-    activePanelId={activePanel.id}
-    onSelect={setActivePanelId}
-  />
-</aside>
+          <WorkspaceSidebar
+            title="رحلاتي"
+            panels={learningPanels}
+            activePanelId={activePanel.id}
+            onSelect={setActivePanelId}
+          />
+        </aside>
       </div>
     </section>
   );

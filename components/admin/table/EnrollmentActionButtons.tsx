@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Check, Loader2, X } from "lucide-react";
+import { Check, Loader2, TriangleAlert, X } from "lucide-react";
 
 import {
   approveEnrollment,
@@ -19,9 +19,9 @@ export default function EnrollmentActionButtons({
   status,
 }: EnrollmentActionButtonsProps) {
   const router = useRouter();
-
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
+  const [warning, setWarning] = useState("");
 
   const normalizedStatus = status.toLowerCase();
 
@@ -41,29 +41,25 @@ export default function EnrollmentActionButtons({
     if (!confirmed) return;
 
     setError("");
+    setWarning("");
 
     startTransition(async () => {
       try {
         const result = await approveEnrollment(enrollmentId);
 
-        if (
-          result &&
-          typeof result === "object" &&
-          "success" in result &&
-          result.success === false
-        ) {
-          throw new Error(
-            "message" in result && typeof result.message === "string"
-              ? result.message
-              : "تعذر اعتماد الطلب.",
-          );
+        if (!result.success) {
+          throw new Error(result.message || "تعذر اعتماد الطلب.");
+        }
+
+        if (result.warning) {
+          setWarning(result.warning);
         }
 
         router.refresh();
-      } catch (error) {
+      } catch (caughtError) {
         setError(
-          error instanceof Error
-            ? error.message
+          caughtError instanceof Error
+            ? caughtError.message
             : "حدث خطأ أثناء اعتماد الطلب.",
         );
       }
@@ -78,29 +74,21 @@ export default function EnrollmentActionButtons({
     if (!confirmed) return;
 
     setError("");
+    setWarning("");
 
     startTransition(async () => {
       try {
         const result = await rejectEnrollment(enrollmentId);
 
-        if (
-          result &&
-          typeof result === "object" &&
-          "success" in result &&
-          result.success === false
-        ) {
-          throw new Error(
-            "message" in result && typeof result.message === "string"
-              ? result.message
-              : "تعذر رفض الطلب.",
-          );
+        if (!result.success) {
+          throw new Error(result.message || "تعذر رفض الطلب.");
         }
 
         router.refresh();
-      } catch (error) {
+      } catch (caughtError) {
         setError(
-          error instanceof Error
-            ? error.message
+          caughtError instanceof Error
+            ? caughtError.message
             : "حدث خطأ أثناء رفض الطلب.",
         );
       }
@@ -108,7 +96,7 @@ export default function EnrollmentActionButtons({
   };
 
   return (
-    <div>
+    <div className="min-w-[230px]">
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -121,7 +109,6 @@ export default function EnrollmentActionButtons({
           ) : (
             <Check className="h-4 w-4" />
           )}
-
           قبول
         </button>
 
@@ -135,6 +122,13 @@ export default function EnrollmentActionButtons({
           رفض
         </button>
       </div>
+
+      {warning && (
+        <p className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs font-medium leading-5 text-amber-800">
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{warning}</span>
+        </p>
+      )}
 
       {error && (
         <p className="mt-2 text-xs font-medium text-red-600">

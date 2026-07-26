@@ -1,15 +1,9 @@
 "use client";
 
-import type { ReactNode } from "react";
-
 import CourseActionButton from "./CourseActionButton";
 import type { EnrollmentStatus } from "@/lib/actions/enroll";
 
-type PlatformActionMode =
-  | "enrollment"
-  | "free"
-  | "whatsapp"
-  | "link";
+type PlatformActionMode = "enrollment" | "free";
 
 type PlatformActionButtonProps = {
   label: string;
@@ -23,7 +17,6 @@ type PlatformActionButtonProps = {
   actionTitle?: string;
   itemTitle?: string;
   className?: string;
-  children?: ReactNode;
 };
 
 export default function PlatformActionButton({
@@ -38,83 +31,25 @@ export default function PlatformActionButton({
   actionTitle,
   itemTitle,
   className = "",
-  children,
 }: PlatformActionButtonProps) {
- if (mode === "enrollment" || mode === "free") {
-    if (!courseId) {
-      return null;
-    }
-
-    return (
-      <div className={className}>
-       <CourseActionButton
-    courseId={courseId}
-
-    label={label}
-
-    mode={mode}
-
-    stationId={stationId}
-
-    journeyType={journeyType}
-
-    enrollmentStatus={enrollmentStatus}
-    actionKey={actionKey}
-    actionTitle={actionTitle}
-    itemTitle={itemTitle}
-    link={link}
-/>
-      </div>
-    );
-  }
-
-  const href = buildActionHref(mode, link);
-
-  if (!href) {
-    return (
-      <button
-        type="button"
-        disabled
-        className={`${className} cursor-not-allowed opacity-50`}
-      >
-        {children ?? label}
-      </button>
-    );
+  if (!courseId) {
+    return null;
   }
 
   return (
-    <a href={href} target="_blank" rel="noreferrer" className={className}>
-      {children ?? label}
-    </a>
+    <div className={className}>
+      <CourseActionButton
+        courseId={courseId}
+        label={label}
+        mode={mode}
+        stationId={stationId}
+        journeyType={journeyType}
+        enrollmentStatus={enrollmentStatus}
+        actionKey={actionKey}
+        actionTitle={actionTitle}
+        itemTitle={itemTitle}
+        link={link}
+      />
+    </div>
   );
-}
-
-function buildActionHref(
-    mode: Exclude<PlatformActionMode, "enrollment" | "free">,
-  rawLink?: string | null,
-): string {
-  const link = rawLink?.trim();
-
-  if (!link) {
-    return "";
-  }
-
-  if (mode === "whatsapp") {
-    if (
-      link.startsWith("https://wa.me/") ||
-      link.startsWith("https://api.whatsapp.com/") ||
-      link.startsWith("whatsapp://")
-    ) {
-      return link;
-    }
-
-    const phone = link.replace(/[^0-9]/g, "");
-    return phone ? `https://wa.me/${phone}` : "";
-  }
-
-  if (/^https?:\/\//i.test(link)) {
-    return link;
-  }
-
-  return `https://${link}`;
 }

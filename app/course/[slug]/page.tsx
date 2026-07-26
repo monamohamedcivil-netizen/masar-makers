@@ -70,7 +70,7 @@ import type {
 } from "@/lib/queries/catalog/stations";
 
 import CourseActionButton from "@/components/course/CourseActionButton";
-import { getEnrollmentStatuses } from "@/lib/actions/enroll";
+import { getCourseEnrollmentAccess } from "@/lib/actions/enroll";
 
 type CoursePageProps = {
   params: Promise<{
@@ -144,9 +144,18 @@ export default async function CoursePage({
   const pageData =
     await loadCoursePageData(slug);
 
-const enrollmentStatuses = pageData
-  ? await getEnrollmentStatuses(slug)
-  : {};
+const enrollmentAccess = pageData
+  ? await getCourseEnrollmentAccess(slug)
+  : {
+      statuses: {},
+      journeyTypes: [],
+      hasFundamental: false,
+      hasAdvanced: false,
+      hasIntegrated: false,
+      showFundamental: true,
+      showAdvanced: true,
+      showIntegrated: true,
+    };
 
   if (!pageData) {
     notFound();
@@ -194,7 +203,8 @@ const enrollmentStatuses = pageData
   mode="student"
   stationId={station.id}
   course={course}
-  enrollmentStatuses={enrollmentStatuses}
+  enrollmentStatuses={enrollmentAccess.statuses}
+  enrollmentAccess={enrollmentAccess}
   freeSessions={freeSessions}
   workshops={workshops}
   reviews={courseReviews}

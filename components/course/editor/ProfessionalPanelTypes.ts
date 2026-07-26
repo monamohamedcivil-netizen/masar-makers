@@ -4,9 +4,7 @@ export type ProfessionalJourneyColumn =
 
 export type ProfessionalActionMode =
   | "enrollment"
-  | "free"
-  | "whatsapp"
-  | "link";
+  | "free";
 
 export type ProfessionalVideoProvider =
   | "youtube"
@@ -17,7 +15,7 @@ export type ProfessionalActionConfig = {
   enabled: boolean;
   label: string;
   link: string;
-  mode: ProfessionalActionMode | "enrollment";
+  mode: ProfessionalActionMode;
 
   courseSlug: string;
   journeyType: string;

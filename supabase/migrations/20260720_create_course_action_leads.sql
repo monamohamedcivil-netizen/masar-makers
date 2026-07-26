@@ -26,6 +26,13 @@ create index if not exists course_action_leads_created_at_idx
 
 alter table public.course_action_leads enable row level security;
 
+-- الجديد
+drop policy if exists "authenticated users can insert own course action leads"
+on public.course_action_leads;
+
+drop policy if exists "authenticated users can view own course action leads"
+on public.course_action_leads;
+
 create policy "authenticated users can insert own course action leads"
 on public.course_action_leads
 for insert

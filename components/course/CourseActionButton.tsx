@@ -121,10 +121,10 @@ export default function CourseActionButton({
   setSuccessMessage("تمت إضافة الرحلة المجانية إلى رحلاتي.");
   router.refresh();
   whatsappWindow?.close();
-   const startUrl = link?.trim();
+  const startUrl = link?.trim();
 
   if (startUrl) {
-    window.location.href = startUrl;
+    window.open(startUrl, "_blank", "noopener,noreferrer");
   }
 
   return;
@@ -170,7 +170,7 @@ export default function CourseActionButton({
         if (whatsappWindow) {
           whatsappWindow.location.href = whatsappUrl;
         } else {
-          window.location.href = whatsappUrl;
+          window.open(whatsappUrl, "_blank", "noopener,noreferrer");
         }
       } else {
         whatsappWindow?.close();
@@ -190,6 +190,8 @@ export default function CourseActionButton({
     return (
       <a
         href={startUrl}
+        target="_blank"
+        rel="noopener noreferrer"
         className="flex h-12 w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-3 font-black text-white transition hover:bg-emerald-700"
       >
         استكمل الرحلة
@@ -244,7 +246,7 @@ export default function CourseActionButton({
         type="button"
         onClick={handleEnrollment}
         disabled={isPending}
-        className="h-12 w-full rounded-xl bg-red-600 px-4 py-3 font-black text-white transition hover:bg-red-700 disabled:opacity-60"
+        className="h-12 w-full rounded-xl bg-[#F7B548] px-4 py-3 font-black text-[#07152E] transition hover:brightness-105 disabled:cursor-wait disabled:opacity-60"
       >
         {isPending ? "جارٍ إعادة إرسال الطلب..." : "أعد إرسال طلب الاشتراك"}
       </button>

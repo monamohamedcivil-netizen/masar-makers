@@ -1,5 +1,5 @@
 "use client";
-
+import CertificatesPanel from "./CertificatesPanel";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -84,15 +84,12 @@ export default function WorkspacePanelContent({
     case "next-step":
       return <NextStepPanel data={data} />;
 
-    case "certificates":
-      return (
-        <EmptyPanel
-          icon={FileCheck2}
-          title="لا توجد شهادات بعد"
-          text="أكمل أول رحلة لتظهر شهادتك هنا."
-          href="/career-path/road-design"
-        />
-      );
+  case "certificates":
+  return (
+    <CertificatesPanel
+      certificates={data.certificates}
+    />
+  );
 
     case "achievement-card":
       return (

@@ -32,7 +32,7 @@ export default function TrackedCourseActionButton({
   sourceTitle,
   label,
   link = "",
-  mode = "whatsapp",
+  mode = "enrollment",
   className = "",
 }: TrackedCourseActionButtonProps) {
   const [isSending, setIsSending] = useState(false);
@@ -85,16 +85,14 @@ export default function TrackedCourseActionButton({
         message
       )}`;
 
-      if (mode === "link" && link) {
-        window.open(link, "_blank", "noopener,noreferrer");
+      if (mode === "free") {
+        if (link) {
+          window.open(link, "_blank", "noopener,noreferrer");
+        }
         return;
       }
 
-      if (mode === "link_and_whatsapp" && link) {
-        window.open(link, "_blank", "noopener,noreferrer");
-      }
-
-      window.location.href = whatsappUrl;
+      window.open(whatsappUrl, "_blank", "noopener,noreferrer");
     } catch (error) {
       console.error("Failed to process course action:", error);
       window.alert("حدث خطأ أثناء إرسال الطلب.");

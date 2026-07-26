@@ -116,6 +116,18 @@ export type StudentNextStepSection = {
   groups: StudentNextStepStationGroup[];
 };
 
+export type StudentCertificate = {
+  id: string;
+  certificateNumber: string;
+  courseTitle: string;
+  issuedAt: string;
+  previewUrl: string | null;
+  pdfUrl: string | null;
+  primaryColor: string;
+  secondaryColor: string;
+  isNew: boolean;
+};
+
 export type StudentDashboardData = {
   studentName: string;
   studentEmail: string;
@@ -126,12 +138,25 @@ export type StudentDashboardData = {
   oneDayJourneyGroups: StudentOneDayJourneyGroup[];
   freeJourneyGroups: StudentFreeJourneyGroup[];
   nextStepSections: StudentNextStepSection[];
+  certificates: StudentCertificate[];
   summary: {
     active: number;
     completed: number;
     pending: number;
     averageProgress: number;
   };
+};
+
+type CertificateRow = {
+  id: string;
+  certificate_number: string;
+  course_title: string;
+  issued_at: string;
+  preview_url: string | null;
+  pdf_url: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  is_new: boolean | null;
 };
 
 type EnrollmentRow = {
@@ -305,6 +330,7 @@ function emptyDashboard(
     careerPaths: [],
     oneDayJourneyGroups: [],
     freeJourneyGroups: [],
+    certificates: [],
     nextStepSections: createEmptyNextStepSections(),
     summary: {
       active: 0,
@@ -477,7 +503,11 @@ export async function getStudentDashboardData(): Promise<StudentDashboardData> {
     throw new Error("UNAUTHENTICATED");
   }
 
-  const [{ data: profile }, enrollmentResult] = await Promise.all([
+  const [
+    { data: profile },
+    enrollmentResult,
+    certificatesResult,
+  ] = await Promise.all([
     supabase
       .from("profiles")
       .select("full_name,email")
@@ -488,10 +518,25 @@ export async function getStudentDashboardData(): Promise<StudentDashboardData> {
       .select("id,course_id,status,journey_type,action_key,action_title")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("certificates")
+      .select(
+        "id,certificate_number,course_title,issued_at,preview_url,pdf_url,primary_color,secondary_color,is_new",
+      )
+      .eq("user_id", user.id)
+      .eq("status", "issued")
+      .order("issued_at", { ascending: false }),
   ]);
 
   if (enrollmentResult.error) {
     throw new Error(enrollmentResult.error.message);
+  }
+
+  if (certificatesResult.error) {
+    console.error(
+      "Failed to load certificates:",
+      certificatesResult.error.message,
+    );
   }
 
   const studentName =
@@ -500,6 +545,40 @@ export async function getStudentDashboardData(): Promise<StudentDashboardData> {
     "مهندس مسار";
 
   const studentEmail = profile?.email || user.email || "";
+
+  const certificateRows = certificatesResult.error
+    ? []
+    : ((certificatesResult.data ?? []) as CertificateRow[]);
+
+const certificates: StudentCertificate[] = certificateRows.map(
+  (certificate) => ({
+    id: certificate.id,
+
+    certificateNumber: certificate.certificate_number,
+
+    courseTitle: certificate.course_title,
+
+    issuedAt: certificate.issued_at,
+
+    // صفحة عرض الشهادة
+    previewUrl:
+      certificate.preview_url ??
+      `/certificates/${certificate.id}`,
+
+    // توليد PDF مباشرة
+    pdfUrl:
+      certificate.pdf_url ??
+      `/api/certificates/${certificate.id}/pdf`,
+
+    primaryColor:
+      certificate.primary_color ?? "#F7B548",
+
+    secondaryColor:
+      certificate.secondary_color ?? "#07152E",
+
+    isNew: Boolean(certificate.is_new),
+  }),
+);
 
   const enrollmentRows = (enrollmentResult.data ?? []) as EnrollmentRow[];
 
@@ -512,7 +591,10 @@ export async function getStudentDashboardData(): Promise<StudentDashboardData> {
   ];
 
   if (courseIds.length === 0) {
-    return emptyDashboard(studentName, studentEmail);
+    return {
+      ...emptyDashboard(studentName, studentEmail),
+      certificates,
+    };
   }
 
   const coursesResult = await supabase
@@ -1295,6 +1377,7 @@ export async function getStudentDashboardData(): Promise<StudentDashboardData> {
     oneDayJourneyGroups,
     freeJourneyGroups,
     nextStepSections,
+    certificates,
     summary: {
       active: activeCourses.length,
       completed: completedCourses.length,

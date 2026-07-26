@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Bell,
   BellRing,
@@ -15,61 +15,38 @@ import {
 
 import { createClient } from "@/lib/supabase/client";
 
-type NotificationType =
-  | "journey"
-  | "course"
-  | "announcement"
-  | "gift"
-  | "free_session"
-  | "workshop"
-  | "journey_available"
-  | "journey_update"
-  | "live_session"
-  | "new_content"
-  | "general";
-
-type NotificationDetails = {
-  id: string;
-  title: string;
-  body: string;
-  type: NotificationType | string;
-  action_url: string | null;
-  created_at: string;
-};
-
-type NotificationRecipient = {
-  notification_id: string;
-  user_id: string;
-  is_read: boolean;
-  read_at: string | null;
-  created_at: string;
-  notifications:
-    | NotificationDetails
-    | NotificationDetails[]
-    | null;
-};
-
 type DisplayNotification = {
   notificationId: string;
-  isRead: boolean;
-  readAt: string | null;
-  receivedAt: string;
-  notification: NotificationDetails;
+  title: string;
+  body: string;
+  type: string;
+  actionUrl: string | null;
+  createdAt: string;
+};
+
+type NotificationRpcRow = {
+  notification_id: string;
+  is_read: boolean;
+  read_at: string | null;
+  received_at: string;
+  title: string;
+  body: string;
+  type: string;
+  action_url: string | null;
+  notification_created_at: string;
 };
 
 export default function NotificationCenter() {
+  const router = useRouter();
+
   const [notifications, setNotifications] =
     useState<DisplayNotification[]>([]);
-
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [actionPending, setActionPending] = useState(false);
   const [error, setError] = useState("");
 
   const containerRef = useRef<HTMLDivElement>(null);
-
-  const unreadCount = notifications.filter(
-    (item) => !item.isRead
-  ).length;
 
   const loadNotifications = useCallback(async () => {
     setLoading(true);
@@ -83,82 +60,44 @@ export default function NotificationCenter() {
         error: userError,
       } = await supabase.auth.getUser();
 
-      if (userError) {
-        throw userError;
-      }
+      if (userError) throw userError;
 
       if (!user) {
         setNotifications([]);
         return;
       }
 
-      const { data, error: selectError } =
-        await supabase
-          .from("notification_recipients")
-          .select(`
-            notification_id,
-            user_id,
-            is_read,
-            read_at,
-            created_at,
-            notifications (
-              id,
-              title,
-              body,
-              type,
-              action_url,
-              created_at
-            )
-          `)
-          .eq("user_id", user.id)
-          .order("created_at", {
-            ascending: false,
-          })
-          .limit(20);
+      const { data, error: rpcError } = await supabase.rpc(
+        "get_my_notifications",
+        { p_limit: 20 },
+      );
 
-      if (selectError) {
-        throw selectError;
-      }
+      if (rpcError) throw rpcError;
 
-      const formatted = (
-        (data ?? []) as NotificationRecipient[]
-      )
-        .map((recipient) => {
-          const relatedNotification =
-            Array.isArray(recipient.notifications)
-              ? recipient.notifications[0]
-              : recipient.notifications;
-
-          if (!relatedNotification) {
-            return null;
-          }
-
-          return {
-            notificationId:
-              recipient.notification_id,
-            isRead: recipient.is_read,
-            readAt: recipient.read_at,
-            receivedAt: recipient.created_at,
-            notification: relatedNotification,
-          };
-        })
-        .filter(
-          (
-            item
-          ): item is DisplayNotification =>
-            Boolean(item)
-        );
+      const formatted = ((data ?? []) as NotificationRpcRow[])
+        .filter((row) => row.is_read === false)
+        .map((row) => ({
+          notificationId: row.notification_id,
+          title: row.title,
+          body: row.body,
+          type: row.type,
+          actionUrl: row.action_url,
+          createdAt: row.notification_created_at,
+        }));
 
       setNotifications(formatted);
     } catch (loadError) {
-      console.error(
-        "Failed to load notifications:",
-        loadError
-      );
+      console.error("Failed to load notifications:", loadError);
 
-      setError(
-        "تعذر تحميل الإشعارات حاليًا."
-      );
+      const message =
+        typeof loadError === "object" &&
+        loadError !== null &&
+        "message" in loadError &&
+        typeof loadError.message === "string"
+          ? loadError.message
+          : "تعذر تحميل الإشعارات حاليًا.";
+
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -169,133 +108,148 @@ export default function NotificationCenter() {
   }, [loadNotifications]);
 
   useEffect(() => {
-    const closeOnOutsideClick = (
-      event: MouseEvent
-    ) => {
+    const refresh = () => void loadNotifications();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refresh();
+      }
+    };
+
+    window.addEventListener("focus", refresh);
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange,
+    );
+
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange,
+      );
+    };
+  }, [loadNotifications]);
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event: MouseEvent) => {
       if (
         containerRef.current &&
-        !containerRef.current.contains(
-          event.target as Node
-        )
+        !containerRef.current.contains(event.target as Node)
       ) {
         setOpen(false);
       }
     };
 
-    document.addEventListener(
-      "mousedown",
-      closeOnOutsideClick
-    );
+    document.addEventListener("mousedown", closeOnOutsideClick);
 
     return () => {
       document.removeEventListener(
         "mousedown",
-        closeOnOutsideClick
+        closeOnOutsideClick,
       );
     };
   }, []);
 
   const markAsRead = async (
-    notificationId: string
-  ) => {
-    const target = notifications.find(
-      (item) =>
-        item.notificationId === notificationId
-    );
-
-    if (!target || target.isRead) {
-      return;
-    }
-
-    // تحديث الواجهة فورًا
-    setNotifications((current) =>
-      current.map((item) =>
-        item.notificationId === notificationId
-          ? {
-              ...item,
-              isRead: true,
-              readAt: new Date().toISOString(),
-            }
-          : item
-      )
-    );
-
+    notificationId: string,
+  ): Promise<boolean> => {
     const supabase = createClient();
 
-    const { error: updateError } =
-      await supabase
-        .from("notification_recipients")
-        .update({
-          is_read: true,
-          read_at: new Date().toISOString(),
-        })
-        .eq(
-          "notification_id",
-          notificationId
-        );
+    const { data, error: rpcError } = await supabase.rpc(
+      "mark_my_notification_read",
+      {
+        p_notification_id: notificationId,
+      },
+    );
 
-    if (updateError) {
+    if (rpcError) {
       console.error(
         "Failed to mark notification as read:",
-        updateError
+        rpcError,
       );
+      setError(rpcError.message);
+      return false;
+    }
 
-      // استعادة الحالة عند فشل التحديث
-      setNotifications((current) =>
-        current.map((item) =>
-          item.notificationId === notificationId
-            ? {
-                ...item,
-                isRead: false,
-                readAt: null,
-              }
-            : item
-        )
-      );
+    if (data !== true) {
+      setError("تعذر تحديث حالة الإشعار.");
+      return false;
+    }
+
+    setNotifications((current) =>
+      current.filter(
+        (item) =>
+          item.notificationId !== notificationId,
+      ),
+    );
+
+    return true;
+  };
+
+  const openNotification = async (
+    notification: DisplayNotification,
+  ) => {
+    if (actionPending) return;
+
+    setActionPending(true);
+    setError("");
+
+    const marked = await markAsRead(
+      notification.notificationId,
+    );
+
+    setActionPending(false);
+
+    if (!marked) return;
+
+    setOpen(false);
+
+    if (notification.actionUrl) {
+      /*
+       * Do not refresh immediately after navigation. Refreshing the current
+       * route can finish before router.push(), so the notification disappears
+       * without opening its target page.
+       */
+      router.push(notification.actionUrl);
     }
   };
 
   const markAllAsRead = async () => {
-    const unreadIds = notifications
-      .filter((item) => !item.isRead)
-      .map((item) => item.notificationId);
-
-    if (unreadIds.length === 0) {
+    if (
+      notifications.length === 0 ||
+      actionPending
+    ) {
       return;
     }
 
-    setNotifications((current) =>
-      current.map((item) => ({
-        ...item,
-        isRead: true,
-        readAt:
-          item.readAt ??
-          new Date().toISOString(),
-      }))
-    );
+    setActionPending(true);
+    setError("");
 
     const supabase = createClient();
 
-    const { error: updateError } =
-      await supabase
-        .from("notification_recipients")
-        .update({
-          is_read: true,
-          read_at: new Date().toISOString(),
-        })
-        .in(
-          "notification_id",
-          unreadIds
-        );
+    const { data, error: rpcError } = await supabase.rpc(
+      "mark_all_my_notifications_read",
+    );
 
-    if (updateError) {
+    if (rpcError) {
       console.error(
-        "Failed to mark all as read:",
-        updateError
+        "Failed to mark all notifications as read:",
+        rpcError,
       );
-
-      void loadNotifications();
+      setError(rpcError.message);
+      setActionPending(false);
+      return;
     }
+
+    if (typeof data !== "number") {
+      setError("تعذر تحديث الإشعارات.");
+      setActionPending(false);
+      return;
+    }
+
+    setNotifications([]);
+    setActionPending(false);
   };
 
   return (
@@ -306,75 +260,46 @@ export default function NotificationCenter() {
     >
       <button
         type="button"
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => {
+          const nextOpen = !open;
+          setOpen(nextOpen);
+
+          if (nextOpen) {
+            void loadNotifications();
+          }
+        }}
         aria-label="مركز الإشعارات"
         aria-expanded={open}
-        className="
-          group flex items-center gap-3
-          rounded-full transition h-16
-        "
+        className="group flex h-16 items-center gap-3 rounded-full transition"
       >
         <span className="hidden text-[18px] font-black text-[#07152E] lg:block">
           مركز الإشعارات
         </span>
 
-        <span
-          className="
-            relative flex h-7 w-7
-            items-center justify-center top-0
-            rounded-full bg-[#07152E]
-            text-white shadow-md
-            transition duration-300
-            group-hover:bg-[#F7B548]
-            group-hover:text-[#07152E]
-          "
-        >
+        <span className="relative flex h-7 w-7 items-center justify-center rounded-full bg-[#07152E] text-white shadow-md transition duration-300 group-hover:bg-[#F7B548] group-hover:text-[#07152E]">
           <Bell size={16} />
 
-          {unreadCount > 0 && (
-            <span
-              className="
-                absolute -right-1 -top-1
-                flex h-5 min-w-5 items-center
-                justify-center rounded-full
-                border-2 border-white
-                bg-red-500 px-1
-                text-[9px] font-black text-white
-              "
-            >
-              {unreadCount > 99
+          {notifications.length > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[9px] font-black text-white">
+              {notifications.length > 99
                 ? "99+"
-                : unreadCount}
+                : notifications.length}
             </span>
           )}
         </span>
       </button>
 
       {open && (
-        <div
-          className="
-            absolute right-0 top-[63px] z-[200]
-            w-[380px] max-w-[calc(100vw-24px)]
-            overflow-hidden 
-            border border-[#DCE3EC]
-            bg-white
-            shadow-[0_25px_70px_rgba(7,21,46,0.22)]
-          "
-        >
-          {/* Header */}
+        <div className="absolute right-0 top-[63px] z-[200] w-[380px] max-w-[calc(100vw-24px)] overflow-hidden border border-[#DCE3EC] bg-white shadow-[0_25px_70px_rgba(7,21,46,0.22)]">
           <div className="flex items-center justify-between bg-[#07152E] px-5 py-2 text-white">
             <div className="flex items-center gap-3">
               <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-[#F7B548]/15 text-[#F7B548]">
                 <BellRing size={16} />
               </div>
 
-              <div>
-                <h2 className="text-[16px] font-black">
-                  الإشعارات
-                </h2>
-
-                
-              </div>
+              <h2 className="text-[16px] font-black">
+                الإشعارات
+              </h2>
             </div>
 
             <button
@@ -387,18 +312,15 @@ export default function NotificationCenter() {
             </button>
           </div>
 
-          {/* Actions */}
-          {unreadCount > 0 && (
+          {notifications.length > 0 && (
             <div className="flex justify-end border-b border-[#E7EBF0] px-4 py-2">
               <button
                 type="button"
-                onClick={markAllAsRead}
-                className="
-                  flex items-center gap-1.5
-                  text-[10px] font-black
-                  text-[#B87808] transition
-                  hover:text-[#07152E]
-                "
+                onClick={() =>
+                  void markAllAsRead()
+                }
+                disabled={actionPending}
+                className="flex items-center gap-1.5 text-[10px] font-black text-[#B87808] transition hover:text-[#07152E] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Check size={13} />
                 تحديد الكل كمقروء
@@ -406,7 +328,6 @@ export default function NotificationCenter() {
             </div>
           )}
 
-          {/* Content */}
           <div className="max-h-[420px] overflow-y-auto p-3">
             {loading ? (
               <div className="flex min-h-[180px] items-center justify-center">
@@ -414,9 +335,15 @@ export default function NotificationCenter() {
               </div>
             ) : error ? (
               <div className="flex min-h-[180px] items-center justify-center px-6 text-center">
-                <p className="text-[11px] font-bold text-red-600">
-                  {error}
-                </p>
+                <div>
+                  <p className="text-[11px] font-bold text-red-600">
+                    تعذر تنفيذ الإجراء
+                  </p>
+
+                  <p className="mt-2 break-words text-[9px] text-slate-500">
+                    {error}
+                  </p>
+                </div>
               </div>
             ) : notifications.length === 0 ? (
               <div className="flex min-h-[200px] flex-col items-center justify-center px-6 text-center">
@@ -425,28 +352,25 @@ export default function NotificationCenter() {
                 </div>
 
                 <h3 className="mt-3 text-[14px] font-black text-[#07152E]">
-                  لا توجد إشعارات
+                  لا توجد إشعارات جديدة
                 </h3>
-
-                <p className="mt-1 text-[10px] font-medium leading-5 text-slate-500">
-                  ستظهر هنا أخبار الرحلات والتحديثات الجديدة.
-                </p>
               </div>
             ) : (
               <div className="space-y-2">
                 {notifications.map((item) => (
-                  <NotificationItem
+                  <button
                     key={item.notificationId}
-                    item={item}
-                    onOpen={() =>
-                      void markAsRead(
-                        item.notificationId
-                      )
+                    type="button"
+                    disabled={actionPending}
+                    onClick={() =>
+                      void openNotification(item)
                     }
-                    closeMenu={() =>
-                      setOpen(false)
-                    }
-                  />
+                    className="block w-full disabled:cursor-wait disabled:opacity-70"
+                  >
+                    <NotificationItem
+                      item={item}
+                    />
+                  </button>
                 ))}
               </div>
             )}
@@ -457,101 +381,33 @@ export default function NotificationCenter() {
   );
 }
 
-type NotificationItemProps = {
-  item: DisplayNotification;
-  onOpen: () => void;
-  closeMenu: () => void;
-};
-
 function NotificationItem({
   item,
-  onOpen,
-  closeMenu,
-}: NotificationItemProps) {
-  const { notification } = item;
+}: {
+  item: DisplayNotification;
+}) {
+  return (
+    <div className="relative flex gap-3 rounded-[16px] border border-[#F7B548]/45 bg-[#FFF9EC] px-3 py-3 text-right shadow-[0_6px_18px_rgba(247,181,72,0.08)] transition duration-200">
+      <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#F7B548]" />
 
-  const content = (
-    <div
-      className={`
-        relative flex gap-3 rounded-[16px]
-        border px-3 py-3 text-right
-        transition duration-200
-        ${
-          item.isRead
-            ? `
-              border-[#E5E9EF]
-              bg-[#F8FAFC]
-              hover:bg-white
-            `
-            : `
-              border-[#F7B548]/45
-              bg-[#FFF9EC]
-              shadow-[0_6px_18px_rgba(247,181,72,0.08)]
-            `
-        }
-      `}
-    >
-      {!item.isRead && (
-        <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#F7B548]" />
-      )}
-
-      <div
-        className={`
-          flex h-10 w-10 shrink-0
-          items-center justify-center
-          rounded-xl
-          ${
-            item.isRead
-              ? "bg-white text-slate-500"
-              : "bg-[#F7B548] text-[#07152E]"
-          }
-        `}
-      >
-        <NotificationIcon
-          type={notification.type}
-        />
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F7B548] text-[#07152E]">
+        <NotificationIcon type={item.type} />
       </div>
 
       <div className="min-w-0 flex-1">
         <h3 className="line-clamp-1 text-[12px] font-black text-[#07152E]">
-          {notification.title}
+          {item.title}
         </h3>
 
         <p className="mt-1 line-clamp-2 text-[10px] font-medium leading-5 text-slate-500">
-          {notification.body}
+          {item.body}
         </p>
 
         <p className="mt-1.5 text-[9px] font-bold text-[#B87808]">
-          {formatNotificationDate(
-            notification.created_at
-          )}
+          {formatNotificationDate(item.createdAt)}
         </p>
       </div>
     </div>
-  );
-
-  if (notification.action_url) {
-    return (
-      <Link
-        href={notification.action_url}
-        onClick={() => {
-          onOpen();
-          closeMenu();
-        }}
-      >
-        {content}
-      </Link>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="block w-full"
-    >
-      {content}
-    </button>
   );
 }
 
@@ -584,15 +440,12 @@ function NotificationIcon({
 }
 
 function formatNotificationDate(
-  dateValue: string
+  dateValue: string,
 ) {
   const date = new Date(dateValue);
 
-  return new Intl.DateTimeFormat(
-    "ar-SA",
-    {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }
-  ).format(date);
+  return new Intl.DateTimeFormat("ar-SA", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
 }

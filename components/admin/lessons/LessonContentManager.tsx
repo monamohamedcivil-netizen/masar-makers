@@ -89,7 +89,7 @@ export default function LessonContentManager({ initialLessons, courses, journeys
     </div>
 
     {editing && <LessonDialog editing={editing} setEditing={setEditing} courses={courses} journeys={journeys} pending={pending} close={()=>setEditing(null)} submit={submitLesson} />}
-    {resourceLesson && <ResourcesDialog lesson={resourceLesson} resources={lessonResources(resourceLesson.id)} pending={pending} close={()=>setResourceLesson(null)} refresh={()=>window.location.reload()} remove={(id)=>startTransition(async()=>{const result=await deleteLessonResource(id);if(!result.success)return alert(result.message);setResources((items)=>items.filter((item)=>item.id!==id));})} preview={preview} />}
+    {resourceLesson && <ResourcesDialog lesson={resourceLesson} resources={lessonResources(resourceLesson.id)} pending={pending} close={()=>setResourceLesson(null)} refresh={()=>window.location.reload()} remove={(id: string)=>startTransition(async()=>{const result=await deleteLessonResource(id);if(!result.success)return alert(result.message);setResources((items)=>items.filter((item)=>item.id!==id));})} preview={preview} />}
   </div>;
 }
 

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import type { EnrollmentStatus } from "@/lib/actions/enroll";
+import { activateEnrollmentWorkflow } from "@/lib/workflows";
 
 export interface AdminEnrollmentRequest {
   id: string;
@@ -37,6 +38,7 @@ export interface AdminEnrollmentRequest {
 export interface AdminActionResult {
   success: boolean;
   message?: string;
+  warning?: string;
 }
 
 type EnrollmentRow = {
@@ -308,7 +310,30 @@ async function changeEnrollmentStatus(
 export async function approveEnrollment(
   enrollmentId: string,
 ): Promise<AdminActionResult> {
-  return changeEnrollmentStatus(enrollmentId, "active");
+  const { supabase } = await requireAdmin();
+
+  const result = await activateEnrollmentWorkflow(
+    supabase,
+    enrollmentId,
+  );
+
+  if (!result.success) {
+    return {
+      success: false,
+      message: result.message,
+    };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/students/enrollment-requests");
+  revalidatePath("/dashboard");
+
+  return {
+    success: true,
+    message: result.message,
+    warning: result.warning,
+  };
 }
 
 export async function rejectEnrollment(

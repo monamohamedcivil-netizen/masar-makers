@@ -12,6 +12,7 @@ export interface CourseFormData {
   image_url?: string;
   icon_url?: string;
   price?: number;
+  currency?: string;
   duration_hours?: number;
   journey_type?: string;
   status?: CourseStatus;
@@ -96,6 +97,7 @@ export async function createCourse(formData: CourseFormData) {
       image_url: formData.image_url?.trim() || null,
       icon_url: formData.icon_url?.trim() || null,
       price: Number(formData.price ?? 0),
+      currency: formData.currency?.trim().toUpperCase() || "SAR",
       duration_hours: Number(formData.duration_hours ?? 0),
       journey_type: formData.journey_type || "career_path",
       status: formData.status || "draft",
@@ -145,6 +147,7 @@ export async function updateCourse(
       image_url: formData.image_url?.trim() || null,
       icon_url: formData.icon_url?.trim() || null,
       price: Number(formData.price ?? 0),
+      currency: formData.currency?.trim().toUpperCase() || "SAR",
       duration_hours: Number(formData.duration_hours ?? 0),
       journey_type: formData.journey_type || "career_path",
       status: formData.status || "draft",
@@ -163,6 +166,7 @@ export async function updateCourse(
   }
 
   revalidatePath("/admin/learning/courses");
+  revalidatePath(`/admin/learning/courses/${courseId}`);
   revalidatePath(`/admin/learning/courses/${courseId}/edit`);
 
   return {

@@ -3,8 +3,11 @@
 import { useMemo, useState } from "react";
 import {
   CalendarDays,
+  Gift,
+  GraduationCap,
   Mail,
   Search,
+  Sparkles,
   UserRound,
 } from "lucide-react";
 
@@ -29,14 +32,63 @@ interface EnrollmentRequestsTableProps {
   requests: EnrollmentRequestRow[];
 }
 
+type JourneyTab = "professional" | "one_day" | "free";
+
 const journeyLabels: Record<string, string> = {
   career_path: "رحلة احتراف متكاملة",
   career: "رحلة احتراف متكاملة",
+  professional: "رحلة احتراف متكاملة",
   workshop: "رحلة اليوم الواحد",
   one_day: "رحلة اليوم الواحد",
+  one_day_journey: "رحلة اليوم الواحد",
   free: "رحلة مجانية",
   free_session: "رحلة مجانية",
+  free_journey: "رحلة مجانية",
 };
+
+const tabs: Array<{
+  key: JourneyTab;
+  label: string;
+  icon: typeof GraduationCap;
+}> = [
+  {
+    key: "professional",
+    label: "رحلات الاحتراف",
+    icon: GraduationCap,
+  },
+  {
+    key: "one_day",
+    label: "رحلات اليوم الواحد",
+    icon: Sparkles,
+  },
+  {
+    key: "free",
+    label: "الرحلات المجانية",
+    icon: Gift,
+  },
+];
+
+function getJourneyTab(journeyType: string): JourneyTab {
+  const normalizedType = journeyType.trim().toLowerCase();
+
+  if (
+    normalizedType === "workshop" ||
+    normalizedType === "one_day" ||
+    normalizedType === "one_day_journey"
+  ) {
+    return "one_day";
+  }
+
+  if (
+    normalizedType === "free" ||
+    normalizedType === "free_session" ||
+    normalizedType === "free_journey"
+  ) {
+    return "free";
+  }
+
+  return "professional";
+}
 
 function formatDate(date: string) {
   if (!date) return "—";
@@ -59,13 +111,32 @@ function formatDate(date: string) {
 export default function EnrollmentRequestsTable({
   requests,
 }: EnrollmentRequestsTableProps) {
+  const [activeTab, setActiveTab] =
+    useState<JourneyTab>("professional");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  const tabCounts = useMemo(() => {
+    return requests.reduce<Record<JourneyTab, number>>(
+      (counts, request) => {
+        counts[getJourneyTab(request.journeyType)] += 1;
+        return counts;
+      },
+      {
+        professional: 0,
+        one_day: 0,
+        free: 0,
+      },
+    );
+  }, [requests]);
 
   const filteredRequests = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
     return requests.filter((request) => {
+      const matchesJourney =
+        getJourneyTab(request.journeyType) === activeTab;
+
       const matchesStatus =
         statusFilter === "all" ||
         request.status.toLowerCase() === statusFilter;
@@ -87,12 +158,60 @@ export default function EnrollmentRequestsTable({
         !normalizedSearch ||
         searchableText.includes(normalizedSearch);
 
-      return matchesStatus && matchesSearch;
+      return matchesJourney && matchesStatus && matchesSearch;
     });
-  }, [requests, searchTerm, statusFilter]);
+  }, [activeTab, requests, searchTerm, statusFilter]);
 
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-200 bg-slate-50/70 p-3">
+        <div className="grid gap-2 md:grid-cols-3">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.key;
+
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex min-h-14 items-center justify-between rounded-xl border px-4 py-3 text-right transition ${
+                  isActive
+                    ? "border-[#F7B548] bg-[#07152E] text-white shadow-sm"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-[#F7B548]/60 hover:bg-amber-50/40"
+                }`}
+              >
+                <span className="flex items-center gap-2.5">
+                  <span
+                    className={`flex h-9 w-9 items-center justify-center rounded-lg ${
+                      isActive
+                        ? "bg-[#F7B548] text-[#07152E]"
+                        : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    <Icon className="h-4.5 w-4.5" />
+                  </span>
+
+                  <span className="text-sm font-black">
+                    {tab.label}
+                  </span>
+                </span>
+
+                <span
+                  className={`rounded-full px-2.5 py-1 text-xs font-black ${
+                    isActive
+                      ? "bg-white/10 text-[#F7B548]"
+                      : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  {tabCounts[tab.key]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="flex flex-col gap-4 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative w-full sm:max-w-md">
           <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -118,6 +237,7 @@ export default function EnrollmentRequestsTable({
           <option value="all">جميع الحالات</option>
           <option value="pending">قيد المراجعة</option>
           <option value="approved">مقبول</option>
+          <option value="active">نشط</option>
           <option value="rejected">مرفوض</option>
           <option value="suspended">موقوف</option>
           <option value="expired">منتهي</option>
@@ -135,7 +255,7 @@ export default function EnrollmentRequestsTable({
           </h2>
 
           <p className="mt-2 text-sm text-slate-500">
-            لا توجد طلبات اشتراك مطابقة لخيارات البحث الحالية.
+            لا توجد طلبات اشتراك مطابقة للتبويب وخيارات البحث الحالية.
           </p>
         </div>
       ) : (
@@ -267,7 +387,7 @@ export default function EnrollmentRequestsTable({
       )}
 
       <div className="border-t border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold text-slate-500">
-        عدد النتائج: {filteredRequests.length}
+        عدد النتائج في التبويب الحالي: {filteredRequests.length}
       </div>
     </section>
   );

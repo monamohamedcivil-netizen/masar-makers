@@ -6,7 +6,6 @@ import {
   Compass,
   GraduationCap,
   Layers3,
-  PlayCircle,
   Sparkles,
   Target,
   Zap,
@@ -15,11 +14,18 @@ import {
 import StudentStatistics from "@/components/student/StudentStatistics";
 import type { StudentStatisticsData } from "@/components/student/mockStatistics";
 import { StudentWorkspace, studentWorkspaceDefinition } from "@/components/student/workspace";
+import type { WorkspacePanelId } from "@/components/student/workspace/types";
 import type { StudentDashboardData } from "@/lib/queries/student-dashboard";
 
-type Props = { data: StudentDashboardData };
+type Props = {
+  data: StudentDashboardData;
+  initialPanelId?: WorkspacePanelId;
+};
 
-export default function StudentJourneyDashboard({ data }: Props) {
+export default function StudentJourneyDashboard({
+  data,
+  initialPanelId,
+}: Props) {
   const totalCourses =
     data.activeCourses.length +
     data.completedCourses.length +
@@ -110,7 +116,7 @@ export default function StudentJourneyDashboard({ data }: Props) {
 
   return (
     <div dir="rtl" className="bg-white text-[#07152E]">
-     <section className="border-b border-[#C9D4DF] bg-[#DCE7F2]">
+      <section className="border-b border-[#C9D4DF] bg-[#DCE7F2]">
         <StudentStatistics data={statistics} />
       </section>
 
@@ -118,6 +124,7 @@ export default function StudentJourneyDashboard({ data }: Props) {
         <StudentWorkspace
           definition={studentWorkspaceDefinition}
           data={data}
+          initialPanelId={initialPanelId}
         />
       </div>
     </div>

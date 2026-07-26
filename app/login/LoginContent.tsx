@@ -17,14 +17,6 @@ import { createClient } from "@/lib/supabase/client";
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-const requestedNext = searchParams.get("next");
-
-const safeNext =
-  requestedNext &&
-  requestedNext.startsWith("/") &&
-  !requestedNext.startsWith("//")
-    ? requestedNext
-    : "/dashboard";
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -105,9 +97,8 @@ const safeNext =
         return;
       }
 
-      
-router.push(safeNext);
-router.refresh();
+      router.replace("/");
+      router.refresh();
 
     } catch (caughtError) {
       console.error(

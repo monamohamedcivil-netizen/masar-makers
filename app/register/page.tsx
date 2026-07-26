@@ -24,11 +24,12 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-const [phone, setPhone] = useState("");
-const [country, setCountry] = useState("");
-const [jobTitle, setJobTitle] = useState("");
-const [experienceLevel, setExperienceLevel] = useState("");
-const [specialty, setSpecialty] = useState("");
+
+  const [phone, setPhone] = useState("");
+  const [country, setCountry] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [experienceLevel, setExperienceLevel] = useState("");
+  const [specialty, setSpecialty] = useState("");
 
   const handleSubmit = async (
     event: FormEvent<HTMLFormElement>
@@ -46,19 +47,23 @@ const [specialty, setSpecialty] = useState("");
       formData.get("name") ?? ""
     ).trim();
 
+    const fullNameEn = String(
+      formData.get("fullNameEn") ?? ""
+    ).trim();
+
     const email = String(
       formData.get("email") ?? ""
     )
       .trim()
       .toLowerCase();
 
-    const phone = String(
+    const submittedPhone = String(
       formData.get("phone") ?? ""
     ).trim();
 
-    const country = String(
-  formData.get("country") ?? ""
-).trim();
+    const submittedCountry = String(
+      formData.get("country") ?? ""
+    ).trim();
 
     const password = String(
       formData.get("password") ?? ""
@@ -74,22 +79,40 @@ const [specialty, setSpecialty] = useState("");
       return;
     }
 
+    if (!fullNameEn) {
+      setError(
+        "يرجى إدخال الاسم باللغة الإنجليزية كما ترغب أن يظهر في الشهادة."
+      );
+      setLoading(false);
+      return;
+    }
+
+    if (!/^[A-Za-z][A-Za-z .'-]*$/.test(fullNameEn)) {
+      setError(
+        "يرجى كتابة الاسم الإنجليزي باستخدام الحروف الإنجليزية فقط."
+      );
+      setLoading(false);
+      return;
+    }
+
     if (!email) {
       setError("يرجى إدخال البريد الإلكتروني.");
       setLoading(false);
       return;
     }
 
-    if (!phone) {
+    if (!submittedPhone) {
       setError("يرجى إدخال رقم الهاتف.");
       setLoading(false);
       return;
     }
-if (!country) {
-  setError("يرجى اختيار الدولة.");
-  setLoading(false);
-  return;
-}
+
+    if (!submittedCountry) {
+      setError("يرجى اختيار الدولة.");
+      setLoading(false);
+      return;
+    }
+
     if (password.length < 8) {
       setError("يجب ألا تقل كلمة المرور عن 8 أحرف.");
       setLoading(false);
@@ -106,24 +129,25 @@ if (!country) {
       const supabase = createClient();
 
       const {
-  data: signUpData,
-  error: signUpError,
-} = await supabase.auth.signUp({
-  email: email.trim(),
-  password,
-  options: {
-    emailRedirectTo:
-      `${window.location.origin}/auth/callback`,
-    data: {
-      full_name: fullName.trim(),
-      phone: phone.trim(),
-      country,
-      job_title: jobTitle,
-      experience_level: experienceLevel,
-      specialty,
-    },
-  },
-});
+        data: signUpData,
+        error: signUpError,
+      } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo:
+            `${window.location.origin}/auth/callback`,
+          data: {
+            full_name: fullName,
+            full_name_en: fullNameEn,
+            phone: submittedPhone,
+            country: submittedCountry,
+            job_title: jobTitle,
+            experience_level: experienceLevel,
+            specialty,
+          },
+        },
+      });
 
       if (signUpError) {
         if (
@@ -153,6 +177,11 @@ if (!country) {
       );
 
       form.reset();
+      setPhone("");
+      setCountry("");
+      setJobTitle("");
+      setExperienceLevel("");
+      setSpecialty("");
     } catch (caughtError) {
       console.error(
         "Registration error:",
@@ -219,6 +248,53 @@ if (!country) {
           </div>
         </div>
 
+        {/* English Certificate Name */}
+        <div>
+          <label
+            htmlFor="fullNameEn"
+            className="mb-2 block text-[13px] font-black text-[#07152E]"
+          >
+            الاسم باللغة الإنجليزية
+          </label>
+
+          <div className="relative">
+            <UserRound
+              size={18}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+
+            <input
+              id="fullNameEn"
+              name="fullNameEn"
+              type="text"
+              required
+              dir="ltr"
+              autoComplete="name"
+              placeholder="Mona Abdallah Mohamed"
+              className="
+                h-[50px] w-full rounded-2xl
+                border border-[#DCE3EC]
+                bg-[#FAFBFC]
+                pr-12 pl-4
+                text-left text-[14px]
+                font-semibold
+                text-[#07152E]
+                outline-none
+                transition
+                placeholder:text-slate-400
+                focus:border-[#F7B548]
+                focus:bg-white
+                focus:ring-4
+                focus:ring-[#F7B548]/10
+              "
+            />
+          </div>
+
+          <p className="mt-2 text-[11px] font-bold leading-5 text-slate-500">
+            اكتب اسمك كما ترغب أن يظهر في الشهادات الصادرة من المنصة.
+          </p>
+        </div>
+
         {/* Email */}
         <div>
           <label
@@ -262,155 +338,201 @@ if (!country) {
         </div>
 
         {/* Phone */}
-<div>
-  <label className="mb-2 block text-[11px] font-black text-[#07152E]">
-    رقم الهاتف مع كود الدولة
-  </label>
+        <div>
+          <label
+            htmlFor="phone"
+            className="mb-2 block text-[11px] font-black text-[#07152E]"
+          >
+            رقم الهاتف مع كود الدولة
+          </label>
 
-  <input
-    type="tel"
-    value={phone}
-    onChange={(event) =>
-      setPhone(event.target.value)
-    }
-    required
-    dir="ltr"
-    placeholder="+966 5X XXX XXXX"
-    className="
-      h-[46px] w-full rounded-[16px]
-      border border-[#D8DEE7]
-      bg-[#F8FAFC] px-4
-      text-left text-[12px] font-medium
-      text-[#07152E] outline-none
-      transition focus:border-[#F7B548]
-      focus:bg-white
-    "
-  />
-</div>
-        
-{/* Country */}
-<div>
-  <label className="mb-2 block text-[11px] font-black text-[#07152E]">
-    الدولة
-  </label>
+          <div className="relative">
+            <Phone
+              size={17}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+            />
 
-  <select
-    value={country}
-    onChange={(event) =>
-      setCountry(event.target.value)
-    }
-    required
-    className="
-      h-[46px] w-full rounded-[16px]
-      border border-[#D8DEE7]
-      bg-[#F8FAFC] px-4
-      text-[12px] font-medium
-      text-[#07152E] outline-none
-      transition focus:border-[#F7B548]
-      focus:bg-white
-    "
-  >
-    <option value="">اختر الدولة</option>
-    <option value="Saudi Arabia">السعودية</option>
-    <option value="Egypt">مصر</option>
-    <option value="United Arab Emirates">
-      الإمارات
-    </option>
-    <option value="Oman">عُمان</option>
-    <option value="Iraq">العراق</option>
-    <option value="Libya">ليبيا</option>
-    <option value="Sudan">السودان</option>
-    <option value="Syria">سوريا</option>
-    <option value="Nigeria">نيجيريا</option>
-    <option value="Other">دولة أخرى</option>
-  </select>
-</div>
+            <input
+              id="phone"
+              name="phone"
+              type="tel"
+              value={phone}
+              onChange={(event) =>
+                setPhone(event.target.value)
+              }
+              required
+              dir="ltr"
+              placeholder="+966 5X XXX XXXX"
+              className="
+                h-[46px] w-full rounded-[16px]
+                border border-[#D8DEE7]
+                bg-[#F8FAFC]
+                pr-12 pl-4
+                text-left text-[12px] font-medium
+                text-[#07152E] outline-none
+                transition focus:border-[#F7B548]
+                focus:bg-white
+              "
+            />
+          </div>
+        </div>
 
-<div>
-  <label className="mb-2 block text-[11px] font-black text-[#07152E]">
-    المسمى الوظيفي
-  </label>
+        {/* Country */}
+        <div>
+          <label
+            htmlFor="country"
+            className="mb-2 block text-[11px] font-black text-[#07152E]"
+          >
+            الدولة
+          </label>
 
-  <select
-    value={jobTitle}
-    onChange={(event) =>
-      setJobTitle(event.target.value)
-    }
-    className="
-      h-[46px] w-full rounded-[16px]
-      border border-[#D8DEE7]
-      bg-[#F8FAFC] px-4
-      text-[12px] font-medium
-      text-[#07152E] outline-none
-    "
-  >
-    <option value="">اختر المسمى الوظيفي</option>
-    <option value="Student">طالب</option>
-    <option value="Engineer">مهندس</option>
-    <option value="Consultant">استشاري</option>
-    <option value="Project Manager">مدير مشروع</option>
-    <option value="Trainer">مدرب</option>
-    <option value="Other">أخرى</option>
-  </select>
-</div>
+          <div className="relative">
+            <Globe2
+              size={17}
+              className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+            />
 
-<div>
-  <label className="mb-2 block text-[11px] font-black text-[#07152E]">
-    سنوات الخبرة
-  </label>
+            <select
+              id="country"
+              name="country"
+              value={country}
+              onChange={(event) =>
+                setCountry(event.target.value)
+              }
+              required
+              className="
+                h-[46px] w-full appearance-none
+                rounded-[16px]
+                border border-[#D8DEE7]
+                bg-[#F8FAFC]
+                pr-12 pl-4
+                text-[12px] font-medium
+                text-[#07152E] outline-none
+                transition focus:border-[#F7B548]
+                focus:bg-white
+              "
+            >
+              <option value="">اختر الدولة</option>
+              <option value="Saudi Arabia">السعودية</option>
+              <option value="Egypt">مصر</option>
+              <option value="United Arab Emirates">
+                الإمارات
+              </option>
+              <option value="Oman">عُمان</option>
+              <option value="Iraq">العراق</option>
+              <option value="Libya">ليبيا</option>
+              <option value="Sudan">السودان</option>
+              <option value="Syria">سوريا</option>
+              <option value="Nigeria">نيجيريا</option>
+              <option value="Other">دولة أخرى</option>
+            </select>
+          </div>
+        </div>
 
-  <select
-    value={experienceLevel}
-    onChange={(event) =>
-      setExperienceLevel(event.target.value)
-    }
-    className="
-      h-[46px] w-full rounded-[16px]
-      border border-[#D8DEE7]
-      bg-[#F8FAFC] px-4
-      text-[12px] font-medium
-      text-[#07152E] outline-none
-    "
-  >
-    <option value="">اختر سنوات الخبرة</option>
-    <option value="0-2">أقل من سنتين</option>
-    <option value="2-5">من سنتين إلى 5 سنوات</option>
-    <option value="5-10">من 5 إلى 10 سنوات</option>
-    <option value="10+">أكثر من 10 سنوات</option>
-  </select>
-</div>
+        {/* Job Title */}
+        <div>
+          <label
+            htmlFor="jobTitle"
+            className="mb-2 block text-[11px] font-black text-[#07152E]"
+          >
+            المسمى الوظيفي
+          </label>
 
-<div>
-  <label className="mb-2 block text-[11px] font-black text-[#07152E]">
-    التخصص
-  </label>
+          <select
+            id="jobTitle"
+            name="jobTitle"
+            value={jobTitle}
+            onChange={(event) =>
+              setJobTitle(event.target.value)
+            }
+            className="
+              h-[46px] w-full rounded-[16px]
+              border border-[#D8DEE7]
+              bg-[#F8FAFC] px-4
+              text-[12px] font-medium
+              text-[#07152E] outline-none
+            "
+          >
+            <option value="">اختر المسمى الوظيفي</option>
+            <option value="Student">طالب</option>
+            <option value="Engineer">مهندس</option>
+            <option value="Consultant">استشاري</option>
+            <option value="Project Manager">مدير مشروع</option>
+            <option value="Trainer">مدرب</option>
+            <option value="Other">أخرى</option>
+          </select>
+        </div>
 
-  <select
-    value={specialty}
-    onChange={(event) =>
-      setSpecialty(event.target.value)
-    }
-    className="
-      h-[46px] w-full rounded-[16px]
-      border border-[#D8DEE7]
-      bg-[#F8FAFC] px-4
-      text-[12px] font-medium
-      text-[#07152E] outline-none
-    "
-  >
-    <option value="">اختر التخصص</option>
-    <option value="Road Design">تصميم الطرق</option>
-    <option value="Traffic Engineering">
-      هندسة المرور
-    </option>
-    <option value="Civil Engineering">
-      الهندسة المدنية
-    </option>
-    <option value="Surveying">المساحة</option>
-    <option value="BIM">BIM</option>
-    <option value="Other">أخرى</option>
-  </select>
-</div>
+        {/* Experience */}
+        <div>
+          <label
+            htmlFor="experienceLevel"
+            className="mb-2 block text-[11px] font-black text-[#07152E]"
+          >
+            سنوات الخبرة
+          </label>
+
+          <select
+            id="experienceLevel"
+            name="experienceLevel"
+            value={experienceLevel}
+            onChange={(event) =>
+              setExperienceLevel(event.target.value)
+            }
+            className="
+              h-[46px] w-full rounded-[16px]
+              border border-[#D8DEE7]
+              bg-[#F8FAFC] px-4
+              text-[12px] font-medium
+              text-[#07152E] outline-none
+            "
+          >
+            <option value="">اختر سنوات الخبرة</option>
+            <option value="0-2">أقل من سنتين</option>
+            <option value="2-5">من سنتين إلى 5 سنوات</option>
+            <option value="5-10">من 5 إلى 10 سنوات</option>
+            <option value="10+">أكثر من 10 سنوات</option>
+          </select>
+        </div>
+
+        {/* Specialty */}
+        <div>
+          <label
+            htmlFor="specialty"
+            className="mb-2 block text-[11px] font-black text-[#07152E]"
+          >
+            التخصص
+          </label>
+
+          <select
+            id="specialty"
+            name="specialty"
+            value={specialty}
+            onChange={(event) =>
+              setSpecialty(event.target.value)
+            }
+            className="
+              h-[46px] w-full rounded-[16px]
+              border border-[#D8DEE7]
+              bg-[#F8FAFC] px-4
+              text-[12px] font-medium
+              text-[#07152E] outline-none
+            "
+          >
+            <option value="">اختر التخصص</option>
+            <option value="Road Design">تصميم الطرق</option>
+            <option value="Traffic Engineering">
+              هندسة المرور
+            </option>
+            <option value="Civil Engineering">
+              الهندسة المدنية
+            </option>
+            <option value="Surveying">المساحة</option>
+            <option value="BIM">BIM</option>
+            <option value="Other">أخرى</option>
+          </select>
+        </div>
+
         {/* Password */}
         <div>
           <label

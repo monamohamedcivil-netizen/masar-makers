@@ -65,7 +65,10 @@ import {
   swapPanelOrder,
 } from "@/lib/actions/builder";
 
-import type { EnrollmentStatusMap } from "@/lib/actions/enroll";
+import type {
+  CourseEnrollmentAccess,
+  EnrollmentStatusMap,
+} from "@/lib/actions/enroll";
 
 export type PlatformPageMode =
   | "student"
@@ -79,6 +82,7 @@ type CourseInteractiveDashboardProps = {
   builderPage?: CatalogBuiltTemplatePage;
   course: Course;
   enrollmentStatuses?: EnrollmentStatusMap;
+  enrollmentAccess?: CourseEnrollmentAccess;
   freeSessions: FreeSession[];
   workshops: Workshop[];
   reviews: Review[];
@@ -108,6 +112,7 @@ export default function CourseInteractiveDashboard({
   stationId,
   course,
   enrollmentStatuses,
+  enrollmentAccess,
   freeSessions,
   workshops,
   reviews,
@@ -416,6 +421,7 @@ ${errorMessage}`
         courseId={course.slug}
         panelComponent={displayedPanel}
         enrollmentStatuses={enrollmentStatuses}
+        enrollmentAccess={enrollmentAccess}
         value={currentPanelContent}
       />
     );

@@ -4,7 +4,10 @@ import { CheckCircle2, Play, Rocket } from "lucide-react";
 
 import PlatformActionButton from "./PlatformActionButton";
 
-import type { EnrollmentStatusMap } from "@/lib/actions/enroll";
+import type {
+  CourseEnrollmentAccess,
+  EnrollmentStatusMap,
+} from "@/lib/actions/enroll";
 import type {
   ProfessionalActionConfig,
   ProfessionalContentBlock,
@@ -17,6 +20,7 @@ type ProfessionalPanelViewerProps = {
   courseId: string;
   panelComponent?: string;
   enrollmentStatuses?: EnrollmentStatusMap;
+  enrollmentAccess?: CourseEnrollmentAccess;
   value: ProfessionalPanelDraft;
 };
 
@@ -25,6 +29,7 @@ export default function ProfessionalPanelViewer({
   courseId,
   panelComponent = "professional",
   enrollmentStatuses,
+  enrollmentAccess,
   value,
 }: ProfessionalPanelViewerProps) {
   const fundamentalBlocks = value.blocks.filter(
@@ -34,6 +39,16 @@ export default function ProfessionalPanelViewer({
   const advancedBlocks = value.blocks.filter(
     (block) => block.journey === "advanced",
   );
+
+  const showIntegrated =
+    enrollmentAccess?.showIntegrated ?? true;
+
+  const showFundamental =
+    enrollmentAccess?.showFundamental ?? true;
+
+  const showAdvanced =
+    enrollmentAccess?.showAdvanced ?? true;
+
 
   return (
     <section
@@ -59,7 +74,7 @@ export default function ProfessionalPanelViewer({
           </div>
         </div>
 
-        {value.screenAction.enabled && (
+        {value.screenAction.enabled && showIntegrated && (
           <PlatformActionButton
             label={value.screenAction.label || "اشترك الآن"}
             mode={value.screenAction.mode}
@@ -74,7 +89,7 @@ export default function ProfessionalPanelViewer({
                   : "integrated"
             }
             actionKey={`${panelComponent}:screen`}
-            actionTitle={value.screenAction.label || value.screenTitle}
+            actionTitle={value.screenTitle}
             enrollmentStatus={
               enrollmentStatuses?.[`${panelComponent}:screen`] ?? null
             }
@@ -98,6 +113,7 @@ export default function ProfessionalPanelViewer({
           journey="fundamental"
           title={value.columnOneTitle}
           action={value.columnOneAction}
+          showAction={showFundamental}
           blocks={fundamentalBlocks}
         />
 
@@ -110,6 +126,7 @@ export default function ProfessionalPanelViewer({
             journey="advanced"
             title={value.columnTwoTitle}
             action={value.columnTwoAction}
+            showAction={showAdvanced}
             blocks={advancedBlocks}
           />
         )}
@@ -126,6 +143,7 @@ type ViewerColumnProps = {
   journey: ProfessionalJourneyColumn;
   title: string;
   action: ProfessionalActionConfig;
+  showAction: boolean;
   blocks: ProfessionalContentBlock[];
 };
 
@@ -137,6 +155,7 @@ function ViewerColumn({
   journey,
   title,
   action,
+  showAction,
   blocks,
 }: ViewerColumnProps) {
   const headerColor =
@@ -151,7 +170,7 @@ function ViewerColumn({
       >
         <h3 className="text-xl font-black">{title}</h3>
 
-        {action.enabled && (
+        {action.enabled && showAction && (
           <PlatformActionButton
             label={action.label || "اشترك الآن"}
             mode={action.mode}
@@ -160,7 +179,7 @@ function ViewerColumn({
             stationId={stationId}
             journeyType={resolveJourneyType(panelComponent, journey)}
             actionKey={`${panelComponent}:column:${journey}`}
-            actionTitle={action.label || title}
+            actionTitle={title}
             enrollmentStatus={
               enrollmentStatuses?.[
                 `${panelComponent}:column:${journey}`
@@ -284,17 +303,15 @@ function ViewerBlock({
           )}
 
           {videoBlock.videoUrl && (
-            <PlatformActionButton
-              label="فتح الفيديو"
-              mode="link"
-              link={videoBlock.videoUrl}
+            <a
+              href={videoBlock.videoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#07152E] px-4 py-2.5 text-xs font-black text-white transition hover:bg-[#214B75]"
             >
-              <>
-                <Play size={14} fill="currentColor" />
-                فتح الفيديو
-              </>
-            </PlatformActionButton>
+              <Play size={14} fill="currentColor" />
+              فتح الفيديو
+            </a>
           )}
         </div>
       </article>
@@ -311,7 +328,7 @@ function ViewerBlock({
       hasButton: boolean;
       buttonLink?: string;
       buttonText?: string;
-      buttonMode?: "enrollment" | "free" | "whatsapp" | "link";
+      buttonMode?: "enrollment" | "free";
     }>;
   };
 
@@ -347,7 +364,7 @@ function ViewerBlock({
             {item.hasButton && (
              <PlatformActionButton
                 label={item.buttonText || "عرض"}
-                mode={item.buttonMode || "link"}
+                mode={item.buttonMode || "enrollment"}
                 link={item.buttonLink}
                 courseId={courseId}
                 stationId={stationId}
