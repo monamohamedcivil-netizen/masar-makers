@@ -32,14 +32,26 @@ export default function StudentJourneyDashboard({
     data.pendingCourses.length;
 
   const oneDayCount = data.oneDayJourneyGroups.reduce(
-    (total, group) => total + group.journeys.length,
-    0,
-  );
+  (total, path) =>
+    total +
+    path.stations.reduce(
+      (stationTotal, station) =>
+        stationTotal + station.journeys.length,
+      0,
+    ),
+  0,
+);
 
-  const freeCount = data.freeJourneyGroups.reduce(
-    (total, group) => total + group.journeys.length,
-    0,
-  );
+const freeCount = data.freeJourneyGroups.reduce(
+  (total, path) =>
+    total +
+    path.stations.reduce(
+      (stationTotal, station) =>
+        stationTotal + station.journeys.length,
+      0,
+    ),
+  0,
+);
 
   const statistics: StudentStatisticsData = {
     learning: [
@@ -51,7 +63,7 @@ export default function StudentJourneyDashboard({
           primaryValue: data.careerPaths.length,
           primaryLabel: "مسارات",
           secondaryValue: totalCourses,
-          secondaryLabel: "كورسات",
+          secondaryLabel: "رحلات",
         },
       },
       {

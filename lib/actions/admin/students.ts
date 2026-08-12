@@ -1,0 +1,501 @@
+"use server";
+
+import { getMasarPassport } from "@/lib/dashboard/masar-passport";
+import { createClient } from "@/lib/supabase/server";
+
+export interface StudentSummary {
+  userId: string;
+
+  studentName: string;
+  studentEmail: string;
+  studentPhone: string | null;
+  studentCountry: string | null;
+
+  professionalEnrollments: number;
+  oneDayEnrollments: number;
+  freeEnrollments: number;
+
+  totalEnrollments: number;
+  approvedEnrollments: number;
+  pendingEnrollments: number;
+
+  completedCourses: number;
+
+  certificatesCount: number;
+  projectsCount: number;
+  surveysCount: number;
+
+  totalPoints: number;
+  rewardCourses: number;
+  drawEntries: number;
+
+earnedRewards: number;
+redeemedRewards: number;
+availableRewards: number;
+rewardBalance: number;
+rewardProgress: number;
+
+lastRewardCourseId: string | null;
+lastRewardCourseTitle: string | null;
+lastRewardRedeemedAt: string | null;
+}
+
+type GenericRow = Record<string, unknown>;
+
+function textValue(
+  value: unknown,
+): string | null {
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return null;
+  }
+
+  const text = String(value).trim();
+
+  return text || null;
+}
+
+function normalizeValue(
+  value: unknown,
+) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replaceAll("-", "_")
+    .replaceAll(" ", "_");
+}
+
+function getStudentName(
+  profile: GenericRow | undefined,
+) {
+  return (
+    textValue(profile?.full_name) ??
+    textValue(profile?.name) ??
+    textValue(profile?.display_name) ??
+    textValue(profile?.username) ??
+    "طالب غير معروف"
+  );
+}
+
+function getStudentEmail(
+  profile: GenericRow | undefined,
+) {
+  return (
+    textValue(profile?.email) ??
+    textValue(profile?.user_email) ??
+    ""
+  );
+}
+
+function getStudentPhone(
+  profile: GenericRow | undefined,
+) {
+  return (
+    textValue(profile?.phone) ??
+    textValue(profile?.phone_number) ??
+    textValue(profile?.whatsapp) ??
+    textValue(
+      profile?.whatsapp_number,
+    )
+  );
+}
+
+function getStudentCountry(
+  profile: GenericRow | undefined,
+) {
+  return (
+    textValue(profile?.country) ??
+    textValue(profile?.country_name) ??
+    textValue(profile?.nationality)
+  );
+}
+
+function isProfessionalJourney(
+  journeyType: unknown,
+) {
+  const type =
+    normalizeValue(journeyType);
+
+  return [
+    "career_path",
+    "career",
+    "professional",
+    "professional_journey",
+    "integrated",
+  ].includes(type);
+}
+
+function isOneDayJourney(
+  journeyType: unknown,
+) {
+  const type =
+    normalizeValue(journeyType);
+
+  return [
+    "workshop",
+    "one_day",
+    "one_day_journey",
+    "one_day_workshop",
+  ].includes(type);
+}
+
+function isFreeJourney(
+  journeyType: unknown,
+) {
+  const type =
+    normalizeValue(journeyType);
+
+  return [
+    "free",
+    "free_session",
+    "free_journey",
+  ].includes(type);
+}
+
+function isApprovedStatus(
+  status: unknown,
+) {
+  const value = normalizeValue(status);
+
+  return [
+    "approved",
+    "active",
+    "enrolled",
+    "confirmed",
+    "completed",
+  ].includes(value);
+}
+
+function isPendingStatus(
+  status: unknown,
+) {
+  const value = normalizeValue(status);
+
+  return [
+    "pending",
+    "requested",
+    "waiting",
+    "under_review",
+  ].includes(value);
+}
+
+export async function getStudentsSummary(): Promise<
+  StudentSummary[]
+> {
+  const supabase = await createClient();
+
+  const [
+    enrollmentsResult,
+    profilesResult,
+    certificatesResult,
+  ] = await Promise.all([
+    supabase
+      .from("enrollments")
+      .select(
+        "user_id,status,journey_type",
+      ),
+
+    supabase
+      .from("profiles")
+      .select("*"),
+
+    supabase
+      .from("certificates")
+      .select("user_id,status"),
+  ]);
+
+  if (enrollmentsResult.error) {
+    throw new Error(
+      enrollmentsResult.error.message,
+    );
+  }
+
+  if (profilesResult.error) {
+    throw new Error(
+      profilesResult.error.message,
+    );
+  }
+
+  if (certificatesResult.error) {
+    console.error(
+      "LOAD ADMIN CERTIFICATES ERROR",
+      certificatesResult.error.message,
+    );
+  }
+
+  const enrollments = (
+    enrollmentsResult.data ?? []
+  ) as GenericRow[];
+
+  const profiles = (
+    profilesResult.data ?? []
+  ) as GenericRow[];
+
+  const certificates = (
+    certificatesResult.data ?? []
+  ) as GenericRow[];
+
+  const profileMap = new Map<
+    string,
+    GenericRow
+  >();
+
+  for (const profile of profiles) {
+    const profileId =
+      textValue(profile.id);
+
+    if (profileId) {
+      profileMap.set(
+        profileId,
+        profile,
+      );
+    }
+  }
+
+  const certificateCountMap =
+    new Map<string, number>();
+
+  for (const certificate of certificates) {
+    const userId =
+      textValue(certificate.user_id);
+
+    if (!userId) continue;
+
+    const status = normalizeValue(
+      certificate.status,
+    );
+
+    if (
+      status &&
+      status !== "issued" &&
+      status !== "active"
+    ) {
+      continue;
+    }
+
+    certificateCountMap.set(
+      userId,
+      (certificateCountMap.get(userId) ??
+        0) + 1,
+    );
+  }
+
+  const students = new Map<
+    string,
+    StudentSummary
+  >();
+
+  function ensureStudent(
+    userId: string,
+  ) {
+    const existing =
+      students.get(userId);
+
+    if (existing) {
+      return existing;
+    }
+
+    const profile =
+      profileMap.get(userId);
+
+    const student: StudentSummary = {
+      userId,
+
+      studentName:
+        getStudentName(profile),
+
+      studentEmail:
+        getStudentEmail(profile),
+
+      studentPhone:
+        getStudentPhone(profile),
+
+      studentCountry:
+        getStudentCountry(profile),
+
+      professionalEnrollments: 0,
+      oneDayEnrollments: 0,
+      freeEnrollments: 0,
+
+      totalEnrollments: 0,
+      approvedEnrollments: 0,
+      pendingEnrollments: 0,
+
+      completedCourses: 0,
+
+      certificatesCount:
+        certificateCountMap.get(
+          userId,
+        ) ?? 0,
+
+      projectsCount: 0,
+      surveysCount: 0,
+
+      totalPoints: 0,
+      rewardCourses: 0,
+      earnedRewards: 0,
+redeemedRewards: 0,
+availableRewards: 0,
+rewardBalance: 0,
+rewardProgress: 0,
+
+lastRewardCourseId: null,
+lastRewardCourseTitle: null,
+lastRewardRedeemedAt: null,
+      drawEntries: 0,
+    };
+
+    students.set(userId, student);
+
+    return student;
+  }
+
+  for (const enrollment of enrollments) {
+    const userId =
+      textValue(enrollment.user_id);
+
+    if (!userId) continue;
+
+    const student =
+      ensureStudent(userId);
+
+    student.totalEnrollments += 1;
+
+    if (
+      isProfessionalJourney(
+        enrollment.journey_type,
+      )
+    ) {
+      student.professionalEnrollments +=
+        1;
+    }
+
+    if (
+      isOneDayJourney(
+        enrollment.journey_type,
+      )
+    ) {
+      student.oneDayEnrollments += 1;
+    }
+
+    if (
+      isFreeJourney(
+        enrollment.journey_type,
+      )
+    ) {
+      student.freeEnrollments += 1;
+    }
+
+    if (
+      isApprovedStatus(
+        enrollment.status,
+      )
+    ) {
+      student.approvedEnrollments += 1;
+    }
+
+    if (
+      isPendingStatus(
+        enrollment.status,
+      )
+    ) {
+      student.pendingEnrollments += 1;
+    }
+  }
+
+  /*
+   * إظهار أي Profile لطالب حتى لو لم يكن
+   * لديه اشتراك مسجل حتى الآن.
+   */
+  for (const profile of profiles) {
+    const userId =
+      textValue(profile.id);
+
+    if (!userId) continue;
+
+    const role =
+      normalizeValue(profile.role);
+
+    if (
+      role === "admin" ||
+      role === "super_admin"
+    ) {
+      continue;
+    }
+
+    ensureStudent(userId);
+  }
+
+  const rows = Array.from(
+    students.values(),
+  );
+
+  /*
+   * الربط السريع مع نفس نظام النقاط
+   * المستخدم في Masar Engineering Passport.
+   */
+  await Promise.all(
+    rows.map(async (student) => {
+      try {
+        const passport =
+          await getMasarPassport(
+            student.userId,
+          );
+
+        student.completedCourses =
+          passport.completedCourses;
+
+        student.projectsCount =
+          passport.projectCount;
+
+        student.surveysCount =
+          passport.surveyCount;
+
+        student.totalPoints =
+          passport.totalPoints;
+
+        student.rewardCourses =
+          passport.rewardCourses;
+student.earnedRewards =
+  passport.earnedRewards;
+
+student.redeemedRewards =
+  passport.redeemedRewards;
+
+student.availableRewards =
+  passport.availableRewards;
+
+student.rewardBalance =
+  passport.rewardBalance;
+
+student.rewardProgress =
+  passport.rewardProgress;
+
+student.lastRewardCourseId =
+  passport.lastRewardCourseId;
+
+student.lastRewardCourseTitle =
+  passport.lastRewardCourseTitle;
+
+student.lastRewardRedeemedAt =
+  passport.lastRewardRedeemedAt;
+        student.drawEntries =
+          passport.drawEntries;
+      } catch (error) {
+        console.error(
+          `LOAD PASSPORT ERROR: ${student.userId}`,
+          error,
+        );
+      }
+    }),
+  );
+
+  return rows.sort((a, b) =>
+    a.studentName.localeCompare(
+      b.studentName,
+      "ar",
+    ),
+  );
+}

@@ -10,6 +10,41 @@ export type {
   CatalogCourseTemplate,
 } from "./types";
 
+type CourseTemplateDatabaseRow = {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  layout_type: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+/* ==================================================
+   Helpers
+================================================== */
+
+function normalizeTemplate(
+  row: CourseTemplateDatabaseRow,
+): CatalogCourseTemplate {
+  return {
+    id: row.id,
+    name: row.title,
+    slug: row.slug,
+    description: row.description,
+    template_type: row.layout_type,
+    version: 1,
+    source_station_id: null,
+    content_schema: {},
+    layout_schema: {},
+    is_default: false,
+    is_active: row.active,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  } as CatalogCourseTemplate;
+}
+
 /* ==================================================
    Templates
 ================================================== */
@@ -18,7 +53,7 @@ export type {
  * قراءة قالب واحد باستخدام slug
  */
 export async function getTemplateBySlug(
-  slug: string
+  slug: string,
 ): Promise<CatalogCourseTemplate | null> {
   const supabase = await createClient();
 
@@ -26,21 +61,16 @@ export async function getTemplateBySlug(
     .from("course_templates")
     .select(`
       id,
-      name,
       slug,
+      title,
       description,
-      template_type,
-      version,
-      source_station_id,
-      content_schema,
-      layout_schema,
-      is_default,
-      is_active,
+      layout_type,
+      active,
       created_at,
       updated_at
     `)
     .eq("slug", slug)
-    .eq("is_active", true)
+    .eq("active", true)
     .maybeSingle();
 
   if (error) {
@@ -51,19 +81,25 @@ export async function getTemplateBySlug(
         details: error.details,
         hint: error.hint,
         code: error.code,
-      }
+      },
     );
 
     throw new Error(
-      `تعذر تحميل Template: ${error.message}`
+      `تعذر تحميل القالب: ${error.message}`,
     );
   }
 
-  return data as CatalogCourseTemplate | null;
+  if (!data) {
+    return null;
+  }
+
+  return normalizeTemplate(
+    data as CourseTemplateDatabaseRow,
+  );
 }
 
 /**
- * قراءة جميع القوالب
+ * قراءة جميع القوالب النشطة
  */
 export async function getTemplates(): Promise<
   CatalogCourseTemplate[]
@@ -74,21 +110,18 @@ export async function getTemplates(): Promise<
     .from("course_templates")
     .select(`
       id,
-      name,
       slug,
+      title,
       description,
-      template_type,
-      version,
-      source_station_id,
-      content_schema,
-      layout_schema,
-      is_default,
-      is_active,
+      layout_type,
+      active,
       created_at,
       updated_at
     `)
-    .eq("is_active", true)
-    .order("name");
+    .eq("active", true)
+    .order("title", {
+      ascending: true,
+    });
 
   if (error) {
     console.error(
@@ -98,17 +131,21 @@ export async function getTemplates(): Promise<
         details: error.details,
         hint: error.hint,
         code: error.code,
-      }
+      },
     );
 
     throw new Error(
-      `تعذر تحميل Templates: ${error.message}`
+      `تعذر تحميل القوالب: ${error.message}`,
     );
   }
 
-  return (data ?? []) as CatalogCourseTemplate[];
+  return (
+    (data ?? []) as CourseTemplateDatabaseRow[]
+  ).map(normalizeTemplate);
 }
 
-export async function getCourseTemplates() {
+export async function getCourseTemplates(): Promise<
+  CatalogCourseTemplate[]
+> {
   return getTemplates();
 }

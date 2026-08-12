@@ -8,6 +8,8 @@ export type CourseStatus = "draft" | "published" | "archived";
 export interface CourseFormData {
   title: string;
   slug: string;
+  course_code?: string;
+  level?: "single" | "split";
   description?: string;
   image_url?: string;
   icon_url?: string;
@@ -17,6 +19,7 @@ export interface CourseFormData {
   journey_type?: string;
   status?: CourseStatus;
   whatsapp_number?: string;
+  display_order?: number;
 }
 
 async function requireAdmin() {
@@ -99,9 +102,12 @@ export async function createCourse(formData: CourseFormData) {
       price: Number(formData.price ?? 0),
       currency: formData.currency?.trim().toUpperCase() || "SAR",
       duration_hours: Number(formData.duration_hours ?? 0),
+      display_order: Number(formData.display_order ?? 1),
       journey_type: formData.journey_type || "career_path",
       status: formData.status || "draft",
       whatsapp_number: formData.whatsapp_number?.trim() || null,
+course_code: formData.course_code?.trim().toUpperCase() || null,
+level: formData.level || "single",
     })
     .select()
     .single();
@@ -149,10 +155,13 @@ export async function updateCourse(
       price: Number(formData.price ?? 0),
       currency: formData.currency?.trim().toUpperCase() || "SAR",
       duration_hours: Number(formData.duration_hours ?? 0),
+     display_order: Number(formData.display_order ?? 1),
       journey_type: formData.journey_type || "career_path",
       status: formData.status || "draft",
       whatsapp_number: formData.whatsapp_number?.trim() || null,
-      updated_at: new Date().toISOString(),
+course_code: formData.course_code?.trim().toUpperCase() || null,
+level: formData.level || "single",
+updated_at: new Date().toISOString(),
     })
     .eq("id", courseId)
     .select()
@@ -175,7 +184,64 @@ export async function updateCourse(
     data,
   };
 }
+export interface CourseSurveySettingsData {
+  survey_enabled: boolean;
+  survey_url?: string;
+}
 
+export async function updateCourseSurveySettings(
+  courseId: string,
+  formData: CourseSurveySettingsData,
+) {
+  const supabase = await requireAdmin();
+
+  if (!courseId) {
+    return {
+      success: false,
+      message: "معرّف الكورس غير موجود.",
+    };
+  }
+
+  const surveyUrl = formData.survey_url?.trim() || null;
+
+  if (
+    surveyUrl &&
+    !surveyUrl.startsWith("http://") &&
+    !surveyUrl.startsWith("https://")
+  ) {
+    return {
+      success: false,
+      message: "يرجى إدخال رابط صحيح يبدأ بـ http:// أو https://",
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("courses")
+    .update({
+      survey_enabled: formData.survey_enabled,
+      survey_url: surveyUrl,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", courseId)
+    .select("id, survey_enabled, survey_url")
+    .single();
+
+  if (error) {
+    return {
+      success: false,
+      message: error.message,
+    };
+  }
+
+  revalidatePath("/admin/learning/courses");
+  revalidatePath(`/admin/learning/courses/${courseId}`);
+
+  return {
+    success: true,
+    message: "تم حفظ إعدادات الاستبيان بنجاح.",
+    data,
+  };
+}
 export async function deleteCourse(courseId: string) {
   const supabase = await requireAdmin();
 

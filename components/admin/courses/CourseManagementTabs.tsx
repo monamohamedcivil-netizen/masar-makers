@@ -4,18 +4,20 @@ import Link from "next/link";
 import { useState } from "react";
 import CourseOverviewForm from "@/components/admin/courses/CourseOverviewForm";
 import CourseCertificatesPanel from "@/components/admin/courses/CourseCertificatesPanel";
-
+import CourseSurveyPanel from "@/components/admin/courses/CourseSurveyPanel";
 import {
   BarChart3,
   BookOpen,
   ChevronLeft,
   CircleDollarSign,
+  ClipboardList,
   FileBadge2,
   LayoutDashboard,
   Settings,
   Users,
+  FolderKanban,
 } from "lucide-react";
-
+import CourseProjectsPanel from "@/components/admin/courses/CourseProjectsPanel";
 type CourseStatus = "draft" | "published" | "archived";
 
 interface CourseData {
@@ -31,6 +33,8 @@ interface CourseData {
   journey_type?: string | null;
   status?: CourseStatus | null;
   whatsapp_number?: string | null;
+  survey_enabled?: boolean | null;
+survey_url?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 }
@@ -44,6 +48,8 @@ type TabId =
   | "content"
   | "pricing"
   | "certificates"
+  | "surveys"
+  | "projects"
   | "students"
   | "analytics"
   | "settings";
@@ -73,6 +79,16 @@ const tabs: {
     label: "الشهادات",
     icon: FileBadge2,
   },
+  {
+  id: "surveys",
+  label: "الاستبيانات",
+  icon: ClipboardList,
+},
+{
+  id: "projects",
+  label: "المشاريع",
+  icon: FolderKanban,
+},
   {
     id: "students",
     label: "الطلاب",
@@ -213,6 +229,17 @@ export default function CourseManagementTabs({
               courseTitle={course.title}
             />
           )}
+          {activeTab === "surveys" && (
+  <CourseSurveyPanel
+    course={course}
+  />
+)}
+          {activeTab === "projects" && (
+  <CourseProjectsPanel
+    courseId={course.id}
+    courseTitle={course.title}
+  />
+)}
           {activeTab === "students" && (
             <PlaceholderPanel
               icon={Users}

@@ -1,14 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
-
 import type {
   StudentProject,
   StudentProjectImage,
   ProjectStatus,
 } from "./types";
-
+import {
+  createAdminClient,
+  createClient,
+} from "@/lib/supabase/server";
 type ProjectRow = {
   id: string;
   user_id: string;
@@ -16,6 +17,7 @@ type ProjectRow = {
   course_id: string;
   course_title: string | null;
   student_name: string | null;
+  student_country: string | null;
   student_email: string | null;
   project_title: string;
   project_description: string | null;
@@ -85,7 +87,7 @@ function mapProject(
     courseTitle: row.course_title,
 
     studentName: row.student_name,
-
+studentCountry: row.student_country,
     studentEmail: row.student_email,
 
     projectTitle: row.project_title,
@@ -160,7 +162,36 @@ export async function getStudentProjects() {
     });
 
   if (!projects) return [];
+const userIds = Array.from(
+  new Set(
+    projects
+      .map((project) => project.user_id)
+      .filter(
+        (userId): userId is string =>
+          typeof userId === "string" &&
+          userId.length > 0,
+      ),
+  ),
+);
 
+const { data: profileRows } =
+  userIds.length > 0
+    ? await supabase
+        .from("member_profiles")
+        .select("user_id,country")
+        .in("user_id", userIds)
+    : {
+        data: [],
+      };
+
+const countryByUserId = new Map(
+  (profileRows ?? []).map((profile) => [
+    String(profile.user_id),
+    typeof profile.country === "string"
+      ? profile.country.trim()
+      : "",
+  ]),
+);
   const result: StudentProject[] = [];
 
   for (const row of projects as ProjectRow[]) {
@@ -201,17 +232,181 @@ export async function deleteProject(
   revalidatePath("/dashboard");
 }
 export async function getCourseProjects(
-  courseId: string,
-) {
-  const { supabase } =
-    await requireUser();
+  courseIds: string[],
+): Promise<StudentProject[]> {
+  const supabase = createAdminClient();
 
-  const { data: projects } =
+  const { data: projects, error } =
     await supabase
       .from("student_projects")
-      .select("*")
-      .eq("course_id", courseId)
-      .eq("status", "approved");
+      .select(`
+        *,
+        student_project_images(
+          id,
+          project_id,
+          image_url,
+          storage_path,
+          is_cover,
+          show_in_course,
+          sort_order
+        )
+      `)
+     .in("course_id", courseIds)
+      .eq("status", "approved")
+      .eq("show_on_course", true)
+      .order("featured", {
+        ascending: false,
+      })
+      .order("created_at", {
+        ascending: false,
+      });
 
-  return projects ?? [];
+  if (error || !projects) {
+    if (error) {
+      console.error(
+        "GET COURSE PROJECTS ERROR:",
+        error.message,
+      );
+    }
+
+    return [];
+  }
+const userIds = Array.from(
+  new Set(
+    projects
+      .map((project) => project.user_id)
+      .filter(
+        (userId): userId is string =>
+          typeof userId === "string" &&
+          userId.trim().length > 0,
+      ),
+  ),
+);
+
+const { data: profileRows, error: profilesError } =
+  userIds.length > 0
+    ? await supabase
+        .from("member_profiles")
+        .select("user_id,country")
+        .in("user_id", userIds)
+    : {
+        data: [],
+        error: null,
+      };
+
+if (profilesError) {
+  console.error(
+    "GET PROJECT STUDENT COUNTRIES ERROR:",
+    profilesError.message,
+  );
+}
+
+const countryByUserId = new Map<string, string>(
+  (profileRows ?? []).map((profile) => [
+    String(profile.user_id),
+    typeof profile.country === "string"
+      ? profile.country.trim()
+      : "",
+  ]),
+);
+  const result: StudentProject[] = [];
+
+  for (const project of projects) {
+    const uploadedImages = await Promise.all(
+      (
+        project.student_project_images ?? []
+      ).map((image: ImageRow) =>
+        mapImage(image),
+      ),
+    );
+
+    const importedImages =
+      normalizeImportedProjectImages(
+        project.project_images,
+      ).map((imageUrl, index) => ({
+        id: `imported:${project.id}:${index}`,
+        projectId: project.id,
+        imageUrl,
+        storagePath: null,
+        isCover:
+          imageUrl === project.cover_image ||
+          (index === 0 &&
+            uploadedImages.length === 0),
+        showInCourse: true,
+        sortOrder:
+          uploadedImages.length + index,
+      }));
+const profileCountry =
+  countryByUserId.get(
+    String(project.user_id ?? ""),
+  )?.trim() || "";
+
+const storedProjectCountry =
+  typeof project.student_country === "string"
+    ? project.student_country.trim()
+    : "";
+
+const resolvedStudentCountry =
+  profileCountry ||
+  (
+    storedProjectCountry &&
+    storedProjectCountry.toLowerCase() !==
+      "masar makers"
+      ? storedProjectCountry
+      : ""
+  ) ||
+  null;
+    result.push(
+      mapProject(
+        {
+  ...project,
+  student_country: resolvedStudentCountry,
+} as ProjectRow,
+        [
+          ...uploadedImages,
+          ...importedImages,
+        ],
+      ),
+    );
+  }
+
+  return result;
+}
+function normalizeImportedProjectImages(
+  value: unknown,
+): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .filter(
+        (item): item is string =>
+          typeof item === "string" &&
+          item.trim().length > 0,
+      )
+      .map((item) => item.trim());
+  }
+
+  if (typeof value !== "string") {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter(
+          (item): item is string =>
+            typeof item === "string" &&
+            item.trim().length > 0,
+        )
+        .map((item) => item.trim());
+    }
+  } catch {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
 }

@@ -11,21 +11,26 @@ export type CertificateViewModel = {
 
   courseTitleEn: string | null;
 
-  certificateType: string;
+  courseSlug: string;
+
+  certificateType:
+    | "fundamental"
+    | "advanced"
+    | "integrated";
 
   issueDate: string;
 
   verificationCode: string;
 
+  templateImage: string;
+
+  verificationUrl: string;
+
+  qrValue: string;
+
   pdfUrl: string | null;
 
   previewUrl: string | null;
-
-  templateId: string | null;
-
-  courseLogo: string | null;
-
-  sponsorLogos: string[];
 
   metadata: Record<string, unknown>;
 };

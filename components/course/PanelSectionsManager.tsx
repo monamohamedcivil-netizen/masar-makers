@@ -78,7 +78,7 @@ const sectionOptions = [
   },
   {
     value: "reviews",
-    label: "آراء المتدربين",
+    label: "قصص نجاح المتدربين",
   },
   {
     value: "faq",

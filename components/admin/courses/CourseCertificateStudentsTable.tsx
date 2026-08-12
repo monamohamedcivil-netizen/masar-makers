@@ -19,6 +19,7 @@ import {
 import {
   getCourseStudentsForCertificates,
   issueCourseCertificate,
+  reissueCourseCertificate,
   type CourseCertificateStudent,
 } from "@/lib/actions/admin/course-certificates";
 
@@ -108,11 +109,12 @@ export default function CourseCertificateStudentsTable({
 
   const [isPending, startTransition] = useTransition();
 
-const [issuingEnrollmentId, setIssuingEnrollmentId] =
-  useState<string | null>(null);
+  const [issuingEnrollmentId, setIssuingEnrollmentId] =
+    useState<string | null>(null);
+
   function handleIssueCertificate(
-  student: CourseCertificateStudent,
-) {
+    student: CourseCertificateStudent,
+  ) {
   if (!hasSavedTemplate) {
     alert("يجب حفظ قالب الشهادة أولًا.");
     return;
@@ -120,13 +122,55 @@ const [issuingEnrollmentId, setIssuingEnrollmentId] =
 
   setIssuingEnrollmentId(student.enrollmentId);
 
+   startTransition(async () => {
+  const result = await issueCourseCertificate({
+    enrollmentId: student.enrollmentId,
+    certificateType: student.journeyType as
+      | "fundamental"
+      | "advanced",
+  });
+
+  if (!result.success) {
+    alert(result.message || "تعذر إصدار الشهادة.");
+    setIssuingEnrollmentId(null);
+    return;
+  }
+
+  setStudents((currentStudents) =>
+    currentStudents.map((currentStudent) =>
+      currentStudent.enrollmentId === student.enrollmentId
+        ? {
+            ...currentStudent,
+            certificateId:
+              result.data?.certificateId ??
+              currentStudent.certificateId,
+            certificateStatus: "issued",
+            certificateIssuedAt:
+              result.data?.issuedAt ??
+              new Date().toISOString(),
+          }
+        : currentStudent,
+    ),
+  );
+
+  alert("تم إصدار الشهادة بنجاح.");
+  setIssuingEnrollmentId(null);
+});
+  }
+
+  function handleReissueCertificate(
+  student: CourseCertificateStudent,
+) {
+  setIssuingEnrollmentId(student.enrollmentId);
+
   startTransition(async () => {
- const result = await issueCourseCertificate({
+    const result = await reissueCourseCertificate({
   enrollmentId: student.enrollmentId,
+  certificateType: student.journeyType,
 });
 
     if (!result.success) {
-      alert(result.message || "تعذر إصدار الشهادة.");
+      alert(result.message || "تعذر إعادة إصدار الشهادة.");
       setIssuingEnrollmentId(null);
       return;
     }
@@ -136,10 +180,6 @@ const [issuingEnrollmentId, setIssuingEnrollmentId] =
         currentStudent.enrollmentId === student.enrollmentId
           ? {
               ...currentStudent,
-              certificateId:
-                result.data?.certificateId ??
-                currentStudent.certificateId,
-              certificateStatus: "issued",
               certificateIssuedAt:
                 result.data?.issuedAt ??
                 new Date().toISOString(),
@@ -148,10 +188,11 @@ const [issuingEnrollmentId, setIssuingEnrollmentId] =
       ),
     );
 
-    alert("تم إصدار الشهادة بنجاح.");
+    alert("تمت إعادة إصدار الشهادة بنجاح.");
     setIssuingEnrollmentId(null);
-  });
-}
+    });
+  }
+
   useEffect(() => {
     let isMounted = true;
 
@@ -279,6 +320,7 @@ const [issuingEnrollmentId, setIssuingEnrollmentId] =
             <tr className="border-b border-slate-200 text-xs font-black text-slate-500">
               <th className="px-4 py-3">الطالب</th>
               <th className="px-4 py-3">الرحلة</th>
+              <th className="px-4 py-3">نوع الشهادة</th>
               <th className="px-4 py-3">التقدم</th>
               <th className="px-4 py-3">حالة الشهادة</th>
               <th className="px-4 py-3">الإجراءات</th>
@@ -335,7 +377,19 @@ const isIssuing =
                         student.journeyType}
                     </p>
                   </td>
-
+<td className="px-4 py-4">
+  <span
+    className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${
+      student.journeyType === "fundamental"
+        ? "bg-sky-50 text-sky-700 border border-sky-200"
+        : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+    }`}
+  >
+    {student.journeyType === "fundamental"
+      ? "Fundamentals (F)"
+      : "Advanced (A)"}
+  </span>
+</td>
                   <td className="px-4 py-4">
                     <div className="w-40">
                       <div className="flex items-center justify-between text-xs">
@@ -372,30 +426,33 @@ const isIssuing =
                     <div className="flex flex-wrap items-center gap-2">
                       {certificateWasIssued ? (
                         <>
-                          <button
-                            type="button"
-                            disabled
-                            title="سيتم تفعيل عرض الشهادة في المرحلة التالية"
-                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-[#07152E] opacity-60"
+                          <a
+                            href={`/certificates/${student.certificateId}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-[#07152E] transition hover:bg-slate-100"
                           >
-                            <a
-  href={`/certificates/${student.certificateId}`}
-  target="_blank"
-  rel="noreferrer"
-  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-black text-[#07152E] transition hover:bg-slate-100"
->
-  <Eye className="h-3.5 w-3.5" />
-  عرض
-</a>
+                            <Eye className="h-3.5 w-3.5" />
                             عرض
-                          </button>
+                          </a>
+
                           <button
                             type="button"
-                           
-                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 text-xs font-black text-amber-700 opacity-60"
+                            onClick={() => handleReissueCertificate(student)}
+                            disabled={isPending}
+                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 text-xs font-black text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            <RefreshCw className="h-3.5 w-3.5" />
-                            إعادة إصدار
+                            {isIssuing ? (
+                              <>
+                                <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                                جارٍ إعادة الإصدار...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="h-3.5 w-3.5" />
+                                إعادة إصدار
+                              </>
+                            )}
                           </button>
                         </>
                       ) : (

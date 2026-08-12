@@ -1,24 +1,18 @@
-import { COURSE_CODES } from "./course-codes";
+
 import { JOURNEY_CODES } from "./journey-codes";
 
 type Input = {
-  courseTitle: string;
-
+  courseCode: string;
   journeyType: string;
-
   year: number;
-
   masarId: number;
-
   trackNumber: number;
-
   stationNumber: number;
-
   journeyNumber: number;
 };
 
 export function generateCertificateNumber({
-  courseTitle,
+  courseCode,
   journeyType,
   year,
   masarId,
@@ -26,29 +20,24 @@ export function generateCertificateNumber({
   stationNumber,
   journeyNumber,
 }: Input) {
-  const courseCode =
-    COURSE_CODES[courseTitle] ?? "GEN";
+ 
 
   const journeyCode =
     JOURNEY_CODES[
       journeyType.toLowerCase() as keyof typeof JOURNEY_CODES
     ] ?? "X";
 
+  const numericCode =
+  masarId.toString().padStart(5, "0") +
+    trackNumber.toString().padStart(2, "0") +
+    stationNumber.toString().padStart(2, "0") +
+    journeyNumber.toString().padStart(2, "0");
+
   return [
     "MM",
-
     courseCode,
-
     journeyCode,
-
     year,
-
-    masarId.toString().padStart(6, "0") +
-
-      trackNumber.toString().padStart(2, "0") +
-
-      stationNumber.toString().padStart(2, "0") +
-
-      journeyNumber.toString().padStart(2, "0"),
+    numericCode,
   ].join("-");
 }

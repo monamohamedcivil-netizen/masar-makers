@@ -6,11 +6,7 @@ import {
 
 import "./globals.css";
 
-import {
-  BuilderModeBar,
-  BuilderPropertiesPanel,
-  BuilderProvider,
-} from "@/components/builder";
+import RootClientShell from "@/components/layout/RootClientShell";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -40,13 +36,9 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-screen bg-[#F7F8FA]">
-        <BuilderProvider>
+        <RootClientShell>
           {children}
-
-           <BuilderPropertiesPanel />
-
-  <BuilderModeBar />
-</BuilderProvider>
+        </RootClientShell>
       </body>
     </html>
   );

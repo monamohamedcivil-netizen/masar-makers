@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -28,6 +28,7 @@ interface Props {
 
     itemTitle?: string;
     link?: string | null;
+    redirectTo?: string | null;
 }
 
 function normalizeWhatsappNumber(number: string) {
@@ -67,7 +68,8 @@ export default function CourseActionButton({
     actionTitle,
 
     itemTitle,
-      link,
+    link,
+    redirectTo,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -77,15 +79,26 @@ export default function CourseActionButton({
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
+  useEffect(() => {
+    setCurrentStatus(enrollmentStatus);
+  }, [enrollmentStatus]);
+
   const handleEnrollment = () => {
     setErrorMessage("");
     setSuccessMessage("");
 
+    const isReactivationRequest =
+      currentStatus === "suspended";
+
     /*
-     * Open a blank tab during the user click so browsers do not block the
-     * WhatsApp window while the enrollment request is being saved.
+     * Reactivation does not require opening WhatsApp/payment again.
+     * Normal paid enrollment requests keep the existing WhatsApp flow.
      */
-    const whatsappWindow = mode === "enrollment" ? window.open("", "_blank") : null;
+    const whatsappWindow =
+      mode === "enrollment" &&
+      !isReactivationRequest
+        ? window.open("", "_blank")
+        : null;
 
     startTransition(async () => {
       const result =
@@ -117,23 +130,45 @@ export default function CourseActionButton({
 
       const nextStatus = result.enrollment?.status ?? "pending";
       if (mode === "free") {
-  setCurrentStatus("active");
-  setSuccessMessage("تمت إضافة الرحلة المجانية إلى رحلاتي.");
-  router.refresh();
-  whatsappWindow?.close();
-  const startUrl = link?.trim();
+        setCurrentStatus("active");
+        setSuccessMessage(
+          "تمت إضافة الرحلة المجانية إلى رحلاتي.",
+        );
+        whatsappWindow?.close();
 
-  if (startUrl) {
-    window.open(startUrl, "_blank", "noopener,noreferrer");
-  }
+        if (redirectTo?.trim()) {
+          router.push(redirectTo);
+          return;
+        }
 
-  return;
-}
+        const startUrl = link?.trim();
+
+        if (startUrl) {
+          window.open(
+            startUrl,
+            "_blank",
+            "noopener,noreferrer",
+          );
+          return;
+        }
+
+        router.refresh();
+        return;
+      }
       setCurrentStatus(nextStatus);
 
       if (nextStatus === "active" || nextStatus === "completed") {
         whatsappWindow?.close();
         setSuccessMessage("اشتراكك مفعّل بالفعل.");
+        router.refresh();
+        return;
+      }
+
+      if (isReactivationRequest) {
+        whatsappWindow?.close();
+        setSuccessMessage(
+          "تم إرسال طلب إعادة تفعيل الاشتراك، وهو الآن قيد مراجعة الإدارة.",
+        );
         router.refresh();
         return;
       }
@@ -184,20 +219,37 @@ export default function CourseActionButton({
   };
 
   if (currentStatus === "active") {
-     const startUrl = link?.trim();
+    const startUrl = link?.trim();
 
-  if (mode === "free" && startUrl) {
-    return (
-      <a
-        href={startUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex h-12 w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-3 font-black text-white transition hover:bg-emerald-700"
-      >
-        استكمل الرحلة
-      </a>
-    );
-  }
+    if (redirectTo?.trim()) {
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            router.push(redirectTo)
+          }
+          className="h-12 w-full rounded-xl bg-emerald-600 px-4 py-3 font-black text-white transition hover:bg-emerald-700"
+        >
+          {mode === "free"
+            ? label || "شاهد الآن"
+            : "ابدأ الرحلة"}
+        </button>
+      );
+    }
+
+    if (mode === "free" && startUrl) {
+      return (
+        <a
+          href={startUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex h-12 w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-3 font-black text-white transition hover:bg-emerald-700"
+        >
+          استكمل الرحلة
+        </a>
+      );
+    }
+
     return (
       <button
         type="button"
@@ -209,6 +261,20 @@ export default function CourseActionButton({
   }
 
   if (currentStatus === "completed") {
+    if (redirectTo?.trim()) {
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            router.push(redirectTo)
+          }
+          className="h-12 w-full rounded-xl bg-emerald-600 px-4 py-3 font-black text-white transition hover:bg-emerald-700"
+        >
+          شاهد مرة أخرى
+        </button>
+      );
+    }
+
     return (
       <button
         type="button"
@@ -253,14 +319,37 @@ export default function CourseActionButton({
     );
   }
 
-  if (currentStatus === "expired" || currentStatus === "suspended") {
+  if (currentStatus === "suspended") {
+    return (
+      <div className="w-full">
+        <button
+          type="button"
+          onClick={handleEnrollment}
+          disabled={isPending}
+          className="h-12 w-full rounded-xl bg-[#F7B548] px-4 py-3 font-black text-[#07152E] transition hover:brightness-105 disabled:cursor-wait disabled:opacity-60"
+        >
+          {isPending
+            ? "جارٍ إرسال طلب إعادة التفعيل..."
+            : "طلب إعادة تفعيل الاشتراك"}
+        </button>
+
+        {errorMessage && (
+          <p className="mt-2 text-center text-xs font-bold leading-5 text-red-600">
+            {errorMessage}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  if (currentStatus === "expired") {
     return (
       <button
         type="button"
         disabled
         className="h-12 w-full cursor-not-allowed rounded-xl bg-slate-600 px-4 py-3 font-black text-white"
       >
-        {currentStatus === "expired" ? "انتهى الاشتراك" : "الاشتراك موقوف"}
+        انتهى الاشتراك
       </button>
     );
   }

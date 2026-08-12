@@ -5,7 +5,10 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import type { EnrollmentStatus } from "@/lib/actions/enroll";
+import { getMasarPassport } from "@/lib/dashboard/masar-passport";
 import { activateEnrollmentWorkflow } from "@/lib/workflows";
+
+export type EnrollmentSource = "paid" | "reward";
 
 export interface AdminEnrollmentRequest {
   id: string;
@@ -15,6 +18,7 @@ export interface AdminEnrollmentRequest {
   journeyType: string;
   actionKey: string | null;
   actionTitle: string | null;
+  enrollmentSource: EnrollmentSource;
   status: EnrollmentStatus;
   createdAt: string;
   updatedAt: string | null;
@@ -48,9 +52,29 @@ type EnrollmentRow = {
   journey_type: string | null;
   action_key: string | null;
   action_title: string | null;
+  enrollment_source: string | null;
   status: EnrollmentStatus;
   created_at: string;
   updated_at: string | null;
+};
+
+type ApproveEnrollmentRow = {
+  id: string;
+  user_id: string;
+  course_id: string;
+  journey_type: string | null;
+  enrollment_source: string | null;
+  status: EnrollmentStatus;
+  courses:
+    | {
+        title: string | null;
+        title_ar: string | null;
+      }
+    | {
+        title: string | null;
+        title_ar: string | null;
+      }[]
+    | null;
 };
 
 async function requireAdmin() {
@@ -71,7 +95,11 @@ async function requireAdmin() {
     .eq("id", user.id)
     .single();
 
-  if (profileError || profile?.role !== "admin") {
+  if (
+    profileError ||
+    !profile ||
+    !["admin", "super_admin"].includes(String(profile.role))
+  ) {
     throw new Error("FORBIDDEN");
   }
 
@@ -137,6 +165,38 @@ function getStationTitle(station: Record<string, unknown> | undefined) {
   return title ? String(title) : null;
 }
 
+function normalizeJourneyType(value: string | null | undefined) {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replaceAll("-", "_");
+}
+
+function isOneDayJourney(value: string | null | undefined) {
+  return [
+    "workshop",
+    "one_day",
+    "one_day_journey",
+    "one_day_workshop",
+  ].includes(normalizeJourneyType(value));
+}
+
+function normalizeEnrollmentSource(
+  value: string | null | undefined,
+): EnrollmentSource {
+  return value === "reward" ? "reward" : "paid";
+}
+
+function revalidateEnrollmentPages() {
+  revalidatePath("/admin");
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/students");
+  revalidatePath("/admin/students/enrollment-requests");
+  revalidatePath("/admin/students/active");
+  revalidatePath("/admin/students/suspended");
+  revalidatePath("/dashboard");
+}
+
 export async function getEnrollmentRequests(): Promise<
   AdminEnrollmentRequest[]
 > {
@@ -145,7 +205,7 @@ export async function getEnrollmentRequests(): Promise<
   const { data, error } = await supabase
     .from("enrollments")
     .select(
-      "id,user_id,course_id,journey_type,action_key,action_title,status,created_at,updated_at",
+      "id,user_id,course_id,journey_type,action_key,action_title,enrollment_source,status,created_at,updated_at",
     )
     .order("created_at", { ascending: false });
 
@@ -191,10 +251,6 @@ export async function getEnrollmentRequests(): Promise<
     ]),
   );
 
-  /*
-   * The current enrollment insert stores course_id and journey_type.
-   * The station is derived automatically from the course record.
-   */
   const stationIds = Array.from(
     new Set(
       (courses ?? [])
@@ -239,13 +295,12 @@ export async function getEnrollmentRequests(): Promise<
       courseId: enrollment.course_id,
       stationId,
 
-      /*
-       * Important: journey type belongs to the enrollment request,
-       * not to the course record.
-       */
       journeyType: enrollment.journey_type?.trim() || "career_path",
       actionKey: enrollment.action_key?.trim() || null,
       actionTitle: enrollment.action_title?.trim() || null,
+      enrollmentSource: normalizeEnrollmentSource(
+        enrollment.enrollment_source,
+      ),
 
       status: enrollment.status,
       createdAt: enrollment.created_at,
@@ -267,6 +322,82 @@ export async function getEnrollmentRequests(): Promise<
       },
     };
   });
+}
+
+export async function updateEnrollmentSource(
+  enrollmentId: string,
+  enrollmentSource: EnrollmentSource,
+): Promise<AdminActionResult> {
+  if (!enrollmentId?.trim()) {
+    return {
+      success: false,
+      message: "رقم طلب الاشتراك غير موجود.",
+    };
+  }
+
+  if (!["paid", "reward"].includes(enrollmentSource)) {
+    return {
+      success: false,
+      message: "نوع الاشتراك غير صحيح.",
+    };
+  }
+
+  const { supabase } = await requireAdmin();
+
+  const { data: enrollmentData, error: enrollmentError } =
+    await supabase
+      .from("enrollments")
+      .select("id,journey_type,status")
+      .eq("id", enrollmentId)
+      .maybeSingle();
+
+  if (enrollmentError || !enrollmentData) {
+    return {
+      success: false,
+      message:
+        enrollmentError?.message ||
+        "تعذر العثور على طلب الاشتراك.",
+    };
+  }
+
+  if (String(enrollmentData.status).toLowerCase() !== "pending") {
+    return {
+      success: false,
+      message: "لا يمكن تغيير نوع اشتراك تمت مراجعته.",
+    };
+  }
+
+  if (
+    enrollmentSource === "reward" &&
+    !isOneDayJourney(enrollmentData.journey_type)
+  ) {
+    return {
+      success: false,
+      message: "المكافأة متاحة لرحلات اليوم الواحد فقط.",
+    };
+  }
+
+  const { error: updateError } = await supabase
+    .from("enrollments")
+    .update({
+      enrollment_source: enrollmentSource,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", enrollmentId);
+
+  if (updateError) {
+    return {
+      success: false,
+      message: `تعذر حفظ نوع الاشتراك: ${updateError.message}`,
+    };
+  }
+
+  revalidatePath("/admin/students/enrollment-requests");
+
+  return {
+    success: true,
+    message: "تم تحديث نوع الاشتراك.",
+  };
 }
 
 async function changeEnrollmentStatus(
@@ -297,10 +428,7 @@ async function changeEnrollmentStatus(
     };
   }
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/dashboard");
-  revalidatePath("/admin/students/enrollment-requests");
-  revalidatePath("/dashboard");
+  revalidateEnrollmentPages();
 
   return {
     success: true,
@@ -310,7 +438,66 @@ async function changeEnrollmentStatus(
 export async function approveEnrollment(
   enrollmentId: string,
 ): Promise<AdminActionResult> {
+  if (!enrollmentId?.trim()) {
+    return {
+      success: false,
+      message: "رقم طلب الاشتراك غير موجود.",
+    };
+  }
+
   const { supabase } = await requireAdmin();
+
+  const { data, error } = await supabase
+    .from("enrollments")
+    .select(`
+      id,
+      user_id,
+      course_id,
+      journey_type,
+      enrollment_source,
+      status,
+      courses (
+        title,
+        title_ar
+      )
+    `)
+    .eq("id", enrollmentId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return {
+      success: false,
+      message:
+        error?.message ||
+        "تعذر العثور على طلب الاشتراك.",
+    };
+  }
+
+  const enrollment = data as ApproveEnrollmentRow;
+  const enrollmentSource = normalizeEnrollmentSource(
+    enrollment.enrollment_source,
+  );
+
+  if (
+    enrollmentSource === "reward" &&
+    !isOneDayJourney(enrollment.journey_type)
+  ) {
+    return {
+      success: false,
+      message: "المكافأة متاحة لرحلات اليوم الواحد فقط.",
+    };
+  }
+
+  if (enrollmentSource === "reward") {
+    const passport = await getMasarPassport(enrollment.user_id);
+
+    if (passport.availableRewards <= 0) {
+      return {
+        success: false,
+        message: "الطالب لا يمتلك مكافأة متاحة حاليًا.",
+      };
+    }
+  }
 
   const result = await activateEnrollmentWorkflow(
     supabase,
@@ -324,15 +511,62 @@ export async function approveEnrollment(
     };
   }
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/dashboard");
-  revalidatePath("/admin/students/enrollment-requests");
-  revalidatePath("/dashboard");
+  let rewardWarning: string | undefined;
+
+  if (enrollmentSource === "reward") {
+    const { data: profileData, error: profileLoadError } =
+      await supabase
+        .from("profiles")
+        .select("redeemed_rewards")
+        .eq("id", enrollment.user_id)
+        .maybeSingle();
+
+    if (profileLoadError) {
+      rewardWarning =
+        `تم تفعيل الاشتراك، لكن تعذر قراءة بطاقة المكافآت: ${profileLoadError.message}`;
+    } else {
+      const currentRedeemedRewards = Math.max(
+        0,
+        Number(profileData?.redeemed_rewards ?? 0),
+      );
+
+      const courseRelation = Array.isArray(enrollment.courses)
+        ? enrollment.courses[0]
+        : enrollment.courses;
+
+      const courseTitle =
+        courseRelation?.title_ar?.trim() ||
+        courseRelation?.title?.trim() ||
+        "رحلة اليوم الواحد";
+
+      const rewardedAt = new Date().toISOString();
+
+      const { error: rewardError } = await supabase
+        .from("profiles")
+        .update({
+          redeemed_rewards: currentRedeemedRewards + 1,
+          last_reward_course_id: enrollment.course_id,
+          last_reward_course_title: courseTitle,
+          last_reward_redeemed_at: rewardedAt,
+        })
+        .eq("id", enrollment.user_id);
+
+      if (rewardError) {
+        rewardWarning =
+          `تم تفعيل الاشتراك، لكن تعذر تحديث بطاقة المكافآت: ${rewardError.message}`;
+      }
+    }
+  }
+
+  revalidateEnrollmentPages();
 
   return {
     success: true,
-    message: result.message,
-    warning: result.warning,
+    message:
+      enrollmentSource === "reward"
+        ? "تم قبول الاشتراك وتسجيله كمكافأة."
+        : result.message,
+    warning: rewardWarning ?? result.warning,
   };
 }
 
@@ -346,6 +580,12 @@ export async function suspendEnrollment(
   enrollmentId: string,
 ): Promise<AdminActionResult> {
   return changeEnrollmentStatus(enrollmentId, "suspended");
+}
+
+export async function reactivateEnrollment(
+  enrollmentId: string,
+): Promise<AdminActionResult> {
+  return changeEnrollmentStatus(enrollmentId, "active");
 }
 
 export async function setEnrollmentPending(

@@ -48,8 +48,8 @@ export default function StudentWorkspace({
   if (!activePanel) return null;
 
   return (
-    <section className="mx-auto max-w-[1500px] px-3 py-5 sm:px-6 lg:px-8">
-      <div className="grid min-h-[610px] gap-4 lg:grid-cols-[230px_minmax(0,1fr)_230px] xl:grid-cols-[250px_minmax(0,1fr)_250px]">
+    <section className="mx-auto max-w-[1450px] px-3 py-0 sm:px-6 lg:px-8">
+      <div className="grid min-h-[450px] rounded-t-[20xp] gap-0 lg:grid-cols-[230px_minmax(0,1fr)_230px] xl:grid-cols-[230px_minmax(0,1fr)_230px]">
         <aside className="hidden lg:block order-3 lg:order-3">
           <WorkspaceSidebar
             title="إنجازاتي"
@@ -59,7 +59,7 @@ export default function StudentWorkspace({
           />
         </aside>
 
-        <main className="order-2 min-w-0 overflow-hidden border border-[#DCE2EA] bg-white shadow-[0_10px_28px_rgba(7,21,46,0.07)]">
+       <main className="order-2 min-w-0 overflow-hidden rounded-[30px] border border-[#DCE2EA] bg-white shadow-[0_18px_45px_rgba(7,21,46,0.20)]">
           <div className="flex gap-2 overflow-x-auto border-b border-slate-200 bg-[#07152E] p-3 lg:hidden">
             {orderedPanels.map((panel) => (
               <button
@@ -78,7 +78,7 @@ export default function StudentWorkspace({
           </div>
 
           <WorkspacePanelHeader panel={activePanel} />
-          <div className="min-h-[530px] p-4 sm:p-6">
+          <div className="min-h-[400px] px-4 pb-4 pt-2 sm:px-6 sm:pb-6 sm:pt-2">
             <WorkspacePanelRenderer panel={activePanel} data={data} />
           </div>
         </main>

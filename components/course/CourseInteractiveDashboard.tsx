@@ -39,6 +39,7 @@ import {
 } from "next/navigation";
 
 import ProfessionalPanelViewer from "./ProfessionalPanelViewer";
+import CourseJourneyLessonsPanel from "./CourseJourneyLessonsPanel";
 import SideMenu from "./SideMenu";
 
 import type {
@@ -69,7 +70,11 @@ import type {
   CourseEnrollmentAccess,
   EnrollmentStatusMap,
 } from "@/lib/actions/enroll";
+import SuccessStoriesPanel from "./SuccessStoriesPanel";
 
+import type {
+  StudentProject,
+} from "@/lib/projects/types";
 export type PlatformPageMode =
   | "student"
   | "edit"
@@ -86,6 +91,7 @@ type CourseInteractiveDashboardProps = {
   freeSessions: FreeSession[];
   workshops: Workshop[];
   reviews: Review[];
+  projects?: StudentProject[];
   learningModes: CatalogCoursePanelItem[];
   resultTabs: CatalogCoursePanelItem[];
   learningColumnTitle?: string;
@@ -116,6 +122,7 @@ export default function CourseInteractiveDashboard({
   freeSessions,
   workshops,
   reviews,
+  projects = [],
   builderPage,
   learningModes,
   resultTabs,
@@ -409,7 +416,28 @@ ${errorMessage}`
         />
       );
     }
+if (displayedPanel === "reviews") {
+  return (
+    <SuccessStoriesPanel
+      reviews={reviews}
+      projects={projects}
+    />
+  );
+}
 
+    if (
+      displayedPanel === "free" ||
+      displayedPanel === "workshop"
+    ) {
+      return (
+        <CourseJourneyLessonsPanel
+          key={`${stationId}-${displayedPanel}-journey-lessons`}
+          stationId={stationId}
+          kind={displayedPanel}
+          enrollmentStatuses={enrollmentStatuses}
+        />
+      );
+    }
     if (builderPage) {
       return <CourseRenderer page={builderPage} />;
     }

@@ -70,11 +70,18 @@ import type {
 } from "@/lib/queries/catalog/stations";
 
 import CourseActionButton from "@/components/course/CourseActionButton";
+import BunnyVideoPlayer from "@/components/student/player/BunnyVideoPlayer";
 import { getCourseEnrollmentAccess } from "@/lib/actions/enroll";
 
+import {
+  getCourseProjects,
+} from "@/lib/projects/student-projects";
 type CoursePageProps = {
   params: Promise<{
     slug: string;
+  }>;
+  searchParams?: Promise<{
+    lesson?: string | string[];
   }>;
 };
 
@@ -138,8 +145,19 @@ export async function generateMetadata({
 
 export default async function CoursePage({
   params,
+  searchParams,
 }: CoursePageProps) {
   const { slug } = await params;
+
+  const resolvedSearchParams = searchParams
+    ? await searchParams
+    : {};
+
+  const selectedLesson = Array.isArray(
+    resolvedSearchParams.lesson,
+  )
+    ? resolvedSearchParams.lesson[0]
+    : resolvedSearchParams.lesson;
 
   const pageData =
     await loadCoursePageData(slug);
@@ -156,7 +174,14 @@ const enrollmentAccess = pageData
       showAdvanced: true,
       showIntegrated: true,
     };
-
+const courseProjects = pageData
+  ? await getCourseProjects(
+      pageData.course.variants
+        ?.map((variant) => String(variant.id))
+        .filter(Boolean) ??
+        [String(pageData.course.id)],
+    )
+  : [];
   if (!pageData) {
     notFound();
   }
@@ -186,6 +211,12 @@ const enrollmentAccess = pageData
 
       <AnnouncementBar />
 
+      {selectedLesson ? (
+        <section className="mx-auto w-full max-w-6xl px-4 py-6">
+          <BunnyVideoPlayer lessonId={selectedLesson} />
+        </section>
+      ) : null}
+
       <CourseJourneyHeader
         courses={pathCourses}
         currentCourseSlug={course.slug}
@@ -208,6 +239,7 @@ const enrollmentAccess = pageData
   freeSessions={freeSessions}
   workshops={workshops}
   reviews={courseReviews}
+  projects={courseProjects}
   learningModes={learningModes}
   resultTabs={resultTabs}
   learningColumnTitle={

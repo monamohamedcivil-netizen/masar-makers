@@ -35,22 +35,25 @@ export default function WorkspaceSidebar({
               type="button"
               onClick={() => onSelect(panel.id)}
               aria-current={active ? "page" : undefined}
-              className={`group flex min-h-[58px] w-full items-center gap-3 border-b border-[#E4E8EE] px-4 text-right text-[12px] font-black transition last:border-b-0 ${
-                active
-                  ? "bg-[#07152E] text-white"
-                  : "bg-white text-[#07152E] hover:bg-[#FFF9ED]"
-              }`}
+className={`group relative flex w-full items-center gap-3 px-4 text-right font-black transition-all duration-200 ${
+  active
+    ? "min-h-[56px] border-b border-[#07152E] bg-[#07152E] text-[14px] text-white"
+    : "min-h-[48px] border-b border-[#DCE2EA] bg-[#EEF1F5] text-[12px] text-[#4B5563] hover:bg-[#E3E7EC]"
+}`} 
             >
               <span
-                className={`grid h-9 w-9 shrink-0 place-items-center border transition ${
-                  active
-                    ? "border-[#F7B548]/45 bg-white/10 text-[#F7B548]"
-                    : "border-[#F7B548]/35 bg-[#FFF8E9] text-[#B87508] group-hover:border-[#F7B548]"
-                }`}
-              >
-                <Icon size={17} />
-              </span>
+  className={`grid h-7 w-7 shrink-0 place-items-center transition ${
+    active
+      ? "text-[#F7B548]"
+      : "text-[#6B7280]"
+  }`}
+>
+  <Icon size={20} strokeWidth={1.8} />
+</span>
               <span>{panel.title}</span>
+              {active && (
+  <span className="absolute bottom-0 left-4 right-4 h-[3px] bg-[#F7B548]" />
+)}
             </button>
           );
         })}

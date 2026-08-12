@@ -189,8 +189,9 @@ export default function CourseDynamicPanel({
   if (activePanel === "reviews") {
     return (
       <PanelShell
-        title="آراء المتدربين"
-        description="تجارب حقيقية لمتدربين شاركوا في هذه الرحلة."
+       title="قصص نجاح المتدربين"
+
+description="تقييمات حقيقية ومشاريع نفذها المتدربون بعد إتمام هذه الرحلة."
         icon={MessageSquareQuote}
         mode={mode}
         panelVisible={panelVisible}
@@ -239,7 +240,7 @@ export default function CourseDynamicPanel({
               ))}
           </div>
         ) : (
-          <EmptyPanel text="سيتم إضافة آراء متدربي هذا الكورس قريبًا." />
+          <EmptyPanel text="سيتم إضافة قصص نجاح متدربي هذا الكورس قريبًا." />
         )}
       </PanelShell>
     );

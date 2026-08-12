@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 
 import AdminPageHeader from "@/components/admin/layout/AdminPageHeader";
 import CourseManagementTabs from "@/components/admin/courses/CourseManagementTabs";
+import CourseSurveyTable from "@/components/admin/courses/CourseSurveyTable";
+
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +18,7 @@ export default async function CourseManagementPage({
   params,
 }: CourseManagementPageProps) {
   const { courseId } = await params;
+
   const supabase = await createClient();
 
   const { data: course, error } = await supabase
@@ -40,6 +43,8 @@ export default async function CourseManagementPage({
       />
 
       <CourseManagementTabs course={course} />
+
+      <CourseSurveyTable courseId={course.id} />
     </div>
   );
 }

@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { getMasarPassport } from "@/lib/dashboard/masar-passport";
+import type { EnrollmentStatus } from "@/lib/actions/enroll";
 
 export type StudentCourseCard = {
   enrollmentId: string;
@@ -21,8 +23,29 @@ export type StudentCourseCard = {
   actionTitle: string | null;
 };
 
+export type StudentStationLesson = {
+  lessonId: string;
+  courseId: string;
+  title: string;
+  coursePart: "single" | "fundamentals" | "advanced";
+  durationSeconds: number;
+  sortOrder: number;
+  progressPercent: number;
+  completed: boolean;
+};
+
+export type StudentStationPart = {
+  part: "single" | "fundamentals" | "advanced";
+  courseId: string;
+  access: "active" | "pending" | "locked";
+  enrollmentStatus: EnrollmentStatus | null;
+  lessons: StudentStationLesson[];
+};
+
 export type StudentPathStationProgress = {
   stationId: string;
+  enrollmentId: string;
+  courseId: string;
   stationSlug: string;
   title: string;
   shortTitle: string;
@@ -41,6 +64,8 @@ export type StudentPathStationProgress = {
   isEnrolled: boolean;
   courseSlug: string;
   courseHref: string;
+  learningLayout: "single" | "split";
+  learningParts: StudentStationPart[];
 };
 
 export type StudentCareerPathProgress = {
@@ -60,29 +85,39 @@ export type StudentOneDayJourney = {
   courseId: string;
   slug: string;
   title: string;
-  categoryId: string;
-  categoryTitle: string;
+
+  stationId: string;
+  stationTitle: string;
+
   progressPercent: number;
   status: "not_started" | "in_progress" | "completed";
+
   lessonId: string | null;
+  coursePart: "single" | "fundamentals" | "advanced";
   href: string;
 };
 
-export type StudentOneDayJourneyGroup = {
+export type StudentJourneyStationGroup = {
   id: string;
   title: string;
+  shortTitle: string;
+  iconUrl: string | null;
   displayOrder: number;
   journeys: StudentOneDayJourney[];
 };
 
+export type StudentOneDayJourneyGroup = {
+  id: string;
+  slug: string;
+  title: string;
+  shortTitle: string;
+  displayOrder: number;
+  stations: StudentJourneyStationGroup[];
+};
+
 export type StudentFreeJourney = StudentOneDayJourney;
 
-export type StudentFreeJourneyGroup = {
-  id: string;
-  title: string;
-  displayOrder: number;
-  journeys: StudentFreeJourney[];
-};
+export type StudentFreeJourneyGroup = StudentOneDayJourneyGroup;
 
 export type StudentNextStepKind =
   | "professional"
@@ -128,6 +163,20 @@ export type StudentCertificate = {
   isNew: boolean;
 };
 
+
+export type StudentSurvey = {
+  id: string;
+  userId: string;
+  courseId: string;
+  surveyTemplateId: string | null;
+  rating: number;
+  comment: string | null;
+  submittedAt: string | null;
+  showOnHome: boolean;
+  showOnCourse: boolean;
+  surveyUrl: string | null;
+};
+
 export type StudentDashboardData = {
   studentName: string;
   studentEmail: string;
@@ -139,12 +188,39 @@ export type StudentDashboardData = {
   freeJourneyGroups: StudentFreeJourneyGroup[];
   nextStepSections: StudentNextStepSection[];
   certificates: StudentCertificate[];
+  surveys: StudentSurvey[];
+ passport: Awaited<
+  ReturnType<typeof getMasarPassport>
+>;
   summary: {
     active: number;
     completed: number;
     pending: number;
     averageProgress: number;
   };
+};
+
+
+type StudentSurveyRow = {
+  id: string;
+  user_id: string;
+  course_id: string;
+  survey_template_id: string | null;
+  rating: number | string | null;
+  comment: string | null;
+  submitted_at: string | null;
+  show_on_home: boolean | null;
+  show_on_course: boolean | null;
+ courses:
+  | {
+      survey_url?: string | null;
+      survey_enabled?: boolean | null;
+    }
+  | {
+      survey_url?: string | null;
+      survey_enabled?: boolean | null;
+    }[]
+  | null;
 };
 
 type CertificateRow = {
@@ -154,15 +230,14 @@ type CertificateRow = {
   issued_at: string;
   preview_url: string | null;
   pdf_url: string | null;
-  primary_color: string | null;
-  secondary_color: string | null;
+  file_url: string | null;
   is_new: boolean | null;
 };
 
 type EnrollmentRow = {
   id: string;
   course_id: string;
-  status: string | null;
+  status: EnrollmentStatus | null;
   journey_type: string | null;
   action_key: string | null;
   action_title: string | null;
@@ -207,8 +282,7 @@ type StoredCourseProgressRow = {
   progress_percent: number | string | null;
   completed_lessons: number | null;
   total_lessons: number | null;
-  status: "not_started" | "in_progress" | "completed" | null;
-  last_lesson_id: string | null;
+  current_lesson_id: string | null;
   last_activity_at: string | null;
 };
 
@@ -219,6 +293,8 @@ type LessonRow = {
   title_ar: string | null;
   status: string | null;
   sort_order: number;
+  course_part?: string | null;
+  video_duration_seconds?: number | null;
 };
 
 type LessonProgressRow = {
@@ -244,6 +320,32 @@ type CalculatedCourseProgress = {
 
 function normalizeStatus(status: string | null | undefined) {
   return (status ?? "").trim().toLowerCase();
+}
+
+function getJourneyKind(
+  journeyType: string | null | undefined,
+): StudentNextStepKind {
+  const value = normalizeStatus(journeyType);
+
+  if (
+    value === "workshop" ||
+    value === "one_day" ||
+    value === "one-day" ||
+    value === "one_day_workshop" ||
+    value === "one-day-workshop"
+  ) {
+    return "one_day";
+  }
+
+  if (
+    value === "free" ||
+    value === "free_session" ||
+    value === "free-session"
+  ) {
+    return "free";
+  }
+
+  return "professional";
 }
 
 function clampPercent(value: number | string | null | undefined) {
@@ -331,7 +433,64 @@ function emptyDashboard(
     oneDayJourneyGroups: [],
     freeJourneyGroups: [],
     certificates: [],
+    surveys: [],
     nextStepSections: createEmptyNextStepSections(),
+   passport: {
+  totalPoints: 0,
+
+  currentLevel: "Explorer",
+  nextLevel: "Professional",
+
+  currentLevelPoints: 0,
+  nextLevelPoints: 500,
+
+  progressPercent: 0,
+  pointsToNextLevel: 500,
+
+  drawEntries: 0,
+
+  rewardCourses: 0,
+  rewardItems: [],
+
+  earnedRewards: 0,
+  redeemedRewards: 0,
+  availableRewards: 0,
+  rewardBalance: 0,
+  rewardProgress: 0,
+
+  lastRewardCourseId: null,
+  lastRewardCourseTitle: null,
+  lastRewardRedeemedAt: null,
+
+  enrolledCourses: 0,
+  completedCourses: 0,
+
+  professionalEnrollments: 0,
+  professionalCompletions: 0,
+  oneDayEnrollments: 0,
+  viewedFreeJourneys: 0,
+professionalEnrollmentsCount: 0,
+professionalCompletionsCount: 0,
+oneDayEnrollmentsCount: 0,
+freeJourneyViewsCount: 0,
+
+surveyCount: 0,
+projectCount: 0,
+featuredProjectCount: 0,
+referralCount: 0,
+  professionalEnrollmentPoints: 0,
+  professionalCompletionPoints: 0,
+  oneDayEnrollmentPoints: 0,
+  freeJourneyPoints: 0,
+
+  surveyPoints: 0,
+  projectPoints: 0,
+  featuredProjectPoints: 0,
+  referralPoints: 0,
+
+  coursePoints: 0,
+  completionPoints: 0,
+},
     summary: {
       active: 0,
       completed: 0,
@@ -350,9 +509,8 @@ async function loadStoredCourseProgressRows(
   userId: string,
   courseIds: string[],
 ): Promise<StoredCourseProgressRow[]> {
-  const columns =
-    "course_id,progress_percent,completed_lessons,total_lessons,status,last_lesson_id,last_activity_at";
-
+ const columns =
+  "course_id,progress_percent,completed_lessons,total_lessons,current_lesson_id,last_activity_at";
   const result = await supabase
     .from("student_course_progress")
     .select(columns)
@@ -421,14 +579,13 @@ function calculateCourseProgress(
         0,
         Number(storedProgress?.total_lessons ?? 0),
       ),
-      status:
-        storedProgress?.status ??
-        (progressPercent >= 100
-          ? "completed"
-          : progressPercent > 0
-            ? "in_progress"
-            : "not_started"),
-      lastLessonId: storedProgress?.last_lesson_id ?? null,
+    status:
+  progressPercent >= 100
+    ? "completed"
+    : progressPercent > 0
+      ? "in_progress"
+      : "not_started",
+     lastLessonId: storedProgress?.current_lesson_id ?? null,
       lastLessonTitle: null,
       lastActivityAt: storedProgress?.last_activity_at ?? null,
     };
@@ -492,7 +649,9 @@ function calculateCourseProgress(
   };
 }
 
-export async function getStudentDashboardData(): Promise<StudentDashboardData> {
+export async function getStudentDashboardData(
+  targetUserId?: string,
+): Promise<StudentDashboardData> {
   const supabase = await createClient();
 
   const {
@@ -503,29 +662,65 @@ export async function getStudentDashboardData(): Promise<StudentDashboardData> {
     throw new Error("UNAUTHENTICATED");
   }
 
+  const userId =
+    targetUserId?.trim() || user.id;
+
+  if (userId !== user.id) {
+    const { data: adminProfile } =
+      await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .maybeSingle();
+
+    if (adminProfile?.role !== "admin") {
+      throw new Error("FORBIDDEN");
+    }
+  }
+
   const [
     { data: profile },
     enrollmentResult,
     certificatesResult,
+    surveysResult,
   ] = await Promise.all([
     supabase
       .from("profiles")
       .select("full_name,email")
-      .eq("id", user.id)
+      .eq("id", userId)
       .maybeSingle(),
     supabase
       .from("enrollments")
       .select("id,course_id,status,journey_type,action_key,action_title")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .order("created_at", { ascending: false }),
     supabase
-      .from("certificates")
-      .select(
-        "id,certificate_number,course_title,issued_at,preview_url,pdf_url,primary_color,secondary_color,is_new",
-      )
+  .from("certificates")
+  .select(
+    "id,certificate_number,course_title,issued_at,preview_url,pdf_url,file_url,is_new",
+  )
       .eq("user_id", user.id)
       .eq("status", "issued")
       .order("issued_at", { ascending: false }),
+    supabase
+      .from("student_surveys")
+.select(`
+    id,
+    user_id,
+    course_id,
+    survey_template_id,
+    rating,
+    comment,
+    submitted_at,
+    show_on_home,
+    show_on_course,
+    courses(
+        survey_url,
+        survey_enabled
+    )
+`)
+      .eq("user_id", user.id)
+      .order("submitted_at", { ascending: false }),
   ]);
 
   if (enrollmentResult.error) {
@@ -539,13 +734,28 @@ export async function getStudentDashboardData(): Promise<StudentDashboardData> {
     );
   }
 
+  if (surveysResult.error) {
+    console.error(
+      "Failed to load student surveys:",
+      surveysResult.error.message,
+    );
+  }
+
   const studentName =
-    profile?.full_name?.trim() ||
-    user.user_metadata?.full_name ||
-    "مهندس مسار";
+  profile?.full_name?.trim() ||
+  (userId === user.id
+    ? user.user_metadata?.full_name
+    : null) ||
+  "مهندس مسار";
 
-  const studentEmail = profile?.email || user.email || "";
-
+const studentEmail =
+  profile?.email ||
+  (userId === user.id
+    ? user.email
+    : "") ||
+  "";
+const passport =
+  await getMasarPassport(userId);
   const certificateRows = certificatesResult.error
     ? []
     : ((certificatesResult.data ?? []) as CertificateRow[]);
@@ -553,32 +763,58 @@ export async function getStudentDashboardData(): Promise<StudentDashboardData> {
 const certificates: StudentCertificate[] = certificateRows.map(
   (certificate) => ({
     id: certificate.id,
-
     certificateNumber: certificate.certificate_number,
-
     courseTitle: certificate.course_title,
-
     issuedAt: certificate.issued_at,
 
-    // صفحة عرض الشهادة
-    previewUrl:
-      certificate.preview_url ??
-      `/certificates/${certificate.id}`,
+   previewUrl:
+  certificate.preview_url ??
+  certificate.file_url ??
+  null,
 
-    // توليد PDF مباشرة
-    pdfUrl:
-      certificate.pdf_url ??
-      `/api/certificates/${certificate.id}/pdf`,
+pdfUrl:
+  certificate.pdf_url ??
+  certificate.file_url ??
+  `/api/certificates/${certificate.id}/pdf`,
 
-    primaryColor:
-      certificate.primary_color ?? "#F7B548",
-
-    secondaryColor:
-      certificate.secondary_color ?? "#07152E",
+    primaryColor: "#F7B548",
+    secondaryColor: "#07152E",
 
     isNew: Boolean(certificate.is_new),
   }),
 );
+
+
+  const surveyRows = surveysResult.error
+    ? []
+    : ((surveysResult.data ?? []) as StudentSurveyRow[]);
+
+  const surveys: StudentSurvey[] = surveyRows.map((survey) => {
+  const course = Array.isArray(survey.courses)
+    ? survey.courses[0]
+    : survey.courses;
+
+  const surveyUrl =
+    course?.survey_enabled === false
+      ? null
+      : course?.survey_url?.trim() || null;
+
+  return {
+    id: survey.id,
+    userId: survey.user_id,
+    courseId: survey.course_id,
+    surveyTemplateId: survey.survey_template_id,
+    rating: Math.max(
+      0,
+      Math.min(5, Number(survey.rating ?? 0)),
+    ),
+    comment: survey.comment,
+    submittedAt: survey.submitted_at,
+    showOnHome: Boolean(survey.show_on_home),
+    showOnCourse: Boolean(survey.show_on_course),
+    surveyUrl,
+  };
+});
 
   const enrollmentRows = (enrollmentResult.data ?? []) as EnrollmentRow[];
 
@@ -592,9 +828,11 @@ const certificates: StudentCertificate[] = certificateRows.map(
 
   if (courseIds.length === 0) {
     return {
-      ...emptyDashboard(studentName, studentEmail),
-      certificates,
-    };
+    ...emptyDashboard(studentName, studentEmail),
+    certificates,
+    surveys,
+    passport,
+};
   }
 
   const coursesResult = await supabase
@@ -622,11 +860,11 @@ const certificates: StudentCertificate[] = certificateRows.map(
    */
   const [storedProgressRows, lessonsResult, stationsResult] =
     await Promise.all([
-      loadStoredCourseProgressRows(supabase, user.id, courseIds),
+      loadStoredCourseProgressRows(supabase, userId, courseIds),
       supabase
         .from("lessons")
         .select(
-          "id,course_id,title,title_ar,status,sort_order",
+          "id,course_id,title,title_ar,status,sort_order,course_part,video_duration_seconds",
         )
         .in("course_id", courseIds)
         .eq("status", "published")
@@ -650,10 +888,10 @@ const certificates: StudentCertificate[] = certificateRows.map(
   const lessonIds = lessonRows.map((lesson) => lesson.id);
 
   const lessonProgressRows = await loadLessonProgressRows(
-    supabase,
-    user.id,
-    lessonIds,
-  );
+  supabase,
+  userId,
+  lessonIds,
+);
 
   const enrolledStationRows = stationsResult.error
     ? []
@@ -718,6 +956,111 @@ const certificates: StudentCertificate[] = certificateRows.map(
   const allPathCourseRows = allPathCoursesResult.error
     ? courseRows
     : ((allPathCoursesResult.data ?? []) as CourseRow[]);
+
+  /*
+   * محتوى شاشة التعلم داخل صفحة الطالب.
+   * لا نعتمد على اسم الكورس إطلاقًا لتحديد Single/Fundamentals/Advanced.
+   * المصدر الوحيد هو lessons.course_part من قاعدة البيانات.
+   */
+  const allPathCourseIds = allPathCourseRows.map((course) => course.id);
+
+  const stationLearningLessonsResult = allPathCourseIds.length
+    ? await supabase
+        .from("lessons")
+        .select(
+          "id,course_id,title,title_ar,status,sort_order,course_part,video_duration_seconds",
+        )
+        .in("course_id", allPathCourseIds)
+        .eq("status", "published")
+        .order("sort_order", { ascending: true })
+    : { data: [], error: null };
+
+  const stationLearningLessonRows = stationLearningLessonsResult.error
+    ? []
+    : ((stationLearningLessonsResult.data ?? []) as LessonRow[]);
+
+  /*
+   * مصدر الحقيقة لنوع الرحلة هو:
+   * journeys.journey_type + lesson_journeys.
+   * لا نستنتج نوع المحاضرة من وجود اشتراك آخر على نفس الكورس.
+   */
+  const allJourneysResult = allPathCourseIds.length
+    ? await supabase
+        .from("journeys")
+        .select("id,course_id,journey_type")
+        .in("course_id", allPathCourseIds)
+        .eq("is_active", true)
+    : { data: [], error: null };
+
+  const allJourneyRows = allJourneysResult.error
+    ? []
+    : (allJourneysResult.data ?? []);
+
+  const journeyById = new Map(
+    allJourneyRows.map((journey) => [journey.id, journey]),
+  );
+
+  const allJourneyIds = allJourneyRows
+    .map((journey) => journey.id)
+    .filter((id): id is string => Boolean(id));
+
+  const allLessonJourneyLinksResult = allJourneyIds.length
+    ? await supabase
+        .from("lesson_journeys")
+        .select("lesson_id,journey_id")
+        .in("journey_id", allJourneyIds)
+    : { data: [], error: null };
+
+  const lessonJourneyKinds = new Map<
+    string,
+    Set<StudentNextStepKind>
+  >();
+
+  for (const link of allLessonJourneyLinksResult.data ?? []) {
+    const journey = journeyById.get(link.journey_id);
+    if (!journey?.journey_type || !link.lesson_id) continue;
+
+    const kinds =
+      lessonJourneyKinds.get(link.lesson_id) ??
+      new Set<StudentNextStepKind>();
+
+    kinds.add(getJourneyKind(journey.journey_type));
+    lessonJourneyKinds.set(link.lesson_id, kinds);
+  }
+
+  const lessonBelongsToJourney = (
+    lessonId: string,
+    kind: StudentNextStepKind,
+  ) => lessonJourneyKinds.get(lessonId)?.has(kind) ?? false;
+
+  const studentLearningLessonRows = stationLearningLessonRows.filter(
+    (lesson) =>
+      lessonBelongsToJourney(
+        lesson.id,
+        "professional",
+      ),
+  );
+
+  /*
+   * نحمّل تقدم جميع المحاضرات المرتبطة بأنواع الرحلات الثلاثة مرة واحدة،
+   * حتى تستخدم الاحتراف/اليوم الواحد/المجاني نفس سجل lesson_progress.
+   */
+  const allJourneyLessonIds = stationLearningLessonRows
+    .filter((lesson) => lessonJourneyKinds.has(lesson.id))
+    .map((lesson) => lesson.id);
+
+  const stationLearningProgressRows = await loadLessonProgressRows(
+    supabase,
+    userId,
+    allJourneyLessonIds,
+  );
+
+  const stationLearningProgressMap = new Map(
+    stationLearningProgressRows.map((progress) => [
+      progress.lesson_id,
+      progress,
+    ]),
+  );
 
   const coursesMap = new Map(
     courseRows.map((course) => [course.id, course]),
@@ -865,7 +1208,7 @@ const certificates: StudentCertificate[] = certificateRows.map(
         !normalizeStatus(card.enrollmentStatus)),
   );
 
-  const averageProgress = activeCourses.length
+  let averageProgress = activeCourses.length
     ? Math.round(
         activeCourses.reduce(
           (sum, course) => sum + course.progressPercent,
@@ -884,6 +1227,116 @@ const certificates: StudentCertificate[] = certificateRows.map(
     "waiting",
     "under_review",
   ]);
+
+  const activeEnrollmentStatusSet = new Set([
+    "active",
+    "approved",
+    "enrolled",
+    "confirmed",
+    "completed",
+  ]);
+
+  const enrollmentRowsByCourse = new Map<string, EnrollmentRow[]>();
+  for (const enrollment of enrollmentRows) {
+    const current = enrollmentRowsByCourse.get(enrollment.course_id) ?? [];
+    current.push(enrollment);
+    enrollmentRowsByCourse.set(enrollment.course_id, current);
+  }
+
+  const normalizeCoursePart = (
+    value: string | null | undefined,
+  ): "single" | "fundamentals" | "advanced" => {
+    const part = normalizeStatus(value);
+    if (part === "fundamentals" || part === "fundamental") {
+      return "fundamentals";
+    }
+    if (part === "advanced") {
+      return "advanced";
+    }
+    return "single";
+  };
+
+  const coursePartAccess = (
+    courseIds: string[],
+    part: "single" | "fundamentals" | "advanced",
+  ) => {
+    const enrollments = courseIds.flatMap(
+      (courseId) => enrollmentRowsByCourse.get(courseId) ?? [],
+    );
+
+    let hasPending = false;
+    let suspendedStatus:
+      | EnrollmentStatus
+      | null = null;
+
+    for (const enrollment of enrollments) {
+      const status = normalizeStatus(enrollment.status);
+      const journeyType = normalizeStatus(enrollment.journey_type);
+
+      const isOneDay =
+        journeyType === "workshop" ||
+        journeyType === "one_day" ||
+        journeyType === "one-day" ||
+        journeyType === "one_day_workshop" ||
+        journeyType === "one-day-workshop";
+
+      const isFree =
+        journeyType === "free" ||
+        journeyType === "free_session" ||
+        journeyType === "free-session";
+
+      /*
+       * أي اشتراك ليس يومًا واحدًا أو مجانيًا يعتبر اشتراكًا احترافيًا.
+       * بالنسبة لكورس Single فهذا يكفي لإتاحة المحتوى.
+       * أما Fundamentals/Advanced فنحترم الجزء المحدد،
+       * بينما Integrated/Professional/Legacy generic يمنح الجزأين.
+       */
+      const isProfessionalEnrollment = !isOneDay && !isFree;
+
+      const grantsAll =
+        journeyType === "integrated" ||
+        journeyType === "professional" ||
+        journeyType === "career_path" ||
+        journeyType === "";
+
+      const grantsPart =
+        part === "single"
+          ? isProfessionalEnrollment
+          : grantsAll ||
+            (part === "fundamentals" &&
+              (journeyType === "fundamental" ||
+                journeyType === "fundamentals")) ||
+            (part === "advanced" && journeyType === "advanced");
+
+      if (!grantsPart) continue;
+
+      if (activeEnrollmentStatusSet.has(status) || status === "") {
+        return {
+          access: "active" as const,
+          enrollmentStatus:
+            enrollment.status ?? "active",
+        };
+      }
+
+      if (pendingStatusSet.has(status)) {
+        hasPending = true;
+      }
+
+      if (status === "suspended") {
+        suspendedStatus =
+          enrollment.status;
+      }
+    }
+
+    return {
+      access: hasPending
+        ? ("pending" as const)
+        : ("locked" as const),
+      enrollmentStatus: hasPending
+        ? "pending"
+        : suspendedStatus,
+    };
+  };
 
   const careerPaths: StudentCareerPathProgress[] = careerPathRows
     .map((path) => {
@@ -943,7 +1396,7 @@ const certificates: StudentCertificate[] = certificateRows.map(
             enrolledCard?.enrollmentStatus,
           );
 
-          const stationStatus: StudentPathStationProgress["status"] =
+          let stationStatus: StudentPathStationProgress["status"] =
             !isEnrolled
               ? "not_enrolled"
               : pendingStatusSet.has(normalizedEnrollmentStatus)
@@ -960,9 +1413,134 @@ const certificates: StudentCertificate[] = certificateRows.map(
             representativeCourse?.slug ??
             station.id;
 
+          const stationCourseIds = stationCourses.map((course) => course.id);
+          const stationLessons = studentLearningLessonRows
+            .filter((lesson) => stationCourseIds.includes(lesson.course_id))
+            .sort((a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0));
+
+          const detectedParts = [
+            ...new Set(
+              stationLessons.map((lesson) =>
+                normalizeCoursePart(lesson.course_part),
+              ),
+            ),
+          ];
+
+          const learningLayout: "single" | "split" =
+            detectedParts.includes("fundamentals") ||
+            detectedParts.includes("advanced")
+              ? "split"
+              : "single";
+
+          const partsToBuild: Array<
+            "single" | "fundamentals" | "advanced"
+          > =
+            learningLayout === "split"
+              ? ["fundamentals", "advanced"]
+              : ["single"];
+
+          const learningParts: StudentStationPart[] = partsToBuild.map((part) => {
+            const partLessons = stationLessons.filter(
+              (lesson) => normalizeCoursePart(lesson.course_part) === part,
+            );
+
+            /*
+             * نحدد courseId الخاص بالجزء من الدروس نفسها، وليس من اسم الكورس.
+             * إذا لم توجد محاضرات للجزء بعد نستخدم الكورس الرئيسي للمحطة كـ fallback.
+             */
+            const partCourseId =
+              partLessons[0]?.course_id ??
+              representativeCourse?.id ??
+              stationCourses[0]?.id ??
+              "";
+
+            const accessState = stationCourseIds.length
+              ? coursePartAccess(stationCourseIds, part)
+              : { access: "locked" as const, enrollmentStatus: null };
+
+            return {
+              part,
+              courseId: partCourseId,
+              access: accessState.access,
+              enrollmentStatus: accessState.enrollmentStatus,
+              lessons: partLessons.map((lesson) => {
+                const progress = stationLearningProgressMap.get(lesson.id);
+                const progressPercent = clampPercent(progress?.progress_percent);
+
+                return {
+                  lessonId: lesson.id,
+                  courseId: lesson.course_id,
+                  title:
+                    lesson.title_ar?.trim() ||
+                    lesson.title.trim() ||
+                    "محاضرة",
+                  coursePart: normalizeCoursePart(lesson.course_part),
+                  durationSeconds: Math.max(
+                    0,
+                    Number(lesson.video_duration_seconds ?? 0),
+                  ),
+                  sortOrder: Number(lesson.sort_order ?? 0),
+                  progressPercent,
+                  completed:
+                    Boolean(progress?.completed) || progressPercent >= 100,
+                };
+              }),
+            };
+          });
+
+          /*
+           * تقدم المحطة يُحسب من محاضرات رحلة الاحتراف المرتبطة فعليًا
+           * بهذه المحطة، وليس من سجل course summary قديم.
+           */
+          const stationProgressValues = stationLessons.map((lesson) => {
+            const progress = stationLearningProgressMap.get(lesson.id);
+            return clampPercent(progress?.progress_percent);
+          });
+
+          const stationProgressPercent = stationProgressValues.length
+            ? Math.round(
+                stationProgressValues.reduce((sum, value) => sum + value, 0) /
+                  stationProgressValues.length,
+              )
+            : enrolledCard?.progressPercent ?? 0;
+
+          const stationCompletedLessons = stationLessons.length
+            ? stationLessons.filter((lesson) => {
+                const progress = stationLearningProgressMap.get(lesson.id);
+                return (
+                  Boolean(progress?.completed) ||
+                  clampPercent(progress?.progress_percent) >= 100
+                );
+              }).length
+            : enrolledCard?.completedLessons ?? 0;
+
+          const stationTotalLessons =
+            stationLessons.length || enrolledCard?.totalLessons || 0;
+
+          stationStatus =
+            !isEnrolled
+              ? "not_enrolled"
+              : pendingStatusSet.has(normalizedEnrollmentStatus)
+                ? "pending"
+                : stationProgressPercent >= 100
+                  ? "completed"
+                  : stationProgressPercent > 0
+                    ? "in_progress"
+                    : "not_started";
+
           return {
-            stationId: station.id,
-            stationSlug,
+  stationId: station.id,
+
+  enrollmentId:
+    enrolledCard?.enrollmentId ?? "",
+
+  courseId:
+    enrolledCard?.courseId ??
+    representativeCourse?.id ??
+    "",
+
+  stationSlug,
+   
             title:
               station.title ??
               representativeCourse?.title_ar ??
@@ -976,9 +1554,9 @@ const certificates: StudentCertificate[] = certificateRows.map(
               "رحلة",
             iconUrl: station.icon_url ?? null,
             displayOrder: Number(station.display_order ?? 0),
-            progressPercent: enrolledCard?.progressPercent ?? 0,
-            completedLessons: enrolledCard?.completedLessons ?? 0,
-            totalLessons: enrolledCard?.totalLessons ?? 0,
+            progressPercent: stationProgressPercent,
+            completedLessons: stationCompletedLessons,
+            totalLessons: stationTotalLessons,
             enrollmentStatus:
               enrolledCard?.enrollmentStatus ?? null,
             status: stationStatus,
@@ -992,6 +1570,8 @@ const certificates: StudentCertificate[] = certificateRows.map(
              * وهي الصفحة المستخدمة لطلب الاشتراك.
              */
             courseHref: `/course/${stationSlug}`,
+            learningLayout,
+            learningParts,
           };
         },
       );
@@ -1053,98 +1633,34 @@ const certificates: StudentCertificate[] = certificateRows.map(
     "one-day-workshop",
   ]);
 
-  const accessibleOneDayCards = cards.filter((card) => {
-    const journeyType = normalizeStatus(card.journeyType);
-    const enrollmentStatus = normalizeStatus(card.enrollmentStatus);
+  /*
+   * نظام اليوم الواحد الجديد:
+   * لا نظهر أي اشتراك Workshop قديم عام على مستوى الكورس.
+   * يظهر فقط الاشتراك الذي أنشئ من زر "اشترك الآن" بجوار محاضرة
+   * في صفحة الكورس، ويكون مفتاحه:
+   * workshop:lesson:LESSON_ID
+   */
+  const activeOneDayCards = cards.filter((card) => {
+    const enrollmentStatus =
+      normalizeStatus(
+        card.enrollmentStatus,
+      );
+
+    const isLessonSpecific =
+      Boolean(
+        card.actionKey?.startsWith(
+          "workshop:lesson:",
+        ),
+      );
 
     return (
-      oneDayJourneyTypeValues.has(journeyType) &&
-      !pendingStatusValues.has(enrollmentStatus)
-    );
-  });
-
-  const oneDayGroupsMap = new Map<
-    string,
-    StudentOneDayJourneyGroup
-  >();
-
-  for (const card of accessibleOneDayCards) {
-    const course = coursesMap.get(card.courseId);
-    const station = course?.station_id
-      ? stationMap.get(course.station_id)
-      : undefined;
-
-    const categoryId =
-      station?.id ??
-      course?.station_id ??
-      `course:${card.courseId}`;
-
-    const categoryTitle =
-      station?.title?.trim() ||
-      course?.title_ar?.trim() ||
-      course?.title?.trim() ||
-      "محطة تعليمية";
-
-    const categoryDisplayOrder = Number(
-      station?.display_order ?? course?.display_order ?? 9999,
-    );
-
-    const firstLesson =
-      lessonsByCourse.get(card.courseId)?.[0] ?? null;
-
-    const lessonId =
-      card.lastLessonId ??
-      firstLesson?.id ??
-      null;
-
-    const href = lessonId
-      ? `/course/${card.slug}?lesson=${lessonId}`
-      : `/course/${card.slug}`;
-
-    const group =
-      oneDayGroupsMap.get(categoryId) ?? {
-        id: categoryId,
-        title: categoryTitle,
-        displayOrder: categoryDisplayOrder,
-        journeys: [],
-      };
-
-    group.journeys.push({
-      enrollmentId: card.enrollmentId,
-      courseId: card.courseId,
-      slug: card.slug,
-      title: card.actionTitle?.trim() || card.title,
-      categoryId,
-      categoryTitle,
-      progressPercent: card.progressPercent,
-      status: card.status,
-      lessonId,
-      href,
-    });
-
-    oneDayGroupsMap.set(categoryId, group);
-  }
-
-  const oneDayJourneyGroups = [...oneDayGroupsMap.values()]
-    .map((group) => ({
-      ...group,
-      journeys: [...group.journeys].sort((a, b) =>
-        a.title.localeCompare(b.title, "ar"),
-      ),
-    }))
-    .sort(
-      (a, b) =>
-        a.displayOrder - b.displayOrder ||
-        a.title.localeCompare(b.title, "ar"),
-    );
-
-  const accessibleFreeCards = cards.filter((card) => {
-    const journeyType = normalizeStatus(card.journeyType);
-    const enrollmentStatus = normalizeStatus(card.enrollmentStatus);
-
-    return (
-      (journeyType === "free" || journeyType === "free_session") &&
-      !pendingStatusValues.has(enrollmentStatus) &&
+      getJourneyKind(
+        card.journeyType,
+      ) === "one_day" &&
+      isLessonSpecific &&
+      !pendingStatusValues.has(
+        enrollmentStatus,
+      ) &&
       enrollmentStatus !== "rejected" &&
       enrollmentStatus !== "suspended" &&
       enrollmentStatus !== "expired" &&
@@ -1152,77 +1668,498 @@ const certificates: StudentCertificate[] = certificateRows.map(
     );
   });
 
-  const freeGroupsMap = new Map<string, StudentFreeJourneyGroup>();
+  const oneDayJourneysByStation = new Map<
+  string,
+  StudentOneDayJourney[]
+>();
 
-  for (const card of accessibleFreeCards) {
-    const course = coursesMap.get(card.courseId);
-    const station = course?.station_id
-      ? stationMap.get(course.station_id)
-      : undefined;
+const oneDayPathIds = new Set<string>();
 
-    const categoryId =
-      station?.id ??
-      course?.station_id ??
-      `course:${card.courseId}`;
+for (const card of activeOneDayCards) {
+  const course = coursesMap.get(card.courseId);
+  if (!course) continue;
 
-    const categoryTitle =
-      station?.title?.trim() ||
-      course?.title_ar?.trim() ||
-      course?.title?.trim() ||
-      "محطة تعليمية";
+  const station = course.station_id
+    ? stationMap.get(course.station_id)
+    : undefined;
 
-    const categoryDisplayOrder = Number(
-      station?.display_order ?? course?.display_order ?? 9999,
+  if (!station) continue;
+
+  const pathId = station.career_path_id;
+  if (!pathId) continue;
+
+  const requestedLessonId =
+    card.actionKey?.startsWith("workshop:lesson:")
+      ? card.actionKey.slice(
+          "workshop:lesson:".length,
+        )
+      : null;
+
+  const assignedLessons = stationLearningLessonRows
+    .filter(
+      (lesson) =>
+        lesson.course_id === card.courseId &&
+        lessonBelongsToJourney(
+          lesson.id,
+          "one_day",
+        ) &&
+        (!requestedLessonId ||
+          lesson.id === requestedLessonId),
+    )
+    .sort(
+      (a, b) =>
+        Number(a.sort_order ?? 0) -
+        Number(b.sort_order ?? 0),
     );
 
-    const firstLesson =
-      lessonsByCourse.get(card.courseId)?.[0] ?? null;
+  /*
+   * لا يظهر أي درس إلا إذا كان مربوطًا فعليًا
+   * برحلة اليوم الواحد.
+   */
+  if (!assignedLessons.length) continue;
 
-    const lessonId =
-      card.lastLessonId ??
-      firstLesson?.id ??
-      null;
+  oneDayPathIds.add(pathId);
 
-    const href = lessonId
-      ? `/course/${card.slug}?lesson=${lessonId}`
-      : `/course/${card.slug}`;
+  const stationJourneys =
+    oneDayJourneysByStation.get(station.id) ?? [];
 
-    const group =
-      freeGroupsMap.get(categoryId) ?? {
-        id: categoryId,
-        title: categoryTitle,
-        displayOrder: categoryDisplayOrder,
-        journeys: [],
-      };
+  for (const lesson of assignedLessons) {
+    const progress =
+      stationLearningProgressMap.get(lesson.id);
 
-    group.journeys.push({
-      enrollmentId: card.enrollmentId,
+    const progressPercent = clampPercent(
+      progress?.progress_percent,
+    );
+
+    const completed =
+      Boolean(progress?.completed) ||
+      progressPercent >= 100;
+
+    stationJourneys.push({
+      enrollmentId: `${card.enrollmentId}:${lesson.id}`,
       courseId: card.courseId,
       slug: card.slug,
-      title: card.actionTitle?.trim() || card.title,
-      categoryId,
-      categoryTitle,
-      progressPercent: card.progressPercent,
-      status: card.status,
-      lessonId,
-      href,
-    });
 
-    freeGroupsMap.set(categoryId, group);
+      title:
+        lesson.title_ar?.trim() ||
+        lesson.title.trim() ||
+        card.actionTitle?.trim() ||
+        card.title,
+
+      stationId: station.id,
+
+      stationTitle:
+        station.title?.trim() ||
+        course.title_ar?.trim() ||
+        course.title?.trim() ||
+        "محطة تعليمية",
+
+      progressPercent,
+
+      status: completed
+        ? "completed"
+        : progressPercent > 0
+          ? "in_progress"
+          : "not_started",
+
+      lessonId: lesson.id,
+
+      coursePart: normalizeCoursePart(
+        lesson.course_part,
+      ),
+
+      href: "/dashboard",
+    });
   }
 
-  const freeJourneyGroups = [...freeGroupsMap.values()]
-    .map((group) => ({
-      ...group,
-      journeys: [...group.journeys].sort((a, b) =>
-        a.title.localeCompare(b.title, "ar"),
-      ),
-    }))
+  oneDayJourneysByStation.set(
+    station.id,
+    stationJourneys,
+  );
+}
+
+const oneDayJourneyGroups: StudentOneDayJourneyGroup[] =
+  careerPathRows
+    .filter((path) => oneDayPathIds.has(path.id))
+    .map((path) => {
+      const pathStations = stationRows
+        .filter(
+          (station) =>
+            station.career_path_id === path.id,
+        )
+        .sort(
+          (a, b) =>
+            Number(a.display_order ?? 0) -
+            Number(b.display_order ?? 0),
+        );
+
+      const stations: StudentJourneyStationGroup[] =
+        pathStations.map((station) => ({
+          id: station.id,
+
+          title:
+            station.title?.trim() ||
+            "محطة تعليمية",
+
+          shortTitle:
+            station.short_title?.trim() ||
+            station.title?.trim() ||
+            "محطة",
+
+          iconUrl:
+            station.icon_url ?? null,
+
+          displayOrder:
+            Number(station.display_order ?? 0),
+
+          journeys: [
+            ...(oneDayJourneysByStation.get(
+              station.id,
+            ) ?? []),
+          ].sort((a, b) => {
+            const order = {
+              single: 0,
+              fundamentals: 1,
+              advanced: 2,
+            } as const;
+
+            return (
+              order[a.coursePart] -
+                order[b.coursePart] ||
+              a.title.localeCompare(
+                b.title,
+                "ar",
+              )
+            );
+          }),
+        }));
+
+      return {
+        id: path.id,
+
+        slug:
+          path.slug ?? path.id,
+
+        title:
+          path.title_ar?.trim() ||
+          path.title?.trim() ||
+          "مسار مهني",
+
+        shortTitle:
+          path.short_title?.trim() ||
+          path.title_ar?.trim() ||
+          path.title?.trim() ||
+          "مسار مهني",
+
+        displayOrder:
+          Number(path.display_order ?? 0),
+
+        stations,
+      };
+    })
     .sort(
       (a, b) =>
         a.displayOrder - b.displayOrder ||
         a.title.localeCompare(b.title, "ar"),
     );
+
+  /*
+   * المحاضرة المجانية لا تظهر في صفحة الطالب بمجرد نشرها.
+   * تظهر فقط بعد ضغط الطالب "شاهد الآن" في صفحة الكورس،
+   * لأن startFreeJourney ينشئ Enrollment فعالًا بمفتاح:
+   * free:lesson:LESSON_ID
+   */
+  const freeJourneysByStation = new Map<
+  string,
+  StudentFreeJourney[]
+>();
+
+const freePathIds = new Set<string>();
+  const allPathCoursesMap = new Map(
+    allPathCourseRows.map((course) => [course.id, course]),
+  );
+
+  const activeFreeCards = cards.filter(
+    (card) => {
+      const status =
+        normalizeStatus(
+          card.enrollmentStatus,
+        );
+
+      return (
+        getJourneyKind(
+          card.journeyType,
+        ) === "free" &&
+        (
+          activeStatusValues.has(
+            status,
+          ) ||
+          status === "completed"
+        )
+      );
+    },
+  );
+
+  const freeEnrollmentByLessonId =
+    new Map<
+      string,
+      StudentCourseCard
+    >();
+
+  const legacyFreeCourseIds =
+    new Set<string>();
+
+  for (const card of activeFreeCards) {
+    if (
+      card.actionKey?.startsWith(
+        "free:lesson:",
+      )
+    ) {
+      const lessonId =
+        card.actionKey.slice(
+          "free:lesson:".length,
+        );
+
+      if (lessonId) {
+        freeEnrollmentByLessonId.set(
+          lessonId,
+          card,
+        );
+      }
+
+      continue;
+    }
+
+    /*
+     * دعم التسجيلات المجانية القديمة قبل اعتماد مفتاح lesson.
+     */
+    legacyFreeCourseIds.add(
+      card.courseId,
+    );
+  }
+
+  const freeLessons = stationLearningLessonRows
+    .filter(
+      (lesson) =>
+        lessonBelongsToJourney(
+          lesson.id,
+          "free",
+        ) &&
+        (
+          freeEnrollmentByLessonId.has(
+            lesson.id,
+          ) ||
+          legacyFreeCourseIds.has(
+            lesson.course_id,
+          )
+        ),
+    )
+    .sort(
+      (a, b) =>
+        a.sort_order - b.sort_order,
+    );
+
+  for (const lesson of freeLessons) {
+    const course = allPathCoursesMap.get(lesson.course_id);
+    if (!course) continue;
+
+    const station = course.station_id
+      ? stationMap.get(course.station_id)
+      : undefined;
+if (!station) continue;
+
+const pathId = station.career_path_id;
+if (!pathId) continue;
+
+freePathIds.add(pathId);
+   
+ const progress =
+  stationLearningProgressMap.get(lesson.id);
+
+const progressPercent = clampPercent(
+  progress?.progress_percent,
+);
+
+const completed =
+  Boolean(progress?.completed) ||
+  progressPercent >= 100;
+
+const freeEnrollment =
+  freeEnrollmentByLessonId.get(
+    lesson.id,
+  );
+
+const stationJourneys =
+  freeJourneysByStation.get(station.id) ?? [];
+
+stationJourneys.push({
+  enrollmentId:
+    freeEnrollment?.enrollmentId ??
+    `free:${lesson.id}`,
+
+  courseId: course.id,
+  slug: course.slug,
+
+  title:
+    lesson.title_ar?.trim() ||
+    lesson.title.trim() ||
+    course.title_ar?.trim() ||
+    course.title.trim(),
+
+  stationId: station.id,
+
+  stationTitle:
+    station.title?.trim() ||
+    course.title_ar?.trim() ||
+    course.title?.trim() ||
+    "محطة تعليمية",
+
+  progressPercent,
+
+  status: completed
+    ? "completed"
+    : progressPercent > 0
+      ? "in_progress"
+      : "not_started",
+
+  lessonId: lesson.id,
+
+  coursePart: normalizeCoursePart(
+    lesson.course_part,
+  ),
+
+  href: "/dashboard",
+});
+
+freeJourneysByStation.set(
+  station.id,
+  stationJourneys,
+);
+      
+  }
+
+  const freeJourneyGroups: StudentFreeJourneyGroup[] =
+  careerPathRows
+    .filter((path) => freePathIds.has(path.id))
+    .map((path) => {
+      const pathStations = stationRows
+        .filter(
+          (station) =>
+            station.career_path_id === path.id,
+        )
+        .sort(
+          (a, b) =>
+            Number(a.display_order ?? 0) -
+            Number(b.display_order ?? 0),
+        );
+
+      const stations: StudentJourneyStationGroup[] =
+        pathStations.map((station) => ({
+          id: station.id,
+
+          title:
+            station.title?.trim() ||
+            "محطة تعليمية",
+
+          shortTitle:
+            station.short_title?.trim() ||
+            station.title?.trim() ||
+            "محطة",
+
+          iconUrl:
+            station.icon_url ?? null,
+
+          displayOrder:
+            Number(station.display_order ?? 0),
+
+          journeys: [
+            ...(freeJourneysByStation.get(
+              station.id,
+            ) ?? []),
+          ].sort((a, b) => {
+            const order = {
+              single: 0,
+              fundamentals: 1,
+              advanced: 2,
+            } as const;
+
+            return (
+              order[a.coursePart] -
+                order[b.coursePart] ||
+              a.title.localeCompare(
+                b.title,
+                "ar",
+              )
+            );
+          }),
+        }));
+
+      return {
+        id: path.id,
+
+        slug:
+          path.slug ?? path.id,
+
+        title:
+          path.title_ar?.trim() ||
+          path.title?.trim() ||
+          "مسار مهني",
+
+        shortTitle:
+          path.short_title?.trim() ||
+          path.title_ar?.trim() ||
+          path.title?.trim() ||
+          "مسار مهني",
+
+        displayOrder:
+          Number(path.display_order ?? 0),
+
+        stations,
+      };
+    })
+    .sort(
+      (a, b) =>
+        a.displayOrder - b.displayOrder ||
+        a.title.localeCompare(b.title, "ar"),
+    );
+        
+  /*
+   * الإحصائية العامة للتقدم يجب أن تعتمد على نفس مصدر التقدم الحقيقي
+   * المستخدم في شاشة التعلم: lesson_progress.
+   *
+   * - رحلة الاحتراف: نحسب فقط المحطات المشترك بها الطالب.
+   * - اليوم الواحد / المجانية: تستخدم progressPercent المحسوب من الدروس.
+   * - لا ندخل المحطات غير المشترك بها في المتوسط حتى لا تخفض النسبة صناعيًا.
+   */
+  const dashboardJourneyProgressValues = [
+    ...careerPaths.flatMap((path) =>
+      path.stations
+        .filter((station) => station.isEnrolled && station.status !== "pending")
+        .map((station) => station.progressPercent),
+    ),
+...oneDayJourneyGroups.flatMap((path) =>
+  path.stations.flatMap((station) =>
+    station.journeys.map(
+      (journey) => journey.progressPercent,
+    ),
+  ),
+),
+
+...freeJourneyGroups.flatMap((path) =>
+  path.stations.flatMap((station) =>
+    station.journeys.map(
+      (journey) => journey.progressPercent,
+    ),
+  ),
+),
+  ];
+
+  averageProgress = dashboardJourneyProgressValues.length
+    ? Math.round(
+        dashboardJourneyProgressValues.reduce((sum, value) => sum + value, 0) /
+          dashboardJourneyProgressValues.length,
+      )
+    : 0;
 
   /*
    * بيانات مستقلة تمامًا لبطاقة "الخطوة التالية".
@@ -1247,99 +2184,163 @@ const certificates: StudentCertificate[] = certificateRows.map(
     ["free", new Map()],
   ]);
 
-  for (const card of activeCourses) {
-    if (card.status === "completed" || card.progressPercent >= 100) {
-      continue;
+  /*
+   * رحلة الاحتراف في "الخطوة التالية" تعتمد مباشرة على learningParts الخاصة بالمحطة،
+   * وهي نفسها مبنية من lessons + lesson_progress. بذلك لا نعتمد على ملخص course قديم
+   * ولا على اسم الكورس أو نوع مكتوب يدويًا.
+   */
+  const professionalGroups = nextStepGroupsMap.get("professional");
+
+  if (professionalGroups) {
+    for (const path of careerPaths) {
+      for (const station of path.stations) {
+        if (!station.isEnrolled || station.status === "pending" || station.status === "completed") {
+          continue;
+        }
+
+        const accessibleLessons = station.learningParts
+          .filter((part) => part.access === "active")
+          .flatMap((part) => part.lessons)
+          .sort((a, b) => a.sortOrder - b.sortOrder);
+
+        const nextLesson =
+          accessibleLessons.find(
+            (lesson) => lesson.progressPercent > 0 && !lesson.completed,
+          ) ??
+          accessibleLessons.find((lesson) => !lesson.completed);
+
+        if (!nextLesson) continue;
+
+        const part = station.learningParts.find((candidate) =>
+          candidate.lessons.some((lesson) => lesson.lessonId === nextLesson.lessonId),
+        );
+
+        const matchingCard = cardsByCourseId.get(nextLesson.courseId);
+        const enrollmentId =
+          matchingCard?.enrollmentId || station.enrollmentId || `station:${station.stationId}`;
+
+        const stationGroup = professionalGroups.get(station.stationId) ?? {
+          id: station.stationId,
+          title: station.shortTitle || station.title,
+          displayOrder: station.displayOrder,
+          items: [],
+        };
+
+        stationGroup.items.push({
+          id: `${enrollmentId}:${nextLesson.lessonId}`,
+          enrollmentId,
+          courseId: nextLesson.courseId,
+          lessonId: nextLesson.lessonId,
+          lessonTitle: nextLesson.title,
+          progressPercent: nextLesson.progressPercent,
+          remainingMinutes: null,
+          actionLabel: nextLesson.progressPercent > 0 ? "استكمل" : "ابدأ",
+          href: matchingCard
+            ? `/course/${matchingCard.slug}?lesson=${nextLesson.lessonId}`
+            : station.courseHref,
+          courseOrder: station.displayOrder,
+          lessonOrder: nextLesson.sortOrder,
+        });
+
+        professionalGroups.set(station.stationId, stationGroup);
+      }
     }
+  }
 
-    const course = coursesMap.get(card.courseId);
-    if (!course) continue;
+  const appendJourneyGroupToNextStep = (
+  kind: "one_day" | "free",
+  groups:
+    | StudentOneDayJourneyGroup[]
+    | StudentFreeJourneyGroup[],
+) => {
+  const target = nextStepGroupsMap.get(kind);
+  if (!target) return;
 
-    const courseLessons = [
-      ...(lessonsByCourse.get(card.courseId) ?? []),
-    ].sort((a, b) => a.sort_order - b.sort_order);
+  for (const path of groups) {
+    for (const station of path.stations) {
+      const nextJourney =
+        station.journeys.find(
+          (journey) =>
+            journey.progressPercent > 0 &&
+            journey.status !== "completed" &&
+            Boolean(journey.lessonId),
+        ) ??
+        station.journeys.find(
+          (journey) =>
+            journey.status !== "completed" &&
+            Boolean(journey.lessonId),
+        );
 
-    const nextLesson =
-      courseLessons.find((lesson) => {
-        const progress = lessonProgressMap.get(lesson.id);
-        const percent = clampPercent(progress?.progress_percent);
-        const started =
-          percent > 0 || Number(progress?.last_position_seconds ?? 0) > 0;
-        const completed = Boolean(progress?.completed) || percent >= 100;
+      if (!nextJourney?.lessonId) continue;
 
-        return started && !completed;
-      }) ??
-      courseLessons.find((lesson) => {
-        const progress = lessonProgressMap.get(lesson.id);
-        const percent = clampPercent(progress?.progress_percent);
-        return !Boolean(progress?.completed) && percent < 100;
+      const lessonProgress =
+        stationLearningProgressMap.get(
+          nextJourney.lessonId,
+        ) ??
+        lessonProgressMap.get(
+          nextJourney.lessonId,
+        );
+
+      const stationGroup =
+        target.get(station.id) ?? {
+          id: station.id,
+          title:
+            station.shortTitle ||
+            station.title,
+          displayOrder:
+            station.displayOrder,
+          items: [],
+        };
+
+      stationGroup.items.push({
+        id: `${kind}:${nextJourney.lessonId}`,
+        enrollmentId:
+          nextJourney.enrollmentId,
+        courseId:
+          nextJourney.courseId,
+        lessonId:
+          nextJourney.lessonId,
+        lessonTitle:
+          nextJourney.title,
+        progressPercent:
+          nextJourney.progressPercent,
+
+        remainingMinutes:
+          estimateRemainingMinutes(
+            nextJourney.progressPercent,
+            lessonProgress?.last_position_seconds,
+          ),
+
+        actionLabel:
+          nextJourney.progressPercent > 0
+            ? "استكمل"
+            : "ابدأ",
+
+        href: "/dashboard",
+
+        courseOrder:
+          station.displayOrder,
+
+        lessonOrder: 0,
       });
 
-    if (!nextLesson) continue;
-
-    const lessonProgress = lessonProgressMap.get(nextLesson.id);
-    const lessonPercent = clampPercent(
-      lessonProgress?.progress_percent,
-    );
-    const hasStarted =
-      lessonPercent > 0 ||
-      Number(lessonProgress?.last_position_seconds ?? 0) > 0;
-
-    const journeyType = normalizeStatus(card.journeyType);
-    const sectionKind: StudentNextStepKind =
-      journeyType === "free" || journeyType === "free_session"
-        ? "free"
-        : oneDayJourneyTypeValues.has(journeyType)
-          ? "one_day"
-          : "professional";
-
-    const station = course.station_id
-      ? stationMap.get(course.station_id)
-      : undefined;
-    const stationId =
-      station?.id ?? course.station_id ?? `course:${course.id}`;
-    const stationTitle =
-      station?.title?.trim() ||
-      course.title_ar?.trim() ||
-      course.title.trim() ||
-      "محطة تعليمية";
-    const stationDisplayOrder = Number(
-      station?.display_order ?? course.display_order ?? 9999,
-    );
-
-    const sectionGroups = nextStepGroupsMap.get(sectionKind);
-    if (!sectionGroups) continue;
-
-    const stationGroup = sectionGroups.get(stationId) ?? {
-      id: stationId,
-      title: stationTitle,
-      displayOrder: stationDisplayOrder,
-      items: [],
-    };
-
-    stationGroup.items.push({
-      id: `${card.enrollmentId}:${nextLesson.id}`,
-      enrollmentId: card.enrollmentId,
-      courseId: card.courseId,
-      lessonId: nextLesson.id,
-      lessonTitle:
-        nextLesson.title_ar?.trim() ||
-        nextLesson.title.trim() ||
-        card.actionTitle?.trim() ||
-        card.title,
-      progressPercent: lessonPercent,
-      remainingMinutes: estimateRemainingMinutes(
-        lessonPercent,
-        lessonProgress?.last_position_seconds,
-      ),
-      actionLabel: hasStarted ? "استكمل" : "ابدأ",
-      href: `/course/${card.slug}?lesson=${nextLesson.id}`,
-      courseOrder: Number(course.display_order ?? 9999),
-      lessonOrder: Number(nextLesson.sort_order ?? 9999),
-    });
-
-    sectionGroups.set(stationId, stationGroup);
+      target.set(
+        station.id,
+        stationGroup,
+      );
+    }
   }
+};
+
+     appendJourneyGroupToNextStep(
+    "one_day",
+    oneDayJourneyGroups,
+  );
+
+  appendJourneyGroupToNextStep(
+    "free",
+    freeJourneyGroups,
+  );
 
   for (const [kind, groupsMap] of nextStepGroupsMap) {
     const section = nextStepSectionMap.get(kind);
@@ -1378,6 +2379,8 @@ const certificates: StudentCertificate[] = certificateRows.map(
     freeJourneyGroups,
     nextStepSections,
     certificates,
+    surveys,
+    passport,
     summary: {
       active: activeCourses.length,
       completed: completedCourses.length,

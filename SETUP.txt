@@ -1,0 +1,50 @@
+MASAR MAKERS - BUNNY STREAM FINAL SETUP
+
+1) Install one package:
+npm install tus-js-client
+
+2) Run in Supabase SQL Editor:
+supabase/migrations/20260808_bunny_video_system.sql
+
+3) Add these values to your existing .env.local:
+BUNNY_STREAM_LIBRARY_ID=722554
+BUNNY_STREAM_API_KEY=<Stream > Masar Makers > API > API Key>
+BUNNY_STREAM_TOKEN_KEY=<Stream > Masar Makers > Security > Token authentication key>
+BUNNY_STREAM_CDN_HOSTNAME=vz-4618735b-f1c.b-cdn.net
+
+Never put the API Key or Token Key in NEXT_PUBLIC variables.
+
+4) Bunny > Stream > Masar Makers > Security:
+- Enable direct play: OFF
+- Allowed domains:
+  localhost
+  masarmakers.com
+  www.masarmakers.com
+- Block direct URL file access: ON
+- Embed view token authentication: ON
+- CDN token authentication: OFF
+
+5) Bunny > Encoding:
+- Free Encoding
+- Keep original files: OFF
+- MP4 fallback: OFF
+- Multi-audio: OFF unless needed later
+- Bunny fixed Watermark: OFF (Masar uses dynamic student watermark)
+
+6) Replace the files from this package in the same paths.
+
+7) Restart Next.js after editing .env.local:
+Ctrl+C
+npm run dev
+
+8) Admin test:
+Dashboard > Lessons > create/save lesson > edit lesson > Upload video.
+Wait until status becomes Ready, then use Preview.
+
+9) Student test:
+Open:
+/course/<course-slug>?lesson=<lesson-id>
+
+The player checks login/enrollment, signs the Bunny embed server-side,
+restores the last watched position, saves progress, marks completion at 90%,
+and displays a moving watermark with the student's name/email/session code.

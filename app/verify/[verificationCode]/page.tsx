@@ -17,15 +17,16 @@ export default async function VerifyCertificatePage({
   const { data: certificate } = await supabase
     .from("certificates")
     .select(`
-      certificate_number,
-      student_name,
-      student_name_en,
-      course_title,
-      course_title_en,
-      issue_date,
-      status,
-      verification_code
-    `)
+  certificate_number,
+  student_name,
+  student_name_en,
+  course_title,
+  course_title_en,
+  certificate_type,
+  issue_date,
+  status,
+  verification_code
+`)
     .eq("verification_code", verificationCode)
     .maybeSingle();
 
@@ -96,7 +97,14 @@ export default async function VerifyCertificatePage({
               certificate.course_title
             }
           />
-
+<Info
+  title="Certificate Type"
+  value={
+    certificate.certificate_type === "fundamental"
+      ? "Fundamentals"
+      : "Advanced"
+  }
+/>
           <Info
             title="Certificate Number"
             value={certificate.certificate_number}

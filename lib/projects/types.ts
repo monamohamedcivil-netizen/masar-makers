@@ -1,7 +1,6 @@
 export type ProjectStatus =
-  | "pending"
-  | "approved"
-  | "rejected";
+  | "submitted"
+  | "needs_revision";
 
 export type StudentProject = {
   id: string;
@@ -15,7 +14,7 @@ export type StudentProject = {
   courseTitle: string | null;
 
   studentName: string | null;
-
+studentCountry: string | null;
   studentEmail: string | null;
 
   projectTitle: string;

@@ -459,7 +459,8 @@ export async function requestEnrollment(
      */
     if (
       typedExisting.status === "rejected" ||
-      typedExisting.status === "cancelled"
+      typedExisting.status === "cancelled" ||
+      typedExisting.status === "suspended"
     ) {
       const { data: renewedEnrollment, error: renewError } = await supabase
         .from("enrollments")
@@ -470,7 +471,9 @@ export async function requestEnrollment(
           station_id: station?.id ?? course.station_id,
           station_slug: station?.slug ?? null,
           station_title: resolvedStationTitle,
-          action_title: resolvedJourneyTitle,
+          action_title:
+            actionTitle?.trim() ||
+            resolvedJourneyTitle,
           status: "pending",
           updated_at: new Date().toISOString(),
         })
@@ -495,12 +498,21 @@ export async function requestEnrollment(
       revalidatePath(`/course/${course.slug}`);
       revalidatePath("/admin");
       revalidatePath("/admin/students/enrollment-requests");
+      revalidatePath("/admin/students/active");
+      revalidatePath("/admin/students/suspended");
       revalidatePath("/dashboard");
 
       return {
         success: true,
+        message:
+          typedExisting.status === "suspended"
+            ? "تم إرسال طلب إعادة تفعيل الاشتراك."
+            : "تم إعادة إرسال طلب الاشتراك.",
         enrollment: renewed,
-        whatsapp: buildWhatsappData(renewed),
+        whatsapp:
+          typedExisting.status === "suspended"
+            ? undefined
+            : buildWhatsappData(renewed),
       };
     }
 

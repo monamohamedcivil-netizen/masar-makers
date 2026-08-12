@@ -73,10 +73,10 @@ const groups = [
         icon: Target,
       },
       {
-        id: "reviews",
-        label: "آراء المتدربين",
-        icon: Star,
-      },
+  id: "reviews",
+  label: "قصص نجاح المتدربين",
+  icon: Star,
+},
     ],
   },
 

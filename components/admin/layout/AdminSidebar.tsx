@@ -9,13 +9,16 @@ import {
   ChevronLeft,
   CircleDollarSign,
   ClipboardList,
+  Database,
+  FileImage,
   GraduationCap,
   House,
-  Route,
   LayoutDashboard,
   Megaphone,
+  Route,
   Settings,
   ShieldCheck,
+  Star,
   Users,
   X,
 } from "lucide-react";
@@ -48,30 +51,45 @@ const navigationGroups: NavigationGroup[] = [
     ],
   },
   {
-    title: "إدارة الطلاب",
-    items: [
-      {
-        title: "طلبات الاشتراك",
-        href: "/admin/students/enrollment-requests",
-        icon: ClipboardList,
-      },
-      {
-        title: "الطلاب النشطون",
-        href: "/admin/students/active",
-        icon: Users,
-      },
-      {
-        title: "الطلاب الموقوفون",
-        href: "/admin/students/suspended",
-        icon: ShieldCheck,
-      },
-      {
-        title: "الشهادات",
-        href: "/admin/students/certificates",
-        icon: Award,
-      },
-    ],
-  },
+  title: "إدارة الطلاب",
+  items: [
+    {
+      title: "طلبات الاشتراك",
+      href: "/admin/students/enrollment-requests",
+      icon: ClipboardList,
+    },
+    {
+      title: "بيانات الطلاب",
+      href: "/admin/students",
+      icon: Users,
+    },
+    {
+      title: "الطلاب النشطون",
+      href: "/admin/students/active",
+      icon: GraduationCap,
+    },
+    {
+      title: "الطلاب الموقوفون",
+      href: "/admin/students/suspended",
+      icon: ShieldCheck,
+    },
+    {
+      title: "الشهادات",
+      href: "/admin/students/certificates",
+      icon: Award,
+    },
+    {
+      title: "المشاريع",
+      href: "/admin/students/projects",
+      icon: FileImage,
+    },
+    {
+      title: "الاستبيانات",
+      href: "/admin/students/surveys",
+      icon: Star,
+    },
+  ],
+},
   {
     title: "المحتوى التعليمي",
     items: [
@@ -100,6 +118,11 @@ const navigationGroups: NavigationGroup[] = [
   {
     title: "الإدارة",
     items: [
+      {
+  title: "استيراد البيانات",
+  href: "/admin/student-import",
+  icon: Database,
+},
       {
         title: "المدفوعات",
         href: "/admin/finance/payments",
@@ -131,11 +154,19 @@ export default function AdminSidebar({
   const pathname = usePathname();
 
   const isActive = (href: string) => {
-    if (href === "/admin/dashboard") {
+    const exactMatchRoutes = [
+      "/admin/dashboard",
+      "/admin/students",
+    ];
+
+    if (exactMatchRoutes.includes(href)) {
       return pathname === href;
     }
 
-    return pathname.startsWith(href);
+    return (
+      pathname === href ||
+      pathname.startsWith(`${href}/`)
+    );
   };
 
   return (

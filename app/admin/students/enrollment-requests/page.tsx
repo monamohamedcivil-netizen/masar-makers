@@ -20,6 +20,8 @@ function toTableRow(
     journeyType: request.journeyType,
     actionKey: request.actionKey ?? "",
     actionTitle: request.actionTitle ?? "",
+    enrollmentSource:
+      request.enrollmentSource ?? "paid",
     status: request.status,
     createdAt: request.createdAt,
   };

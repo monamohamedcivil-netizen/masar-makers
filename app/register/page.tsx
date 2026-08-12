@@ -134,9 +134,11 @@ export default function RegisterPage() {
       } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          emailRedirectTo:
-            `${window.location.origin}/auth/callback`,
+       options: {
+  emailRedirectTo: `${
+    process.env.NEXT_PUBLIC_APP_URL ||
+    window.location.origin
+  }/auth/callback`,
           data: {
             full_name: fullName,
             full_name_en: fullNameEn,
@@ -150,6 +152,7 @@ export default function RegisterPage() {
       });
 
       if (signUpError) {
+        console.error("Supabase signUp error:", signUpError);
         if (
           signUpError.message
             .toLowerCase()

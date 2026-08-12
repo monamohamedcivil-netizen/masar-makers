@@ -13,6 +13,7 @@ export interface CourseOverviewData {
   id: string;
   title: string;
   slug: string;
+  level?: "single" | "split" | null;
   description?: string | null;
   image_url?: string | null;
   icon_url?: string | null;
@@ -22,6 +23,9 @@ export interface CourseOverviewData {
   journey_type?: string | null;
   status?: CourseStatus | null;
   whatsapp_number?: string | null;
+  course_code?: string | null;
+  display_order?: number | null;
+
 }
 
 interface CourseOverviewFormProps {
@@ -63,25 +67,36 @@ export default function CourseOverviewForm({
   const [whatsapp, setWhatsapp] = useState(
     course.whatsapp_number ?? "",
   );
-
+const [displayOrder, setDisplayOrder] = useState(
+  course.display_order ?? 1,
+);
+const [courseCode, setCourseCode] = useState(
+  course.course_code ?? "",
+);
+const [courseLevel, setCourseLevel] = useState<
+  "single" | "split"
+>(course.level === "split" ? "split" : "single");
   const submit = () => {
     setMessage(null);
     setErrorMessage(null);
 
     startTransition(async () => {
       const result = await updateCourse(course.id, {
-        title: title.trim(),
-        slug: slug.trim(),
-        description: description.trim(),
-        image_url: imageUrl.trim(),
-        icon_url: iconUrl.trim(),
-        duration_hours: duration,
-        price,
-        currency,
-        journey_type: journeyType,
-        status,
-        whatsapp_number: whatsapp.trim(),
-      });
+  title: title.trim(),
+  slug: slug.trim(),
+  description: description.trim(),
+  image_url: imageUrl.trim(),
+  icon_url: iconUrl.trim(),
+  duration_hours: duration,
+  display_order: displayOrder,
+  price,
+  currency,
+  journey_type: journeyType,
+  status,
+  whatsapp_number: whatsapp.trim(),
+  course_code: courseCode.trim().toUpperCase(),
+  level: courseLevel,
+});
 
       if (!result.success) {
         setErrorMessage(result.message);
@@ -142,7 +157,43 @@ export default function CourseOverviewForm({
                   setDuration(Number(value))
                 }
               />
+              <Field
+  label="Course Code"
+  value={courseCode}
+  onChange={(value) =>
+    setCourseCode(value.toUpperCase())
+  }
+  dir="ltr"
+/>
+<div>
+  <Label>تقسيم الكورس</Label>
 
+  <select
+    value={courseLevel}
+    onChange={(event) =>
+      setCourseLevel(
+        event.target.value as "single" | "split",
+      )
+    }
+    className={inputClassName}
+  >
+    <option value="single">
+      كورس واحد — شهادة Advanced
+    </option>
+
+    <option value="split">
+      أساسيات + متقدم — شهادتان F و A
+    </option>
+  </select>
+</div>
+<Field
+  label="ترتيب الكورس على المسار"
+  type="number"
+  value={displayOrder}
+  onChange={(value) =>
+    setDisplayOrder(Number(value))
+  }
+/>
               <Field
                 label="السعر"
                 type="number"

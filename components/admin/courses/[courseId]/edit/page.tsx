@@ -51,7 +51,10 @@ export default async function EditCoursePage({
             course.journey_type ?? "career_path",
           status: course.status ?? "draft",
           whatsapp_number:
-            course.whatsapp_number ?? "",
+  course.whatsapp_number ?? "",
+
+course_code:
+  course.course_code ?? "",
         }}
       />
     </>

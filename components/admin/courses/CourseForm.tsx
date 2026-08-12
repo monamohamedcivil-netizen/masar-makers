@@ -21,6 +21,7 @@ interface CourseFormInitialData {
   journey_type?: string | null;
   status?: CourseStatus | null;
   whatsapp_number?: string | null;
+course_code?: string | null;
 }
 
 interface CourseFormProps {
@@ -68,7 +69,9 @@ export default function CourseForm({
   const [whatsapp, setWhatsapp] = useState(
     initialData?.whatsapp_number ?? "",
   );
-
+const [courseCode, setCourseCode] = useState(
+  initialData?.course_code ?? "",
+);
   const submit = () => {
     startTransition(async () => {
       const payload = {
@@ -82,6 +85,7 @@ export default function CourseForm({
         journey_type: journeyType,
         status,
         whatsapp_number: whatsapp,
+        course_code: courseCode,
       };
 
       const result =
@@ -113,7 +117,11 @@ export default function CourseForm({
           value={slug}
           onChange={setSlug}
         />
-
+<Field
+  label="Course Code"
+  value={courseCode}
+  onChange={(value) => setCourseCode(value.toUpperCase())}
+/>
         <Field
           label="مدة الكورس (ساعة)"
           type="number"

@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
-
-import CSDTemplate from "@/components/certificates/templates/CSDTemplate";
 import { getCertificate } from "@/lib/certificates/get-certificate";
-import { createClient } from "@/lib/supabase/server";
+import { markCertificateAsViewed } from "@/lib/actions/student/certificates";
+
+import CertificateRenderer
+
+from "@/components/certificates/CertificateRenderer";
 type Props = {
   params: Promise<{
     certificateId: string;
@@ -15,19 +17,11 @@ export default async function CertificatePage({
   const { certificateId } = await params;
 
   const certificate = await getCertificate(certificateId);
-const supabase = await createClient();
 
-await supabase
-  .from("certificates")
-  .update({
-    is_new: false,
-  })
-  .eq("id", certificateId)
-  .eq("is_new", true);
   if (!certificate) {
     notFound();
   }
-
+await markCertificateAsViewed(certificateId);
   return (
     <main className="min-h-screen bg-slate-100 py-10">
       <div className="mx-auto mb-6 max-w-6xl px-4">
@@ -68,7 +62,9 @@ await supabase
       </div>
 
       <div className="mx-auto max-w-6xl px-4">
-        <CSDTemplate certificate={certificate} />
+        <CertificateRenderer
+certificate={certificate}
+/>
       </div>
     </main>
   );

@@ -11,7 +11,7 @@ import LearningModes from "@/sections/LearningModes";
 import SectionTitle from "@/sections/SectionTitle";
 import PopularCourses from "@/sections/PopularCourses";
 import StudentProjects from "@/sections/StudentProjects";
-import Testimonials from "@/sections/Testimonials";
+import TestimonialsFromDB from "@/sections/TestimonialsFromDB";
 import Partners from "@/sections/Partners";
 import FinalCTA from "@/sections/FinalCTA";
 
@@ -226,7 +226,7 @@ export default function Home() {
       "testimonials"
     )}`}
   >
-    <Testimonials />
+    <TestimonialsFromDB />
   </div>
 </section>
 

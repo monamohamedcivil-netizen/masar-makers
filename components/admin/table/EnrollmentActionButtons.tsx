@@ -2,7 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Check, Loader2, TriangleAlert, X } from "lucide-react";
+import {
+  Check,
+  Loader2,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 
 import {
   approveEnrollment,
@@ -19,11 +24,15 @@ export default function EnrollmentActionButtons({
   status,
 }: EnrollmentActionButtonsProps) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+
+  const [isPending, startTransition] =
+    useTransition();
+
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
 
-  const normalizedStatus = status.toLowerCase();
+  const normalizedStatus =
+    status.toLowerCase();
 
   if (normalizedStatus !== "pending") {
     return (
@@ -35,7 +44,7 @@ export default function EnrollmentActionButtons({
 
   const handleApprove = () => {
     const confirmed = window.confirm(
-      "هل تريد اعتماد طلب الاشتراك؟",
+      "هل تريد اعتماد طلب الاشتراك بالنوع المحدد في الجدول؟",
     );
 
     if (!confirmed) return;
@@ -45,10 +54,16 @@ export default function EnrollmentActionButtons({
 
     startTransition(async () => {
       try {
-        const result = await approveEnrollment(enrollmentId);
+        const result =
+          await approveEnrollment(
+            enrollmentId,
+          );
 
         if (!result.success) {
-          throw new Error(result.message || "تعذر اعتماد الطلب.");
+          throw new Error(
+            result.message ||
+              "تعذر اعتماد الطلب.",
+          );
         }
 
         if (result.warning) {
@@ -78,10 +93,16 @@ export default function EnrollmentActionButtons({
 
     startTransition(async () => {
       try {
-        const result = await rejectEnrollment(enrollmentId);
+        const result =
+          await rejectEnrollment(
+            enrollmentId,
+          );
 
         if (!result.success) {
-          throw new Error(result.message || "تعذر رفض الطلب.");
+          throw new Error(
+            result.message ||
+              "تعذر رفض الطلب.",
+          );
         }
 
         router.refresh();
@@ -109,6 +130,7 @@ export default function EnrollmentActionButtons({
           ) : (
             <Check className="h-4 w-4" />
           )}
+
           قبول
         </button>
 
@@ -123,18 +145,19 @@ export default function EnrollmentActionButtons({
         </button>
       </div>
 
-      {warning && (
+      {warning ? (
         <p className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs font-medium leading-5 text-amber-800">
           <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+
           <span>{warning}</span>
         </p>
-      )}
+      ) : null}
 
-      {error && (
+      {error ? (
         <p className="mt-2 text-xs font-medium text-red-600">
           {error}
         </p>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -4,14 +4,13 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { generateCertificateNumber } from "@/lib/certificates";
 import { sendCertificateEmail } from "@/lib/email/send-certificate-email";
-const CERTIFICATE_JOURNEY_TYPES = [
+const CERTIFICATE_TYPES = [
   "fundamental",
   "advanced",
-  "integrated",
 ] as const;
 
-export type CertificateJourneyType =
-  (typeof CERTIFICATE_JOURNEY_TYPES)[number];
+export type CertificateType =
+  (typeof CERTIFICATE_TYPES)[number];
 
 export type CourseCertificateStudent = {
   enrollmentId: string;
@@ -21,7 +20,8 @@ export type CourseCertificateStudent = {
   courseId: string;
   courseTitle: string;
   journeyId: string | null;
-  journeyType: CertificateJourneyType;
+  certificateType: CertificateType;
+  journeyType: CertificateType;
   journeyTitle: string | null;
   actionKey: string | null;
   actionTitle: string | null;
@@ -110,11 +110,20 @@ async function requireAdmin() {
  * - workshop
  * - free
  */
-function isCertificateJourneyType(
+const ELIGIBLE_ENROLLMENT_JOURNEY_TYPES = [
+  "fundamental",
+  "advanced",
+  "integrated",
+] as const;
+
+type EligibleEnrollmentJourneyType =
+  (typeof ELIGIBLE_ENROLLMENT_JOURNEY_TYPES)[number];
+
+function isEligibleEnrollmentJourneyType(
   value: string | null | undefined,
-): value is CertificateJourneyType {
-  return CERTIFICATE_JOURNEY_TYPES.includes(
-    value as CertificateJourneyType,
+): value is EligibleEnrollmentJourneyType {
+  return ELIGIBLE_ENROLLMENT_JOURNEY_TYPES.includes(
+    value as EligibleEnrollmentJourneyType,
   );
 }
 
@@ -166,34 +175,51 @@ function getStudentEmail(row: EnrollmentRow): string {
 /**
  * يحول سجل الاشتراك إلى الشكل المطلوب في واجهة الشهادات.
  */
-function mapEnrollmentToCertificateStudent(
+function mapEnrollmentToCertificateStudents(
   row: EnrollmentRow,
-): CourseCertificateStudent | null {
-  if (!isCertificateJourneyType(row.journey_type)) {
-    return null;
+  courseLevel: "single" | "split",
+): CourseCertificateStudent[] {
+  if (!isEligibleEnrollmentJourneyType(row.journey_type)) {
+    return [];
   }
 
-  return {
+  let certificateTypes: CertificateType[];
+
+  if (courseLevel === "single") {
+    certificateTypes = ["advanced"];
+  } else if (row.journey_type === "integrated") {
+    certificateTypes = ["fundamental", "advanced"];
+  } else {
+    certificateTypes = [row.journey_type];
+  }
+
+  return certificateTypes.map((certificateType) => ({
     enrollmentId: row.id,
     studentId: row.user_id,
     studentName: getStudentDisplayName(row),
     studentEmail: getStudentEmail(row),
     courseId: row.course_id,
-    courseTitle: row.course_title?.trim() || "كورس بدون عنوان",
+    courseTitle:
+      row.course_title?.trim() || "كورس بدون عنوان",
     journeyId: row.journey_id,
-    journeyType: row.journey_type,
+
+    certificateType,
+    journeyType: certificateType,
+
     journeyTitle: row.journey_title?.trim() || null,
     actionKey: row.action_key?.trim() || null,
     actionTitle: row.action_title?.trim() || null,
-    certificateStatus: row.certificate_status,
-    certificateIssuedAt: row.certificate_issued_at,
+
+    certificateStatus: null,
+    certificateIssuedAt: null,
     certificateReadyAt: row.certificate_ready_at,
-    certificateId: row.certificate_id,
+    certificateId: null,
+
     progressPercent: toSafeNumber(row.progress_percent),
     completedLessons: toSafeNumber(row.completed_lessons),
     totalLessons: toSafeNumber(row.total_lessons),
     enrolledAt: row.created_at,
-  };
+  }));
 }
 
 /**
@@ -206,11 +232,10 @@ function mapEnrollmentToCertificateStudent(
 function sortCertificateStudents(
   students: CourseCertificateStudent[],
 ): CourseCertificateStudent[] {
-  const journeyOrder: Record<CertificateJourneyType, number> = {
-    fundamental: 1,
-    advanced: 2,
-    integrated: 3,
-  };
+const certificateOrder: Record<CertificateType, number> = {
+  fundamental: 1,
+  advanced: 2,
+};
 
   return [...students].sort((first, second) => {
     const nameComparison = first.studentName.localeCompare(
@@ -226,8 +251,8 @@ function sortCertificateStudents(
     }
 
     const journeyComparison =
-      journeyOrder[first.journeyType] -
-      journeyOrder[second.journeyType];
+      certificateOrder[first.certificateType] -
+      certificateOrder[second.certificateType];
 
     if (journeyComparison !== 0) {
       return journeyComparison;
@@ -275,7 +300,24 @@ export async function getCourseStudentsForCertificates(
     }
 
     const { supabase } = await requireAdmin();
+const { data: courseData, error: courseError } =
+  await supabase
+    .from("courses")
+    .select("level")
+    .eq("id", normalizedCourseId)
+    .maybeSingle();
 
+if (courseError || !courseData) {
+  return {
+    success: false,
+    message: courseError
+      ? `تعذر تحميل تقسيم الكورس: ${courseError.message}`
+      : "تعذر العثور على بيانات الكورس.",
+  };
+}
+
+const courseLevel: "single" | "split" =
+  courseData.level === "split" ? "split" : "single";
     const { data, error } = await supabase
       .from("enrollments")
       .select(`
@@ -301,7 +343,11 @@ export async function getCourseStudentsForCertificates(
       `)
       .eq("course_id", normalizedCourseId)
       .eq("status", "active")
-      .in("journey_type", [...CERTIFICATE_JOURNEY_TYPES])
+      .in("journey_type", [
+  "fundamental",
+  "advanced",
+  "integrated",
+])
       .order("student_name", {
         ascending: true,
         nullsFirst: false,
@@ -322,17 +368,79 @@ export async function getCourseStudentsForCertificates(
       };
     }
 
-    const rows = (data as EnrollmentRow[] | null) ?? [];
+   const rows = (data as EnrollmentRow[] | null) ?? [];
 
-    const students = rows
-      .map(mapEnrollmentToCertificateStudent)
-      .filter(
-        (
-          student,
-        ): student is CourseCertificateStudent =>
-          student !== null,
-      );
+const enrollmentIds = rows.map((row) => row.id);
 
+const certificateMap = new Map<
+  string,
+  CourseCertificateLookupRow
+>();
+
+if (enrollmentIds.length > 0) {
+  const {
+    data: certificateRowsData,
+    error: certificateRowsError,
+  } = await supabase
+    .from("certificates")
+    .select(`
+      id,
+      enrollment_id,
+      certificate_type,
+      status,
+      issued_at
+    `)
+    .in("enrollment_id", enrollmentIds)
+    .in("certificate_type", [
+      "fundamental",
+      "advanced",
+    ]);
+
+  if (certificateRowsError) {
+    return {
+      success: false,
+      message:
+        `تعذر تحميل شهادات الطلاب: ${certificateRowsError.message}`,
+    };
+  }
+
+  const certificateRows =
+    (certificateRowsData ??
+      []) as CourseCertificateLookupRow[];
+
+  for (const certificate of certificateRows) {
+    certificateMap.set(
+      `${certificate.enrollment_id}:${certificate.certificate_type}`,
+      certificate,
+    );
+  }
+}
+
+const students = rows
+  .flatMap((row) =>
+  mapEnrollmentToCertificateStudents(
+    row,
+    courseLevel,
+  ),
+)
+  .map((student) => {
+    const certificate = certificateMap.get(
+      `${student.enrollmentId}:${student.certificateType}`,
+    );
+
+    return {
+      ...student,
+
+      certificateId:
+        certificate?.id ?? null,
+
+      certificateStatus:
+        certificate?.status ?? null,
+
+      certificateIssuedAt:
+        certificate?.issued_at ?? null,
+    };
+  });
     const sortedStudents = sortCertificateStudents(students);
 
     return {
@@ -361,6 +469,7 @@ export async function getCourseStudentsForCertificates(
 
 export type IssueCourseCertificateInput = {
   enrollmentId: string;
+  certificateType: "fundamental" | "advanced";
 };
 
 export type IssuedCourseCertificate = {
@@ -398,7 +507,13 @@ type ExistingCertificateRow = {
   issued_at: string;
   status: string | null;
 };
-
+type CourseCertificateLookupRow = {
+  id: string;
+  enrollment_id: string;
+  certificate_type: CertificateType;
+  status: string | null;
+  issued_at: string | null;
+};
 function createCertificateNumber(): string {
   const year = new Date().getUTCFullYear();
   const randomPart = crypto
@@ -415,44 +530,33 @@ async function createCertificateNotification(
   studentId: string,
   courseTitle: string,
 ): Promise<string | null> {
-  const { data: notification, error: notificationError } = await supabase
-    .from("notifications")
-    .insert({
-      title: "تم إصدار شهادتك",
-      body: `تم إصدار شهادة ${courseTitle}. يمكنك الآن عرضها من شاشة شهاداتي.`,
-      type: "achievement",
-      action_url: "/dashboard?section=certificates",
-    })
-    .select("id")
-    .single();
+  const { data, error } = await supabase.rpc(
+    "admin_create_notification",
+    {
+      p_user_id: studentId,
+      p_title: "تم إصدار شهادتك",
+      p_body: `تم إصدار شهادتك الخاصة بكورس ${courseTitle}. يمكنك الآن عرضها وتحميلها من شاشة شهاداتي.`,
+      p_type: "certificate_issued",
+      p_action_url: "/dashboard?panel=certificates",
+    },
+  );
 
-  if (notificationError || !notification?.id) {
-    return (
-      notificationError?.message ??
-      "تعذر إنشاء إشعار إصدار الشهادة."
+  if (error) {
+    console.error(
+      "CREATE CERTIFICATE NOTIFICATION ERROR",
+      error,
     );
+
+    return error.message;
   }
 
-  const { error: recipientError } = await supabase
-    .from("notification_recipients")
-    .insert({
-      notification_id: notification.id,
-      user_id: studentId,
-      is_read: false,
-    });
-
-  if (recipientError) {
-    await supabase
-      .from("notifications")
-      .delete()
-      .eq("id", notification.id);
-
-    return recipientError.message;
+  if (!data) {
+    return "لم يتم إنشاء إشعار إصدار الشهادة.";
   }
 
   return null;
 }
-
+  
 /**
  * يصدر شهادة لاشتراك محدد.
  *
@@ -464,7 +568,7 @@ export async function issueCourseCertificate(
 ): Promise<IssueCourseCertificateResult> {
   try {
     const enrollmentId = input.enrollmentId?.trim();
-
+const certificateType = input.certificateType;
     if (!enrollmentId) {
       return {
         success: false,
@@ -516,7 +620,6 @@ export async function issueCourseCertificate(
         message: "تعذر العثور على اشتراك الطالب.",
       };
     }
-
     const enrollment = enrollmentData as IssueEnrollmentRow;
 
     if (enrollment.status !== "active") {
@@ -526,36 +629,28 @@ export async function issueCourseCertificate(
       };
     }
 
-    if (!isCertificateJourneyType(enrollment.journey_type)) {
-      return {
-        success: false,
-        message: "نوع هذه الرحلة غير مؤهل للحصول على شهادة.",
-      };
-    }
+    const { data: currentCertificate } = await supabase
+  .from("certificates")
+  .select("id,certificate_number,issued_at,status")
+  .eq("enrollment_id", enrollment.id)
+  .eq("certificate_type", certificateType)
+  .maybeSingle();
 
-    if (enrollment.certificate_id) {
-      const { data: currentCertificate } = await supabase
-        .from("certificates")
-        .select("id,certificate_number,issued_at,status")
-        .eq("id", enrollment.certificate_id)
-        .maybeSingle();
-
-      if (
-        currentCertificate &&
-        currentCertificate.status === "issued"
-      ) {
-        return {
-          success: true,
-          message: "الشهادة صادرة بالفعل لهذا الاشتراك.",
-          data: {
-            certificateId: currentCertificate.id,
-            certificateNumber:
-              currentCertificate.certificate_number,
-            issuedAt: currentCertificate.issued_at,
-          },
-        };
-      }
-    }
+if (
+  currentCertificate &&
+  currentCertificate.status === "issued"
+) {
+  return {
+    success: true,
+    message: "الشهادة صادرة بالفعل.",
+    data: {
+      certificateId: currentCertificate.id,
+      certificateNumber:
+        currentCertificate.certificate_number,
+      issuedAt: currentCertificate.issued_at,
+    },
+  };
+}
 
     const { data: settingsData, error: settingsError } =
       await supabase
@@ -583,14 +678,11 @@ export async function issueCourseCertificate(
     const settings =
       (settingsData as CertificateSettingsRow | null) ?? null;
 
-    if (
-      !settings?.certificate_enabled ||
-      !settings.template_id
-    ) {
+    if (!settings?.certificate_enabled) {
       return {
         success: false,
         message:
-          "لا يوجد قالب شهادة محفوظ ومفعّل لهذا الكورس.",
+          "الشهادات غير مفعلة لهذا الكورس.",
       };
     }
 
@@ -607,39 +699,189 @@ export async function issueCourseCertificate(
       enrollment.course_title?.trim() ||
       "Course Certificate";
 
-    const issuedAt = new Date().toISOString();
-   const { data: memberProfile, error: memberProfileError } = await supabase
-  .from("member_profiles")
-  .select("masar_id")
-  .eq("user_id", enrollment.user_id)
-  .single();
+   const issuedAt = new Date().toISOString();
 
-if (memberProfileError || !memberProfile) {
+/*
+ * قراءة بيانات الكورس الأساسية.
+ * نستخدم title للحصول على رمز المحطة من COURSE_CODES.
+ * ونستخدم علاقات الكورس لقراءة رقم المسار ورقم المحطة.
+ */
+const { data: courseData, error: courseDataError } =
+  await supabase
+    .from("courses")
+    .select(`
+  title,
+  course_code,
+  level,
+  career_path_id,
+  station_id
+`)
+    .eq("id", enrollment.course_id)
+    .maybeSingle();
+
+if (courseDataError || !courseData) {
   return {
     success: false,
     message:
-      "تعذر العثور على رقم العضوية (Masar ID) الخاص بالطالب.",
+      courseDataError?.message
+        ? `تعذر تحميل بيانات الكورس: ${courseDataError.message}`
+        : "تعذر العثور على بيانات الكورس.",
   };
-} 
+}
+
+if (!courseData.career_path_id) {
+  return {
+    success: false,
+    message: "الكورس غير مرتبط بمسار مهني.",
+  };
+}
+
+if (!courseData.station_id) {
+  return {
+    success: false,
+    message: "الكورس غير مرتبط بمحطة داخل المسار.",
+  };
+}
+
+/*
+ * رقم المسار:
+ * career_paths.display_order
+ */
+const { data: careerPathData, error: careerPathError } =
+  await supabase
+    .from("career_paths")
+    .select("display_order")
+    .eq("id", courseData.career_path_id)
+    .maybeSingle();
+
+if (careerPathError || !careerPathData) {
+  return {
+    success: false,
+    message:
+      careerPathError?.message
+        ? `تعذر تحميل رقم المسار: ${careerPathError.message}`
+        : "تعذر العثور على رقم المسار.",
+  };
+}
+
+/*
+ * رقم المحطة:
+ * course_stations.display_order
+ */
+const { data: stationData, error: stationError } =
+  await supabase
+    .from("course_stations")
+    .select("display_order")
+    .eq("id", courseData.station_id)
+    .maybeSingle();
+
+if (stationError || !stationData) {
+  return {
+    success: false,
+    message:
+      stationError?.message
+        ? `تعذر تحميل رقم المحطة: ${stationError.message}`
+        : "تعذر العثور على رقم المحطة.",
+  };
+}
+const courseLevel: "single" | "split" =
+  courseData.level === "split" ? "split" : "single";
+
+if (
+  courseLevel === "single" &&
+  certificateType === "fundamental"
+) {
+  return {
+    success: false,
+    message:
+      "هذا الكورس مكوّن من مستوى واحد، وشهادته من نوع Advanced فقط.",
+  };
+}
+/*
+ * رقم الطالب الثابت في المنصة.
+ */
+const normalizedEmail =
+  enrollment.student_email?.trim().toLowerCase() ?? "";
+
+if (!normalizedEmail) {
+  return {
+    success: false,
+    message: "البريد الإلكتروني للطالب غير موجود.",
+  };
+}
+
+const { data: studentRegistry, error: registryError } =
+  await supabase
+    .from("student_registry")
+    .select("masar_id,user_id")
+    .eq("normalized_email", normalizedEmail)
+    .maybeSingle();
+
+if (registryError) {
+  return {
+    success: false,
+    message: `تعذر تحميل رقم العضوية: ${registryError.message}`,
+  };
+}
+
+if (!studentRegistry) {
+  return {
+    success: false,
+    message:
+      "لا يوجد Masar ID لهذا الطالب. يرجى إعادة استيراده أو تسجيله أولًا.",
+  };
+}
+
+const baseCourseTitle =
+  courseData.title?.trim() ||
+  enrollment.course_title?.trim() ||
+  "";
+
+const courseCode =
+  courseData.course_code?.trim() || "GEN";
+
+if (!baseCourseTitle) {
+  return {
+    success: false,
+    message: "اسم الكورس الأساسي غير موجود.",
+  };
+}
+
+const trackNumber = toSafeNumber(
+  careerPathData.display_order,
+);
+
+const stationNumber = toSafeNumber(
+  stationData.display_order,
+);
+
+if (trackNumber <= 0) {
+  return {
+    success: false,
+    message: "ترتيب المسار غير صحيح في قاعدة البيانات.",
+  };
+}
+
+if (stationNumber <= 0) {
+  return {
+    success: false,
+    message: "ترتيب المحطة غير صحيح في قاعدة البيانات.",
+  };
+}
+
+const journeyNumber =
+  certificateType === "fundamental"
+    ? 1
+    : 2;
+
 const certificateNumber = generateCertificateNumber({
- courseTitle,
-
-  journeyType: enrollment.journey_type,
-
+  courseCode,
+ journeyType: certificateType,
   year: new Date(issuedAt).getFullYear(),
-
-  masarId: memberProfile.masar_id,
-
-  trackNumber: 1,
-
-  stationNumber: 2,
-
-  journeyNumber:
-    enrollment.journey_type === "fundamental"
-      ? 1
-      : enrollment.journey_type === "advanced"
-        ? 2
-        : 3,
+  masarId: toSafeNumber(studentRegistry.masar_id),
+  trackNumber,
+  stationNumber,
+  journeyNumber,
 });
 
 const verificationCode = crypto.randomUUID();
@@ -652,7 +894,7 @@ const verificationCode = crypto.randomUUID();
 
   course_id: enrollment.course_id,
 
-  template_id: settings.template_id,
+  template_id:null,
 
   certificate_number: certificateNumber,
 
@@ -663,18 +905,20 @@ const verificationCode = crypto.randomUUID();
     enrollment.student_name_en?.trim() ??
     enrollment.student_name?.trim() ??
     "",
-
+student_email:
+  enrollment.student_email?.trim() ?? "",
   course_title:
     enrollment.course_title?.trim() ?? "",
 
   course_title_en: courseTitle,
 
-  certificate_type: enrollment.journey_type,
+  certificate_type: certificateType,
 
   issued_at: issuedAt,
   issue_date: issuedAt,
 
-  status: "issued",
+  status: "issued", 
+  is_new: true,
 
   issued_by: user.id,
 verification_code: verificationCode,
@@ -701,16 +945,18 @@ verification_code: verificationCode,
       const duplicateCertificate =
         certificateError?.code === "23505";
 
-      return {
-        success: false,
-        message: duplicateCertificate
-          ? "توجد شهادة صادرة بالفعل لهذا الطالب في هذا الكورس."
-          : `تعذر إنشاء الشهادة: ${
-              certificateError?.message ??
-              "لم تُرجع قاعدة البيانات سجل الشهادة."
-            }`,
-      };
-    }
+     return {
+  success: false,
+  message: duplicateCertificate
+    ? `تعذر إصدار الشهادة بسبب تكرار في قاعدة البيانات: ${
+        certificateError?.message ?? "قيد غير معروف"
+      }`
+    : `تعذر إنشاء الشهادة: ${
+        certificateError?.message ??
+        "لم تُرجع قاعدة البيانات سجل الشهادة."
+      }`,
+};
+}
 
     const certificate =
       certificateData as ExistingCertificateRow;
@@ -800,18 +1046,17 @@ try {
     revalidatePath("/dashboard");
 
     return {
-
   success: true,
 
-  message:
-    "تم إصدار الشهادة بنجاح.",
+  message: notificationWarning
+    ? "تم إصدار الشهادة، لكن تعذر إرسال الإشعار للطالب."
+    : "تم إصدار الشهادة وإرسال إشعار للطالب بنجاح.",
 
   warning:
     notificationWarning ??
     emailWarning,
 
   data: {
-
     certificateId:
       certificate.id,
 
@@ -820,9 +1065,7 @@ try {
 
     issuedAt:
       certificate.issued_at,
-
   },
-
 };
   } catch (error) {
     console.error("ISSUE COURSE CERTIFICATE ERROR", error);
@@ -833,6 +1076,184 @@ try {
         error instanceof Error
           ? error.message
           : "حدث خطأ غير متوقع أثناء إصدار الشهادة.",
+    };
+  }
+}
+
+export async function reissueCourseCertificate(
+  input: IssueCourseCertificateInput,
+): Promise<IssueCourseCertificateResult> {
+  try {
+    const enrollmentId = input.enrollmentId?.trim();
+
+    if (!enrollmentId) {
+      return {
+        success: false,
+        message: "رقم الاشتراك غير موجود.",
+      };
+    }
+
+    const { supabase } = await requireAdmin();
+
+    const { data: enrollment, error: enrollmentError } = await supabase
+      .from("enrollments")
+      .select(`
+        id,
+        user_id,
+        student_name,
+        student_email,
+        course_title
+`)
+      .eq("id", enrollmentId)
+      .maybeSingle();
+
+    if (enrollmentError) {
+      return {
+        success: false,
+        message: `تعذر تحميل بيانات الاشتراك: ${enrollmentError.message}`,
+      };
+    }
+if (!enrollment) {
+  return {
+    success: false,
+    message: "تعذر العثور على بيانات الاشتراك.",
+  };
+}
+    const { data: currentCertificate, error: certificateError } =
+  await supabase
+    .from("certificates")
+    .select("id,certificate_number,verification_code")
+    .eq("enrollment_id", enrollmentId)
+    .eq("certificate_type", input.certificateType)
+    .maybeSingle();
+
+if (certificateError || !currentCertificate) {
+  return {
+    success: false,
+    message: "تعذر العثور على الشهادة الحالية.",
+  };
+}
+
+      const issuedAt = new Date().toISOString();
+
+    const { error: updateCertificateError } = await supabase
+      .from("certificates")
+      .update({
+        issued_at: issuedAt,
+        issue_date: issuedAt,
+        is_new: true,
+        email_status: "pending",
+        notification_status: "pending",
+      })
+      .eq("id", currentCertificate.id);
+
+    if (updateCertificateError) {
+      return {
+        success: false,
+        message: `تعذر تحديث الشهادة: ${updateCertificateError.message}`,
+      };
+    }
+
+    const { error: updateEnrollmentError } = await supabase
+      .from("enrollments")
+      .update({
+        certificate_status: "issued",
+        certificate_issued_at: issuedAt,
+        updated_at: issuedAt,
+      })
+      .eq("id", enrollmentId);
+
+    if (updateEnrollmentError) {
+      return {
+        success: false,
+        message: `تم تحديث الشهادة، لكن تعذر تحديث الاشتراك: ${updateEnrollmentError.message}`,
+      };
+    }
+
+    const courseTitle =
+      enrollment.course_title?.trim() || "Course Certificate";
+
+    const notificationWarning = await createCertificateNotification(
+      supabase,
+      enrollment.user_id,
+      courseTitle,
+    );
+
+    await supabase
+      .from("certificates")
+      .update({
+        notification_status: notificationWarning ? "failed" : "sent",
+      })
+      .eq("id", currentCertificate.id);
+
+    let emailWarning: string | undefined;
+
+    if (enrollment.student_email?.trim()) {
+      try {
+        await sendCertificateEmail({
+          studentName: enrollment.student_name?.trim() || "Student",
+          email: enrollment.student_email.trim(),
+          certificateId: currentCertificate.id,
+          courseTitle,
+        });
+
+        await supabase
+          .from("certificates")
+          .update({
+            email_status: "sent",
+          })
+          .eq("id", currentCertificate.id);
+      } catch (error) {
+        emailWarning =
+          error instanceof Error
+            ? error.message
+            : "تعذر إرسال البريد الإلكتروني.";
+
+        await supabase
+          .from("certificates")
+          .update({
+            email_status: "failed",
+          })
+          .eq("id", currentCertificate.id);
+      }
+    } else {
+      emailWarning = "لا يوجد بريد إلكتروني مسجل للطالب.";
+
+      await supabase
+        .from("certificates")
+        .update({
+          email_status: "failed",
+        })
+        .eq("id", currentCertificate.id);
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/dashboard");
+    revalidatePath(`/certificates/${currentCertificate.id}`);
+    revalidatePath(`/certificates/${currentCertificate.id}/print`);
+
+    return {
+      success: true,
+      message:
+        notificationWarning || emailWarning
+          ? "تمت إعادة إصدار الشهادة، مع وجود تنبيه في الإشعار أو البريد الإلكتروني."
+          : "تمت إعادة إصدار الشهادة وإرسال الإشعار والبريد الإلكتروني بنجاح.",
+      warning: notificationWarning ?? emailWarning,
+      data: {
+        certificateId: currentCertificate.id,
+        certificateNumber: currentCertificate.certificate_number,
+        issuedAt,
+      },
+    };
+  } catch (error) {
+    console.error("REISSUE COURSE CERTIFICATE ERROR", error);
+
+    return {
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "حدث خطأ غير متوقع أثناء إعادة إصدار الشهادة.",
     };
   }
 }
