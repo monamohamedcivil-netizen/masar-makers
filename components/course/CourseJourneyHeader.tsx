@@ -74,8 +74,9 @@ export default function CourseJourneyHeader({
           </span>
         </div>
 
-        {/* Desktop journey */}
-        <div className="relative hidden h-[80px] lg:block">
+        {/* Journey road — same design on desktop and mobile */}
+        <div className="overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="relative h-[80px] min-w-[760px] lg:min-w-0">
           {/* Base road: المسار غير المكتمل */}
 <div
   className="
@@ -209,58 +210,9 @@ export default function CourseJourneyHeader({
             })}
           </div>
         </div>
-
-        {/* Mobile journey */}
-        <div
-          className="
-            flex gap-3 overflow-x-auto pb-2
-            lg:hidden
-            [scrollbar-width:none]
-            [&::-webkit-scrollbar]:hidden
-          "
-        >
-          {courses.map((course, index) => {
-            const isCurrent =
-              course.slug === currentCourseSlug;
-
-            return (
-              <Link
-                key={course.slug}
-                href={`/course/${course.slug}`}
-                className={`
-                  flex min-w-[145px] items-center gap-3
-                  rounded-2xl border px-3 py-2.5
-                  transition
-                  ${
-                    isCurrent
-                      ? "border-[#F7B548] bg-[#FFF7E3]"
-                      : "border-[#DCE3EC] bg-[#F8FAFC]"
-                  }
-                `}
-              >
-                <div
-                  className={`
-                    flex h-9 w-9 shrink-0
-                    items-center justify-center
-                    rounded-full text-[12px] font-black
-                    ${
-                      isCurrent
-                        ? "bg-[#F7B548] text-[#07152E]"
-                        : "bg-white text-slate-500"
-                    }
-                  `}
-                >
-                  {index + 1}
-                </div>
-
-                <p className="line-clamp-2 text-[11px] font-black leading-4 text-[#07152E]">
-                  {course.title}
-                </p>
-              </Link>
-            );
-          })}
+          </div>
         </div>
-      </div>
-    </section>
+
+          </section>
   );
 }

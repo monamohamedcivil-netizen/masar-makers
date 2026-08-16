@@ -104,6 +104,11 @@ export default function CourseJourneyLessonsPanel({
   const [error, setError] =
     useState("");
 
+  const [mobilePart, setMobilePart] =
+    useState<"fundamentals" | "advanced">(
+      "fundamentals",
+    );
+
   useEffect(() => {
     let cancelled = false;
 
@@ -163,6 +168,10 @@ export default function CourseJourneyLessonsPanel({
     };
   }, [stationId, kind]);
 
+  useEffect(() => {
+    setMobilePart("fundamentals");
+  }, [stationId, kind]);
+
   const grouped = useMemo(
     () => ({
       single: lessons.filter(
@@ -191,11 +200,6 @@ export default function CourseJourneyLessonsPanel({
       ? "الرحلات المجانية"
       : "رحلات اليوم الواحد";
 
-  const subtitle =
-    kind === "free"
-      ? "المحاضرات التي أتاحتها الأكاديمية للمشاهدة المجانية."
-      : "محاضرات مركزة يمكنك طلب الاشتراك بها بشكل مستقل.";
-
   const HeaderIcon =
     kind === "free"
       ? PlayCircle
@@ -204,33 +208,30 @@ export default function CourseJourneyLessonsPanel({
   return (
     <section
       dir="rtl"
-      className="overflow-hidden rounded-[28px] border border-[#F7B548]/35 bg-white shadow-[0_24px_70px_rgba(7,21,46,0.12)]"
+      className="min-h-[400px] overflow-hidden rounded-[24px] border border-[#C9D2DE] bg-white shadow-[0_22px_55px_rgba(7,21,46,0.16),0_4px_12px_rgba(7,21,46,0.08)]"
     >
-      <header className="flex items-center gap-4 bg-[#07152E] px-5 py-5 text-white sm:px-7">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#F7B548]/15 text-[#F7B548]">
-          <HeaderIcon size={24} />
+      <header className="flex min-h-[64px] items-center gap-2.5 border-b-[3px] border-[#F7B548] bg-[#07152E] px-5 py-2.5 text-white sm:px-6">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F7B548] text-[#07152E]">
+          <HeaderIcon size={16} />
         </span>
 
         <div>
-          <h2 className="text-xl font-black sm:text-2xl">
+          <h2 className="text-[18px] font-black leading-5 text-white sm:text-[20px]">
             {title}
           </h2>
-          <p className="mt-1 text-xs font-bold text-white/65">
-            {subtitle}
-          </p>
         </div>
       </header>
 
       {loading ? (
-        <div className="flex min-h-[260px] items-center justify-center text-sm font-black text-slate-500">
+        <div className="flex min-h-[333px] items-center justify-center text-sm font-black text-slate-500">
           جارٍ تحميل المحاضرات...
         </div>
       ) : error ? (
-        <div className="flex min-h-[260px] items-center justify-center px-6 text-center text-sm font-black text-red-600">
+        <div className="flex min-h-[333px] items-center justify-center px-6 text-center text-sm font-black text-red-600">
           {error}
         </div>
       ) : lessons.length === 0 ? (
-        <div className="flex min-h-[300px] flex-col items-center justify-center px-6 text-center">
+        <div className="flex min-h-[333px] flex-col items-center justify-center px-6 text-center">
           <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#FFF4DF] text-[#C88712]">
             <BookOpenCheck size={28} />
           </span>
@@ -244,40 +245,139 @@ export default function CourseJourneyLessonsPanel({
           </p>
         </div>
       ) : isSplit ? (
-        <div className="grid gap-4 p-4 lg:grid-cols-2 sm:p-5">
-          <LessonColumn
-            title={partTitle("fundamentals")}
-            lessons={grouped.fundamentals}
-            kind={kind}
-            enrollmentStatuses={
-              enrollmentStatuses
-            }
-          />
+        <>
+          <div
+            className="grid grid-cols-2 border-b border-[#DCE2EA] bg-[#EEF1F5] lg:hidden"
+            role="tablist"
+            aria-label="أقسام الرحلة"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={
+                mobilePart ===
+                "fundamentals"
+              }
+              onClick={() =>
+                setMobilePart(
+                  "fundamentals",
+                )
+              }
+              className={`relative min-h-[46px] px-3 text-[11px] font-black transition ${
+                mobilePart ===
+                "fundamentals"
+                  ? "bg-[#173A61] text-white"
+                  : "bg-[#EEF1F5] text-[#4B5563]"
+              }`}
+            >
+              {partTitle(
+                "fundamentals",
+              )}
 
-          <LessonColumn
-            title={partTitle("advanced")}
-            lessons={grouped.advanced}
-            kind={kind}
-            enrollmentStatuses={
-              enrollmentStatuses
-            }
-          />
+              {mobilePart ===
+              "fundamentals" ? (
+                <span className="absolute inset-x-4 bottom-0 h-[3px] bg-[#F7B548]" />
+              ) : null}
+            </button>
 
-          {grouped.single.length ? (
-            <div className="lg:col-span-2">
-              <LessonColumn
-                title="محاضرات عامة"
-                lessons={grouped.single}
-                kind={kind}
-                enrollmentStatuses={
-                  enrollmentStatuses
-                }
-              />
-            </div>
-          ) : null}
-        </div>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={
+                mobilePart === "advanced"
+              }
+              onClick={() =>
+                setMobilePart(
+                  "advanced",
+                )
+              }
+              className={`relative min-h-[46px] px-3 text-[11px] font-black transition ${
+                mobilePart ===
+                "advanced"
+                  ? "bg-[#102D50] text-white"
+                  : "bg-[#EEF1F5] text-[#4B5563]"
+              }`}
+            >
+              {partTitle("advanced")}
+
+              {mobilePart ===
+              "advanced" ? (
+                <span className="absolute inset-x-4 bottom-0 h-[3px] bg-[#F7B548]" />
+              ) : null}
+            </button>
+          </div>
+
+          <div className="min-h-[333px] bg-white lg:hidden">
+            <LessonColumn
+              title={
+                mobilePart ===
+                "fundamentals"
+                  ? partTitle(
+                      "fundamentals",
+                    )
+                  : partTitle(
+                      "advanced",
+                    )
+              }
+              lessons={
+                mobilePart ===
+                "fundamentals"
+                  ? grouped.fundamentals
+                  : grouped.advanced
+              }
+              kind={kind}
+              enrollmentStatuses={
+                enrollmentStatuses
+              }
+              hideHeader
+            />
+          </div>
+
+          <div className="hidden min-h-[333px] gap-px bg-[#DCE2EA] lg:grid lg:grid-cols-2">
+            <LessonColumn
+              title={partTitle(
+                "fundamentals",
+              )}
+              lessons={
+                grouped.fundamentals
+              }
+              kind={kind}
+              enrollmentStatuses={
+                enrollmentStatuses
+              }
+            />
+
+            <LessonColumn
+              title={partTitle(
+                "advanced",
+              )}
+              lessons={
+                grouped.advanced
+              }
+              kind={kind}
+              enrollmentStatuses={
+                enrollmentStatuses
+              }
+            />
+
+            {grouped.single.length ? (
+              <div className="lg:col-span-2">
+                <LessonColumn
+                  title="محاضرات عامة"
+                  lessons={
+                    grouped.single
+                  }
+                  kind={kind}
+                  enrollmentStatuses={
+                    enrollmentStatuses
+                  }
+                />
+              </div>
+            ) : null}
+          </div>
+        </>
       ) : (
-        <div className="p-4 sm:p-5">
+        <div className="min-h-[333px] bg-white p-3">
           <LessonColumn
             title={partTitle("single")}
             lessons={grouped.single}
@@ -307,9 +407,9 @@ function LessonColumn({
   hideHeader?: boolean;
 }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+    <section className="min-h-full overflow-hidden bg-white">
       {!hideHeader ? (
-        <div className="bg-[#07152E] px-4 py-3 text-sm font-black text-white">
+        <div className="flex min-h-[50px] items-center bg-[#102D50] px-4 py-2 text-[13px] font-black text-white">
           {title}
         </div>
       ) : null}
@@ -337,7 +437,7 @@ function LessonColumn({
             return (
               <article
                 key={`${kind}:${lesson.id}`}
-                className="grid gap-4 px-4 py-4 md:grid-cols-[minmax(0,1fr)_185px] md:items-center"
+                className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_150px] md:items-center"
               >
                 <div className="min-w-0">
                   <h3 className="text-sm font-black text-[#07152E]">
@@ -399,7 +499,7 @@ function LessonColumn({
                   <button
                     type="button"
                     disabled
-                    className="h-12 w-full cursor-not-allowed rounded-xl bg-slate-100 px-4 text-xs font-black text-slate-400"
+                    className="h-9 w-full cursor-not-allowed rounded-full bg-slate-100 px-4 text-[10px] font-black text-slate-400"
                   >
                     قيد التجهيز
                   </button>

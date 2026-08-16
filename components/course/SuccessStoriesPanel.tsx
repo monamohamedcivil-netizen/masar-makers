@@ -116,6 +116,13 @@ export default function SuccessStoriesPanel({
       null,
     );
 
+  const [
+    mobileSection,
+    setMobileSection,
+  ] = useState<
+    "reviews" | "projects"
+  >("reviews");
+
   const openProjectGallery = (
     project: StudentProject,
   ) => {
@@ -148,28 +155,75 @@ export default function SuccessStoriesPanel({
     <>
       <section
         dir="rtl"
-        className="min-h-[460px] overflow-hidden rounded-[26px] border-[3px] border-[#07152E] bg-white shadow-[0_18px_48px_rgba(7,21,46,0.11)]"
+        className="min-h-[400px] overflow-hidden rounded-[24px] border border-[#C9D2DE] bg-white shadow-[0_22px_55px_rgba(7,21,46,0.16),0_4px_12px_rgba(7,21,46,0.08)]"
       >
-        <div className="flex min-h-[78px] items-center gap-4 border-b border-[#E3E7ED] bg-white px-6 py-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#FFF7E3] text-[#D49319]">
-            <MessageSquareQuote size={22} />
+        <div className="flex min-h-[64px] items-center gap-2.5 border-b-[3px] border-[#F7B548] bg-[#07152E] px-5 py-2.5 text-white sm:px-6">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F7B548] text-[#07152E]">
+            <MessageSquareQuote size={16} />
           </span>
 
           <div>
-            <h2 className="text-[23px] font-black text-[#07152E]">
+            <h2 className="text-[18px] font-black leading-5 text-white sm:text-[20px]">
               قصص نجاح المتدربين
             </h2>
-
-            <p className="mt-1 text-[11px] font-medium text-slate-500">
-              تقييمات حقيقية ومشاريع تطبيقية
-              نفذها متدربو هذا الكورس.
-            </p>
           </div>
         </div>
 
-        <div className="grid min-h-[380px] lg:grid-cols-2">
+        <div
+          className="grid grid-cols-2 border-b border-[#DCE2EA] bg-[#EEF1F5] lg:hidden"
+          role="tablist"
+          aria-label="قصص نجاح المتدربين"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={
+              mobileSection === "reviews"
+            }
+            onClick={() =>
+              setMobileSection("reviews")
+            }
+            className={`relative min-h-[46px] px-3 text-[11px] font-black transition ${
+              mobileSection === "reviews"
+                ? "bg-[#173A61] text-white"
+                : "bg-[#EEF1F5] text-[#4B5563]"
+            }`}
+          >
+            تقييمات المتدربين
+
+            {mobileSection ===
+            "reviews" ? (
+              <span className="absolute inset-x-4 bottom-0 h-[3px] bg-[#F7B548]" />
+            ) : null}
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={
+              mobileSection === "projects"
+            }
+            onClick={() =>
+              setMobileSection("projects")
+            }
+            className={`relative min-h-[46px] px-3 text-[11px] font-black transition ${
+              mobileSection === "projects"
+                ? "bg-[#102D50] text-white"
+                : "bg-[#EEF1F5] text-[#4B5563]"
+            }`}
+          >
+            مشاريع المتدربين
+
+            {mobileSection ===
+            "projects" ? (
+              <span className="absolute inset-x-4 bottom-0 h-[3px] bg-[#F7B548]" />
+            ) : null}
+          </button>
+        </div>
+
+        <div className="grid min-h-[333px] gap-px bg-[#DCE2EA] lg:grid-cols-2">
           {/* تقييمات المتدربين */}
-          <div className="border-b border-[#E3E7ED] p-5 lg:border-b-0 lg:border-l">
+          <div className={`${mobileSection === "reviews" ? "block" : "hidden"} bg-white p-4 lg:block`}>
             <div className="mb-4 flex items-center gap-2">
               <MessageSquareQuote
                 size={18}
@@ -251,7 +305,7 @@ export default function SuccessStoriesPanel({
           </div>
 
           {/* مشاريع المتدربين */}
-          <div className="p-5">
+          <div className={`${mobileSection === "projects" ? "block" : "hidden"} bg-white p-4 lg:block`}>
             <div className="mb-4 flex items-center gap-2">
               <FolderKanban
                 size={18}

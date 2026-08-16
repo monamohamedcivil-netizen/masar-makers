@@ -14,7 +14,10 @@ import AnnouncementBar from "@/sections/AnnouncementBar";
 import PathSwitcher from "@/components/career-paths/PathSwitcher";
 import PathRoadmap from "@/components/career-paths/PathRoadmap";
 
-import { getCareerPathBySlug } from "@/lib/queries/catalog/career-paths";
+import {
+  getCareerPathBySlug,
+  getCoursesTrainingMinutes,
+} from "@/lib/queries/catalog/career-paths";
 
 import type { Course } from "@/data/types";
 
@@ -70,21 +73,67 @@ export default async function CareerPathPage({
     notFound();
   }
 
+  const activeStations = path.course_stations.filter(
+    (station) => station.is_active
+  );
+
+  /*
+    نحسب إحصائيات كل محطة على حدة:
+    - عدد الرحلات من level: single = 1 / split = 2
+    - الساعات من مجموع duration_minutes للدروس المنشورة
+      عبر نفس RPC العامة التي تعمل للطالب والأدمن.
+  */
+  const stationStats = await Promise.all(
+    activeStations.map(async (station) => {
+      const activeCourses = station.courses.filter(
+        (course) => course.is_active
+      );
+
+      const courseIds = activeCourses.map(
+        (course) => course.id
+      );
+
+      const totalMinutes =
+        await getCoursesTrainingMinutes(
+          courseIds
+        );
+
+      const journeysCount =
+        activeCourses.reduce(
+          (total, course) =>
+            total +
+            (course.level === "split" ? 2 : 1),
+          0
+        );
+
+      const roundedHours =
+        totalMinutes > 0
+          ? Math.ceil(
+              totalMinutes / 60 / 5
+            ) * 5
+          : 0;
+
+      return {
+        stationId: station.id,
+        journeysCount,
+        roundedHours,
+      };
+    })
+  );
+
+  const stationStatsMap = new Map(
+    stationStats.map((item) => [
+      item.stationId,
+      item,
+    ])
+  );
+
   /*
     كل محطة تظهر مرة واحدة فقط على الطريق،
-    حتى لو كانت تحتوي على أكثر من كورس مثل:
-
-    CSD:
-    - Integrated
-    - Fundamental
-    - Advanced
-
-    نختار الكورس الرئيسي داخل كل محطة فقط
-    لاستخدامه كبيانات ممثلة للمحطة في PathRoadmap.
+    حتى لو كانت تحتوي على أكثر من كورس.
   */
   const roadmapCourses: Course[] =
-    path.course_stations
-      .filter((station) => station.is_active)
+    activeStations
       .map((station, stationIndex) => {
         const activeCourses = station.courses
           .filter((course) => course.is_active)
@@ -92,6 +141,10 @@ export default async function CareerPathPage({
             (a, b) =>
               a.display_order - b.display_order
           );
+
+        const currentStationStats =
+          stationStatsMap.get(station.id);
+
 
         /*
           الأولوية:
@@ -166,16 +219,16 @@ export default async function CareerPathPage({
           type: "professional",
 
           duration:
-            representativeJourney?.duration_hours
-              ? `${representativeJourney.duration_hours} ساعة`
-              : representativeCourse?.duration_hours
-                ? `${representativeCourse.duration_hours} ساعة`
-                : "سيتم تحديدها",
+            currentStationStats?.roundedHours
+              ? `${currentStationStats.roundedHours} ساعات تدريبية`
+              : "0 ساعات تدريبية",
 
           projects:
-            representativeCourse?.projects_count
-              ? `${representativeCourse.projects_count} مشاريع`
-              : "مشاريع تطبيقية",
+            `${currentStationStats?.journeysCount ?? 0} ${
+              (currentStationStats?.journeysCount ?? 0) === 1
+                ? "رحلة"
+                : "رحلات"
+            }`,
 
           level:
             representativeCourse?.level ??
@@ -202,53 +255,67 @@ export default async function CareerPathPage({
         } as Course;
       })
       .sort((a, b) => a.order - b.order);
+  /*
+    إحصائيات المسار:
+    - عدد المحطات = عدد المحطات التعليمية الفعالة.
+    - عدد الرحلات = عدد الرحلات الفعالة داخل جميع كورسات المحطات.
+    - الساعات التدريبية = مجموع مدد الدروس/الفيديوهات الفعلية داخل المسار.
+    - المستوى = احترافي.
+  */
+  const totalStations = activeStations.length;
 
   /*
-    حساب الإحصائيات باستخدام كورس رئيسي واحد
-    لكل محطة؛ حتى لا نحسب CSD Integrated
-    وFundamental وAdvanced ثلاث مرات.
+    عدد الرحلات يعتمد على تقسيم الكورس في لوحة التحكم:
+    - single = رحلة واحدة
+    - split  = رحلتان (Fundamentals + Advanced)
+
+    أي كورس جديد سيُحسب تلقائيًا حسب قيمة level.
   */
-  const representativeCourses =
-    path.course_stations
-      .filter((station) => station.is_active)
-      .map((station) => {
-        const activeCourses = station.courses
-          .filter((course) => course.is_active)
-          .sort(
-            (a, b) =>
-              a.display_order - b.display_order
-          );
-
-        return (
-          activeCourses.find(
-            (course) => course.is_featured
-          ) ??
-          activeCourses.find((course) =>
-            course.slug.includes("integrated")
-          ) ??
-          activeCourses[0]
-        );
-      })
-      .filter(
-        (
-          course
-        ): course is NonNullable<
-          (typeof path.course_stations)[number]["courses"][number]
-        > => Boolean(course)
-      );
-
-  const totalHours = representativeCourses.reduce(
-    (total, course) =>
-      total + Number(course.duration_hours ?? 0),
+  const totalJourneys = activeStations.reduce(
+    (stationTotal, station) =>
+      stationTotal +
+      station.courses
+        .filter((course) => course.is_active)
+        .reduce(
+          (courseTotal, course) =>
+            courseTotal +
+            (course.level === "split" ? 2 : 1),
+          0
+        ),
     0
   );
 
-  const totalProjects =
-    representativeCourses.reduce(
-      (total, course) =>
-        total + Number(course.projects_count ?? 0),
-      0
+  /*
+    المحتوى التدريبي:
+    نجمع duration_minutes لكل الدروس المنشورة التابعة
+    للكورسات الفعالة داخل هذا المسار، ثم نحولها إلى ساعات.
+
+    العرض يُقرب دائمًا إلى أقرب 5 ساعات للأعلى:
+    31.2 ساعة -> 35 ساعة
+    35 ساعة   -> 35 ساعة
+    36 ساعة   -> 40 ساعة
+  */
+  const activeCourseIds = activeStations.flatMap(
+    (station) =>
+      station.courses
+        .filter((course) => course.is_active)
+        .map((course) => course.id)
+  );
+
+  const totalTrainingMinutes =
+    await getCoursesTrainingMinutes(
+      activeCourseIds
     );
+
+  const exactTrainingHours =
+    totalTrainingMinutes / 60;
+
+  const totalTrainingHours =
+    totalTrainingMinutes > 0
+      ? Math.ceil(
+          exactTrainingHours / 5
+        ) * 5
+      : 0;
 
   const heroImage =
     path.image_url ??
@@ -271,7 +338,7 @@ export default async function CareerPathPage({
       <PathSwitcher activeSlug={path.slug} />
 
       {/* Compact Hero */}
-      <section className="relative h-[165px] overflow-hidden bg-[#07152E]">
+      <section className="relative min-h-[170px] overflow-hidden bg-[#07152E] lg:h-[140px] lg:min-h-0">
         <Image
           src={heroImage}
           alt={path.title}
@@ -285,20 +352,21 @@ export default async function CareerPathPage({
 
         <div
           className="
-            relative z-10 mx-auto grid h-full
-            max-w-[1480px] items-center gap-8
-            px-6
-            lg:grid-cols-[1.18fr_0.82fr]
-            lg:px-10
+            relative z-10 mx-auto grid min-h-[170px]
+            max-w-[1480px] grid-cols-[1.08fr_0.92fr]
+            items-center gap-3 px-4 py-4
+            sm:gap-5 sm:px-6
+            lg:h-full lg:min-h-0 lg:grid-cols-[1.18fr_0.82fr]
+            lg:gap-8 lg:px-10 lg:py-0
           "
         >
           {/* Right: path information */}
-          <div className="text-right text-white">
-            <h1 className="text-[30px] font-black leading-tight lg:text-[38px]">
+          <div className="min-w-0 text-right text-white">
+            <h1 className="text-[20px] font-black leading-tight sm:text-[24px] lg:text-[34px]">
               {path.title}
             </h1>
 
-            <p className="mt-2 max-w-[700px] text-[13px] font-medium leading-6 text-slate-200">
+            <p className="mt-1 max-w-[700px] text-[9px] font-medium leading-4 text-slate-200 sm:text-[10px] lg:mt-1.5 lg:text-[12px] lg:leading-5">
               {path.description ??
                 "رحلة تعليمية متكاملة تقودك إلى مستوى احترافي."}
             </p>
@@ -308,79 +376,79 @@ export default async function CareerPathPage({
           <div
             className="
               grid grid-cols-2
-              gap-x-10 gap-y-5
-              border-r border-white/20 pr-8
+              gap-x-3 gap-y-3
+              border-r border-white/20 pr-4
               max-lg:border-r-0 max-lg:pr-0
+              sm:gap-x-5 sm:gap-y-4
+              lg:gap-x-8 lg:gap-y-3 lg:border-r lg:pr-6
             "
           >
-            <div className="flex items-center gap-4">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               <BookOpen
-                size={24}
-                className="shrink-0 text-[#F7B548]"
+                size={21}
+                className="shrink-0 text-[#F7B548] max-sm:h-[17px] max-sm:w-[17px]"
               />
 
               <div>
-                <p className="text-[20px] font-black leading-none text-white">
-                  {roadmapCourses.length}
+                <p className="text-[14px] font-black leading-none text-white sm:text-[16px]">
+                  {totalStations}
                 </p>
 
-                <p className="mt-1 text-[12px] font-bold text-slate-200">
-                  محطات احترافية
+                <p className="mt-1 text-[8px] font-bold leading-3 text-slate-200 sm:text-[10px] lg:text-[11px]">
+                  محطات تعليمية
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <Clock3
-                size={24}
-                className="shrink-0 text-[#F7B548]"
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+              <FolderKanban
+                size={21}
+                className="shrink-0 text-[#F7B548] max-sm:h-[17px] max-sm:w-[17px]"
               />
 
               <div>
-                <p className="text-[17px] font-black leading-none text-white">
-                  {totalHours > 0
-                    ? `${totalHours}+ ساعة`
-                    : "يُحدّث قريبًا"}
+                <p className="text-[14px] font-black leading-none text-white sm:text-[16px]">
+                  {totalJourneys}
                 </p>
 
-                <p className="mt-1 text-[12px] font-bold text-slate-200">
+                <p className="mt-1 text-[8px] font-bold leading-3 text-slate-200 sm:text-[10px] lg:text-[11px]">
+                  رحلات تدريبية
+                </p>
+              </div>
+            </div>
+
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+              <Clock3
+                size={21}
+                className="shrink-0 text-[#F7B548] max-sm:h-[17px] max-sm:w-[17px]"
+              />
+
+              <div>
+                <p className="text-[14px] font-black leading-none text-white sm:text-[16px]">
+                  {totalTrainingHours > 0
+                    ? `${totalTrainingHours} ساعة`
+                    : "—"}
+                </p>
+
+                <p className="mt-1 text-[8px] font-bold leading-3 text-slate-200 sm:text-[10px] lg:text-[11px]">
                   محتوى تدريبي
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <FolderKanban
-                size={24}
-                className="shrink-0 text-[#F7B548]"
-              />
-
-              <div>
-                <p className="text-[17px] font-black leading-none text-white">
-                  {totalProjects > 0
-                    ? `${totalProjects}+`
-                    : "متعددة"}
-                </p>
-
-                <p className="mt-1 text-[12px] font-bold text-slate-200">
-                  مشاريع وتطبيقات
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               <GraduationCap
-                size={24}
-                className="shrink-0 text-[#F7B548]"
+                size={21}
+                className="shrink-0 text-[#F7B548] max-sm:h-[17px] max-sm:w-[17px]"
               />
 
               <div>
-                <p className="text-[17px] font-black leading-none text-white">
+                <p className="text-[14px] font-black leading-none text-white sm:text-[16px]">
                   احترافي
                 </p>
 
-                <p className="mt-1 text-[12px] font-bold text-slate-200">
-                  المستوى النهائي
+                <p className="mt-1 text-[8px] font-bold leading-3 text-slate-200 sm:text-[10px] lg:text-[11px]">
+                  المستوى
                 </p>
               </div>
             </div>

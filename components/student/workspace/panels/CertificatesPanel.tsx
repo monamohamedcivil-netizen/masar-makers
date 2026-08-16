@@ -223,11 +223,11 @@ const [openedCertificates, setOpenedCertificates] =
               إنجازاتك المعتمدة
             </p>
 
-            <h2 className="mt-1 text-2xl font-black text-[#07152E]">
+            <h2 className="mt-0 text-2xl font-black text-[#07152E]">
               شهاداتي
             </h2>
 
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-0 text-sm text-slate-500">
               جميع الشهادات التي أُصدرت لك من منصة Masar Makers.
             </p>
           </div>
@@ -244,7 +244,7 @@ const [openedCertificates, setOpenedCertificates] =
           className={
             hasSingleCertificate
               ? "mx-auto max-w-4xl"
-              : "grid gap-6 md:grid-cols-2 xl:grid-cols-3"
+              : "grid gap-3 md:grid-cols-2 xl:grid-cols-3"
           }
         >
           {sortedCertificates.map((certificate) => {
@@ -252,122 +252,113 @@ const [openedCertificates, setOpenedCertificates] =
 
             return (
               <article
-                key={certificate.id}
-                className={`group overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl ${
-                  hasSingleCertificate
-                    ? "p-5 sm:p-7"
-                    : "p-4"
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => openCertificate(certificate)}
-                  className="relative block w-full overflow-hidden rounded-2xl border border-slate-200 bg-white text-right focus:outline-none focus:ring-2 focus:ring-[#F7B548]/60"
-                  aria-label={`معاينة شهادة ${certificate.courseTitle}`}
-                >
-                  <CertificatePreview
-                    certificate={certificate}
-                  />
-
-                  <span className="absolute inset-0 flex items-center justify-center bg-[#07152E]/0 opacity-0 transition duration-300 group-hover:bg-[#07152E]/45 group-hover:opacity-100">
-                    <span className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-[#07152E] shadow-lg">
-                      <Eye className="h-4 w-4" />
-                      عرض الشهادة
-                    </span>
-                  </span>
-
-                  {certificate.isNew &&
- !openedCertificates.has(certificate.id) ? (
-                    <span className="absolute right-3 top-3 rounded-full bg-[#F7B548] px-3 py-1 text-xs font-black text-[#07152E] shadow">
-                      جديدة
-                    </span>
-                  ) : null}
-                </button>
-
-                <div
-                  className={
-                    hasSingleCertificate
-                      ? "mt-6 text-center"
-                      : "mt-4"
-                  }
-                >
-                  <h3
-                    className={`font-black text-[#07152E] ${
-                      hasSingleCertificate
-                        ? "text-xl sm:text-2xl"
-                        : "line-clamp-2 text-base"
-                    }`}
-                  >
-                    {certificate.courseTitle}
-                  </h3>
-
-                  <div
-                    className={`mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-500 ${
-                      hasSingleCertificate
-                        ? "justify-center"
-                        : ""
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <CalendarDays className="h-4 w-4" />
-                      {formatIssueDate(
-                        certificate.issuedAt,
-                      )}
-                    </span>
-
-                    <span className="text-slate-300">
-                      •
-                    </span>
-
-                    <span>
-                      رقم الشهادة:{" "}
-                      <strong className="text-slate-700">
-                        {
-                          certificate.certificateNumber
-                        }
-                      </strong>
-                    </span>
-                  </div>
-
-                  <div
-                    className={`mt-5 flex flex-wrap gap-3 ${
-                      hasSingleCertificate
-                        ? "justify-center"
-                        : ""
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => openCertificate(certificate)}
-                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#07152E] px-5 text-sm font-bold text-white transition hover:bg-[#10274c]"
-                    >
-                      <Eye className="h-4 w-4" />
-                      عرض
-                    </button>
-
-                    <button
-  type="button"
-  onClick={async () => {
-    try {
-      await downloadCertificateAsPdf(
-        certificate.id,
-        certificate.certificateNumber,
-      );
-    } catch (error) {
-      console.error(
-        "DOWNLOAD CERTIFICATE PDF ERROR",
-        error,
-      );
-    }
-  }}
-  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#F7B548] bg-[#F7B548] px-5 text-sm font-black text-[#07152E] transition hover:brightness-95"
+  key={certificate.id}
+  className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-lg"
 >
-  <Download className="h-4 w-4" />
-  تحميل PDF
-</button>
-                  </div>
-                </div>
-              </article>
+  {/* صورة الشهادة */}
+  <button
+    type="button"
+    onClick={() =>
+      openCertificate(certificate)
+    }
+    className="relative block w-full overflow-hidden bg-white text-right focus:outline-none focus:ring-2 focus:ring-[#F7B548]/60"
+    aria-label={`معاينة شهادة ${certificate.courseTitle}`}
+  >
+    <CertificatePreview
+      certificate={certificate}
+    />
+
+    {/* Hover */}
+    <span className="absolute inset-0 flex items-center justify-center bg-[#07152E]/0 opacity-0 transition duration-300 group-hover:bg-[#07152E]/35 group-hover:opacity-100">
+      <span className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[10px] font-black text-[#07152E] shadow-lg">
+        <Eye className="h-3.5 w-3.5" />
+        عرض الشهادة
+      </span>
+    </span>
+
+    {certificate.isNew &&
+    !openedCertificates.has(
+      certificate.id,
+    ) ? (
+      <span className="absolute right-2 top-2 rounded-full bg-[#F7B548] px-2.5 py-1 text-[9px] font-black text-[#07152E] shadow">
+        جديدة
+      </span>
+    ) : null}
+  </button>
+
+  {/* البيانات المضغوطة */}
+  <div className="border-t border-slate-100 px-3 py-2.5">
+
+    {/* اسم الكورس */}
+    <h3 className="truncate text-[14px] font-black text-[#07152E]">
+      {certificate.courseTitle}
+    </h3>
+
+    {/* التاريخ + رقم الشهادة */}
+    <div className="mt-1.5 flex min-w-0 items-center gap-2 text-[9px] font-semibold text-slate-500">
+      <span className="flex shrink-0 items-center gap-1">
+        <CalendarDays className="h-3 w-3" />
+
+        {formatIssueDate(
+          certificate.issuedAt,
+        )}
+      </span>
+
+      <span className="text-slate-300">
+        •
+      </span>
+
+      <span
+        className="min-w-0 truncate"
+        title={
+          certificate.certificateNumber
+        }
+      >
+        رقم الشهادة:{" "}
+        <strong className="font-bold text-slate-600">
+          {
+            certificate.certificateNumber
+          }
+        </strong>
+      </span>
+    </div>
+
+    {/* الأزرار */}
+    <div className="mt-2 grid grid-cols-2 gap-2 border-t border-slate-100 pt-2">
+      <button
+        type="button"
+        onClick={() =>
+          openCertificate(certificate)
+        }
+        className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#07152E] px-3 text-[10px] font-black text-white transition hover:bg-[#10274c]"
+      >
+        <Eye className="h-3.5 w-3.5" />
+        عرض
+      </button>
+
+      <button
+        type="button"
+        onClick={async () => {
+          try {
+            await downloadCertificateAsPdf(
+              certificate.id,
+              certificate.certificateNumber,
+            );
+          } catch (error) {
+            console.error(
+              "DOWNLOAD CERTIFICATE PDF ERROR",
+              error,
+            );
+          }
+        }}
+        className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#F7B548] px-3 text-[10px] font-black text-[#07152E] transition hover:brightness-95"
+      >
+        <Download className="h-3.5 w-3.5" />
+        تحميل PDF
+      </button>
+    </div>
+  </div>
+</article>
             );
           })}
         </div>

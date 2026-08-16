@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-
+import StudentNotificationsPanel from "./StudentNotificationsPanel";
 import CertificatesPanel from "@/components/student/workspace/panels/CertificatesPanel";
 import MasarPassportPanel from "@/components/student/workspace/panels/MasarPassportPanel";
 import StudentJourneysPanel from "@/components/admin/students/StudentJourneysPanel";
 import type {
   StudentDashboardData,
 } from "@/lib/queries/student-dashboard";
-
+import StudentProjectsPanel from "@/components/admin/students/StudentProjectsPanel";
 type TabId =
   | "profile"
   | "journeys"
@@ -161,8 +161,10 @@ export default function StudentAdminWorkspace({
           ) : null}
 
           {activeTab === "projects" ? (
-            <EmptyState text="سيتم ربط مشاريع الطالب هنا." />
-          ) : null}
+  <StudentProjectsPanel
+    userId={userId}
+  />
+) : null}
 
           {activeTab === "surveys" ? (
             <section className="space-y-3">
@@ -196,8 +198,8 @@ export default function StudentAdminWorkspace({
           ) : null}
 
           {activeTab === "notifications" ? (
-            <EmptyState text="سيتم ربط إشعارات الطالب هنا." />
-          ) : null}
+  <StudentNotificationsPanel userId={userId} />
+) : null}
         </div>
       </div>
     </div>

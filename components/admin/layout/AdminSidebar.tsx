@@ -11,6 +11,7 @@ import {
   ClipboardList,
   Database,
   FileImage,
+  Gift,
   GraduationCap,
   House,
   LayoutDashboard,
@@ -133,6 +134,11 @@ const navigationGroups: NavigationGroup[] = [
         href: "/admin/content/announcements",
         icon: Megaphone,
       },
+      {
+  title: "السحب الشهري",
+  href: "/admin/content/monthly-draw",
+  icon: Gift,
+},
       {
         title: "التقارير",
         href: "/admin/reports",

@@ -7,135 +7,207 @@ import {
 
 import type {
   Course,
-  CourseVariant,
 } from "@/data/types";
+
+import {
+  createClient,
+} from "@/lib/supabase/server";
 
 type CourseStatsProps = {
   course: Course;
+  catalogCourseId: string;
 };
 
-function extractNumber(
-  value?: string | number | null
-) {
-  if (typeof value === "number") {
-    return value;
-  }
+type CourseStructureRow = {
+  id: string;
+  level: string | null;
+  difficulty_level: "fundamentals" | "advanced" | null;
+  is_active: boolean | null;
+};
 
-  if (!value) {
+/*
+ * نفس منطق صفحة المسارات المهنية:
+ * 31.2 -> 35
+ * 35   -> 35
+ * 36   -> 40
+ */
+function roundHoursUpToFive(
+  minutes: number,
+) {
+  if (minutes <= 0) {
     return 0;
   }
 
-  const match = String(value)
-    .replace(/,/g, ".")
-    .match(/\d+(\.\d+)?/);
+  const hours =
+    minutes / 60;
 
-  return match
-    ? Number(match[0])
-    : 0;
-}
-
-function getActiveVariants(
-  course: Course
-) {
-  return [...(course.variants ?? [])]
-    .filter((variant) => variant.active)
-    .sort(
-      (a, b) => a.order - b.order
-    );
-}
-
-function getCountedVariants(
-  course: Course,
-  variants: CourseVariant[]
-) {
-  if (
-    course.journeyLayout ===
-    "foundation_advanced"
-  ) {
-    return variants.filter(
-      (variant) =>
-        variant.type === "fundamental" ||
-        variant.type === "advanced"
-    );
-  }
-
-  return variants.filter(
-    (variant) =>
-      variant.type !== "integrated"
+  return (
+    Math.ceil(hours / 5) * 5
   );
 }
 
-export default function CourseStats({
-  course,
-}: CourseStatsProps) {
-  const variants =
-    getActiveVariants(course);
+async function getRealCourseStats(
+  courseId: string,
+) {
+  const supabase =
+    await createClient();
 
-  const countedVariants =
-    getCountedVariants(
-      course,
-      variants
+  /*
+   * نقرأ الكورس الحالي فقط.
+   * level هو نفس حقل "تقسيم الكورس":
+   * single = رحلة واحدة
+   * split  = رحلتان
+   */
+  const {
+    data: courseRowData,
+    error: courseError,
+  } = await supabase
+    .from("courses")
+    .select(`
+      id,
+      level,
+      difficulty_level,
+      is_active
+    `)
+    .eq(
+      "id",
+      courseId,
+    )
+    .maybeSingle();
+
+  if (courseError) {
+    console.error(
+      "COURSE STATS / COURSE ERROR:",
+      courseError,
     );
 
-  const calculatedJourneyCount =
-    course.journeyLayout ===
-    "foundation_advanced"
-      ? countedVariants.length
-      : 1;
+    return null;
+  }
 
-  const calculatedLessons =
-    countedVariants.length > 0
-      ? countedVariants.reduce(
-          (total, variant) =>
-            total +
-            (
-              variant.curriculum ?? []
-            ).length,
-          0
-        )
-      : (
-          course.curriculum ?? []
-        ).length;
+  const courseRow =
+    (courseRowData ??
+      null) as CourseStructureRow | null;
 
-  const calculatedHours =
-    countedVariants.length > 0
-      ? countedVariants.reduce(
-          (total, variant) =>
-            total +
-            extractNumber(
-              variant.duration
-            ),
-          0
-        )
-      : extractNumber(
-          course.duration
-        );
+  if (!courseRow) {
+    return {
+      journeyCount: 0,
+      lessonCount: 0,
+      trainingHours: 0,
+      levelLabel: "احترافي",
+    };
+  }
 
   const journeyCount =
-    course.statsJourneyCount ??
-    calculatedJourneyCount;
-
-  const lessonCount =
-    course.statsLessonCount ??
-    calculatedLessons;
-
-  const trainingHours =
-    course.statsTrainingHours ??
-    calculatedHours;
+    courseRow.level === "split"
+      ? 2
+      : 1;
 
   const levelLabel =
+    courseRow.difficulty_level === "fundamentals"
+      ? "أساسيات"
+      : "احترافي";
+
+  /*
+   * لا نقرأ جدول lessons مباشرة هنا.
+   * حساب الطالب قد تمنعه RLS من رؤية صفوف الدروس، لذلك نقرأ
+   * الإحصائيات العامة فقط من RPC آمنة.
+   */
+  const {
+    data: lessonStatsData,
+    error: lessonStatsError,
+  } = await supabase.rpc(
+    "get_course_public_lesson_stats",
+    {
+      p_course_id: courseId,
+    },
+  );
+
+  if (lessonStatsError) {
+    console.error(
+      "COURSE STATS / PUBLIC LESSON STATS ERROR:",
+      {
+        message: lessonStatsError.message,
+        details: lessonStatsError.details,
+        hint: lessonStatsError.hint,
+        code: lessonStatsError.code,
+      },
+    );
+
+    return {
+      journeyCount,
+      lessonCount: 0,
+      trainingHours: 0,
+      levelLabel,
+    };
+  }
+
+  const publicLessonStats =
+    Array.isArray(lessonStatsData)
+      ? lessonStatsData[0]
+      : lessonStatsData;
+
+  const lessonCount =
+    Math.max(
+      0,
+      Number(
+        publicLessonStats?.lesson_count ??
+          0,
+      ),
+    );
+
+  const totalMinutes =
+    Math.max(
+      0,
+      Number(
+        publicLessonStats?.total_minutes ??
+          0,
+      ),
+    );
+
+  const trainingHours =
+    roundHoursUpToFive(
+      totalMinutes,
+    );
+
+  return {
+    journeyCount,
+    lessonCount,
+    trainingHours,
+    levelLabel,
+  };
+}
+
+export default async function CourseStats({
+  course,
+  catalogCourseId,
+}: CourseStatsProps) {
+  const realStats =
+    await getRealCourseStats(
+      catalogCourseId,
+    );
+
+  /*
+   * Fallback فقط إذا حدث خطأ في القراءة.
+   */
+  const journeyCount =
+    realStats?.journeyCount ??
+    course.statsJourneyCount ??
+    0;
+
+  const lessonCount =
+    realStats?.lessonCount ??
+    course.statsLessonCount ??
+    0;
+
+  const trainingHours =
+    realStats?.trainingHours ??
+    course.statsTrainingHours ??
+    0;
+
+  const levelLabel =
+    realStats?.levelLabel ??
     course.statsLevelLabel ??
-    course.level ??
-    "من الأساسيات إلى الاحتراف";
-
-  const hasSplitJourney =
-    course.journeyLayout ===
-    "foundation_advanced";
-
-  const secondaryText =
-    hasSplitJourney
-      ? "( الأساسيات + المتقدمة )"
-      : "رحلة احترافية واحدة";
+    "احترافي";
 
   const items = [
     {
@@ -143,21 +215,18 @@ export default function CourseStats({
       icon: Layers3,
       value: journeyCount,
       title: "عدد الرحلات",
-      subtitle: secondaryText,
     },
     {
       id: "lessons",
       icon: PlaySquare,
       value: lessonCount,
       title: "إجمالي المحاضرات",
-      subtitle: secondaryText,
     },
     {
       id: "hours",
       icon: Clock3,
       value: trainingHours,
       title: "إجمالي الساعات التدريبية",
-      subtitle: secondaryText,
     },
   ];
 
@@ -166,7 +235,7 @@ export default function CourseStats({
       dir="rtl"
       className="
         border-y border-[#E2E7EE]
-        bg-[#F7F8FA]
+        bg-[#DCE7F2]
         px-4 py-4
         sm:px-6
       "
@@ -188,7 +257,7 @@ export default function CourseStats({
         {items.map(
           (
             item,
-            index
+            index,
           ) => {
             const Icon =
               item.icon;
@@ -204,10 +273,11 @@ export default function CourseStats({
                   gap-4 px-5 py-4
 
                   ${
-  index !== items.length - 1
-    ? "xl:border-l xl:border-[#D9E0E8]"
-    : "xl:border-l xl:border-[#D9E0E8]"
-}
+                    index !==
+                    items.length
+                      ? "xl:border-l xl:border-[#D9E0E8]"
+                      : ""
+                  }
 
                   ${
                     index < 2
@@ -234,14 +304,7 @@ export default function CourseStats({
                       text-[#D49319]
                     "
                   >
-                    {item.id ===
-                    "hours" ? (
-                      <span dir="ltr">
-                        {item.value}+
-                      </span>
-                    ) : (
-                      item.value
-                    )}
+                    {item.value}
                   </p>
 
                   <h3
@@ -254,16 +317,12 @@ export default function CourseStats({
                     {item.title}
                   </h3>
 
-                  <p className="mt-1 text-[10px] font-bold text-slate-500">
-                    {item.subtitle}
-                  </p>
                 </div>
               </article>
             );
-          }
+          },
         )}
 
-        {/* مستوى الرحلة */}
         <article
           className="
             relative flex

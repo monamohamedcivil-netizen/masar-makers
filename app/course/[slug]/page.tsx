@@ -93,6 +93,7 @@ type CoursePageData = {
   freeSessions: FreeSession[];
   workshops: Workshop[];
   reviews: Review[];
+  catalogCourseId: string;
   learningModes: CatalogCoursePanelItem[];
   resultTabs: CatalogCoursePanelItem[];
   initialPanelContents: Record<
@@ -190,6 +191,7 @@ const courseProjects = pageData
   course,
   path,
   station,
+  catalogCourseId,
   pathCourses,
   freeSessions,
   workshops,
@@ -228,7 +230,10 @@ const courseProjects = pageData
         الإحصائيات تخص الرحلة المتكاملة
         أو الكورس الرئيسي داخل المحطة.
       */}
-      <CourseStats course={course} />
+     <CourseStats
+  course={course}
+  catalogCourseId={catalogCourseId}
+/>
 
    <CourseInteractiveDashboard
   mode="student"
@@ -585,6 +590,7 @@ return {
   course,
   path,
   station,
+  catalogCourseId: representativeCourse.id,
   pathCourses,
   freeSessions,
   workshops,

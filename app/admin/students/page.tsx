@@ -79,7 +79,11 @@ function toTableRow(
 
     totalPoints:
       student.totalPoints,
+bonusPoints:
+  student.bonusPoints,
 
+lastBonusReason:
+  student.lastBonusReason,
     drawEntries:
       student.drawEntries,
   };

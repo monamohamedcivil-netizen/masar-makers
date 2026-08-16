@@ -7,6 +7,11 @@ type PathSwitcherProps = {
   activeSlug: string;
 };
 
+const pathRoutes: Record<string, string> = {
+  road: "road-design",
+  traffic: "traffic-engineering",
+};
+
 export default function PathSwitcher({
   activeSlug,
 }: PathSwitcherProps) {
@@ -26,7 +31,7 @@ export default function PathSwitcher({
       "
     >
       <div className="flex h-[46px] w-full items-stretch">
-        {/* Full-edge title strip */}
+        {/* عنوان المسارات */}
         <div
           className="
             flex w-[220px] shrink-0
@@ -40,7 +45,7 @@ export default function PathSwitcher({
           المسارات المتاحة
         </div>
 
-        {/* Path tabs */}
+        {/* Tabs */}
         <div
           className="
             flex min-w-0 flex-1 items-center gap-2
@@ -50,12 +55,17 @@ export default function PathSwitcher({
           "
         >
           {activePaths.map((path) => {
-            const isActive = path.slug === activeSlug;
+            const routeSlug =
+              pathRoutes[path.slug] ?? path.slug;
+
+            const isActive =
+              activeSlug === path.slug ||
+              activeSlug === routeSlug;
 
             return (
               <Link
                 key={path.slug}
-                href={`/career-path/${path.slug}`}
+                href={`/career-path/${routeSlug}`}
                 className={`
                   flex shrink-0 items-center gap-2
                   rounded-xl px-5 py-2

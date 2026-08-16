@@ -137,7 +137,7 @@ function FullStationRoad({
 }) {
   return (
     <article className="overflow-hidden rounded-b-[24px] border-b border-[#C9D2DE] bg-white shadow-[0_22px_55px_rgba(7,21,46,0.14)]">
-      <header className="bg-[#07152E] px-6 py-3 text-white">
+      <header className="bg-[#07152E] px-6 py-1 text-white">
         <h3 className="text-lg font-black">
           {path.title}
         </h3>
@@ -147,9 +147,13 @@ function FullStationRoad({
         </p>
       </header>
 
-      <div className="bg-[#F8FAFC] px-4 py-5">
-        <div className="overflow-x-auto">
-          <div className="relative mx-auto flex min-w-[760px] items-start justify-between gap-2 px-5 pt-3">
+      <div className="bg-[#F8FAFC] px-3 py-5 sm:px-4">
+          <div
+            className="relative mx-auto grid w-full items-start gap-1 px-2 pt-3 sm:px-4"
+            style={{
+              gridTemplateColumns: `repeat(${path.stations.length}, minmax(0, 1fr))`,
+            }}
+          >
             <div className="absolute left-[11%] right-[11%] top-[42px] h-[16px] rounded-full border-y border-[#F7B548] bg-[#07152E]" />
 
             {path.stations.map((station, index) => (
@@ -164,7 +168,6 @@ function FullStationRoad({
               />
             ))}
           </div>
-        </div>
       </div>
     </article>
   );
@@ -181,8 +184,12 @@ function CompactStationRoad({
 }) {
   return (
     <div className="relative px-3 py-3">
-      <div className="overflow-x-auto">
-        <div className="relative mx-auto flex min-w-[760px] items-start justify-between gap-2 px-5 pt-1">
+        <div
+          className="relative mx-auto grid w-full items-start gap-1 px-2 pt-1 sm:px-4"
+          style={{
+            gridTemplateColumns: `repeat(${stations.length}, minmax(0, 1fr))`,
+          }}
+        >
           <div className="absolute left-[11%] right-[11%] top-[32px] h-[8px] bg-[#07152E]">
             <div className="absolute inset-x-0 top-1/2 h-[0.5px] -translate-y-1/2 bg-[#F7B548]" />
           </div>
@@ -201,7 +208,6 @@ function CompactStationRoad({
             />
           ))}
         </div>
-      </div>
     </div>
   );
 }
@@ -224,7 +230,7 @@ function StationButton({
     <button
       type="button"
       onClick={onClick}
-      className="group relative z-10 flex w-[140px] shrink-0 flex-col items-center px-2 py-1"
+      className="group relative z-10 flex min-w-0 flex-col items-center px-1 py-1"
     >
       <span
         className={`relative flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full border-[2px] bg-white transition ${
@@ -255,7 +261,7 @@ function StationButton({
       </span>
 
       <span
-        className={`mt-2 max-w-[135px] truncate text-center text-[10px] font-black ${
+        className={`mt-2 w-full truncate text-center text-[9px] font-black sm:text-[10px] ${
           selected
             ? "text-[#C88712]"
             : "text-[#334155]"

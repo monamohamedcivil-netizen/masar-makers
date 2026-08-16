@@ -50,7 +50,7 @@ function PointsRulesRow({
           return (
             <div
               key={rule.key}
-              className="flex min-h-[44px] items-center gap-2 rounded-xl border border-[#E9D39E] bg-white px-3 py-1.5"
+              className="flex min-h-[50px] items-center gap-2 rounded-xl border border-[#E9D39E] bg-white px-3 py-1.5"
             >
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#FFF5DD] text-[#C88712]">
                 <Icon size={14} />
@@ -81,9 +81,9 @@ export default function PointsRulesCard({
   InteractionIcon,
 }: Props) {
   return (
-    <section className="rounded-[22px] border border-[#E3C47B] bg-[#FFFDF8] px-4 py-3 shadow-[0_8px_24px_rgba(247,181,72,0.08)] sm:px-5">
+    <section className="rounded-[22px] border border-[#E3C47B] bg-[#FFFDF8] px-4 py-6 shadow-[0_8px_24px_rgba(247,181,72,0.08)] sm:px-5">
 
-      <div className="mb-3 flex items-center justify-center gap-3">
+      <div className="mb-6 flex items-center justify-center gap-3">
 
         <span className="h-px w-16 bg-[#F7B548]" />
 
@@ -101,7 +101,7 @@ export default function PointsRulesCard({
         rules={journeyRules}
       />
 
-      <div className="my-2 border-t border-dashed border-[#E7C77E]" />
+      <div className="my-4 border-t border-dashed border-[#E7C77E]" />
 
       <PointsRulesRow
         title="التفاعل والمشاركة"

@@ -23,9 +23,9 @@ export default function HeroWelcome() {
   return (
     <div
       className="
-        absolute left-[28%] top-[16%] z-30
+        absolute left-[35%] top-[25%] z-30
         -translate-x-1/2
-        max-lg:left-[38%]
+        max-lg:left-[18%] max-lg:top-[60%]
         max-md:hidden
       "
     >

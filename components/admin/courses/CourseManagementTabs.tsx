@@ -24,13 +24,16 @@ interface CourseData {
   id: string;
   title: string;
   slug: string;
+  level?: "single" | "split" | null;
+  difficulty_level?: "fundamentals" | "advanced" | null;
+  course_code?: string | null;
+  display_order?: number | null;
   description?: string | null;
   image_url?: string | null;
   icon_url?: string | null;
   duration_hours?: number | null;
   price?: number | null;
   currency?: string | null;
-  journey_type?: string | null;
   status?: CourseStatus | null;
   whatsapp_number?: string | null;
   survey_enabled?: boolean | null;
@@ -156,8 +159,7 @@ export default function CourseManagementTabs({
               </h1>
 
               <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-500">
-                <span>{journeyLabels[course.journey_type ?? ""] ?? "غير مصنف"}</span>
-                <span aria-hidden="true">•</span>
+                               <span aria-hidden="true">•</span>
                 <span>{course.duration_hours ?? 0} ساعة</span>
                 <span aria-hidden="true">•</span>
                 <span className="font-mono text-xs">{course.slug}</span>

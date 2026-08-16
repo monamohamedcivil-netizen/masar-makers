@@ -129,7 +129,13 @@ const freeCount = data.freeJourneyGroups.reduce(
   return (
     <div dir="rtl" className="bg-white text-[#07152E]">
       <section className="border-b border-[#C9D4DF] bg-[#DCE7F2]">
-        <StudentStatistics data={statistics} />
+        <StudentStatistics
+  data={statistics}
+  currentLevel={data.passport.currentLevel}
+  nextLevel={data.passport.nextLevel}
+  progressPercent={data.passport.progressPercent}
+  pointsToNextLevel={data.passport.pointsToNextLevel}
+/>
       </section>
 
       <div className="bg-white pt-6">

@@ -35,6 +35,75 @@ export default function StudentWorkspace({
     [definition.panels],
   );
 
+  /*
+    ترتيب التابات الخارجية في الموبايل:
+    1) رحلات الاحتراف
+    2) اليوم الواحد
+    3) المجانية
+    4) الخطوة التالية
+    5) Masar Passport
+    ثم بقية لوحات الإنجاز بترتيبها الأصلي.
+  */
+  const mobilePanels = useMemo(() => {
+    const priority = [
+      "professional",
+      "one-day",
+      "free",
+      "next-step",
+      "passport",
+    ];
+
+    const getPriority = (panel: (typeof orderedPanels)[number]) => {
+      const normalizedId = String(panel.id).toLowerCase();
+      const normalizedTitle = String(panel.title).toLowerCase();
+
+      if (
+        normalizedId.includes("professional") ||
+        normalizedTitle.includes("احتراف")
+      ) {
+        return 0;
+      }
+
+      if (
+        normalizedId === "one-day" ||
+        normalizedId.includes("one-day") ||
+        normalizedTitle.includes("اليوم الواحد")
+      ) {
+        return 1;
+      }
+
+      if (
+        normalizedId === "free" ||
+        normalizedId.includes("free") ||
+        normalizedTitle.includes("مجاني")
+      ) {
+        return 2;
+      }
+
+      if (
+        normalizedId.includes("next-step") ||
+        normalizedTitle.includes("الخطوة التالية")
+      ) {
+        return 3;
+      }
+
+      if (
+        normalizedId.includes("passport") ||
+        normalizedTitle.includes("passport")
+      ) {
+        return 4;
+      }
+
+      const exactIndex = priority.indexOf(normalizedId);
+      return exactIndex >= 0 ? exactIndex : 100 + panel.order;
+    };
+
+    return [...orderedPanels].sort(
+      (a, b) => getPriority(a) - getPriority(b),
+    );
+  }, [orderedPanels]);
+
+
   const activePanel =
     orderedPanels.find((panel) => panel.id === activePanelId) ?? orderedPanels[0];
 
@@ -49,7 +118,7 @@ export default function StudentWorkspace({
 
   return (
     <section className="mx-auto max-w-[1450px] px-3 py-0 sm:px-6 lg:px-8">
-      <div className="grid min-h-[450px] rounded-t-[20xp] gap-0 lg:grid-cols-[230px_minmax(0,1fr)_230px] xl:grid-cols-[230px_minmax(0,1fr)_230px]">
+      <div className="grid min-h-[450px] gap-0 lg:grid-cols-[230px_minmax(0,1fr)_230px] xl:grid-cols-[230px_minmax(0,1fr)_230px]">
         <aside className="hidden lg:block order-3 lg:order-3">
           <WorkspaceSidebar
             title="إنجازاتي"
@@ -59,27 +128,60 @@ export default function StudentWorkspace({
           />
         </aside>
 
-       <main className="order-2 min-w-0 overflow-hidden rounded-[30px] border border-[#DCE2EA] bg-white shadow-[0_18px_45px_rgba(7,21,46,0.20)]">
-          <div className="flex gap-2 overflow-x-auto border-b border-slate-200 bg-[#07152E] p-3 lg:hidden">
-            {orderedPanels.map((panel) => (
-              <button
-                key={panel.id}
-                type="button"
-                onClick={() => setActivePanelId(panel.id)}
-                className={`shrink-0 px-3 py-2 text-[11px] font-black transition ${
-                  activePanel.id === panel.id
-                    ? "bg-[#F7B548] text-[#07152E]"
-                    : "bg-white/10 text-white"
-                }`}
-              >
-                {panel.title}
-              </button>
-            ))}
+       <main className="order-2 min-w-0 overflow-visible lg:overflow-hidden lg:rounded-[30px] lg:border lg:border-[#DCE2EA] lg:bg-white lg:shadow-[0_18px_45px_rgba(7,21,46,0.20)]">
+          {/* التابات الخارجية — نفس لغة تصميم صفحة الكورس */}
+          <div
+            className="
+              relative z-20 grid items-end gap-[3px]
+              border-b border-[#D6DDE6] bg-transparent
+              px-3 pt-3 lg:hidden
+            "
+            style={{
+              gridTemplateColumns: `repeat(${mobilePanels.length}, minmax(0, 1fr))`,
+            }}
+          >
+            {mobilePanels.map((panel) => {
+              const isActive = activePanel.id === panel.id;
+
+              return (
+                <button
+                  key={panel.id}
+                  type="button"
+                  onClick={() => setActivePanelId(panel.id)}
+                  className={`
+                    relative min-w-0 px-1 text-center font-black
+                    transition-all duration-200
+                    ${
+                      isActive
+                        ? "h-[48px] rounded-t-[16px] border border-[#07152E] bg-[#07152E] text-white shadow-[0_-5px_16px_rgba(7,21,46,0.10)]"
+                        : "h-[40px] rounded-t-[12px] border border-[#CBD3DE] bg-[#E7EBF0] text-[#566273] hover:bg-[#DDE3EA] hover:text-[#07152E]"
+                    }
+                  `}
+                >
+                  <span
+                    className="
+                      mx-auto block max-w-full
+                      whitespace-normal break-words
+                      text-[7px] leading-[1.15]
+                      sm:text-[8px]
+                    "
+                  >
+                    {panel.title}
+                  </span>
+
+                  {isActive ? (
+                    <span className="absolute inset-x-3 bottom-0 h-[3px] bg-[#F7B548]" />
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
 
-          <WorkspacePanelHeader panel={activePanel} />
-          <div className="min-h-[400px] px-4 pb-4 pt-2 sm:px-6 sm:pb-6 sm:pt-2">
-            <WorkspacePanelRenderer panel={activePanel} data={data} />
+          <div className="overflow-hidden rounded-b-[28px] rounded-t-none border border-t-0 border-[#DCE2EA] bg-white shadow-[0_18px_45px_rgba(7,21,46,0.20)] lg:contents">
+            <WorkspacePanelHeader panel={activePanel} />
+            <div className="min-h-[400px] px-4 pb-4 pt-2 sm:px-6 sm:pb-6 sm:pt-2">
+              <WorkspacePanelRenderer panel={activePanel} data={data} />
+            </div>
           </div>
         </main>
 

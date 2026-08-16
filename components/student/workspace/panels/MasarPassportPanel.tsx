@@ -1,31 +1,27 @@
 "use client";
-import MasarPassportCard from "../passport/MasarPassportCard";
-import PointsRulesCard from "../passport/PointsRulesCard";
-import RewardsCard from "../passport/RewardsCard";
-import DrawModal from "../passport/DrawModal";
-import ModalShell from "../passport/ModalShell";
-import ProgressModal from "../passport/ProgressModal";
+
+import { useState } from "react";
 import {
   Award,
   BookOpenCheck,
   CheckCircle2,
-  ChevronLeft,
   ClipboardCheck,
   Crown,
   FileUp,
-  Gift,
   Medal,
   Plane,
   PlayCircle,
-  Sparkles,
   Star,
-  Ticket,
   Trophy,
   Users,
-  X,
 } from "lucide-react";
 
-import { useState } from "react";
+import JourneyTabs from "../components/JourneyTabs";
+import MasarPassportCard from "../passport/MasarPassportCard";
+import PointsRulesCard from "../passport/PointsRulesCard";
+import RewardsCard from "../passport/RewardsCard";
+import DrawModal from "../passport/DrawModal";
+import ProgressModal from "../passport/ProgressModal";
 
 import type {
   StudentDashboardData,
@@ -123,115 +119,103 @@ const interactionPointsRules = [
   },
 ] as const;
 
-function clamp(
-  value: number,
-  minimum: number,
-  maximum: number,
-) {
-  return Math.max(
-    minimum,
-    Math.min(maximum, value),
-  );
-}
-
 export default function MasarPassportPanel({
   data,
 }: Props) {
   const [activeModal, setActiveModal] =
     useState<ModalType>(null);
-const passport = data.passport;
-  
 
-  /*
-   * سيتم ربط هذه القيم ببيانات المشاريع
-   * والملف المهني والإحالات في الخطوة التالية.
-   */
-  
+  const passport = data.passport;
 
   const pointsBreakdown = {
-  professionalEnrollment:
-    passport.professionalEnrollmentPoints,
+    professionalEnrollment:
+      passport.professionalEnrollmentPoints,
+    professionalCompletion:
+      passport.professionalCompletionPoints,
+    oneDayEnrollment:
+      passport.oneDayEnrollmentPoints,
+    freeJourney:
+      passport.freeJourneyPoints,
+    surveys:
+      passport.surveyPoints,
+    projects:
+      passport.projectPoints,
+    featuredProjects:
+      passport.featuredProjectPoints,
+    referrals:
+      passport.referralPoints,
+      bonusPoints:
+  passport.bonusPoints,
+  };
 
-  professionalCompletion:
-    passport.professionalCompletionPoints,
+  const totalPoints =
+    passport.totalPoints;
 
-  oneDayEnrollment:
-    passport.oneDayEnrollmentPoints,
-
-  freeJourney:
-    passport.freeJourneyPoints,
-
-  surveys:
-    passport.surveyPoints,
-
-  projects:
-    passport.projectPoints,
-
-  featuredProjects:
-    passport.featuredProjectPoints,
-
-  referrals:
-    passport.referralPoints,
-};
- const totalPoints =
-  passport.totalPoints;
-
- const monthlyDrawEntries =
-  passport.drawEntries;
+  const monthlyDrawEntries =
+    passport.drawEntries;
 
   const currentLevel =
-  levels.find(
-    (level) =>
-      level.name ===
-      passport.currentLevel,
-  ) ?? levels[0];
+    levels.find(
+      (level) =>
+        level.name ===
+        passport.currentLevel,
+    ) ?? levels[0];
 
-const CurrentLevelIcon =
-  currentLevel.icon;
+  const CurrentLevelIcon =
+    currentLevel.icon;
 
-const nextLevel =
-  passport.nextLevel
-    ? levels.find(
-        (level) =>
-          level.name ===
-          passport.nextLevel,
-      ) ?? null
-    : null;
+  const nextLevel =
+    passport.nextLevel
+      ? levels.find(
+          (level) =>
+            level.name ===
+            passport.nextLevel,
+        ) ?? null
+      : null;
 
   const levelProgress =
-  passport.progressPercent;
+    passport.progressPercent;
 
- const remainingPoints =
-  passport.pointsToNextLevel;
+  const remainingPoints =
+    passport.pointsToNextLevel;
 
   const rewardTarget = 10;
 
-const completedCourses =
-  passport.completedCourses;
   const rewardProgress =
-passport.rewardProgress;
-const visibleRewardItems =
-  passport.rewardItems.slice(
-    0,
-    rewardTarget,
+    passport.rewardProgress;
+
+  const visibleRewardItems =
+    passport.rewardItems.slice(
+      0,
+      rewardTarget,
+    );
+
+  const rewardPercent = Math.min(
+    100,
+    Math.round(
+      (passport.rewardProgress /
+        rewardTarget) *
+        100,
+    ),
   );
-const rewardPercent = Math.min(
-  100,
-  Math.round(
-    (passport.rewardProgress /
-      rewardTarget) *
-      100,
-  ),
-);
 
   return (
     <>
-      <div
-        dir="rtl"
-        className="space-y-4"
-      >
-    
-<MasarPassportCard
+      <div dir="rtl">
+        <JourneyTabs
+          ariaLabel="بطاقات Masar Passport"
+          tabs={[
+            {
+              id: "achievements",
+              title:
+                "بطاقة إنجازاتك المهنية",
+              subtitle:
+                "مستواك ونقاطك الحالية",
+              badge: `${totalPoints.toLocaleString(
+                "en-US",
+              )} نقطة`,
+              content: (
+                <MasarPassportCard
   CurrentLevelIcon={CurrentLevelIcon}
   currentLevel={currentLevel}
   nextLevel={nextLevel}
@@ -246,115 +230,112 @@ const rewardPercent = Math.min(
     setActiveModal("draw")
   }
 />
-       <PointsRulesCard
-  journeyRules={journeyPointsRules}
-  interactionRules={interactionPointsRules}
-  JourneyIcon={BookOpenCheck}
-  InteractionIcon={Users}
-/>
-
-<RewardsCard
-
-rewardProgress={rewardProgress}
-
-rewardTarget={rewardTarget}
-
-rewardPercent={rewardPercent}
-
-earnedRewards={
-passport.earnedRewards
-}
-
-redeemedRewards={
-passport.redeemedRewards
-}
-
-availableRewards={
-passport.availableRewards
-}
-
-visibleRewardItems={
-visibleRewardItems
-}
-
-/>
+              ),
+            },
+            {
+              id: "rewards",
+              title:
+                "بطاقة المكافآت",
+              subtitle:
+                "تقدمك نحو المكافآت",
+              badge: `${passport.availableRewards}`,
+              content: (
+                <div className="[&>section]:rounded-t-none [&>section]:border-t-0">
+                  <RewardsCard
+                    rewardProgress={
+                      rewardProgress
+                    }
+                    rewardTarget={
+                      rewardTarget
+                    }
+                    rewardPercent={
+                      rewardPercent
+                    }
+                    earnedRewards={
+                      passport.earnedRewards
+                    }
+                    redeemedRewards={
+                      passport.redeemedRewards
+                    }
+                    availableRewards={
+                      passport.availableRewards
+                    }
+                    visibleRewardItems={
+                      visibleRewardItems
+                    }
+                  />
+                </div>
+              ),
+            },
+            {
+              id: "points",
+              title:
+                "طرق زيادة النقاط",
+              subtitle:
+                "كيف تجمع نقاطًا أكثر",
+              badge: "8 طرق",
+              content: (
+                <div className="[&>section]:rounded-t-none [&>section]:border-t-0">
+                  <PointsRulesCard
+                    journeyRules={
+                      journeyPointsRules
+                    }
+                    interactionRules={
+                      interactionPointsRules
+                    }
+                    JourneyIcon={
+                      BookOpenCheck
+                    }
+                    InteractionIcon={
+                      Users
+                    }
+                  />
+                </div>
+              ),
+            },
+          ]}
+        />
       </div>
 
       <DrawModal
-  open={activeModal === "draw"}
-  monthlyDrawEntries={monthlyDrawEntries}
-  onClose={() =>
-    setActiveModal(null)
-  }
-/>
+        open={
+          activeModal === "draw"
+        }
+        monthlyDrawEntries={
+          monthlyDrawEntries
+        }
+        onClose={() =>
+          setActiveModal(null)
+        }
+      />
 
       <ProgressModal
-  open={activeModal === "progress"}
-  onClose={() =>
-    setActiveModal(null)
-  }
-  levels={levels}
-  currentLevel={currentLevel}
-  nextLevel={nextLevel}
-  levelProgress={levelProgress}
-  remainingPoints={remainingPoints}
-  totalPoints={totalPoints}
-  passport={passport}
-  pointsBreakdown={pointsBreakdown}
-/>
+        open={
+          activeModal ===
+          "progress"
+        }
+        onClose={() =>
+          setActiveModal(null)
+        }
+        levels={levels}
+        currentLevel={
+          currentLevel
+        }
+        nextLevel={nextLevel}
+        levelProgress={
+          levelProgress
+        }
+        remainingPoints={
+          remainingPoints
+        }
+        totalPoints={
+          totalPoints
+        }
+        passport={passport}
+        pointsBreakdown={
+          pointsBreakdown
+        }
+      />
     </>
-  );
-}
-function PointsRulesRow({
-  title,
-  icon: SectionIcon,
-  rules,
-}: {
-  title: string;
-  icon: typeof Award;
-  rules: readonly {
-    key: string;
-    label: string;
-    points: number;
-    icon: typeof Award;
-  }[];
-}) {
-  return (
-    <div className="grid gap-2 lg:grid-cols-[170px_minmax(0,1fr)] lg:items-center">
-      <div className="flex items-center gap-2 rounded-xl bg-[#FFF5DD] px-3 py-2 text-[#B8790B]">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white">
-          <SectionIcon size={16} />
-        </span>
-
-        <span className="text-[12px] font-black">
-          {title}
-        </span>
-      </div>
-
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        {rules.map((rule) => {
-          const Icon = rule.icon;
-
-          return (
-            <div
-              key={rule.key}
-              className="flex min-h-[44px] items-center gap-2 rounded-xl border border-[#E9D39E] bg-white px-3 py-1.5"
-            >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#FFF5DD] text-[#C88712]">
-                <Icon size={14} />
-              </span>
-
-              <p className="min-w-0 flex-1 text-[11px] font-black text-[#07152E]">
-                {rule.label}
-
-                <span className="mr-1 whitespace-nowrap text-[#C88712]">
-                  {rule.points} نقطة
-                </span>
-              </p>
-            </div>
-          );
-        })}
-      </div>
-    </div>
   );
 }

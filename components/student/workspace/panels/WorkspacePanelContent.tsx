@@ -191,7 +191,7 @@ function CareerPathProgressCard({
 }
 
   return (
-<article className="relative overflow-hidden rounded-b-[24px] border-x-0 border-y-1 border-b border-[#C9D2DE] bg-white shadow-[0_22px_55px_rgba(7,21,46,0.16),0_4px_12px_rgba(7,21,46,0.08)]">     
+<article className="relative overflow-hidden rounded-t-none rounded-b-[24px] border-x-0 border-y-1 border-b border-[#C9D2DE] bg-white shadow-[0_22px_55px_rgba(7,21,46,0.16),0_4px_12px_rgba(7,21,46,0.08)]">     
    <header className="bg-[#07152E] px-5 py-1 text-white sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -228,13 +228,12 @@ function CareerPathProgressCard({
         </div>
       </header>
 
-      <div className="bg-[#F8FAFC] px-4 py-5 sm:px-6">
-        <div className="overflow-x-auto pb-2">
+      <div className="bg-[#F8FAFC] px-3 py-5 sm:px-4">
           <div
-            className="relative mx-auto flex min-w-[760px] items-start justify-between gap-2 px-5 pt-3"
+            className="relative mx-auto grid w-full grid-cols-5 items-start gap-1 px-2 pt-3 sm:px-4"
             dir="rtl"
           >
-            <div className="absolute left-[11%] right-[11%] top-[42px] h-[20px] rounded-full border-y border-[#F7B548] bg-[#07152E] shadow-[0_5px_14px_rgba(7,21,46,0.18)]" />
+            <div className="absolute left-[11%] right-[11%] top-[42px] h-[16px] rounded-full border-y border-[#F7B548] bg-[#07152E]" />
 
             {path.stations.map((station, index) => (
               <PathStation
@@ -245,14 +244,7 @@ function CareerPathProgressCard({
               />
             ))}
           </div>
-        </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-slate-200 pt-4 text-[10px] font-bold text-slate-500">
-          <LegendDot className="bg-[#70B64A]" label="مكتملة" />
-          <LegendDot className="bg-[#F7B548]" label="قيد التقدم" />
-          <LegendDot className="bg-[#07152E]" label="مشترك ولم يبدأ" />
-          <LegendDot className="bg-[#AAB3C0]" label="غير مشترك" />
-        </div>
       </div>
     </article>
   );
@@ -284,14 +276,14 @@ function PathStation({
     <>
       <div className="relative z-10 flex flex-col items-center">
         <span
-          className={`relative flex h-[66px] w-[66px] items-center justify-center overflow-hidden rounded-full border-[3px] ring-2 ring-[#F7B548]/65 ring-offset-2 ring-offset-[#F8FAFC] text-xs font-black transition duration-300 ${statusClasses[station.status]}`}
+          className={`relative flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full border-[2px] bg-white text-xs font-black transition duration-300 ${statusClasses[station.status]}`}
         >
           {station.iconUrl ? (
             <Image
               src={station.iconUrl}
               alt=""
               fill
-              sizes="66px"
+              sizes="52px"
               className={`object-cover ${
                 station.status === "not_enrolled"
                   ? "grayscale opacity-65"
@@ -309,12 +301,12 @@ function PathStation({
           )}
         </span>
 
-        <span className="mt-3 max-w-[140px] text-center text-[15px] font-black leading-6 text-[#07152E]">
+        <span className="mt-2 w-full truncate text-center text-[9px] font-black text-[#334155] sm:text-[10px]">
           {station.shortTitle}
         </span>
 
         <span
-          className={`mt-1 min-h-4 text-center text-[9px] font-bold ${
+          className={`mt-0.5 min-h-4 text-center text-[8px] font-bold ${
             station.status === "completed"
               ? "text-[#589638]"
               : station.status === "in_progress"
@@ -337,7 +329,7 @@ function PathStation({
       <Link
         href={station.courseHref}
         title="استكشف الرحلة واطلب الاشتراك"
-        className="group relative z-10 flex w-[150px] shrink-0 flex-col items-center rounded-2xl px-2 py-1 transition hover:-translate-y-1 hover:bg-white hover:shadow-lg"
+        className="group relative z-10 flex min-w-0 flex-col items-center px-1 py-1 transition"
       >
         {content}
         <span className="mt-2 rounded-full bg-slate-200 px-3 py-1 text-[9px] font-black text-slate-600 transition group-hover:bg-[#07152E] group-hover:text-[#F7B548]">
@@ -356,7 +348,7 @@ function PathStation({
           ? "ابدأ الرحلة"
           : "متابعة الرحلة"
       }
-      className="group relative z-10 flex w-[150px] shrink-0 flex-col items-center rounded-2xl px-2 py-1 transition hover:-translate-y-1 hover:bg-white hover:shadow-lg"
+      className="group relative z-10 flex min-w-0 flex-col items-center px-1 py-1 transition"
     >
       {content}
       <span className="mt-2 rounded-full bg-[#07152E] px-3 py-1 text-[9px] font-black text-[#F7B548] transition group-hover:bg-[#F7B548] group-hover:text-[#07152E]">

@@ -217,6 +217,72 @@ result.push(
 
   return result;
 }
+export async function getStudentProjectsByUserId(
+  userId: string,
+): Promise<StudentProject[]> {
+  const supabase = createAdminClient();
+
+  const normalizedUserId = userId.trim();
+
+  if (!normalizedUserId) {
+    return [];
+  }
+
+  const { data: projects, error } =
+    await supabase
+      .from("student_projects")
+      .select("*")
+      .eq("user_id", normalizedUserId)
+      .order("created_at", {
+        ascending: false,
+      });
+
+  if (error) {
+    console.error(
+      "GET ADMIN STUDENT PROJECTS ERROR:",
+      error.message,
+    );
+
+    return [];
+  }
+
+  if (!projects?.length) {
+    return [];
+  }
+
+  const result: StudentProject[] = [];
+
+  for (const row of projects as ProjectRow[]) {
+    const { data: images, error: imagesError } =
+      await supabase
+        .from("student_project_images")
+        .select("*")
+        .eq("project_id", row.id)
+        .order("sort_order");
+
+    if (imagesError) {
+      console.error(
+        "GET ADMIN STUDENT PROJECT IMAGES ERROR:",
+        imagesError.message,
+      );
+    }
+
+    const mappedImages = await Promise.all(
+      (images ?? []).map((image) =>
+        mapImage(image as ImageRow),
+      ),
+    );
+
+    result.push(
+      mapProject(
+        row,
+        mappedImages,
+      ),
+    );
+  }
+
+  return result;
+}
 export async function deleteProject(
   projectId: string,
 ) {

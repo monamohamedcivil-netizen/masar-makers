@@ -182,12 +182,22 @@ export default function NavbarUser({
     nameParts[0] ||
     (locale === "ar" ? "متدرب" : "Student");
 
-  const initials =
-    nameParts.length > 1
-      ? `${nameParts[0].charAt(0)}${nameParts[1].charAt(0)}`
-      : firstName.slice(0, 2);
+  const containsArabic =
+    /[\u0600-\u06FF]/.test(String(fullName));
 
-  const uppercaseInitials = initials.toUpperCase();
+  const firstLetter =
+    nameParts[0]?.charAt(0) ?? "";
+
+  const secondLetter =
+    nameParts.length > 1
+      ? nameParts[1]?.charAt(0) ?? ""
+      : nameParts[0]?.charAt(1) ?? "";
+
+  const displayInitials = containsArabic
+    ? [firstLetter, secondLetter]
+        .filter(Boolean)
+        .join(" ")
+    : `${firstLetter}${secondLetter}`.toUpperCase();
   const isAdmin = String(role ?? "").toLowerCase() === "admin";
 
   const menuItems = [
@@ -271,8 +281,15 @@ export default function NavbarUser({
               className="object-cover"
             />
           ) : (
-            <span dir="ltr" className="uppercase tracking-wide">
-              {uppercaseInitials}
+            <span
+              dir={containsArabic ? "rtl" : "ltr"}
+              className={
+                containsArabic
+                  ? "whitespace-nowrap tracking-normal"
+                  : "uppercase tracking-wide"
+              }
+            >
+              {displayInitials}
             </span>
           )}
         </span>

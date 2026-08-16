@@ -19,7 +19,7 @@ type NavbarProps = {
 const labels = {
   ar: {
     home: "مركز الرحلات",
-    about: "عن الأكاديمية",
+    about: "من نحن",
     careerPaths: "المسارات المهنية",
     journeys: "رحلاتي التعليمية",
     contact: "اتصل بنا",
@@ -30,7 +30,7 @@ const labels = {
   },
   en: {
     home: "Journey Center",
-    about: "About Academy",
+    about: "About Us",
     careerPaths: "Career Paths",
     journeys: "My Learning Journeys",
     contact: "Contact Us",
@@ -52,7 +52,12 @@ function detectActiveItem(pathname: string): ActiveItem {
     return "journeys";
   }
 
-  if (pathname.startsWith("/career-path")) return "career-paths";
+ if (
+  pathname.startsWith("/career-path") ||
+  pathname.startsWith("/course/")
+) {
+  return "career-paths";
+}
   if (pathname.startsWith("/about")) return "about";
   return "home";
 }
@@ -99,7 +104,7 @@ export default function Navbar({ activeItem }: NavbarProps) {
   const links = useMemo(
     () => [
       { id: "home" as const, href: "/", label: text.home, protected: false },
-      { id: "about" as const, href: "/about", label: text.about, protected: true },
+      { id: "about" as const, href: "/about", label: text.about, protected: false },
       { id: "career-paths" as const, href: "/career-path/road-design", label: text.careerPaths, protected: true },
       { id: "journeys" as const, href: "/dashboard", label: text.journeys, protected: true },
     ],

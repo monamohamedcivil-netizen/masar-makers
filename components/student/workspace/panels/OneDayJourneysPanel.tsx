@@ -108,7 +108,7 @@ function OneDayPathView({
     ) ?? null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {selectedStation ? (
         <>
           <CompactStationRoad
@@ -145,7 +145,7 @@ function FullStationRoad({
 }) {
   return (
     <article className="overflow-hidden rounded-b-[24px] border-b border-[#C9D2DE] bg-white shadow-[0_22px_55px_rgba(7,21,46,0.14)]">
-      <header className="bg-[#07152E] px-6 py-3 text-white">
+      <header className="bg-[#07152E] px-6 py-1 text-white">
         <h3 className="text-lg font-black">
           {path.title}
         </h3>
@@ -155,9 +155,13 @@ function FullStationRoad({
         </p>
       </header>
 
-      <div className="bg-[#F8FAFC] px-4 py-5">
-        <div className="overflow-x-auto">
-          <div className="relative mx-auto flex min-w-[760px] items-start justify-between gap-2 px-5 pt-3">
+      <div className="bg-[#F8FAFC] px-3 py-5 sm:px-4">
+          <div
+            className="relative mx-auto grid w-full items-start gap-1 px-2 pt-3 sm:px-4"
+            style={{
+              gridTemplateColumns: `repeat(${path.stations.length}, minmax(0, 1fr))`,
+            }}
+          >
             <div className="absolute left-[11%] right-[11%] top-[42px] h-[16px] rounded-full border-y border-[#F7B548] bg-[#07152E]" />
 
             {path.stations.map(
@@ -175,7 +179,6 @@ function FullStationRoad({
               ),
             )}
           </div>
-        </div>
       </div>
     </article>
   );
@@ -194,7 +197,12 @@ function CompactStationRoad({
       <div className="absolute left-[11%] right-[11%] top-[32px] h-[8px] bg-[#07152E]">
       <div className="absolute inset-x-0 top-1/2 h-[0.5px] -translate-y-1/2 bg-[#F7B548]" />
 </div>
-      <div className="relative z-10 flex items-start justify-between gap-2">
+      <div
+        className="relative z-10 grid items-start gap-1"
+        style={{
+          gridTemplateColumns: `repeat(${stations.length}, minmax(0, 1fr))`,
+        }}
+      >
         {stations.map((station) => {
           const active =
             station.id ===
@@ -265,13 +273,13 @@ function StationButton({
     <button
       type="button"
       onClick={onClick}
-      className="group relative z-10 flex w-[150px] shrink-0 flex-col items-center px-2 py-1"
+      className="group relative z-10 flex min-w-0 flex-col items-center px-1 py-1"
     >
       <span
-        className={`relative flex h-[62px] w-[62px] items-center justify-center overflow-hidden rounded-full border-[3px] ring-2 ring-offset-2 ring-offset-[#F8FAFC] ${
+        className={`relative flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full border-[2px] bg-white transition ${
           hasJourneys
-            ? "border-[#F7B548] ring-[#F7B548]/60"
-            : "border-[#AAB3C0] ring-[#CBD2DC]"
+            ? "border-[#F7B548]/70"
+            : "border-[#AAB3C0]"
         }`}
       >
         {station.iconUrl ? (
@@ -279,7 +287,7 @@ function StationButton({
             src={station.iconUrl}
             alt=""
             fill
-            sizes="62px"
+            sizes="52px"
             className={`object-cover ${
               hasJourneys
                 ? ""
@@ -293,12 +301,12 @@ function StationButton({
         )}
       </span>
 
-      <span className="mt-3 max-w-[140px] text-center text-[14px] font-black text-[#07152E]">
+      <span className="mt-2 w-full truncate text-center text-[9px] font-black text-[#334155] sm:text-[10px]">
         {station.shortTitle}
       </span>
 
       <span
-        className={`mt-1 text-[9px] font-bold ${
+        className={`mt-0.5 text-[8px] font-bold ${
           hasJourneys
             ? "text-[#B87508]"
             : "text-slate-400"

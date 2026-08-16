@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-
+import { useRouter } from "next/navigation";
+import {
+  addStudentBonusPoints,
+  getStudentBonusPointsHistory,
+  type StudentBonusPointHistoryItem,
+} from "@/lib/actions/admin/students";
 import {
   Award,
   BookOpenCheck,
@@ -57,7 +62,11 @@ lastRewardCourseTitle: string | null;
 
 lastRewardRedeemedAt: string | null;
   totalPoints: number;
-  drawEntries: number;
+
+bonusPoints: number;
+lastBonusReason: string | null;
+
+drawEntries: number;
 }
 
 interface StudentsTableProps {
@@ -273,6 +282,8 @@ function StudentJourneyTable({
             <TableHead>المشاريع</TableHead>
             <TableHead>الاستبيانات</TableHead>
             <TableHead>النقاط</TableHead>
+            <TableHead>إضافة نقاط</TableHead>
+<TableHead>سبب النقاط</TableHead>
             <TableHead>السحب</TableHead>
             <TableHead>بطاقة المكافأة</TableHead>
 
@@ -344,7 +355,9 @@ function StudentJourneyTable({
                   {student.totalPoints}
                 </span>
               </td>
-
+<BonusPointsCells
+  student={student}
+/>
               <MetricCell
                 value={student.drawEntries}
               />
@@ -532,7 +545,341 @@ function ViewStudentCell({
     </td>
   );
 }
+function BonusPointsCells({
+  student,
+}: {
+  student: StudentRow;
+}) {
+  const router = useRouter();
 
+  const [points, setPoints] =
+    useState("");
+
+  const [reason, setReason] =
+    useState("");
+
+  const [pointType, setPointType] =
+    useState<
+      "referral" | "bonus" | "adjustment"
+    >("bonus");
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const [message, setMessage] =
+    useState("");
+const [historyOpen, setHistoryOpen] =
+  useState(false);
+
+const [historyLoading, setHistoryLoading] =
+  useState(false);
+
+const [historyItems, setHistoryItems] =
+  useState<StudentBonusPointHistoryItem[]>([]);
+
+const [historyError, setHistoryError] =
+  useState("");
+  async function handleSave() {
+    const numericPoints =
+      Number(points);
+
+    if (
+      !Number.isFinite(numericPoints) ||
+      numericPoints === 0
+    ) {
+      setMessage(
+        "أدخلي عدد نقاط صحيح.",
+      );
+      return;
+    }
+
+    if (!reason.trim()) {
+      setMessage(
+        "أدخلي سبب النقاط.",
+      );
+      return;
+    }
+
+    setSaving(true);
+    setMessage("");
+
+    const result =
+      await addStudentBonusPoints(
+        student.userId,
+        numericPoints,
+        reason,
+        pointType,
+      );
+
+    setSaving(false);
+
+    if (!result.success) {
+      setMessage(result.message);
+      return;
+    }
+
+    setPoints("");
+    setReason("");
+    setPointType("bonus");
+    setMessage("تم الحفظ");
+
+    router.refresh();
+  }
+async function handleOpenHistory() {
+  setHistoryOpen(true);
+  setHistoryLoading(true);
+  setHistoryError("");
+
+  const result =
+    await getStudentBonusPointsHistory(
+      student.userId,
+    );
+
+  setHistoryLoading(false);
+
+  if (!result.success) {
+    setHistoryItems([]);
+    setHistoryError(
+      result.message ??
+        "تعذر تحميل السجل.",
+    );
+    return;
+  }
+
+  setHistoryItems(result.items);
+}
+  return (
+    <>
+      <td className="min-w-[190px] px-3 py-4 text-center">
+        <div className="space-y-2">
+          <span className="inline-flex rounded-full bg-[#FFF5DD] px-3 py-1 text-[10px] font-black text-[#C88712]">
+            الإجمالي:{" "}
+            {student.bonusPoints}
+          </span>
+
+          <select
+            value={pointType}
+            onChange={(event) =>
+              setPointType(
+                event.target.value as
+                  | "referral"
+                  | "bonus"
+                  | "adjustment",
+              )
+            }
+            className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-center text-[10px] font-black text-[#07152E] outline-none focus:border-[#F7B548]"
+          >
+            <option value="bonus">
+              نقاط إضافية
+            </option>
+            <option value="referral">
+              دعوة صديق
+            </option>
+            <option value="adjustment">
+              تصحيح نقاط
+            </option>
+          </select>
+
+          <input
+            type="number"
+            value={points}
+            onChange={(event) =>
+              setPoints(
+                event.target.value,
+              )
+            }
+            placeholder="+50"
+            className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-center text-xs font-black outline-none focus:border-[#F7B548]"
+          />
+        </div>
+      </td>
+
+      <td className="min-w-[300px] px-3 py-4">
+        <div className="space-y-2">
+          <input
+            type="text"
+            value={reason}
+            onChange={(event) =>
+              setReason(
+                event.target.value,
+              )
+            }
+            placeholder="مثال: دعوة صديق للاشتراك في CSD"
+            className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-[#F7B548]"
+          />
+
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+  <span className="max-w-[150px] truncate text-[9px] font-bold text-slate-400">
+    {student.lastBonusReason
+      ? `آخر إضافة: ${student.lastBonusReason}`
+      : "لا توجد إضافات سابقة"}
+  </span>
+
+  {student.bonusPoints !== 0 ? (
+    <button
+      type="button"
+      onClick={() =>
+        void handleOpenHistory()
+      }
+      className="shrink-0 text-[9px] font-black text-[#C88712] underline underline-offset-2"
+    >
+      عرض السجل
+    </button>
+  ) : null}
+</div>
+
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() =>
+                void handleSave()
+              }
+              className="h-8 shrink-0 rounded-lg bg-[#07152E] px-3 text-[10px] font-black text-white disabled:opacity-50"
+            >
+              {saving
+                ? "..."
+                : "حفظ"}
+            </button>
+          </div>
+
+          {message ? (
+            <p className="text-[9px] font-black text-[#C88712]">
+              {message}
+            </p>
+          ) : null}
+        </div>
+      </td>
+      {historyOpen ? (
+  <div
+    className="fixed inset-0 z-[100] flex items-center justify-center bg-[#07152E]/55 p-4"
+    onClick={() =>
+      setHistoryOpen(false)
+    }
+  >
+    <div
+      dir="rtl"
+      onClick={(event) =>
+        event.stopPropagation()
+      }
+      className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl"
+    >
+      <div className="flex items-center justify-between bg-[#07152E] px-5 py-4">
+        <div>
+          <h3 className="text-base font-black text-white">
+            سجل النقاط الإضافية
+          </h3>
+
+          <p className="mt-1 text-xs font-bold text-white/60">
+            {student.studentName}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            setHistoryOpen(false)
+          }
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-lg font-black text-white hover:bg-white/20"
+        >
+          ×
+        </button>
+      </div>
+
+      <div className="border-b border-slate-100 bg-[#FFF8E9] px-5 py-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-black text-slate-500">
+            إجمالي النقاط الإضافية
+          </span>
+
+          <span className="text-lg font-black text-[#C88712]">
+            {student.bonusPoints}
+          </span>
+        </div>
+      </div>
+
+      <div className="max-h-[420px] overflow-y-auto p-4">
+        {historyLoading ? (
+          <div className="py-10 text-center text-sm font-bold text-slate-400">
+            جاري تحميل السجل...
+          </div>
+        ) : historyError ? (
+          <div className="py-10 text-center text-sm font-bold text-red-500">
+            {historyError}
+          </div>
+        ) : historyItems.length === 0 ? (
+          <div className="py-10 text-center text-sm font-bold text-slate-400">
+            لا توجد نقاط إضافية مسجلة.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {historyItems.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center gap-4 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3"
+              >
+                <div
+                  className={`min-w-[70px] text-center text-base font-black ${
+                    item.points >= 0
+                      ? "text-emerald-600"
+                      : "text-red-500"
+                  }`}
+                >
+                  {item.points > 0
+                    ? `+${item.points}`
+                    : item.points}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <span
+                    className={`mb-1 inline-flex rounded-full px-2 py-0.5 text-[9px] font-black ${
+                      item.pointType === "referral"
+                        ? "bg-blue-50 text-blue-700"
+                        : item.pointType === "adjustment"
+                          ? "bg-slate-200 text-slate-700"
+                          : "bg-[#FFF5DD] text-[#C88712]"
+                    }`}
+                  >
+                    {item.pointType === "referral"
+                      ? "دعوة صديق"
+                      : item.pointType === "adjustment"
+                        ? "تصحيح نقاط"
+                        : "نقاط إضافية"}
+                  </span>
+
+                  <p className="text-xs font-black text-[#07152E]">
+                    {item.reason}
+                  </p>
+
+                  <p className="mt-1 text-[10px] font-bold text-slate-400">
+                    {item.createdAt
+                      ? new Intl.DateTimeFormat(
+                          "ar-SA",
+                          {
+                            dateStyle:
+                              "medium",
+                            timeStyle:
+                              "short",
+                          },
+                        ).format(
+                          new Date(
+                            item.createdAt,
+                          ),
+                        )
+                      : "—"}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+) : null}
+    </>
+  );
+}
 function EmptyValue() {
   return (
     <span className="font-bold text-slate-300">

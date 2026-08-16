@@ -18,10 +18,10 @@ interface CourseFormInitialData {
   icon_url?: string | null;
   duration_hours?: number | null;
   price?: number | null;
-  journey_type?: string | null;
+  level?: "single" | "split" | null;
+  difficulty_level?: "fundamentals" | "advanced" | null;
   status?: CourseStatus | null;
-  whatsapp_number?: string | null;
-course_code?: string | null;
+  course_code?: string | null;
 }
 
 interface CourseFormProps {
@@ -43,8 +43,12 @@ export default function CourseForm({
 
   const isEditing = Boolean(initialData?.id);
 
-  const [title, setTitle] = useState(initialData?.title ?? "");
-  const [slug, setSlug] = useState(initialData?.slug ?? "");
+  const [title, setTitle] = useState(
+    initialData?.title ?? "",
+  );
+  const [slug, setSlug] = useState(
+    initialData?.slug ?? "",
+  );
   const [description, setDescription] = useState(
     initialData?.description ?? "",
   );
@@ -60,18 +64,31 @@ export default function CourseForm({
   const [price, setPrice] = useState(
     initialData?.price ?? 0,
   );
-  const [journeyType, setJourneyType] = useState(
-    initialData?.journey_type ?? "career_path",
+
+  const [courseLevel, setCourseLevel] = useState<
+    "single" | "split"
+  >(
+    initialData?.level === "split"
+      ? "split"
+      : "single",
   );
+
+  const [difficultyLevel, setDifficultyLevel] = useState<
+    "fundamentals" | "advanced"
+  >(
+    initialData?.difficulty_level === "fundamentals"
+      ? "fundamentals"
+      : "advanced",
+  );
+
   const [status, setStatus] = useState<CourseStatus>(
     initialData?.status ?? "draft",
   );
-  const [whatsapp, setWhatsapp] = useState(
-    initialData?.whatsapp_number ?? "",
+
+  const [courseCode, setCourseCode] = useState(
+    initialData?.course_code ?? "",
   );
-const [courseCode, setCourseCode] = useState(
-  initialData?.course_code ?? "",
-);
+
   const submit = () => {
     startTransition(async () => {
       const payload = {
@@ -82,9 +99,9 @@ const [courseCode, setCourseCode] = useState(
         icon_url: iconUrl,
         duration_hours: duration,
         price,
-        journey_type: journeyType,
+        level: courseLevel,
+        difficulty_level: difficultyLevel,
         status,
-        whatsapp_number: whatsapp,
         course_code: courseCode,
       };
 
@@ -117,11 +134,15 @@ const [courseCode, setCourseCode] = useState(
           value={slug}
           onChange={setSlug}
         />
-<Field
-  label="Course Code"
-  value={courseCode}
-  onChange={(value) => setCourseCode(value.toUpperCase())}
-/>
+
+        <Field
+          label="Course Code"
+          value={courseCode}
+          onChange={(value) =>
+            setCourseCode(value.toUpperCase())
+          }
+        />
+
         <Field
           label="مدة الكورس (ساعة)"
           type="number"
@@ -152,34 +173,54 @@ const [courseCode, setCourseCode] = useState(
           onChange={setIconUrl}
         />
 
-        <Field
-          label="رقم الواتساب"
-          value={whatsapp}
-          onChange={setWhatsapp}
-        />
-
         <div>
           <label className="mb-2 block font-bold text-[#07152E]">
-            نوع الرحلة
+            تقسيم الكورس
           </label>
 
           <select
             className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 outline-none focus:border-[#F7B548]"
-            value={journeyType}
+            value={courseLevel}
             onChange={(event) =>
-              setJourneyType(event.target.value)
+              setCourseLevel(
+                event.target.value as
+                  | "single"
+                  | "split",
+              )
             }
           >
-            <option value="career_path">
-              رحلة احتراف متكاملة
+            <option value="single">
+              كورس واحد — شهادة Advanced
             </option>
 
-            <option value="workshop">
-              رحلة اليوم الواحد
+            <option value="split">
+              أساسيات + متقدم — شهادتان F و A
+            </option>
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-2 block font-bold text-[#07152E]">
+            مستوى الكورس
+          </label>
+
+          <select
+            className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 outline-none focus:border-[#F7B548]"
+            value={difficultyLevel}
+            onChange={(event) =>
+              setDifficultyLevel(
+                event.target.value as
+                  | "fundamentals"
+                  | "advanced",
+              )
+            }
+          >
+            <option value="fundamentals">
+              Fundamentals — أساسيات
             </option>
 
-            <option value="free">
-              رحلة مجانية
+            <option value="advanced">
+              Advanced — احترافي
             </option>
           </select>
         </div>
@@ -193,7 +234,9 @@ const [courseCode, setCourseCode] = useState(
             className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 outline-none focus:border-[#F7B548]"
             value={status}
             onChange={(event) =>
-              setStatus(event.target.value as CourseStatus)
+              setStatus(
+                event.target.value as CourseStatus,
+              )
             }
           >
             <option value="draft">مسودة</option>

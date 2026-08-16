@@ -1,6 +1,8 @@
 "use client";
 
-import { CheckCircle2, Play, Rocket } from "lucide-react";
+import { useEffect, useState } from "react";
+
+import { CalendarDays, CheckCircle2, Gift, MessageSquareQuote, Play, PlayCircle, Rocket, Target } from "lucide-react";
 
 import PlatformActionButton from "./PlatformActionButton";
 
@@ -49,28 +51,31 @@ export default function ProfessionalPanelViewer({
   const showAdvanced =
     enrollmentAccess?.showAdvanced ?? true;
 
+  const panelHeader = getPanelHeaderConfig(panelComponent, value.screenTitle);
+  const HeaderIcon = panelHeader.icon;
+
+  const [mobileColumn, setMobileColumn] =
+    useState<ProfessionalJourneyColumn>("fundamental");
+
+  useEffect(() => {
+    setMobileColumn("fundamental");
+  }, [panelComponent, value.columnCount]);
 
   return (
     <section
       data-panel-component={panelComponent}
-      className="overflow-hidden rounded-[28px] border border-[#F7B548]/35 bg-[#07152E] shadow-[0_24px_70px_rgba(7,21,46,0.20)]"
+      className="min-h-[400px] overflow-hidden rounded-[24px] border border-[#C9D2DE] bg-white shadow-[0_22px_55px_rgba(7,21,46,0.16),0_4px_12px_rgba(7,21,46,0.08)]"
     >
-      <header className="flex flex-col gap-4 border-b border-white/10 px-5 py-6 sm:px-7 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-start gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#F7B548]/15 text-[#F7B548]">
-            <Rocket size={24} />
+      <header className="flex min-h-[64px] items-center justify-between gap-3 border-b-[3px] border-[#F7B548] bg-[#07152E] px-4 py-2.5 sm:px-6">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F7B548] text-[#07152E]">
+            <HeaderIcon size={16} />
           </div>
 
-          <div>
-            <h2 className="text-2xl font-black text-[#F7B548] sm:text-3xl">
-              {value.screenTitle}
+          <div className="min-w-0">
+            <h2 className="truncate text-[15px] font-black leading-5 text-white sm:text-[20px]">
+              {panelHeader.title}
             </h2>
-
-            {value.screenSubtitle && (
-              <p className="mt-2 text-sm font-bold text-white/70">
-                {value.screenSubtitle}
-              </p>
-            )}
           </div>
         </div>
 
@@ -93,44 +98,149 @@ export default function ProfessionalPanelViewer({
             enrollmentStatus={
               enrollmentStatuses?.[`${panelComponent}:screen`] ?? null
             }
-            className="min-w-[180px]"
+            className="w-[132px] shrink-0 sm:w-[155px]"
           />
         )}
       </header>
 
-      <div
-        className={
-          value.columnCount === 2
-            ? "grid gap-px bg-white/10 lg:grid-cols-2"
-            : "grid gap-px bg-white/10"
-        }
-      >
-        <ViewerColumn
-          stationId={stationId}
-          courseId={courseId}
-          panelComponent={panelComponent}
-          enrollmentStatuses={enrollmentStatuses}
-          journey="fundamental"
-          title={value.columnOneTitle}
-          action={value.columnOneAction}
-          showAction={showFundamental}
-          blocks={fundamentalBlocks}
-        />
+      {value.columnCount === 2 ? (
+        <>
+          {/* Mobile: inner columns become tabs */}
+          <div
+            className="grid grid-cols-2 border-b border-[#DCE2EA] bg-[#EEF1F5] lg:hidden"
+            role="tablist"
+            aria-label="أقسام الشاشة"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={
+                mobileColumn === "fundamental"
+              }
+              onClick={() =>
+                setMobileColumn("fundamental")
+              }
+              className={`relative min-h-[46px] px-3 text-[11px] font-black transition ${
+                mobileColumn === "fundamental"
+                  ? "bg-[#173A61] text-white"
+                  : "bg-[#EEF1F5] text-[#4B5563]"
+              }`}
+            >
+              {value.columnOneTitle}
 
-        {value.columnCount === 2 && (
+              {mobileColumn ===
+              "fundamental" ? (
+                <span className="absolute inset-x-4 bottom-0 h-[3px] bg-[#F7B548]" />
+              ) : null}
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              aria-selected={
+                mobileColumn === "advanced"
+              }
+              onClick={() =>
+                setMobileColumn("advanced")
+              }
+              className={`relative min-h-[46px] px-3 text-[11px] font-black transition ${
+                mobileColumn === "advanced"
+                  ? "bg-[#102D50] text-white"
+                  : "bg-[#EEF1F5] text-[#4B5563]"
+              }`}
+            >
+              {value.columnTwoTitle}
+
+              {mobileColumn ===
+              "advanced" ? (
+                <span className="absolute inset-x-4 bottom-0 h-[3px] bg-[#F7B548]" />
+              ) : null}
+            </button>
+          </div>
+
+          <div className="min-h-[333px] bg-white lg:hidden">
+            {mobileColumn ===
+            "fundamental" ? (
+              <ViewerColumn
+                stationId={stationId}
+                courseId={courseId}
+                panelComponent={panelComponent}
+                enrollmentStatuses={
+                  enrollmentStatuses
+                }
+                journey="fundamental"
+                title={value.columnOneTitle}
+                action={value.columnOneAction}
+                showAction={showFundamental}
+                blocks={fundamentalBlocks}
+                hideColumnHeader
+              />
+            ) : (
+              <ViewerColumn
+                stationId={stationId}
+                courseId={courseId}
+                panelComponent={panelComponent}
+                enrollmentStatuses={
+                  enrollmentStatuses
+                }
+                journey="advanced"
+                title={value.columnTwoTitle}
+                action={value.columnTwoAction}
+                showAction={showAdvanced}
+                blocks={advancedBlocks}
+                hideColumnHeader
+              />
+            )}
+          </div>
+
+          {/* Desktop: keep both columns visible */}
+          <div className="hidden min-h-[333px] gap-px bg-[#DCE2EA] lg:grid lg:grid-cols-2">
+            <ViewerColumn
+              stationId={stationId}
+              courseId={courseId}
+              panelComponent={panelComponent}
+              enrollmentStatuses={
+                enrollmentStatuses
+              }
+              journey="fundamental"
+              title={value.columnOneTitle}
+              action={value.columnOneAction}
+              showAction={showFundamental}
+              blocks={fundamentalBlocks}
+            />
+
+            <ViewerColumn
+              stationId={stationId}
+              courseId={courseId}
+              panelComponent={panelComponent}
+              enrollmentStatuses={
+                enrollmentStatuses
+              }
+              journey="advanced"
+              title={value.columnTwoTitle}
+              action={value.columnTwoAction}
+              showAction={showAdvanced}
+              blocks={advancedBlocks}
+            />
+          </div>
+        </>
+      ) : (
+        <div className="grid min-h-[333px] bg-[#DCE2EA]">
           <ViewerColumn
             stationId={stationId}
             courseId={courseId}
             panelComponent={panelComponent}
-            enrollmentStatuses={enrollmentStatuses}
-            journey="advanced"
-            title={value.columnTwoTitle}
-            action={value.columnTwoAction}
-            showAction={showAdvanced}
-            blocks={advancedBlocks}
+            enrollmentStatuses={
+              enrollmentStatuses
+            }
+            journey="fundamental"
+            title={value.columnOneTitle}
+            action={value.columnOneAction}
+            showAction={showFundamental}
+            blocks={fundamentalBlocks}
           />
-        )}
-      </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -145,6 +255,7 @@ type ViewerColumnProps = {
   action: ProfessionalActionConfig;
   showAction: boolean;
   blocks: ProfessionalContentBlock[];
+  hideColumnHeader?: boolean;
 };
 
 function ViewerColumn({
@@ -157,20 +268,42 @@ function ViewerColumn({
   action,
   showAction,
   blocks,
+  hideColumnHeader = false,
 }: ViewerColumnProps) {
   const headerColor =
     journey === "fundamental"
-      ? "bg-[#214B75]"
-      : "bg-[#263F6D]";
+      ? "bg-[#173A61]"
+      : "bg-[#102D50]";
 
   return (
-    <article className="bg-white">
-      <div
-        className={`flex min-h-[84px] flex-wrap items-center justify-between gap-3 px-5 py-4 text-white ${headerColor}`}
-      >
-        <h3 className="text-xl font-black">{title}</h3>
+    <article className="flex min-h-[333px] flex-col bg-white">
+      {!hideColumnHeader ? (
+        <div
+          className={`flex min-h-[50px] flex-wrap items-center justify-between gap-2 px-4 py-2 text-white ${headerColor}`}
+        >
+          <h3 className="text-[13px] font-black">{title}</h3>
 
-        {action.enabled && showAction && (
+          {action.enabled && showAction && (
+            <PlatformActionButton
+              label={action.label || "اشترك الآن"}
+              mode={action.mode}
+              link={action.link}
+              courseId={courseId}
+              stationId={stationId}
+              journeyType={resolveJourneyType(panelComponent, journey)}
+              actionKey={`${panelComponent}:column:${journey}`}
+              actionTitle={title}
+              enrollmentStatus={
+                enrollmentStatuses?.[
+                  `${panelComponent}:column:${journey}`
+                ] ?? null
+              }
+              className="w-full sm:w-[150px]"
+            />
+          )}
+        </div>
+      ) : action.enabled && showAction ? (
+        <div className="flex justify-end border-b border-[#E3E7ED] bg-white px-3 py-2">
           <PlatformActionButton
             label={action.label || "اشترك الآن"}
             mode={action.mode}
@@ -185,12 +318,12 @@ function ViewerColumn({
                 `${panelComponent}:column:${journey}`
               ] ?? null
             }
-            className="min-w-[180px]"
+            className="w-[135px]"
           />
-        )}
-      </div>
+        </div>
+      ) : null}
 
-      <div className="space-y-4 p-5">
+      <div className="flex-1 space-y-2.5 p-3">
         {blocks.map((block) => (
           <ViewerBlock
             key={block.id}
@@ -222,7 +355,7 @@ function ViewerBlock({
 
   if (block.type === "image") {
     return (
-      <figure className="overflow-hidden rounded-2xl border border-[#DCE3EB] bg-[#F8FAFC]">
+      <figure className="overflow-hidden rounded-xl border border-[#DCE3EB] bg-[#F8FAFC]">
         {block.imageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -233,13 +366,13 @@ function ViewerBlock({
         )}
 
         {(block.title || block.caption) && (
-          <figcaption className="p-4">
+          <figcaption className="p-3">
             {block.title && (
-              <h4 className="font-black text-[#07152E]">{block.title}</h4>
+              <h4 className="text-[12px] font-black text-[#07152E]">{block.title}</h4>
             )}
 
             {block.caption && (
-              <p className="mt-1 text-sm font-bold text-slate-500">
+              <p className="mt-1 text-[10px] font-bold leading-4 text-slate-500">
                 {block.caption}
               </p>
             )}
@@ -263,7 +396,7 @@ function ViewerBlock({
     const displayThumbnail = videoBlock.thumbnail?.trim() || youtubeThumbnail;
 
     return (
-      <article className="overflow-hidden rounded-2xl border border-[#DCE3EB] bg-[#F8FAFC]">
+      <article className="overflow-hidden rounded-xl border border-[#DCE3EB] bg-[#F8FAFC]">
         {displayThumbnail && videoBlock.videoUrl ? (
           <a
             href={videoBlock.videoUrl}
@@ -293,11 +426,11 @@ function ViewerBlock({
           </a>
         ) : null}
 
-        <div className="p-4">
-          <h4 className="font-black text-[#07152E]">{videoBlock.title}</h4>
+        <div className="p-3">
+          <h4 className="text-[12px] font-black text-[#07152E]">{videoBlock.title}</h4>
 
           {videoBlock.caption && (
-            <p className="mt-1 text-sm font-bold text-slate-500">
+            <p className="mt-1 text-[10px] font-bold leading-4 text-slate-500">
               {videoBlock.caption}
             </p>
           )}
@@ -307,7 +440,7 @@ function ViewerBlock({
               href={videoBlock.videoUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#07152E] px-4 py-2.5 text-xs font-black text-white transition hover:bg-[#214B75]"
+              className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#07152E] px-3 text-[9px] font-black text-white transition hover:bg-[#214B75]"
             >
               <Play size={14} fill="currentColor" />
               فتح الفيديو
@@ -333,28 +466,28 @@ function ViewerBlock({
   };
 
   return (
-    <div className="rounded-2xl border border-[#DCE3EB] bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-[#DCE3EB] bg-white p-3 shadow-sm">
       {listBlock.title && (
-        <h4 className="mb-3 font-black text-[#07152E]">{listBlock.title}</h4>
+        <h4 className="mb-2 text-[12px] font-black text-[#07152E]">{listBlock.title}</h4>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {listBlock.items.map((item) => (
           <div
             key={item.id}
-            className="flex flex-col gap-3 rounded-xl bg-[#F8FAFC] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+            className="flex flex-col gap-2 rounded-lg bg-[#F8FAFC] px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
           >
             <div className="flex min-w-0 items-start gap-2">
               <CheckCircle2
-                size={17}
+                size={14}
                 className="mt-0.5 shrink-0 text-emerald-600"
               />
 
               <div>
-                <p className="font-black text-[#07152E]">{item.title}</p>
+                <p className="text-[11px] font-black text-[#07152E]">{item.title}</p>
 
                 {item.description && (
-                  <p className="mt-1 text-xs font-bold text-slate-500">
+                  <p className="mt-0.5 text-[9px] font-bold leading-4 text-slate-500">
                     {item.description}
                   </p>
                 )}
@@ -377,7 +510,7 @@ function ViewerBlock({
                   ] ?? null
                 }
                 itemTitle={item.title}
-                className="rounded-xl bg-[#07152E] px-4 py-2 text-xs font-black text-white transition hover:bg-[#214B75]"
+                className="w-full sm:w-[120px]"
               />
             )}
           </div>
@@ -387,6 +520,30 @@ function ViewerBlock({
   );
 }
 
+
+function getPanelHeaderConfig(panelComponent: string, fallbackTitle: string) {
+  switch (panelComponent) {
+    case "professional":
+      return { title: fallbackTitle || "رحلة الاحتراف المتكاملة", icon: Rocket };
+    case "workshop":
+      return { title: "رحلات اليوم الواحد", icon: CalendarDays };
+    case "free":
+      return { title: "الرحلات المجانية", icon: PlayCircle };
+    case "outcome":
+    case "outcomes":
+      return { title: "إلى ماذا سأصل؟", icon: Target };
+    case "gifts":
+    case "resources":
+    case "gifts-files":
+      return { title: "الهدايا والملفات", icon: Gift };
+    case "success-stories":
+    case "successStories":
+    case "testimonials":
+      return { title: "قصص نجاح المتدربين", icon: MessageSquareQuote };
+    default:
+      return { title: fallbackTitle, icon: Rocket };
+  }
+}
 
 function resolveJourneyType(
   panelComponent: string,

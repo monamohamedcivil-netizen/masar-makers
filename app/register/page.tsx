@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import {
   ArrowLeft,
   Eye,
@@ -25,11 +25,70 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const [fullName, setFullName] = useState("");
+  const [fullNameEn, setFullNameEn] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [country, setCountry] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [experienceLevel, setExperienceLevel] = useState("");
   const [specialty, setSpecialty] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [acceptTerms, setAcceptTerms] = useState(false);
+
+  useEffect(() => {
+    const saved = window.sessionStorage.getItem(
+      "masar-register-draft",
+    );
+
+    if (!saved) return;
+
+    try {
+      const draft = JSON.parse(saved) as {
+        fullName?: string;
+        fullNameEn?: string;
+        email?: string;
+        phone?: string;
+        country?: string;
+        jobTitle?: string;
+        experienceLevel?: string;
+        specialty?: string;
+        acceptTerms?: boolean;
+      };
+
+      setFullName(draft.fullName ?? "");
+      setFullNameEn(draft.fullNameEn ?? "");
+      setEmail(draft.email ?? "");
+      setPhone(draft.phone ?? "");
+      setCountry(draft.country ?? "");
+      setJobTitle(draft.jobTitle ?? "");
+      setExperienceLevel(draft.experienceLevel ?? "");
+      setSpecialty(draft.specialty ?? "");
+      setAcceptTerms(Boolean(draft.acceptTerms));
+    } catch {
+      window.sessionStorage.removeItem(
+        "masar-register-draft",
+      );
+    }
+  }, []);
+
+  const saveDraftBeforeTerms = () => {
+    window.sessionStorage.setItem(
+      "masar-register-draft",
+      JSON.stringify({
+        fullName,
+        fullNameEn,
+        email,
+        phone,
+        country,
+        jobTitle,
+        experienceLevel,
+        specialty,
+        acceptTerms,
+      }),
+    );
+  };
 
   const handleSubmit = async (
     event: FormEvent<HTMLFormElement>
@@ -41,45 +100,34 @@ export default function RegisterPage() {
     setLoading(true);
 
     const form = event.currentTarget;
-    const formData = new FormData(form);
+    const submittedFullName =
+      fullName.trim();
 
-    const fullName = String(
-      formData.get("name") ?? ""
-    ).trim();
+    const submittedFullNameEn =
+      fullNameEn.trim();
 
-    const fullNameEn = String(
-      formData.get("fullNameEn") ?? ""
-    ).trim();
+    const submittedEmail =
+      email.trim().toLowerCase();
 
-    const email = String(
-      formData.get("email") ?? ""
-    )
-      .trim()
-      .toLowerCase();
+    const submittedPhone =
+      phone.trim();
 
-    const submittedPhone = String(
-      formData.get("phone") ?? ""
-    ).trim();
+    const submittedCountry =
+      country.trim();
 
-    const submittedCountry = String(
-      formData.get("country") ?? ""
-    ).trim();
+    const submittedPassword =
+      password;
 
-    const password = String(
-      formData.get("password") ?? ""
-    );
+    const submittedConfirmPassword =
+      confirmPassword;
 
-    const confirmPassword = String(
-      formData.get("confirmPassword") ?? ""
-    );
-
-    if (!fullName) {
+    if (!submittedFullName) {
       setError("يرجى إدخال الاسم الكامل.");
       setLoading(false);
       return;
     }
 
-    if (!fullNameEn) {
+    if (!submittedFullNameEn) {
       setError(
         "يرجى إدخال الاسم باللغة الإنجليزية كما ترغب أن يظهر في الشهادة."
       );
@@ -87,7 +135,7 @@ export default function RegisterPage() {
       return;
     }
 
-    if (!/^[A-Za-z][A-Za-z .'-]*$/.test(fullNameEn)) {
+    if (!/^[A-Za-z][A-Za-z .'-]*$/.test(submittedFullNameEn)) {
       setError(
         "يرجى كتابة الاسم الإنجليزي باستخدام الحروف الإنجليزية فقط."
       );
@@ -95,7 +143,7 @@ export default function RegisterPage() {
       return;
     }
 
-    if (!email) {
+    if (!submittedEmail) {
       setError("يرجى إدخال البريد الإلكتروني.");
       setLoading(false);
       return;
@@ -113,14 +161,22 @@ export default function RegisterPage() {
       return;
     }
 
-    if (password.length < 8) {
+    if (submittedPassword.length < 8) {
       setError("يجب ألا تقل كلمة المرور عن 8 أحرف.");
       setLoading(false);
       return;
     }
 
-    if (password !== confirmPassword) {
+    if (submittedPassword !== submittedConfirmPassword) {
       setError("كلمتا المرور غير متطابقتين.");
+      setLoading(false);
+      return;
+    }
+
+    if (!acceptTerms) {
+      setError(
+        "يجب الموافقة على الشروط والأحكام قبل إنشاء الحساب.",
+      );
       setLoading(false);
       return;
     }
@@ -132,21 +188,23 @@ export default function RegisterPage() {
         data: signUpData,
         error: signUpError,
       } = await supabase.auth.signUp({
-        email,
-        password,
+        email: submittedEmail,
+        password: submittedPassword,
        options: {
   emailRedirectTo: `${
     process.env.NEXT_PUBLIC_APP_URL ||
     window.location.origin
   }/auth/callback`,
           data: {
-            full_name: fullName,
-            full_name_en: fullNameEn,
+            full_name: submittedFullName,
+            full_name_en: submittedFullNameEn,
             phone: submittedPhone,
             country: submittedCountry,
             job_title: jobTitle,
             experience_level: experienceLevel,
             specialty,
+            terms_accepted: true,
+            terms_version: "2026-08",
           },
         },
       });
@@ -180,11 +238,20 @@ export default function RegisterPage() {
       );
 
       form.reset();
+      setFullName("");
+      setFullNameEn("");
+      setEmail("");
       setPhone("");
       setCountry("");
       setJobTitle("");
       setExperienceLevel("");
       setSpecialty("");
+      setPassword("");
+      setConfirmPassword("");
+      setAcceptTerms(false);
+      window.sessionStorage.removeItem(
+        "masar-register-draft",
+      );
     } catch (caughtError) {
       console.error(
         "Registration error:",
@@ -231,6 +298,10 @@ export default function RegisterPage() {
               type="text"
               required
               autoComplete="name"
+              value={fullName}
+              onChange={(event) =>
+                setFullName(event.target.value)
+              }
               placeholder="اكتب اسمك الكامل"
               className="
                 h-[50px] w-full rounded-2xl
@@ -273,6 +344,10 @@ export default function RegisterPage() {
               required
               dir="ltr"
               autoComplete="name"
+              value={fullNameEn}
+              onChange={(event) =>
+                setFullNameEn(event.target.value)
+              }
               placeholder="Mona Abdallah Mohamed"
               className="
                 h-[50px] w-full rounded-2xl
@@ -319,6 +394,10 @@ export default function RegisterPage() {
               type="email"
               required
               autoComplete="email"
+              value={email}
+              onChange={(event) =>
+                setEmail(event.target.value)
+              }
               placeholder="name@example.com"
               className="
                 h-[50px] w-full rounded-2xl
@@ -562,6 +641,10 @@ export default function RegisterPage() {
               required
               minLength={8}
               autoComplete="new-password"
+              value={password}
+              onChange={(event) =>
+                setPassword(event.target.value)
+              }
               placeholder="8 أحرف على الأقل"
               className="
                 h-[50px] w-full rounded-2xl
@@ -636,6 +719,10 @@ export default function RegisterPage() {
               required
               minLength={8}
               autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(event) =>
+                setConfirmPassword(event.target.value)
+              }
               placeholder="أعد كتابة كلمة المرور"
               className="
                 h-[50px] w-full rounded-2xl
@@ -688,17 +775,45 @@ export default function RegisterPage() {
         <label className="flex cursor-pointer items-start gap-3">
           <input
             type="checkbox"
+            name="acceptTerms"
+            checked={acceptTerms}
+            onChange={(event) =>
+              setAcceptTerms(event.target.checked)
+            }
             required
             className="
-              mt-1 h-4 w-4 rounded
+              mt-1 h-4 w-4 shrink-0 rounded
               border-slate-300
               accent-[#F7B548]
             "
           />
 
           <span className="text-[11px] font-bold leading-5 text-slate-600">
-            أوافق على شروط الاستخدام وسياسة
-            الخصوصية الخاصة بمنصة صناع المسار.
+            أوافق على{" "}
+            <Link
+              href="/terms"
+              onClick={saveDraftBeforeTerms}
+              className="
+                font-black text-[#C88712]
+                underline underline-offset-2
+                transition hover:text-[#07152E]
+              "
+            >
+              الشروط والأحكام
+            </Link>
+            {" "}و{" "}
+            <Link
+              href="/privacy"
+              onClick={saveDraftBeforeTerms}
+              className="
+                font-black text-[#C88712]
+                underline underline-offset-2
+                transition hover:text-[#07152E]
+              "
+            >
+              سياسة الخصوصية
+            </Link>
+            {" "}الخاصة بمنصة صناع المسار.
           </span>
         </label>
 

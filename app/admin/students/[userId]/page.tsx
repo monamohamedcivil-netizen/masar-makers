@@ -39,16 +39,15 @@ export default async function AdminStudentPage({
         title={data.studentName}
         description="متابعة بيانات الطالب ورحلاته وإنجازاته ونظام النقاط والمكافآت."
         breadcrumbs={[
-          {
-            label: "إدارة الطلاب",
-          },
-          {
-            label: "الطلاب",
-          },
-          {
-            label: data.studentName,
-          },
-        ]}
+  {
+    label: "الطلاب",
+    href: "/admin/students",
+  },
+  
+  {
+    label: data.studentName,
+  },
+]}
       />
 
       <StudentAdminWorkspace

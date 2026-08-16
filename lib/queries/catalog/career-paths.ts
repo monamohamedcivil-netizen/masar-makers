@@ -14,6 +14,63 @@ import {
   normalizeCareerPath,
 } from "./helpers";
 
+
+/* ==================================================
+   Training Duration
+================================================== */
+
+/**
+ * حساب إجمالي مدة الدروس المنشورة للكورسات المحددة بالدقائق.
+ *
+ * نستخدم RPC عامة وآمنة بدل قراءة جدول lessons مباشرة،
+ * حتى يرى الطالب والأدمن نفس الإحصائية بدون كشف بيانات الدروس.
+ */
+export async function getCoursesTrainingMinutes(
+  courseIds: Array<string | number>
+): Promise<number> {
+  if (!courseIds.length) {
+    return 0;
+  }
+
+  const supabase = await createClient();
+
+  const normalizedCourseIds = courseIds
+    .map((id) => String(id))
+    .filter(Boolean);
+
+  if (!normalizedCourseIds.length) {
+    return 0;
+  }
+
+  const { data, error } = await supabase.rpc(
+    "get_courses_training_minutes",
+    {
+      course_ids: normalizedCourseIds,
+    },
+  );
+
+  if (error) {
+    console.error(
+      "Failed to load public training duration:",
+      {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      },
+    );
+
+    throw new Error(
+      "تعذر حساب مدة المحتوى التدريبي.",
+    );
+  }
+
+  return Math.max(
+    0,
+    Number(data ?? 0),
+  );
+}
+
 /* ==================================================
    Career Paths
 ================================================== */

@@ -1,6 +1,59 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import {
+  createClient,
+} from "@/lib/supabase/server";
+
+async function requireAdmin() {
+  const supabase =
+    await createClient();
+
+  const {
+    data: { user },
+    error: userError,
+  } =
+    await supabase.auth.getUser();
+
+  if (
+    userError ||
+    !user
+  ) {
+    throw new Error(
+      "يجب تسجيل الدخول أولًا.",
+    );
+  }
+
+  const {
+    data: profile,
+    error: profileError,
+  } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const role =
+    profile?.role ??
+    user.app_metadata?.role ??
+    user.user_metadata?.role ??
+    null;
+
+  if (
+    profileError ||
+    ![
+      "admin",
+      "super_admin",
+    ].includes(
+      String(role ?? ""),
+    )
+  ) {
+    throw new Error(
+      "ليس لديك صلاحية لتنفيذ هذا التعديل.",
+    );
+  }
+
+  return supabase;
+}
 
 export async function updateCoursePanelItem({
   table,
@@ -8,16 +61,17 @@ export async function updateCoursePanelItem({
   values,
 }: {
   table:
-  | "course_learning_modes"
-  | "course_result_tabs"
-  | "course_stations";
-
+    | "course_learning_modes"
+    | "course_result_tabs"
+    | "course_stations";
   id: string;
-
-  values: Record<string, unknown>;
+  values: Record<
+    string,
+    unknown
+  >;
 }) {
   const supabase =
-    await createClient();
+    await requireAdmin();
 
   const { error } =
     await supabase
@@ -30,7 +84,8 @@ export async function updateCoursePanelItem({
 
     return {
       success: false,
-      message: error.message,
+      message:
+        error.message,
     };
   }
 
@@ -38,6 +93,7 @@ export async function updateCoursePanelItem({
     success: true,
   };
 }
+
 export async function createCoursePanelItem({
   table,
   values,
@@ -45,11 +101,13 @@ export async function createCoursePanelItem({
   table:
     | "course_learning_modes"
     | "course_result_tabs";
-
-  values: Record<string, unknown>;
+  values: Record<
+    string,
+    unknown
+  >;
 }) {
   const supabase =
-    await createClient();
+    await requireAdmin();
 
   const { error } =
     await supabase
@@ -59,7 +117,8 @@ export async function createCoursePanelItem({
   if (error) {
     return {
       success: false,
-      message: error.message,
+      message:
+        error.message,
     };
   }
 
@@ -67,6 +126,7 @@ export async function createCoursePanelItem({
     success: true,
   };
 }
+
 export async function deleteCoursePanelItem({
   table,
   id,
@@ -74,11 +134,10 @@ export async function deleteCoursePanelItem({
   table:
     | "course_learning_modes"
     | "course_result_tabs";
-
   id: string;
 }) {
   const supabase =
-    await createClient();
+    await requireAdmin();
 
   const { error } =
     await supabase
@@ -89,7 +148,8 @@ export async function deleteCoursePanelItem({
   if (error) {
     return {
       success: false,
-      message: error.message,
+      message:
+        error.message,
     };
   }
 
@@ -108,15 +168,13 @@ export async function swapPanelOrder({
   table:
     | "course_learning_modes"
     | "course_result_tabs";
-
   firstId: string;
   firstOrder: number;
-
   secondId: string;
   secondOrder: number;
 }) {
   const supabase =
-    await createClient();
+    await requireAdmin();
 
   const { error: error1 } =
     await supabase
@@ -130,7 +188,8 @@ export async function swapPanelOrder({
   if (error1) {
     return {
       success: false,
-      message: error1.message,
+      message:
+        error1.message,
     };
   }
 
@@ -141,12 +200,16 @@ export async function swapPanelOrder({
         display_order:
           firstOrder,
       })
-      .eq("id", secondId);
+      .eq(
+        "id",
+        secondId,
+      );
 
   if (error2) {
     return {
       success: false,
-      message: error2.message,
+      message:
+        error2.message,
     };
   }
 
@@ -169,17 +232,23 @@ export async function createPanelSection({
   displayOrder: number;
 }) {
   const supabase =
-    await createClient();
+    await requireAdmin();
 
   const { data, error } =
     await supabase
-      .from("course_panel_sections")
+      .from(
+        "course_panel_sections",
+      )
       .insert({
-        course_id: courseId,
-        panel_component: panelComponent,
-        section_key: sectionKey,
+        course_id:
+          courseId,
+        panel_component:
+          panelComponent,
+        section_key:
+          sectionKey,
         title,
-        display_order: displayOrder,
+        display_order:
+          displayOrder,
         active: true,
         updated_at:
           new Date().toISOString(),
@@ -190,7 +259,8 @@ export async function createPanelSection({
   if (error) {
     return {
       success: false,
-      message: error.message,
+      message:
+        error.message,
     };
   }
 
@@ -213,11 +283,13 @@ export async function updatePanelSection({
   };
 }) {
   const supabase =
-    await createClient();
+    await requireAdmin();
 
   const { error } =
     await supabase
-      .from("course_panel_sections")
+      .from(
+        "course_panel_sections",
+      )
       .update({
         ...values,
         updated_at:
@@ -228,7 +300,8 @@ export async function updatePanelSection({
   if (error) {
     return {
       success: false,
-      message: error.message,
+      message:
+        error.message,
     };
   }
 
@@ -243,18 +316,21 @@ export async function deletePanelSection({
   id: string;
 }) {
   const supabase =
-    await createClient();
+    await requireAdmin();
 
   const { error } =
     await supabase
-      .from("course_panel_sections")
+      .from(
+        "course_panel_sections",
+      )
       .delete()
       .eq("id", id);
 
   if (error) {
     return {
       success: false,
-      message: error.message,
+      message:
+        error.message,
     };
   }
 
@@ -275,39 +351,52 @@ export async function swapPanelSectionOrder({
   secondOrder: number;
 }) {
   const supabase =
-    await createClient();
+    await requireAdmin();
 
-  const { error: firstError } =
-    await supabase
-      .from("course_panel_sections")
-      .update({
-        display_order: secondOrder,
-        updated_at:
-          new Date().toISOString(),
-      })
-      .eq("id", firstId);
+  const {
+    error: firstError,
+  } = await supabase
+    .from(
+      "course_panel_sections",
+    )
+    .update({
+      display_order:
+        secondOrder,
+      updated_at:
+        new Date().toISOString(),
+    })
+    .eq("id", firstId);
 
   if (firstError) {
     return {
       success: false,
-      message: firstError.message,
+      message:
+        firstError.message,
     };
   }
 
-  const { error: secondError } =
-    await supabase
-      .from("course_panel_sections")
-      .update({
-        display_order: firstOrder,
-        updated_at:
-          new Date().toISOString(),
-      })
-      .eq("id", secondId);
+  const {
+    error: secondError,
+  } = await supabase
+    .from(
+      "course_panel_sections",
+    )
+    .update({
+      display_order:
+        firstOrder,
+      updated_at:
+        new Date().toISOString(),
+    })
+    .eq(
+      "id",
+      secondId,
+    );
 
   if (secondError) {
     return {
       success: false,
-      message: secondError.message,
+      message:
+        secondError.message,
     };
   }
 
@@ -329,29 +418,28 @@ export async function createCourseTemplate({
     | "general";
 }) {
   const supabase =
-    await createClient();
+    await requireAdmin();
 
   const { error } =
     await supabase
-      .from("course_templates")
+      .from(
+        "course_templates",
+      )
       .insert({
         name,
         slug,
-
         template_type:
           templateType,
-
         version: 1,
-
         is_active: true,
-
         is_default: false,
       });
 
   if (error) {
     return {
       success: false,
-      message: error.message,
+      message:
+        error.message,
     };
   }
 
@@ -365,10 +453,11 @@ export async function updateCourseTemplate({
   values,
 }: {
   id: string;
-
   values: {
     name?: string;
-    description?: string | null;
+    description?:
+      | string
+      | null;
     template_type?:
       | "road"
       | "traffic"
@@ -377,11 +466,13 @@ export async function updateCourseTemplate({
   };
 }) {
   const supabase =
-    await createClient();
+    await requireAdmin();
 
   const { error } =
     await supabase
-      .from("course_templates")
+      .from(
+        "course_templates",
+      )
       .update({
         ...values,
         updated_at:
@@ -392,7 +483,8 @@ export async function updateCourseTemplate({
   if (error) {
     return {
       success: false,
-      message: error.message,
+      message:
+        error.message,
     };
   }
 
@@ -407,18 +499,21 @@ export async function deleteCourseTemplate({
   id: string;
 }) {
   const supabase =
-    await createClient();
+    await requireAdmin();
 
   const { error } =
     await supabase
-      .from("course_templates")
+      .from(
+        "course_templates",
+      )
       .delete()
       .eq("id", id);
 
   if (error) {
     return {
       success: false,
-      message: error.message,
+      message:
+        error.message,
     };
   }
 
@@ -432,19 +527,20 @@ export async function setDefaultCourseTemplate({
   templateType,
 }: {
   id: string;
-
   templateType:
     | "road"
     | "traffic"
     | "general";
 }) {
   const supabase =
-    await createClient();
+    await requireAdmin();
 
   const {
     error: resetError,
   } = await supabase
-    .from("course_templates")
+    .from(
+      "course_templates",
+    )
     .update({
       is_default: false,
       updated_at:
@@ -452,7 +548,7 @@ export async function setDefaultCourseTemplate({
     })
     .eq(
       "template_type",
-      templateType
+      templateType,
     );
 
   if (resetError) {
@@ -466,7 +562,9 @@ export async function setDefaultCourseTemplate({
   const {
     error: defaultError,
   } = await supabase
-    .from("course_templates")
+    .from(
+      "course_templates",
+    )
     .update({
       is_default: true,
       is_active: true,
@@ -494,16 +592,24 @@ export async function duplicateCourseTemplate({
   templateId: string;
 }) {
   const supabase =
-    await createClient();
+    await requireAdmin();
 
   const { data, error } =
     await supabase
-      .from("course_templates")
+      .from(
+        "course_templates",
+      )
       .select("*")
-      .eq("id", templateId)
+      .eq(
+        "id",
+        templateId,
+      )
       .single();
 
-  if (error || !data) {
+  if (
+    error ||
+    !data
+  ) {
     return {
       success: false,
       message:
@@ -515,37 +621,31 @@ export async function duplicateCourseTemplate({
   const nextVersion =
     data.version + 1;
 
-  const { error: insertError } =
-  await supabase
-    .from("course_templates")
+  const {
+    error: insertError,
+  } = await supabase
+    .from(
+      "course_templates",
+    )
     .insert({
       name:
         `${data.name.split(" V")[0]} V${nextVersion}`,
-
       slug:
         `${data.slug}-v${nextVersion}`,
-
       description:
         data.description,
-
       template_type:
         data.template_type,
-
       source_station_id:
         data.source_station_id,
-
       content_schema:
         data.content_schema,
-
       layout_schema:
         data.layout_schema,
-
       version:
         nextVersion,
-
       is_default:
         false,
-
       is_active:
         true,
     });

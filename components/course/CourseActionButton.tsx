@@ -228,7 +228,7 @@ export default function CourseActionButton({
           onClick={() =>
             router.push(redirectTo)
           }
-          className="h-12 w-full rounded-xl bg-emerald-600 px-4 py-3 font-black text-white transition hover:bg-emerald-700"
+          className="h-9 w-full rounded-full bg-[#07152E] px-4 text-[10px] font-black text-[#F7B548] shadow-[0_6px_16px_rgba(7,21,46,0.12)] transition hover:bg-[#F7B548] hover:text-[#07152E]"
         >
           {mode === "free"
             ? label || "شاهد الآن"
@@ -243,7 +243,7 @@ export default function CourseActionButton({
           href={startUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex h-12 w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-3 font-black text-white transition hover:bg-emerald-700"
+          className="flex h-9 w-full items-center justify-center rounded-full bg-[#07152E] px-4 text-[10px] font-black text-[#F7B548] shadow-[0_6px_16px_rgba(7,21,46,0.12)] transition hover:bg-[#F7B548] hover:text-[#07152E]"
         >
           استكمل الرحلة
         </a>
@@ -253,7 +253,7 @@ export default function CourseActionButton({
     return (
       <button
         type="button"
-        className="h-12 w-full rounded-xl bg-emerald-600 px-4 py-3 font-black text-white transition hover:bg-emerald-700"
+        className="h-9 w-full rounded-full bg-[#07152E] px-4 text-[10px] font-black text-[#F7B548] shadow-[0_6px_16px_rgba(7,21,46,0.12)] transition hover:bg-[#F7B548] hover:text-[#07152E]"
       >
         ابدأ الرحلة
       </button>
@@ -268,7 +268,7 @@ export default function CourseActionButton({
           onClick={() =>
             router.push(redirectTo)
           }
-          className="h-12 w-full rounded-xl bg-emerald-600 px-4 py-3 font-black text-white transition hover:bg-emerald-700"
+          className="h-9 w-full rounded-full bg-emerald-600 px-3 text-[10px] font-black text-white transition hover:bg-emerald-700"
         >
           شاهد مرة أخرى
         </button>
@@ -279,7 +279,7 @@ export default function CourseActionButton({
       <button
         type="button"
         disabled
-        className="h-12 w-full cursor-default rounded-xl bg-emerald-600 px-4 py-3 font-black text-white"
+        className="h-9 w-full cursor-default rounded-full bg-emerald-600 px-3 text-[10px] font-black text-white"
       >
         الرحلة مكتملة
       </button>
@@ -292,7 +292,7 @@ export default function CourseActionButton({
         <button
           type="button"
           disabled
-          className="h-12 w-full cursor-not-allowed rounded-xl bg-[#F7B548] px-4 py-3 font-black text-[#07152E] opacity-95"
+          className="h-9 w-full cursor-not-allowed rounded-full bg-[#F7B548] px-4 text-[10px] font-black text-[#07152E] shadow-[0_5px_14px_rgba(247,181,72,0.18)] opacity-95"
         >
           طلب الاشتراك قيد المراجعة
         </button>
@@ -312,7 +312,7 @@ export default function CourseActionButton({
         type="button"
         onClick={handleEnrollment}
         disabled={isPending}
-        className="h-12 w-full rounded-xl bg-[#F7B548] px-4 py-3 font-black text-[#07152E] transition hover:brightness-105 disabled:cursor-wait disabled:opacity-60"
+        className="h-9 w-full rounded-full bg-[#F7B548] px-4 text-[10px] font-black text-[#07152E] shadow-[0_5px_14px_rgba(247,181,72,0.18)] transition hover:brightness-105 disabled:cursor-wait disabled:opacity-60"
       >
         {isPending ? "جارٍ إعادة إرسال الطلب..." : "أعد إرسال طلب الاشتراك"}
       </button>
@@ -326,7 +326,7 @@ export default function CourseActionButton({
           type="button"
           onClick={handleEnrollment}
           disabled={isPending}
-          className="h-12 w-full rounded-xl bg-[#F7B548] px-4 py-3 font-black text-[#07152E] transition hover:brightness-105 disabled:cursor-wait disabled:opacity-60"
+          className="h-9 w-full rounded-full bg-[#F7B548] px-4 text-[10px] font-black text-[#07152E] shadow-[0_5px_14px_rgba(247,181,72,0.18)] transition hover:brightness-105 disabled:cursor-wait disabled:opacity-60"
         >
           {isPending
             ? "جارٍ إرسال طلب إعادة التفعيل..."
@@ -347,7 +347,7 @@ export default function CourseActionButton({
       <button
         type="button"
         disabled
-        className="h-12 w-full cursor-not-allowed rounded-xl bg-slate-600 px-4 py-3 font-black text-white"
+        className="h-9 w-full cursor-not-allowed rounded-full bg-slate-600 px-3 text-[10px] font-black text-white"
       >
         انتهى الاشتراك
       </button>
@@ -360,7 +360,7 @@ export default function CourseActionButton({
         type="button"
         disabled={isPending}
         onClick={handleEnrollment}
-        className="h-12 w-full rounded-xl bg-[#F7B548] px-4 py-3 font-black text-[#07152E] transition hover:brightness-105 disabled:cursor-wait disabled:opacity-60"
+        className="h-9 w-full rounded-full bg-[#F7B548] px-4 text-[10px] font-black text-[#07152E] shadow-[0_5px_14px_rgba(247,181,72,0.18)] transition hover:brightness-105 disabled:cursor-wait disabled:opacity-60"
       >
        {isPending ? "جارٍ إرسال الطلب..." : label}
       </button>

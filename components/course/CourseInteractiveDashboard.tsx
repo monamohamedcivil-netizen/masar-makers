@@ -113,6 +113,70 @@ const panelIconMap = {
   "message-square-quote": MessageSquareQuote,
 } as const;
 
+
+function MobileCourseTabs({
+  items,
+  activePanel,
+  onChange,
+}: {
+  items: PanelMenuItemData[];
+  activePanel: CoursePanelTab;
+  onChange: (panel: CoursePanelTab) => void;
+}) {
+  return (
+    <div className="lg:hidden">
+      <div
+        dir="rtl"
+        role="tablist"
+        aria-label="تنقل صفحة الكورس"
+        className="flex w-full flex-nowrap items-end justify-center gap-1 px-1"
+      >
+        {items.map((item) => {
+          const active =
+            activePanel === item.id;
+
+          const Icon = item.icon;
+
+          return (
+            <button
+              key={item.databaseId}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() =>
+                onChange(item.id)
+              }
+              className={`relative flex min-w-0 flex-1 items-center justify-center gap-1 border px-1.5 text-center font-black transition-all duration-200 ${
+                active
+                  ? "min-h-[50px] rounded-t-[18px] border-[#07152E] bg-[#07152E] py-2 text-[11px] text-white shadow-[0_-5px_18px_rgba(7,21,46,0.10)]"
+                  : "min-h-[42px] rounded-t-[14px] border-[#CBD2DB] bg-[#E2E5E9] py-2 text-[10px] text-[#4B5563] hover:min-h-[50px] hover:bg-[#D8DDE3] hover:text-[#07152E]"
+              }`}
+            >
+              <Icon
+                size={16}
+                strokeWidth={1.8}
+                className={
+                  active
+                    ? "text-[#F7B548]"
+                    : "text-[#6B7280]"
+                }
+              />
+
+              <span className="whitespace-nowrap text-center leading-4">
+                {item.title}
+              </span>
+
+              {active ? (
+                <span className="absolute inset-x-4 bottom-0 h-[3px] bg-[#F7B548]" />
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function CourseInteractiveDashboard({
   mode = "student",
   stationId,
@@ -131,6 +195,10 @@ export default function CourseInteractiveDashboard({
   initialPanelContents = {},
 }: CourseInteractiveDashboardProps) {
   const router = useRouter();
+
+  // محفوظ للتوافق مع استدعاءات الصفحة الحالية.
+  // الشاشات التفاعلية تقرأ محتواها حسب panel_component.
+  void builderPage;
 
   const [isPending, startTransition] =
     useTransition();
@@ -200,6 +268,18 @@ export default function CourseInteractiveDashboard({
           displayOrder: item.display_order,
         })),
       [resultTabs]
+    );
+
+  const mobilePanelItems =
+    useMemo(
+      () => [
+        ...mappedLearningItems,
+        ...mappedResultItems,
+      ],
+      [
+        mappedLearningItems,
+        mappedResultItems,
+      ]
     );
 
   const defaultPanel =
@@ -438,10 +518,6 @@ if (displayedPanel === "reviews") {
         />
       );
     }
-    if (builderPage) {
-      return <CourseRenderer page={builderPage} />;
-    }
-
     return (
       <ProfessionalPanelViewer
         key={`${stationId}-${displayedPanel}-viewer`}
@@ -458,9 +534,9 @@ if (displayedPanel === "reviews") {
   return (
     <section
       dir="rtl"
-      className="bg-[#F7F8FA] px-4 pb-12 pt-7 sm:px-6"
+      className="bg-[#F7F8FA] px-4 pb-8 pt-3 sm:px-6"
     >
-      <div className="mx-auto max-w-[1580px]">
+      <div className="mx-auto max-w-[1480px]">
         {isEditMode && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[#DCE3EB] bg-white px-4 py-3 shadow-[0_10px_28px_rgba(7,21,46,0.07)]">
             <div>
@@ -482,8 +558,18 @@ if (displayedPanel === "reviews") {
           </div>
         )}
 
+        <div className="lg:hidden">
+          <div className="mx-auto w-[94%] sm:w-[92%]">
+            <MobileCourseTabs
+              items={mobilePanelItems}
+              activePanel={activePanel}
+              onChange={setActivePanel}
+            />
+          </div>
+        </div>
+
         <div className="relative flex flex-col items-stretch gap-4 lg:flex-row lg:items-start lg:gap-0">
-          <div className="order-1 w-full lg:relative lg:z-10 lg:mt-[76px] lg:w-[205px] lg:shrink-0 xl:w-[220px]">
+          <div className="hidden lg:relative lg:z-10 lg:order-1 lg:block lg:mt-0 lg:w-[220px] lg:shrink-0 xl:w-[235px]">
             <SideMenu
               mode={normalizedMode}
               title={learningColumnTitle}
@@ -537,11 +623,11 @@ if (displayedPanel === "reviews") {
             />
           </div>
 
-          <div className="order-3 w-full min-w-0 lg:order-2 lg:relative lg:z-20 lg:-mx-1 lg:flex-1">
+          <div className="order-3 -mt-px w-full min-w-0 lg:order-2 lg:relative lg:z-20 lg:mx-[-1px] lg:mt-0 lg:flex-1">
             {renderCenterContent()}
           </div>
 
-          <div className="order-2 w-full lg:order-3 lg:relative lg:z-10 lg:mt-[76px] lg:w-[205px] lg:shrink-0 xl:w-[220px]">
+          <div className="hidden lg:relative lg:z-10 lg:order-3 lg:block lg:mt-0 lg:w-[220px] lg:shrink-0 xl:w-[235px]">
             <SideMenu
               mode={normalizedMode}
               title={resultColumnTitle}

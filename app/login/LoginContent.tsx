@@ -23,6 +23,7 @@ export default function LoginPage() {
 
   const confirmed = searchParams.get("confirmed");
   const confirmationError = searchParams.get("error");
+  const passwordReset = searchParams.get("password_reset");
 
   const handleSubmit = async (
     event: FormEvent<HTMLFormElement>
@@ -137,6 +138,12 @@ export default function LoginPage() {
           </div>
         )}
 
+        {passwordReset === "true" && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[12px] font-bold leading-6 text-emerald-700">
+            تم تغيير كلمة المرور بنجاح. يمكنك الآن تسجيل الدخول بكلمة المرور الجديدة.
+          </div>
+        )}
+
         <div>
           <label
             htmlFor="email"
@@ -187,12 +194,12 @@ export default function LoginPage() {
               كلمة المرور
             </label>
 
-            <button
-              type="button"
+            <Link
+              href="/forgot-password"
               className="text-[12px] font-black text-[#C88712] transition hover:underline"
             >
               نسيت كلمة المرور؟
-            </button>
+            </Link>
           </div>
 
           <div className="relative">

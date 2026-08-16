@@ -1,7 +1,11 @@
 "use server";
 
 import { getMasarPassport } from "@/lib/dashboard/masar-passport";
-import { createClient } from "@/lib/supabase/server";
+import { revalidatePath } from "next/cache";
+
+import {
+  createClient,
+} from "@/lib/supabase/server";
 
 export interface StudentSummary {
   userId: string;
@@ -26,6 +30,8 @@ export interface StudentSummary {
   surveysCount: number;
 
   totalPoints: number;
+  bonusPoints: number;
+lastBonusReason: string | null;
   rewardCourses: number;
   drawEntries: number;
 
@@ -187,10 +193,11 @@ export async function getStudentsSummary(): Promise<
   const supabase = await createClient();
 
   const [
-    enrollmentsResult,
-    profilesResult,
-    certificatesResult,
-  ] = await Promise.all([
+  enrollmentsResult,
+  profilesResult,
+  certificatesResult,
+  bonusPointsResult,
+] = await Promise.all([
     supabase
       .from("enrollments")
       .select(
@@ -204,6 +211,14 @@ export async function getStudentsSummary(): Promise<
     supabase
       .from("certificates")
       .select("user_id,status"),
+      supabase
+  .from("student_bonus_points")
+  .select(
+    "user_id,points,reason,point_type,created_at",
+  )
+  .order("created_at", {
+    ascending: false,
+  }),
   ]);
 
   if (enrollmentsResult.error) {
@@ -236,7 +251,56 @@ export async function getStudentsSummary(): Promise<
   const certificates = (
     certificatesResult.data ?? []
   ) as GenericRow[];
+if (bonusPointsResult.error) {
+  console.error(
+    "LOAD ADMIN BONUS POINTS ERROR",
+    bonusPointsResult.error.message,
+  );
+}
 
+const bonusPointRows = (
+  bonusPointsResult.data ?? []
+) as GenericRow[];
+
+const bonusPointsMap =
+  new Map<string, number>();
+
+const lastBonusReasonMap =
+  new Map<string, string>();
+
+for (const bonusRow of bonusPointRows) {
+  const userId =
+    textValue(bonusRow.user_id);
+
+  if (!userId) {
+    continue;
+  }
+
+  const points =
+    Number(bonusRow.points ?? 0);
+
+  bonusPointsMap.set(
+    userId,
+    (bonusPointsMap.get(userId) ?? 0) +
+      points,
+  );
+
+  /*
+   * البيانات مرتبة من الأحدث للأقدم،
+   * لذلك أول سبب نجده هو السبب الأخير.
+   */
+  if (!lastBonusReasonMap.has(userId)) {
+    const reason =
+      textValue(bonusRow.reason);
+
+    if (reason) {
+      lastBonusReasonMap.set(
+        userId,
+        reason,
+      );
+    }
+  }
+}
   const profileMap = new Map<
     string,
     GenericRow
@@ -334,7 +398,17 @@ export async function getStudentsSummary(): Promise<
       surveysCount: 0,
 
       totalPoints: 0,
-      rewardCourses: 0,
+      
+
+bonusPoints:
+  bonusPointsMap.get(userId) ?? 0,
+
+lastBonusReason:
+  lastBonusReasonMap.get(userId) ??
+  null,
+
+rewardCourses: 0,
+      
       earnedRewards: 0,
 redeemedRewards: 0,
 availableRewards: 0,
@@ -498,4 +572,223 @@ student.lastRewardRedeemedAt =
       "ar",
     ),
   );
+}
+
+export async function addStudentBonusPoints(
+  userId: string,
+  points: number,
+  reason: string,
+  pointType: "referral" | "bonus" | "adjustment",
+) {
+  const normalizedUserId =
+    userId.trim();
+
+  const normalizedReason =
+    reason.trim();
+
+  const normalizedPointType =
+    pointType.trim().toLowerCase();
+
+  const normalizedPoints =
+    Math.trunc(Number(points));
+
+  if (!normalizedUserId) {
+    return {
+      success: false,
+      message: "معرف الطالب غير موجود.",
+    };
+  }
+
+  if (
+    !Number.isFinite(normalizedPoints) ||
+    normalizedPoints === 0
+  ) {
+    return {
+      success: false,
+      message:
+        "يرجى إدخال عدد نقاط صحيح لا يساوي صفر.",
+    };
+  }
+
+  if (!normalizedReason) {
+    return {
+      success: false,
+      message:
+        "يرجى كتابة سبب إضافة النقاط.",
+    };
+  }
+
+  if (
+    ![
+      "referral",
+      "bonus",
+      "adjustment",
+    ].includes(normalizedPointType)
+  ) {
+    return {
+      success: false,
+      message:
+        "يرجى اختيار نوع النقاط.",
+    };
+  }
+
+  const supabase =
+    await createClient();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      success: false,
+      message:
+        "يجب تسجيل الدخول كمسؤول.",
+    };
+  }
+
+  const {
+    data: adminProfile,
+    error: adminError,
+  } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const role = String(
+    adminProfile?.role ?? "",
+  ).toLowerCase();
+
+  if (
+    adminError ||
+    !["admin", "super_admin"].includes(role)
+  ) {
+    return {
+      success: false,
+      message:
+        "ليس لديك صلاحية لإضافة نقاط.",
+    };
+  }
+
+  const { error } = await supabase
+    .from("student_bonus_points")
+    .insert({
+      user_id: normalizedUserId,
+      points: normalizedPoints,
+      reason: normalizedReason,
+      point_type: normalizedPointType,
+      created_by: user.id,
+    });
+
+  if (error) {
+    console.error(
+      "ADD STUDENT BONUS POINTS ERROR:",
+      error.message,
+    );
+
+    return {
+      success: false,
+      message: error.message,
+    };
+  }
+
+  revalidatePath("/admin/students");
+  revalidatePath(
+    `/admin/students/${normalizedUserId}`,
+  );
+  revalidatePath("/dashboard");
+
+  return {
+    success: true,
+    message:
+      normalizedPoints > 0
+        ? `تمت إضافة ${normalizedPoints} نقطة بنجاح.`
+        : `تم خصم ${Math.abs(
+            normalizedPoints,
+          )} نقطة بنجاح.`,
+  };
+}
+export interface StudentBonusPointHistoryItem {
+  id: string;
+  points: number;
+  reason: string;
+  pointType:
+    | "referral"
+    | "bonus"
+    | "adjustment";
+  createdAt: string;
+}
+
+export async function getStudentBonusPointsHistory(
+  userId: string,
+): Promise<{
+  success: boolean;
+  items: StudentBonusPointHistoryItem[];
+  message?: string;
+}> {
+  const normalizedUserId = userId.trim();
+
+  if (!normalizedUserId) {
+    return {
+      success: false,
+      items: [],
+      message: "معرف الطالب غير موجود.",
+    };
+  }
+
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      success: false,
+      items: [],
+      message: "يجب تسجيل الدخول.",
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("student_bonus_points")
+    .select(
+      "id,points,reason,point_type,created_at",
+    )
+    .eq("user_id", normalizedUserId)
+    .order("created_at", {
+      ascending: false,
+    });
+
+  if (error) {
+    console.error(
+      "LOAD STUDENT BONUS POINT HISTORY ERROR:",
+      error.message,
+    );
+
+    return {
+      success: false,
+      items: [],
+      message: "تعذر تحميل سجل النقاط.",
+    };
+  }
+
+  return {
+    success: true,
+    items: (data ?? []).map((row) => ({
+      id: String(row.id),
+      points: Number(row.points ?? 0),
+      reason: String(row.reason ?? ""),
+      pointType:
+        (String(
+          row.point_type ?? "bonus",
+        ) as
+          | "referral"
+          | "bonus"
+          | "adjustment"),
+      createdAt: String(row.created_at ?? ""),
+    })),
+  };
 }

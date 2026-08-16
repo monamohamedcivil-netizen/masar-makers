@@ -26,6 +26,7 @@ type PointsBreakdown = {
   projects: number;
   featuredProjects: number;
   referrals: number;
+  bonusPoints: number;
 };
 
 interface Props {
@@ -203,6 +204,11 @@ export default function ProgressModal({
               count={passport.referralCount}
               value={pointsBreakdown.referrals}
             />
+            <PointsLine
+  label="نقاط إضافية"
+  count={passport.bonusPointsHistory.length}
+  value={pointsBreakdown.bonusPoints}
+/>
           </div>
 
           <div className="mt-4 flex items-center justify-between rounded-xl bg-[#07152E] px-4 py-3 text-white">

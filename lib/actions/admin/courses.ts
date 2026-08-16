@@ -10,15 +10,15 @@ export interface CourseFormData {
   slug: string;
   course_code?: string;
   level?: "single" | "split";
+  difficulty_level?: "fundamentals" | "advanced";
   description?: string;
   image_url?: string;
   icon_url?: string;
   price?: number;
   currency?: string;
   duration_hours?: number;
-  journey_type?: string;
-  status?: CourseStatus;
-  whatsapp_number?: string;
+   status?: CourseStatus;
+ 
   display_order?: number;
 }
 
@@ -103,11 +103,10 @@ export async function createCourse(formData: CourseFormData) {
       currency: formData.currency?.trim().toUpperCase() || "SAR",
       duration_hours: Number(formData.duration_hours ?? 0),
       display_order: Number(formData.display_order ?? 1),
-      journey_type: formData.journey_type || "career_path",
-      status: formData.status || "draft",
-      whatsapp_number: formData.whatsapp_number?.trim() || null,
-course_code: formData.course_code?.trim().toUpperCase() || null,
-level: formData.level || "single",
+           status: formData.status || "draft",
+      course_code: formData.course_code?.trim().toUpperCase() || null,
+      level: formData.level || "single",
+      difficulty_level: formData.difficulty_level || "advanced",
     })
     .select()
     .single();
@@ -156,12 +155,11 @@ export async function updateCourse(
       currency: formData.currency?.trim().toUpperCase() || "SAR",
       duration_hours: Number(formData.duration_hours ?? 0),
      display_order: Number(formData.display_order ?? 1),
-      journey_type: formData.journey_type || "career_path",
-      status: formData.status || "draft",
-      whatsapp_number: formData.whatsapp_number?.trim() || null,
-course_code: formData.course_code?.trim().toUpperCase() || null,
-level: formData.level || "single",
-updated_at: new Date().toISOString(),
+           status: formData.status || "draft",
+      course_code: formData.course_code?.trim().toUpperCase() || null,
+      level: formData.level || "single",
+      difficulty_level: formData.difficulty_level || "advanced",
+      updated_at: new Date().toISOString(),
     })
     .eq("id", courseId)
     .select()

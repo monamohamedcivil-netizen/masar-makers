@@ -438,8 +438,12 @@ function emptyDashboard(
    passport: {
   totalPoints: 0,
 
+  bonusPoints: 0,
+  bonusPointsHistory: [],
+
   currentLevel: "Explorer",
-  nextLevel: "Professional",
+
+   nextLevel: "Professional",
 
   currentLevelPoints: 0,
   nextLevelPoints: 500,
@@ -663,20 +667,27 @@ export async function getStudentDashboardData(
   }
 
   const userId =
-    targetUserId?.trim() || user.id;
+  targetUserId?.trim() || user.id;
 
-  if (userId !== user.id) {
-    const { data: adminProfile } =
-      await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", userId)
-        .maybeSingle();
+if (userId !== user.id) {
+  const { data: currentUserProfile, error: currentUserProfileError } =
+    await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
 
-    if (adminProfile?.role !== "admin") {
-      throw new Error("FORBIDDEN");
-    }
+  const currentUserRole = String(
+    currentUserProfile?.role ?? "",
+  ).toLowerCase();
+
+  if (
+    currentUserProfileError ||
+    !["admin", "super_admin"].includes(currentUserRole)
+  ) {
+    throw new Error("FORBIDDEN");
   }
+}
 
   const [
     { data: profile },
@@ -699,7 +710,7 @@ export async function getStudentDashboardData(
   .select(
     "id,certificate_number,course_title,issued_at,preview_url,pdf_url,file_url,is_new",
   )
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .eq("status", "issued")
       .order("issued_at", { ascending: false }),
     supabase
@@ -719,7 +730,7 @@ export async function getStudentDashboardData(
         survey_enabled
     )
 `)
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .order("submitted_at", { ascending: false }),
   ]);
 

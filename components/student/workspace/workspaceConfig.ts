@@ -24,7 +24,7 @@ export const studentWorkspaceDefinition: WorkspaceDefinition = {
   panels: [
     {
       id: "career",
-      title: "رحلاتي التعليمية",
+      title: "رحلاتي الاحترافية",
       icon: GraduationCap,
       side: "learning",
       kind: "course-list",

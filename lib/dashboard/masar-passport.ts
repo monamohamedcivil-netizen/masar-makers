@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 
 export type MasarLevel =
   | "Explorer"
@@ -18,10 +18,17 @@ export type RewardItem = {
   courseType: RewardCourseType;
   courseTypeLabel: string | null;
 };
-
+export type BonusPointHistoryItem = {
+  id: string;
+  points: number;
+  reason: string;
+  pointType: "referral" | "bonus" | "adjustment";
+  createdAt: string;
+};
 export interface MasarPassportData {
   totalPoints: number;
-
+bonusPoints: number;
+bonusPointsHistory: BonusPointHistoryItem[];
   currentLevel: MasarLevel;
   nextLevel: MasarLevel | null;
 
@@ -177,7 +184,7 @@ function isViewedProgress(progress: ProgressRow | undefined) {
 export async function getMasarPassport(
   userId: string,
 ): Promise<MasarPassportData> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const enrollmentResult = await supabase
     .from("enrollments")
@@ -490,7 +497,88 @@ export async function getMasarPassport(
   const projects =
     projectsResult.data ?? [];
 
-  const referrals: { id: string }[] = [];
+const bonusPointsResult = await supabase
+  .from("student_bonus_points")
+  .select("id,points,reason,point_type,created_at")
+  .eq("user_id", userId)
+  .order("created_at", {
+    ascending: false,
+  });
+if (bonusPointsResult.error) {
+  console.error(
+    "Failed to load bonus points:",
+    bonusPointsResult.error.message,
+  );
+}
+
+const bonusPointsRows =
+  bonusPointsResult.data ?? [];
+
+const referralRows = bonusPointsRows.filter(
+  (item) =>
+    String(item.point_type ?? "bonus")
+      .trim()
+      .toLowerCase() === "referral",
+);
+
+const nonReferralBonusRows =
+  bonusPointsRows.filter(
+    (item) =>
+      String(item.point_type ?? "bonus")
+        .trim()
+        .toLowerCase() !== "referral",
+  );
+
+const bonusPoints =
+  nonReferralBonusRows.reduce(
+    (sum, item) =>
+      sum + Number(item.points ?? 0),
+    0,
+  );
+
+const referralPoints =
+  referralRows.reduce(
+    (sum, item) =>
+      sum + Number(item.points ?? 0),
+    0,
+  );
+
+const bonusPointsHistory: BonusPointHistoryItem[] =
+  bonusPointsRows.map((item) => {
+    const rawPointType = String(
+      item.point_type ?? "bonus",
+    )
+      .trim()
+      .toLowerCase();
+
+    const pointType:
+      | "referral"
+      | "bonus"
+      | "adjustment" =
+      rawPointType === "referral"
+        ? "referral"
+        : rawPointType === "adjustment"
+          ? "adjustment"
+          : "bonus";
+
+    return {
+      id: String(item.id),
+      points: Number(item.points ?? 0),
+      reason:
+        String(item.reason ?? "").trim() ||
+        (pointType === "referral"
+          ? "دعوة صديق"
+          : pointType === "adjustment"
+            ? "تصحيح نقاط"
+            : "نقاط إضافية"),
+      pointType,
+      createdAt:
+        String(item.created_at ?? ""),
+    };
+  });
+
+const referralCount =
+  referralRows.length;
 
   const professionalEnrollmentPoints =
     professionalEnrollments * 50;
@@ -517,9 +605,6 @@ export async function getMasarPassport(
         Boolean(project.show_on_course),
     ).length * 20;
 
-  const referralPoints =
-    referrals.length * 50;
-
   const coursePoints =
     professionalEnrollmentPoints +
     oneDayEnrollmentPoints +
@@ -529,14 +614,15 @@ export async function getMasarPassport(
     professionalCompletionPoints;
 
   const totalPoints =
-    professionalEnrollmentPoints +
-    professionalCompletionPoints +
-    oneDayEnrollmentPoints +
-    freeJourneyPoints +
-    surveyPoints +
-    projectPoints +
-    featuredProjectPoints +
-    referralPoints;
+  professionalEnrollmentPoints +
+  professionalCompletionPoints +
+  oneDayEnrollmentPoints +
+  freeJourneyPoints +
+  surveyPoints +
+  projectPoints +
+  featuredProjectPoints +
+  referralPoints +
+  bonusPoints;
 
   const drawEntries = Math.floor(
     totalPoints / 100,
@@ -577,6 +663,8 @@ export async function getMasarPassport(
 
   return {
     totalPoints,
+bonusPoints,
+  bonusPointsHistory,
 
     currentLevel: current.name,
     nextLevel: next?.name ?? null,
@@ -637,8 +725,7 @@ featuredProjectCount:
       p.show_on_course
   ).length,
 
-referralCount:
-  referrals.length,
+referralCount,
     professionalEnrollmentPoints,
     professionalCompletionPoints,
     oneDayEnrollmentPoints,
