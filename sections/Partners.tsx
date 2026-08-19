@@ -1,277 +1,263 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
+  ArrowRight,
   Building2,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
 
-const partners = [
-  
-   {
-    name: "Present Trade",
-    logo: "/images/partners/present-trade.png",
+type Locale = "ar" | "en";
+
+type LocalizedText = {
+  ar: string;
+  en: string;
+};
+
+type Partner = {
+  name: string;
+  logo: string;
+  description: LocalizedText;
+};
+
+const labels = {
+  ar: {
+    title: "شراكات تدعم جودة الرحلة",
     description:
-      "دعم المتدربين في الشرق الأوسط وتسهيل الوصول إلى النسخ التجريبية وخيارات الترخيص.",
+      "نتعاون مع جهات تقنية ومهنية تساعدنا على تقديم محتوى أكثر دقة، وتوفير تجربة تعلم مرتبطة بمتطلبات السوق والأدوات المستخدمة في المشاريع الحقيقية.",
+    discover: "تعرف على شركائنا",
+    tech: "جهات تقنية متخصصة",
+    expertise: "محتوى مدعوم بخبرة عملية",
+    development: "تطوير مستمر للرحلات",
   },
-    {
+  en: {
+    title: "Partnerships That Support Quality Learning",
+    description:
+      "We collaborate with technical and professional organizations to deliver more accurate content and provide learning experiences connected to market needs and real engineering practice.",
+    discover: "Meet Our Partners",
+    tech: "Specialized Technical Partners",
+    expertise: "Practice-Driven Content",
+    development: "Continuous Journey Development",
+  },
+} as const;
+
+const partners: Partner[] = [
+  {
+    name: "Masar Makers",
+    logo: "/images/logo/masar-makers-mark.png",
+    description: {
+      ar: "مجتمع مهني يجمع المهندسين والمدربين والخبراء داخل رحلات تطبيقية متكاملة.",
+      en: "A professional community connecting engineers, trainers, and experts through integrated practical learning journeys.",
+    },
+  },
+  {
     name: "Civil Survey Applications",
     logo: "/images/partners/csa.png",
-    description:
-      "دعم تقني وتدريبي لرحلات Civil Site Design وتوفير فرص تقييم البرنامج للمتدربين.",
+    description: {
+      ar: "دعم تقني وتدريبي لرحلات Civil Site Design وتوفير فرص تقييم البرنامج للمتدربين.",
+      en: "Technical and training support for Civil Site Design journeys, including software evaluation opportunities for trainees.",
+    },
   },
- 
   {
-    name: "Training Community",
-    logo: "/images/logo/masar-makers-mark.png",
-    description:
-      "مجتمع مهني يجمع المهندسين والمدربين والخبراء داخل رحلات تطبيقية متكاملة.",
+    name: "Australian Design Company",
+    logo: "/images/partners/australian.png",
+    description: {
+      ar: "شركة استشارات هندسية تدعم تبادل الخبرات وربط التدريب بالممارسات المهنية والمشاريع الواقعية.",
+      en: "An engineering consultancy supporting knowledge exchange and linking training with professional practice and real projects.",
+    },
   },
-
-  // أضيفي الشركاء الجدد هنا لاحقًا
-  // {
-  //   name: "New Partner",
-  //   logo: "/images/partners/new-partner.png",
-  //   description: "وصف الشريك الجديد.",
-  // },
+  {
+    name: "Present Trade",
+    logo: "/images/partners/present-trade.png",
+    description: {
+      ar: "دعم المتدربين في الشرق الأوسط وتسهيل الوصول إلى النسخ التجريبية وخيارات الترخيص.",
+      en: "Supporting trainees across the Middle East with easier access to trial versions and licensing options.",
+    },
+  },
 ];
 
 export default function Partners() {
-  const sliderRef = useRef<HTMLDivElement | null>(null);
-  const currentIndex = useRef(0);
-
-  /*
-    نكرر البطاقات مرتين حتى تستمر الحركة بسلاسة.
-    مع وجود 3 شركاء فقط ستظهر البطاقات الحالية،
-    وعند إضافة شركاء جدد يبدأ السلايدر في التنقل بينهم.
-  */
-  const sliderPartners = [...partners, ...partners];
+  const [locale, setLocale] = useState<Locale>("ar");
 
   useEffect(() => {
-    const slider = sliderRef.current;
+    const savedLocale = window.localStorage.getItem(
+      "masar-locale",
+    ) as Locale | null;
 
-    if (!slider || partners.length <= 3) return;
+    if (savedLocale === "ar" || savedLocale === "en") {
+      setLocale(savedLocale);
+    }
 
-    const timer = window.setInterval(() => {
-      const firstCard =
-        slider.querySelector<HTMLElement>("[data-partner-card]");
+    const handleLocaleChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        locale?: Locale;
+      }>;
 
-      if (!firstCard) return;
+      const nextLocale = customEvent.detail?.locale;
 
-      const cardWidth = firstCard.offsetWidth;
-      const gap = 16;
-
-      currentIndex.current += 1;
-
-      slider.scrollTo({
-        left: currentIndex.current * (cardWidth + gap),
-        behavior: "smooth",
-      });
-
-      if (currentIndex.current >= partners.length) {
-        window.setTimeout(() => {
-          currentIndex.current = 0;
-
-          slider.scrollTo({
-            left: 0,
-            behavior: "auto",
-          });
-        }, 650);
+      if (nextLocale === "ar" || nextLocale === "en") {
+        setLocale(nextLocale);
       }
-    }, 4000);
+    };
 
-    return () => window.clearInterval(timer);
+    window.addEventListener(
+      "masar:locale-change",
+      handleLocaleChange,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "masar:locale-change",
+        handleLocaleChange,
+      );
+    };
   }, []);
+
+  const text = labels[locale];
+  const isArabic = locale === "ar";
+  const DiscoverArrow = isArabic ? ArrowLeft : ArrowRight;
 
   return (
     <section
       id="partners"
-      dir="rtl"
-      className="w-full bg-[#F7F8FA] px-6 py-4"
+      dir={isArabic ? "rtl" : "ltr"}
+      className="w-full bg-[#F7F8FA] px-3 py-3 sm:px-4 lg:px-5"
     >
-      <div className="mx-auto max-w-[1580px]">
-        <div className="grid gap-5 lg:grid-cols-[1.05fr_1.95fr]">
+      <div className="mx-auto max-w-[1680px]">
+        {/* 5 columns = Intro + 4 partners */}
+        <div className="grid gap-3 xl:grid-cols-[1.45fr_repeat(4,minmax(0,0.8875fr))]">
           {/* Main message */}
-          <div className="relative overflow-hidden rounded-[28px] bg-[#07152E] p-6 text-white shadow-[0_18px_45px_rgba(7,21,46,0.15)]">
-            <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-[#F7B548]/16 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-20 left-8 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
+          <div className="relative -mx-3 flex min-h-[150px] w-[calc(100%+1.5rem)] flex-col overflow-hidden rounded-none bg-[#07152E] px-5 py-3 text-white shadow-[0_18px_45px_rgba(7,21,46,0.15)] sm:-mx-4 sm:w-[calc(100%+2rem)] sm:min-h-[135px] sm:px-6 sm:py-3 xl:mx-0 xl:min-h-[235px] xl:w-full xl:rounded-[24px] xl:p-5">
+            <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-[#F7B548]/16 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-20 left-8 h-44 w-44 rounded-full bg-white/10 blur-3xl" />
 
-            <div className="relative z-10">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#F7B548]/35 bg-[#F7B548]/10 text-[#F7B548]">
-                <ShieldCheck size={25} />
-              </div>
+            <div className="relative z-10 flex h-full flex-col">
+              <div
+  dir={isArabic ? "rtl" : "ltr"}
+  className="flex items-center justify-start gap-3"
+>
+  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#F7B548]/35 bg-[#F7B548]/10 text-[#F7B548] xl:h-12 xl:w-12">
+    <ShieldCheck size={22} />
+  </div>
 
-              <h3 className="mt-4 text-[26px] font-black leading-tight">
-                شراكات تدعم جودة الرحلة
-              </h3>
+  <h3
+    className={`font-black leading-tight ${
+      isArabic
+        ? "text-[22px] xl:text-[23px]"
+        : "text-[20px] xl:text-[21px]"
+    }`}
+  >
+    {text.title}
+  </h3>
+</div>
 
-              <p className="mt-3 text-[15px] font-medium leading-7 text-slate-300">
-                نتعاون مع جهات تقنية ومهنية تساعدنا على تقديم محتوى أكثر دقة，
-                وتوفير تجربة تعلم مرتبطة بمتطلبات السوق والأدوات المستخدمة في
-                المشاريع الحقيقية.
+              <p
+                className={`mt-2.5 font-medium text-slate-300 ${
+                  isArabic
+                    ? "text-[13px] leading-6 xl:text-[13px]"
+                    : "text-[12px] leading-[1.65] xl:text-[12px]"
+                }`}
+              >
+                {text.description}
               </p>
 
-              <div className="mt-4 flex items-center justify-end gap-0">
-  <span className="text-[18px] font-black tracking-wide text-[#F7B548]">
-    تعرف على شركائنا
-  </span>
+              <div
+                className={`mt-auto sm:mt-0 flex items-center gap-2 pt-3 ${
+                  isArabic ? "justify-end" : "justify-start"
+                }`}
+              >
+                <span className="text-[14px] font-black tracking-wide text-[#F7B548] xl:text-[13px]">
+                  {text.discover}
+                </span>
 
-  <div className="relative h-[30px] w-[145px]">
-    <svg
-      viewBox="0 0 60 30"
-      className="absolute inset-0 h-full w-full"
-      fill="none"
-    >
-      {/* جسم الطريق الذهبي */}
-      <path
-        d="M80 15 H16"
-        stroke="#F7B548"
-        strokeWidth="8"
-        strokeLinecap="round"
-      />
-
-      {/* الخط المتقطع الكحلي داخل الطريق */}
-      <path
-  d="M76 15 H22"
-  stroke="#07152E"
-  strokeWidth="2.3"
-  strokeDasharray="10 5"
-  strokeLinecap="round"
->
-  <animate
-    attributeName="stroke-dashoffset"
-    from="0"
-    to="-17"
-    dur="1.8s"
-    repeatCount="indefinite"
-  />
-</path>
-
-      {/* رأس السهم */}
-      <path
-        d="M30 7 L10 15 L30 23"
-        stroke="#F7B548"
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  </div>
-</div>
+                <DiscoverArrow className="h-4 w-4 text-[#F7B548]" />
+              </div>
             </div>
           </div>
 
-          {/* Partners slider */}
-          <div className="min-w-0 overflow-hidden">
-            <div
-              ref={sliderRef}
-              dir="ltr"
-              className="
-                flex h-full gap-4 overflow-x-auto scroll-smooth
-                [scrollbar-width:none]
-                [&::-webkit-scrollbar]:hidden
-              "
+          {/* Partner cards */}
+          <div className="grid grid-cols-4 gap-2 xl:contents">
+          {partners.map((partner) => (
+            <article
+              key={partner.name}
+              className="group relative flex min-h-[148px] flex-col overflow-hidden rounded-[16px] border border-[#DCE3EC] bg-white p-2 text-center shadow-[0_10px_24px_rgba(7,21,46,0.05)] transition-all duration-500 hover:-translate-y-1 hover:border-[#F7B548]/65 hover:shadow-[0_16px_34px_rgba(7,21,46,0.09)] sm:min-h-[165px] sm:rounded-[18px] sm:p-2.5 xl:min-h-[225px] xl:rounded-[22px] xl:p-3.5"
             >
-              {sliderPartners.map((partner, index) => (
-                <article
-                  data-partner-card
-                  dir="rtl"
-                  key={`${partner.name}-${index}`}
-                  className="
-                    group relative flex min-h-[260px]
-                    w-[calc((100%-32px)/3)] min-w-[calc((100%-32px)/3)]
-                    flex-col overflow-hidden rounded-[26px]
-                    border border-[#DCE3EC] bg-white p-5 text-center
-                    shadow-[0_12px_32px_rgba(7,21,46,0.05)]
-                    transition-all duration-500
-                    hover:-translate-y-1.5
-                    hover:border-[#F7B548]/65
-                    hover:shadow-[0_18px_42px_rgba(7,21,46,0.1)]
-                    max-lg:w-[calc((100%-16px)/2)]
-                    max-lg:min-w-[calc((100%-16px)/2)]
-                    max-md:w-full
-                    max-md:min-w-full
-                  "
+              <div className="pointer-events-none absolute -left-12 -top-12 h-28 w-28 rounded-full bg-[#F7B548]/0 blur-3xl transition duration-500 group-hover:bg-[#F7B548]/13" />
+
+              <div className="relative z-10 mx-auto flex h-[58px] w-full items-center justify-center py-1 sm:h-[50px] xl:h-[82px] xl:py-2">
+                <Image
+                  src={partner.logo}
+                  alt={partner.name}
+                  width={180}
+                  height={90}
+                  sizes="180px"
+                  className="max-h-[52px] max-w-[92px] object-contain transition-all duration-500 group-hover:-translate-y-1 group-hover:scale-105 sm:max-h-[60px] sm:max-w-[110px] xl:max-h-[72px] xl:max-w-[150px]"
+                />
+              </div>
+
+              <div className="relative z-10 mt-3">
+                <h3 className="line-clamp-2 text-[9px] font-black leading-tight text-[#07152E] sm:text-[12px] xl:text-[15px]">
+                  {partner.name}
+                </h3>
+
+                <div className="mx-auto mt-1.5 h-[2px] w-6 rounded-full bg-[#F7B548] transition-all duration-500 group-hover:w-10 xl:mt-2 xl:h-[3px] xl:w-9 xl:group-hover:w-14" />
+
+                <p
+                  className={`mt-3 font-bold text-slate-600 ${
+                    isArabic
+                      ? "text-[13px] leading-6 xl:text-[13px]"
+                      : "text-[12px] leading-[1.65] xl:text-[12px]"
+                  }`}
                 >
-                  {/* Glow */}
-                  <div className="pointer-events-none absolute -left-12 -top-12 h-28 w-28 rounded-full bg-[#F7B548]/0 blur-3xl transition duration-500 group-hover:bg-[#F7B548]/13" />
-
-                  {/* Logo container */}
-                  <div
-  className="
-    relative z-10
-    mx-auto
-    flex
-    h-[95px]
-    w-full
-    items-center
-    justify-center
-    py-2
-  "
->
-  <Image
-    src={partner.logo}
-    alt={partner.name}
-    width={170}
-    height={90}
-    className="
-max-h-[82px]
-max-w-[180px]
-object-contain
-transition-all
-duration-500
-group-hover:scale-110
-group-hover:-translate-y-1
-    "
-  />
-</div>
-
-                  {/* Partner content */}
-                  <div className="relative z-10 mt-4">
-                    <h3 className="text-[18px] font-black text-[#07152E]">
-                      {partner.name}
-                    </h3>
-
-                    <div className="mx-auto mt-2 h-[3px] w-10 rounded-full bg-[#F7B548] transition-all duration-500 group-hover:w-16" />
-
-                    <p className="mt-3 text-[15px] font-bold leading-6 text-slate-600">
-                      {partner.description}
-                    </p>
-                  </div>
-
-                  <div className="relative z-10 mt-auto flex items-center justify-center gap-2 pt-4 text-[13px] font-black text-[#D49319]">
-                    <Sparkles size={15} />
-                    شريك في رحلة التطوير
-                  </div>
-                </article>
-              ))}
-            </div>
+                  {partner.description[locale]}
+                </p>
+              </div>
+            </article>
+          ))}
           </div>
         </div>
 
         {/* Trust strip */}
         <div className="mt-2.5 grid grid-cols-3 gap-3 rounded-[20px] border border-[#E0E6EE] bg-white px-5 py-2 text-center shadow-[0_8px_24px_rgba(7,21,46,0.04)]">
           <div className="flex items-center justify-center gap-3">
-            <Building2 size={25} className="text-[#D49319]" />
-            <span className="text-[17px] font-black text-[#07152E]">
-              جهات تقنية متخصصة
+            <Building2 size={23} className="text-[#D49319]" />
+            <span
+              className={`font-black text-[#07152E] ${
+                isArabic
+                  ? "text-[15px]"
+                  : "text-[13px]"
+              }`}
+            >
+              {text.tech}
             </span>
           </div>
 
           <div className="flex items-center justify-center gap-3">
-            <ShieldCheck size={25} className="text-[#D49319]" />
-            <span className="text-[17px] font-black text-[#07152E]">
-              محتوى مدعوم بخبرة عملية
+            <ShieldCheck size={23} className="text-[#D49319]" />
+            <span
+              className={`font-black text-[#07152E] ${
+                isArabic
+                  ? "text-[15px]"
+                  : "text-[13px]"
+              }`}
+            >
+              {text.expertise}
             </span>
           </div>
 
           <div className="flex items-center justify-center gap-3">
-            <Sparkles size={25} className="text-[#D49319]" />
-            <span className="text-[17px] font-black text-[#07152E]">
-              تطوير مستمر للرحلات
+            <Sparkles size={23} className="text-[#D49319]" />
+            <span
+              className={`font-black text-[#07152E] ${
+                isArabic
+                  ? "text-[15px]"
+                  : "text-[13px]"
+              }`}
+            >
+              {text.development}
             </span>
           </div>
         </div>

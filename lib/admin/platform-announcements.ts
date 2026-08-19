@@ -14,8 +14,11 @@ export type PlatformAnnouncement = {
   id: string;
   type: PlatformAnnouncementType;
   title: string;
+  title_en: string | null;
   description: string | null;
+  description_en: string | null;
   button_text: string;
+  button_text_en: string | null;
   href: string;
   is_active: boolean;
   display_order: number;
@@ -100,8 +103,11 @@ export async function getAdminPlatformAnnouncements(): Promise<
 export async function createPlatformAnnouncement(input: {
   type: PlatformAnnouncementType;
   title: string;
+  titleEn?: string;
   description?: string;
+  descriptionEn?: string;
   buttonText?: string;
+  buttonTextEn?: string;
   href?: string;
   isActive?: boolean;
   displayOrder?: number;
@@ -138,8 +144,11 @@ export async function createPlatformAnnouncement(input: {
     .insert({
       type: input.type,
       title,
+      title_en: input.titleEn?.trim() || null,
       description: input.description?.trim() || null,
+      description_en: input.descriptionEn?.trim() || null,
       button_text: input.buttonText?.trim() || "التفاصيل",
+      button_text_en: input.buttonTextEn?.trim() || "Details",
       href: input.href?.trim() || "#",
       is_active: input.isActive ?? true,
       display_order: Number(input.displayOrder ?? 0),
@@ -168,8 +177,11 @@ export async function updatePlatformAnnouncement(
   input: {
     type: PlatformAnnouncementType;
     title: string;
+    titleEn?: string;
     description?: string;
+    descriptionEn?: string;
     buttonText?: string;
+    buttonTextEn?: string;
     href?: string;
     isActive?: boolean;
     displayOrder?: number;
@@ -214,8 +226,11 @@ export async function updatePlatformAnnouncement(
     .update({
       type: input.type,
       title,
+      title_en: input.titleEn?.trim() || null,
       description: input.description?.trim() || null,
+      description_en: input.descriptionEn?.trim() || null,
       button_text: input.buttonText?.trim() || "التفاصيل",
+      button_text_en: input.buttonTextEn?.trim() || "Details",
       href: input.href?.trim() || "#",
       is_active: input.isActive ?? true,
       display_order: Number(input.displayOrder ?? 0),

@@ -102,15 +102,18 @@ export default function SurveysPanel({
       (data.careerPaths ?? [])
         .map((path) => ({
           ...path,
+          // Keep the full professional path visible.
+          // Enrollment controls activation/clickability, not visibility.
           stations: path.stations.filter(
-            (station) =>
-              station.isEnrolled &&
-              station.status !== "pending" &&
-              Boolean(station.courseId),
+            (station) => Boolean(station.courseId),
           ),
         }))
-        .filter(
-          (path) => path.stations.length > 0,
+        .filter((path) =>
+          path.stations.some(
+            (station) =>
+              station.isEnrolled &&
+              station.status !== "pending",
+          ),
         ),
     [data.careerPaths],
   );
@@ -202,7 +205,9 @@ export default function SurveysPanel({
       path.stations.some(
         (station) =>
           station.courseId ===
-          requestedCourseId,
+            requestedCourseId &&
+          station.isEnrolled &&
+          station.status !== "pending",
       ),
     )?.pathId;
   }, [paths, requestedCourseId]);
@@ -326,21 +331,32 @@ function SurveyPathView({
   ) => StudentSurveyRecord | null;
   onSaved: () => Promise<void>;
 }) {
+  const selectableStations = useMemo(
+    () =>
+      path.stations.filter(
+        (station) =>
+          station.isEnrolled &&
+          station.status !== "pending" &&
+          Boolean(station.courseId),
+      ),
+    [path.stations],
+  );
+
   const initialCourseId =
-    path.stations.some(
+    selectableStations.some(
       (station) =>
         station.courseId ===
         requestedCourseId,
     )
       ? requestedCourseId
-      : path.stations[0]?.courseId ??
+      : selectableStations[0]?.courseId ??
         "";
 
   const [activeCourseId, setActiveCourseId] =
     useState(initialCourseId);
 
   useEffect(() => {
-    const exists = path.stations.some(
+    const exists = selectableStations.some(
       (station) =>
         station.courseId ===
         activeCourseId,
@@ -348,18 +364,21 @@ function SurveyPathView({
 
     if (!exists) {
       setActiveCourseId(
-        path.stations[0]?.courseId ??
+        selectableStations[0]?.courseId ??
           "",
       );
     }
-  }, [path, activeCourseId]);
+  }, [
+    selectableStations,
+    activeCourseId,
+  ]);
 
   const activeCourse =
-    path.stations.find(
+    selectableStations.find(
       (station) =>
         station.courseId ===
         activeCourseId,
-    ) ?? path.stations[0];
+    ) ?? selectableStations[0];
 
   if (!activeCourse) {
     return null;
@@ -422,13 +441,14 @@ function SurveyPathView({
               survey?.comment ?? ""
             }
             surveyUrl={
-  getCourseSurveyUrl(
-    survey?.courses ?? null,
-  ) ??
-  getRelatedSurveyUrl(
-    survey?.survey_templates ?? null,
-  )
-}
+              getCourseSurveyUrl(
+                survey?.courses ?? null,
+              ) ??
+              getRelatedSurveyUrl(
+                survey?.survey_templates ??
+                  null,
+              )
+            }
             detailedSurveyCompleted={Boolean(
               survey?.detailed_survey_completed,
             )}
@@ -457,102 +477,134 @@ function CompactStationRoad({
 }) {
   return (
     <div className="relative px-3 py-3">
-        <div
-          className="relative mx-auto grid w-full items-start gap-1 px-2 pt-1 sm:px-4"
-          style={{
-            gridTemplateColumns: `repeat(${stations.length}, minmax(0, 1fr))`,
-          }}
-        >
-          <div className="absolute left-[11%] right-[11%] top-[32px] h-[8px] bg-[#07152E]">
-            <div className="absolute inset-x-0 top-1/2 h-[0.5px] -translate-y-1/2 bg-[#F7B548]" />
-          </div>
+      <div
+        className="relative mx-auto grid w-full items-start gap-1 px-2 pt-1 sm:px-4"
+        style={{
+          gridTemplateColumns: `repeat(${stations.length}, minmax(0, 1fr))`,
+        }}
+      >
+        <div className="absolute left-[11%] right-[11%] top-[32px] h-[8px] bg-[#07152E]">
+          <div className="absolute inset-x-0 top-1/2 h-[0.5px] -translate-y-1/2 bg-[#F7B548]" />
+        </div>
 
-          {stations.map(
-            (station, index) => {
-              const active =
-                station.courseId ===
+        {stations.map(
+          (station, index) => {
+            const enrolled =
+              station.isEnrolled &&
+              station.status !== "pending";
+
+            const active =
+              enrolled &&
+              station.courseId ===
                 activeCourseId;
 
-              const survey =
-                getCourseSurvey(
+            const survey = enrolled
+              ? getCourseSurvey(
                   station.courseId,
-                );
+                )
+              : null;
 
-              const completed =
-                Boolean(
-                  survey?.submitted_at,
-                ) &&
-                Boolean(
-                  survey?.detailed_survey_completed,
-                );
+            const completed =
+              Boolean(
+                survey?.submitted_at,
+              ) &&
+              Boolean(
+                survey?.detailed_survey_completed,
+              );
 
-              return (
-                <button
-                  key={station.stationId}
-                  type="button"
-                  onClick={() =>
-                    onSelectCourse(
-                      station.courseId,
-                    )
-                  }
-                  className="group relative z-10 flex min-w-0 flex-col items-center px-1 py-1"
-                >
-                  <span
-                    className={`relative flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full border-[2px] bg-white transition ${
-                      active
+            return (
+              <button
+                key={station.stationId}
+                type="button"
+                disabled={!enrolled}
+                aria-disabled={!enrolled}
+                onClick={() => {
+                  if (!enrolled) return;
+
+                  onSelectCourse(
+                    station.courseId,
+                  );
+                }}
+                className={`group relative z-10 flex min-w-0 flex-col items-center px-1 py-1 ${
+                  enrolled
+                    ? "cursor-pointer"
+                    : "cursor-default"
+                }`}
+              >
+                <span
+                  className={`relative flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full border-[2px] bg-white transition ${
+                    !enrolled
+                      ? "border-[#D5DCE6] bg-[#F1F3F6]"
+                      : active
                         ? "scale-110 border-[#F7B548] shadow-[0_6px_18px_rgba(247,181,72,0.28)]"
                         : completed
                           ? "border-emerald-400"
                           : "border-[#D5DCE6] group-hover:border-[#F7B548]"
-                    }`}
-                  >
-                    {station.iconUrl ? (
-                      <img
-                        src={station.iconUrl}
-                        alt={
-                          station.shortTitle ||
-                          station.title
-                        }
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-xs font-black text-[#07152E]">
-                        {index + 1}
-                      </span>
-                    )}
-                  </span>
+                  }`}
+                >
+                  {station.iconUrl ? (
+                    <img
+                      src={station.iconUrl}
+                      alt={
+                        station.shortTitle ||
+                        station.title
+                      }
+                      className={`h-full w-full object-cover ${
+                        enrolled
+                          ? ""
+                          : "grayscale opacity-40"
+                      }`}
+                    />
+                  ) : (
+                    <span
+                      className={`text-xs font-black ${
+                        enrolled
+                          ? "text-[#07152E]"
+                          : "text-slate-400"
+                      }`}
+                    >
+                      {index + 1}
+                    </span>
+                  )}
+                </span>
 
-                  <span
-                    className={`mt-2 w-full truncate text-center text-[9px] font-black sm:text-[10px] ${
-                      active
+                <span
+                  className={`mt-2 w-full truncate text-center text-[9px] font-black sm:text-[10px] ${
+                    !enrolled
+                      ? "text-slate-400"
+                      : active
                         ? "text-[#C88712]"
                         : "text-[#334155]"
-                    }`}
-                  >
-                    {station.shortTitle ||
-                      station.title}
-                  </span>
+                  }`}
+                >
+                  {station.shortTitle ||
+                    station.title}
+                </span>
 
-                  <span
-                    className={`mt-0.5 text-[8px] font-bold ${
-                      completed
+                <span
+                  className={`mt-0.5 text-[8px] font-bold ${
+                    !enrolled
+                      ? "text-slate-400"
+                      : completed
                         ? "text-emerald-600"
                         : survey
                           ? "text-blue-600"
                           : "text-slate-400"
-                    }`}
-                  >
-                    {completed
+                  }`}
+                >
+                  {!enrolled
+                    ? "غير مشترك"
+                    : completed
                       ? "مكتمل"
                       : survey
                         ? "محفوظ"
                         : "بانتظار التقييم"}
-                  </span>
-                </button>
-              );
-            },
-          )}
-        </div>
+                </span>
+              </button>
+            );
+          },
+        )}
+      </div>
     </div>
   );
 }

@@ -15,6 +15,31 @@ import {
 
 import { createClient } from "@/lib/supabase/client";
 
+type Locale = "ar" | "en";
+
+const labels = {
+  ar: {
+    center: "مركز الإشعارات",
+    notifications: "الإشعارات",
+    close: "إغلاق",
+    markAll: "تحديد الكل كمقروء",
+    actionError: "تعذر تنفيذ الإجراء",
+    empty: "لا توجد إشعارات جديدة",
+    loadError: "تعذر تحميل الإشعارات حاليًا.",
+    updateError: "تعذر تحديث الإشعارات.",
+  },
+  en: {
+    center: "Notification Center",
+    notifications: "Notifications",
+    close: "Close",
+    markAll: "Mark all as read",
+    actionError: "Unable to complete the action",
+    empty: "No new notifications",
+    loadError: "Unable to load notifications right now.",
+    updateError: "Unable to update notifications.",
+  },
+} as const;
+
 type DisplayNotification = {
   notificationId: string;
   title: string;
@@ -39,6 +64,7 @@ type NotificationRpcRow = {
 export default function NotificationCenter() {
   const router = useRouter();
 
+  const [locale, setLocale] = useState<Locale>("ar");
   const [notifications, setNotifications] =
     useState<DisplayNotification[]>([]);
   const [open, setOpen] = useState(false);
@@ -47,6 +73,43 @@ export default function NotificationCenter() {
   const [error, setError] = useState("");
 
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const savedLocale = window.localStorage.getItem(
+      "masar-locale",
+    ) as Locale | null;
+
+    if (savedLocale === "ar" || savedLocale === "en") {
+      setLocale(savedLocale);
+    }
+
+    const handleLocaleChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        locale?: Locale;
+      }>;
+
+      const nextLocale = customEvent.detail?.locale;
+
+      if (nextLocale === "ar" || nextLocale === "en") {
+        setLocale(nextLocale);
+      }
+    };
+
+    window.addEventListener(
+      "masar:locale-change",
+      handleLocaleChange,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "masar:locale-change",
+        handleLocaleChange,
+      );
+    };
+  }, []);
+
+  const text = labels[locale];
+  const isArabic = locale === "ar";
 
   const loadNotifications = useCallback(async () => {
     setLoading(true);
@@ -95,13 +158,13 @@ export default function NotificationCenter() {
         "message" in loadError &&
         typeof loadError.message === "string"
           ? loadError.message
-          : "تعذر تحميل الإشعارات حاليًا.";
+          : text.loadError;
 
       setError(message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [text.loadError]);
 
   useEffect(() => {
     void loadNotifications();
@@ -173,7 +236,7 @@ export default function NotificationCenter() {
     }
 
     if (data !== true) {
-      setError("تعذر تحديث حالة الإشعار.");
+      setError(text.updateError);
       return false;
     }
 
@@ -243,7 +306,7 @@ export default function NotificationCenter() {
     }
 
     if (typeof data !== "number") {
-      setError("تعذر تحديث الإشعارات.");
+      setError(text.updateError);
       setActionPending(false);
       return;
     }
@@ -255,7 +318,7 @@ export default function NotificationCenter() {
   return (
     <div
       ref={containerRef}
-      dir="rtl"
+      dir={isArabic ? "rtl" : "ltr"}
       className="relative"
     >
       <button
@@ -268,19 +331,23 @@ export default function NotificationCenter() {
             void loadNotifications();
           }
         }}
-        aria-label="مركز الإشعارات"
+        aria-label={text.center}
         aria-expanded={open}
         className="group flex h-16 items-center gap-3 rounded-full transition"
       >
         <span className="hidden text-[18px] font-black text-[#07152E] lg:block">
-          مركز الإشعارات
+          {text.center}
         </span>
 
         <span className="relative flex h-7 w-7 items-center justify-center rounded-full bg-[#07152E] text-white shadow-md transition duration-300 group-hover:bg-[#F7B548] group-hover:text-[#07152E]">
           <Bell size={16} />
 
           {notifications.length > 0 && (
-            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[9px] font-black text-white">
+            <span
+              className={`absolute -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[9px] font-black text-white ${
+                isArabic ? "-right-1" : "-left-1"
+              }`}
+            >
               {notifications.length > 99
                 ? "99+"
                 : notifications.length}
@@ -290,7 +357,11 @@ export default function NotificationCenter() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-[63px] z-[200] w-[380px] max-w-[calc(100vw-24px)] overflow-hidden border border-[#DCE3EC] bg-white shadow-[0_25px_70px_rgba(7,21,46,0.22)]">
+        <div
+          className={`absolute top-[63px] z-[200] w-[380px] max-w-[calc(100vw-24px)] overflow-hidden border border-[#DCE3EC] bg-white shadow-[0_25px_70px_rgba(7,21,46,0.22)] ${
+            isArabic ? "right-0" : "left-0"
+          }`}
+        >
           <div className="flex items-center justify-between bg-[#07152E] px-5 py-2 text-white">
             <div className="flex items-center gap-3">
               <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-[#F7B548]/15 text-[#F7B548]">
@@ -298,14 +369,14 @@ export default function NotificationCenter() {
               </div>
 
               <h2 className="text-[16px] font-black">
-                الإشعارات
+                {text.notifications}
               </h2>
             </div>
 
             <button
               type="button"
               onClick={() => setOpen(false)}
-              aria-label="إغلاق"
+              aria-label={text.close}
               className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 transition hover:bg-white/20"
             >
               <X size={16} />
@@ -313,7 +384,11 @@ export default function NotificationCenter() {
           </div>
 
           {notifications.length > 0 && (
-            <div className="flex justify-end border-b border-[#E7EBF0] px-4 py-2">
+            <div
+              className={`flex border-b border-[#E7EBF0] px-4 py-2 ${
+                isArabic ? "justify-end" : "justify-start"
+              }`}
+            >
               <button
                 type="button"
                 onClick={() =>
@@ -323,7 +398,7 @@ export default function NotificationCenter() {
                 className="flex items-center gap-1.5 text-[10px] font-black text-[#B87808] transition hover:text-[#07152E] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Check size={13} />
-                تحديد الكل كمقروء
+                {text.markAll}
               </button>
             </div>
           )}
@@ -337,7 +412,7 @@ export default function NotificationCenter() {
               <div className="flex min-h-[180px] items-center justify-center px-6 text-center">
                 <div>
                   <p className="text-[11px] font-bold text-red-600">
-                    تعذر تنفيذ الإجراء
+                    {text.actionError}
                   </p>
 
                   <p className="mt-2 break-words text-[9px] text-slate-500">
@@ -352,7 +427,7 @@ export default function NotificationCenter() {
                 </div>
 
                 <h3 className="mt-3 text-[14px] font-black text-[#07152E]">
-                  لا توجد إشعارات جديدة
+                  {text.empty}
                 </h3>
               </div>
             ) : (
@@ -369,6 +444,7 @@ export default function NotificationCenter() {
                   >
                     <NotificationItem
                       item={item}
+                      locale={locale}
                     />
                   </button>
                 ))}
@@ -383,12 +459,23 @@ export default function NotificationCenter() {
 
 function NotificationItem({
   item,
+  locale,
 }: {
   item: DisplayNotification;
+  locale: Locale;
 }) {
+  const isArabic = locale === "ar";
   return (
-    <div className="relative flex gap-3 rounded-[16px] border border-[#F7B548]/45 bg-[#FFF9EC] px-3 py-3 text-right shadow-[0_6px_18px_rgba(247,181,72,0.08)] transition duration-200">
-      <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#F7B548]" />
+    <div
+      className={`relative flex gap-3 rounded-[16px] border border-[#F7B548]/45 bg-[#FFF9EC] px-3 py-3 shadow-[0_6px_18px_rgba(247,181,72,0.08)] transition duration-200 ${
+        isArabic ? "text-right" : "text-left"
+      }`}
+    >
+      <span
+        className={`absolute top-2 h-2 w-2 rounded-full bg-[#F7B548] ${
+          isArabic ? "right-2" : "left-2"
+        }`}
+      />
 
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F7B548] text-[#07152E]">
         <NotificationIcon type={item.type} />
@@ -404,7 +491,7 @@ function NotificationItem({
         </p>
 
         <p className="mt-1.5 text-[9px] font-bold text-[#B87808]">
-          {formatNotificationDate(item.createdAt)}
+          {formatNotificationDate(item.createdAt, locale)}
         </p>
       </div>
     </div>
@@ -441,11 +528,15 @@ function NotificationIcon({
 
 function formatNotificationDate(
   dateValue: string,
+  locale: Locale,
 ) {
   const date = new Date(dateValue);
 
-  return new Intl.DateTimeFormat("ar-SA", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return new Intl.DateTimeFormat(
+    locale === "ar" ? "ar-SA" : "en-US",
+    {
+      dateStyle: "medium",
+      timeStyle: "short",
+    },
+  ).format(date);
 }

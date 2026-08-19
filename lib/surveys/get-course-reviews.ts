@@ -1,15 +1,22 @@
-import { createClient } from "@/lib/supabase/server";
+import {
+  createClient,
+} from "@/lib/supabase/server";
 
-export async function getCourseReviews(courseId: string) {
+export async function getCourseReviews(
+  courseId: string
+) {
   const supabase = await createClient();
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("student_surveys")
     .select(`
       id,
       rating,
       comment,
+      student_name,
+      student_country,
       show_on_course,
+      status,
       profiles(
         full_name,
         country
@@ -17,7 +24,20 @@ export async function getCourseReviews(courseId: string) {
     `)
     .eq("course_id", courseId)
     .eq("show_on_course", true)
-    .order("submitted_at", { ascending: false });
+    .eq("status", "approved")
+    .order(
+      "submitted_at",
+      { ascending: false }
+    );
+
+  if (error) {
+    console.error(
+      "Failed to load course reviews:",
+      error.message
+    );
+
+    return [];
+  }
 
   return data ?? [];
 }

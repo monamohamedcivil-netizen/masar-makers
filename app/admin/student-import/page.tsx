@@ -2,6 +2,7 @@
 
 import {
   ChangeEvent,
+  useEffect,
   useMemo,
   useState,
   useTransition,
@@ -12,11 +13,15 @@ import {
   Award,
   CheckCircle2,
   ClipboardCheck,
+  Eye,
   FileSpreadsheet,
   FolderOpen,
   GraduationCap,
   Loader2,
+  RefreshCcw,
+  Trash2,
   Upload,
+  UserRound,
   XCircle,
 } from "lucide-react";
 
@@ -29,10 +34,13 @@ import type {
 } from "@/lib/import/types";
 
 import {
+  deleteImportedStudent,
+  getImportedStudents,
   importStudentRows,
 } from "@/lib/actions/admin/student-import";
 
 import type {
+  ImportedStudentListItem,
   StudentImportResult,
 } from "@/lib/actions/admin/student-import";
 
@@ -110,10 +118,49 @@ export default function StudentImportPage() {
       null,
     );
 
+  const [importedStudents, setImportedStudents] =
+    useState<ImportedStudentListItem[]>([]);
+
+  const [
+    isLoadingImportedStudents,
+    setIsLoadingImportedStudents,
+  ] = useState(false);
+
+  const [
+    importedStudentsError,
+    setImportedStudentsError,
+  ] = useState("");
+
   const [
     isImporting,
     startImportTransition,
   ] = useTransition();
+
+  async function loadImportedStudents() {
+    setIsLoadingImportedStudents(true);
+    setImportedStudentsError("");
+
+    try {
+      const data =
+        await getImportedStudents();
+
+      setImportedStudents(data);
+    } catch (error) {
+      setImportedStudents([]);
+
+      setImportedStudentsError(
+        error instanceof Error
+          ? error.message
+          : "تعذر تحميل سجل بيانات الاستيراد.",
+      );
+    } finally {
+      setIsLoadingImportedStudents(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadImportedStudents();
+  }, []);
 
   async function handleFile(
     event: ChangeEvent<HTMLInputElement>,
@@ -250,6 +297,10 @@ export default function StudentImportPage() {
             );
 
           setImportResult(result);
+
+          if (result.imported > 0) {
+            await loadImportedStudents();
+          }
         } catch (error) {
           setImportResult({
             success: false,
@@ -642,6 +693,15 @@ export default function StudentImportPage() {
           result={importResult}
         />
       )}
+
+      <ImportedStudentsSection
+        students={importedStudents}
+        loading={isLoadingImportedStudents}
+        error={importedStudentsError}
+        onRefresh={() =>
+          void loadImportedStudents()
+        }
+      />
     </div>
   );
 }
@@ -838,5 +898,262 @@ function ImportReport({
         </div>
       )}
     </section>
+  );
+}
+
+function ImportedStudentsSection({
+  students,
+  loading,
+  error,
+  onRefresh,
+}: {
+  students: ImportedStudentListItem[];
+  loading: boolean;
+  error: string;
+  onRefresh: () => void;
+}) {
+  const [
+    deletingRegistryId,
+    setDeletingRegistryId,
+  ] = useState<string | null>(null);
+
+  async function handleDeleteStudent(
+    student: ImportedStudentListItem,
+  ) {
+    if (student.isLinkedToAccount) {
+      window.alert(
+        "هذا الطالب مرتبط بحساب حقيقي ولا يمكن حذفه من سجل الاستيراد.",
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `هل أنتِ متأكدة من حذف جميع البيانات المستوردة للطالب "${student.studentName}"؟\n\nسيتم حذف الرحلات والشهادات والمشاريع والاستبيانات المستوردة لهذا الطالب.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeletingRegistryId(
+        student.registryId,
+      );
+
+      const result =
+        await deleteImportedStudent(
+          student.registryId,
+        );
+
+      if (!result.success) {
+        window.alert(result.message);
+        return;
+      }
+
+      window.alert(result.message);
+      onRefresh();
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "تعذر حذف بيانات الطالب.",
+      );
+    } finally {
+      setDeletingRegistryId(null);
+    }
+  }
+
+  function formatDate(value: string) {
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return "—";
+    }
+
+    return new Intl.DateTimeFormat("ar-SA", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    }).format(date);
+  }
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-slate-200 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-black text-[#07152E]">
+            سجل بيانات الاستيراد
+          </h2>
+
+          <p className="mt-1 text-sm text-slate-500">
+            جميع الطلاب الذين لديهم بيانات تم إدخالها من ملفات الاستيراد.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-[#07152E]">
+            {students.length} طالب
+          </span>
+
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={loading}
+            className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-[#07152E] transition hover:border-[#F7B548] disabled:opacity-50"
+          >
+            <RefreshCcw
+              className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+            />
+            تحديث
+          </button>
+        </div>
+      </div>
+
+      {error ? (
+        <div className="m-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+          {error}
+        </div>
+      ) : loading ? (
+        <div className="flex min-h-[220px] items-center justify-center">
+          <div className="flex items-center gap-3 text-sm font-bold text-slate-500">
+            <Loader2 className="h-5 w-5 animate-spin text-[#C88712]" />
+            جاري تحميل بيانات الاستيراد...
+          </div>
+        </div>
+      ) : students.length === 0 ? (
+        <div className="flex min-h-[240px] flex-col items-center justify-center px-6 text-center">
+          <UserRound className="h-12 w-12 text-slate-300" />
+          <p className="mt-4 font-black text-[#07152E]">
+            لا توجد بيانات استيراد
+          </p>
+          <p className="mt-1 text-sm text-slate-400">
+            ستظهر هنا بيانات الطلاب بعد تنفيذ أول عملية استيراد.
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1250px] text-sm">
+            <thead className="bg-[#07152E] text-white">
+              <tr>
+                <th className="px-4 py-4 text-center">Masar ID</th>
+                <th className="px-4 py-4 text-right">الطالب</th>
+                <th className="px-4 py-4 text-right">البريد</th>
+                <th className="px-4 py-4 text-center">حالة الحساب</th>
+                <th className="px-4 py-4 text-center">الرحلات</th>
+                <th className="px-4 py-4 text-center">الشهادات</th>
+                <th className="px-4 py-4 text-center">الاستبيانات</th>
+                <th className="px-4 py-4 text-center">المشاريع</th>
+                <th className="px-4 py-4 text-center">تاريخ الإضافة</th>
+                <th className="px-4 py-4 text-center">الإجراءات</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {students.map((student) => (
+                <tr
+                  key={student.registryId}
+                  className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70"
+                >
+                  <td className="px-4 py-4 text-center font-black text-[#C88712]">
+                    {student.masarId}
+                  </td>
+
+                  <td className="px-4 py-4">
+                    <div className="font-black text-[#07152E]">
+                      {student.studentName}
+                    </div>
+                  </td>
+
+                  <td className="px-4 py-4 text-slate-600">
+                    {student.email}
+                  </td>
+
+                  <td className="px-4 py-4 text-center">
+                    {student.isLinkedToAccount ? (
+                      <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">
+                        مرتبط بحساب
+                      </span>
+                    ) : (
+                      <span className="inline-flex rounded-full bg-[#FFF5DD] px-3 py-1 text-xs font-black text-[#B8790B]">
+                        بانتظار التسجيل
+                      </span>
+                    )}
+                  </td>
+
+                  <MetricValue value={student.enrollmentsCount} />
+                  <MetricValue value={student.certificatesCount} />
+                  <MetricValue value={student.surveysCount} />
+                  <MetricValue value={student.projectsCount} />
+
+                  <td className="px-4 py-4 text-center text-xs font-bold text-slate-500">
+                    {formatDate(student.createdAt)}
+                  </td>
+
+                  <td className="px-4 py-4 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.location.href =
+                            student.userId
+                              ? `/admin/students/${student.userId}`
+                              : `/admin/student-import/${student.registryId}`;
+                        }}
+                        className="inline-flex items-center gap-2 rounded-xl bg-[#07152E] px-4 py-2 text-xs font-black text-white transition hover:bg-[#0B2146]"
+                      >
+                        <Eye className="h-4 w-4" />
+                        عرض
+                      </button>
+
+                      {!student.isLinkedToAccount ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleDeleteStudent(
+                              student,
+                            )
+                          }
+                          disabled={
+                            deletingRegistryId ===
+                            student.registryId
+                          }
+                          className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-black text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {deletingRegistryId ===
+                          student.registryId ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+
+                          {deletingRegistryId ===
+                          student.registryId
+                            ? "جاري الحذف..."
+                            : "حذف"}
+                        </button>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function MetricValue({
+  value,
+}: {
+  value: number;
+}) {
+  return (
+    <td className="px-4 py-4 text-center">
+      <span className="font-black text-[#07152E]">
+        {value}
+      </span>
+    </td>
   );
 }

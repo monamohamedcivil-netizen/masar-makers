@@ -11,7 +11,10 @@ import {
   UserRound,
 } from "lucide-react";
 
-import type { EnrollmentSource } from "@/lib/actions/admin/enrollments";
+import type {
+  EnrollmentSource,
+  RewardSource,
+} from "@/lib/actions/admin/enrollments";
 
 import StatusBadge from "./StatusBadge";
 import EnrollmentActionButtons from "./EnrollmentActionButtons";
@@ -28,6 +31,7 @@ export interface EnrollmentRequestRow {
   actionKey: string;
   actionTitle: string;
   enrollmentSource: EnrollmentSource;
+  rewardSource: RewardSource | null;
   status: string;
   createdAt: string;
 }
@@ -223,6 +227,7 @@ export default function EnrollmentRequestsTable({
             request.actionKey,
             request.journeyType,
             request.enrollmentSource,
+            request.rewardSource ?? "",
           ]
             .join(" ")
             .toLowerCase();
@@ -539,6 +544,9 @@ export default function EnrollmentRequestsTable({
                         }
                         initialSource={
                           request.enrollmentSource
+                        }
+                        initialRewardSource={
+                          request.rewardSource
                         }
                       />
                     </td>

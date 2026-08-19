@@ -86,6 +86,12 @@ lastBonusReason:
   student.lastBonusReason,
     drawEntries:
       student.drawEntries,
+
+    drawWins:
+      student.drawWins,
+
+    availableDrawEntries:
+      student.availableDrawEntries,
   };
 }
 

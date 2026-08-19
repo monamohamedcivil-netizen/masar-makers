@@ -35,11 +35,13 @@ import CourseActionButton from "@/components/course/CourseActionButton";
 type Props = {
   panel: WorkspacePanelDefinition;
   data: StudentDashboardData;
+  initialLessonId?: string;
 };
 
 export default function WorkspacePanelContent({
   panel,
   data,
+  initialLessonId,
 }: Props) {
   console.log("Certificates:", data.certificates);
   switch (panel.kind) {
@@ -63,6 +65,7 @@ export default function WorkspacePanelContent({
         return (
           <FreeJourneysPanel
             groups={data.freeJourneyGroups ?? []}
+            initialLessonId={initialLessonId}
           />
         );
       }
@@ -191,7 +194,7 @@ function CareerPathProgressCard({
 }
 
   return (
-<article className="relative overflow-hidden rounded-t-none rounded-b-[24px] border-x-0 border-y-1 border-b border-[#C9D2DE] bg-white shadow-[0_22px_55px_rgba(7,21,46,0.16),0_4px_12px_rgba(7,21,46,0.08)]">     
+<article className="relative -mt-[1px] overflow-hidden rounded-t-none rounded-b-[24px] border-x-0 border-y-1 border-b border-[#C9D2DE] bg-white shadow-[0_22px_55px_rgba(7,21,46,0.16),0_4px_12px_rgba(7,21,46,0.08)]">     
    <header className="bg-[#07152E] px-5 py-1 text-white sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>

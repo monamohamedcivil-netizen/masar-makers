@@ -46,6 +46,7 @@ type DrawForm = {
   scheduledAt: string;
   winnerMode: MonthlyDrawWinnerMode;
   presetWinnerUserId: string;
+  presetWinnerRegistryId: string;
   presetWinnerName: string;
   winnerSelectionNote: string;
   isPublished: boolean;
@@ -83,6 +84,7 @@ const EMPTY_DRAW: DrawForm = {
   scheduledAt: initialSchedule(),
   winnerMode: "random",
   presetWinnerUserId: "",
+  presetWinnerRegistryId: "",
   presetWinnerName: "",
   winnerSelectionNote: "",
   isPublished: false,
@@ -160,8 +162,15 @@ export default function MonthlyDrawManager({
       prizeImageUrl: draw.prize_image_url ?? "",
       scheduledAt: toLocalInput(draw.scheduled_at),
       winnerMode: draw.winner_mode,
-      presetWinnerUserId: draw.preset_winner_user_id ?? "",
-      presetWinnerName: draw.preset_winner_name ?? "",
+      presetWinnerUserId:
+        draw.preset_winner_user_id ??
+        "",
+      presetWinnerRegistryId:
+        draw.preset_winner_registry_id ??
+        "",
+      presetWinnerName:
+        draw.preset_winner_name ??
+        "",
       winnerSelectionNote: draw.winner_selection_note ?? "",
       isPublished: draw.is_published,
     });
@@ -198,8 +207,12 @@ export default function MonthlyDrawManager({
         prizeImageUrl: drawForm.prizeImageUrl,
         scheduledAt: drawForm.scheduledAt,
         winnerMode: drawForm.winnerMode,
-        presetWinnerUserId: drawForm.presetWinnerUserId,
-        presetWinnerName: drawForm.presetWinnerName,
+        presetWinnerUserId:
+          drawForm.presetWinnerUserId,
+        presetWinnerRegistryId:
+          drawForm.presetWinnerRegistryId,
+        presetWinnerName:
+          drawForm.presetWinnerName,
         winnerSelectionNote: drawForm.winnerSelectionNote,
         isPublished: drawForm.isPublished,
       };
@@ -512,22 +525,42 @@ function prepareParticipants(draw: MonthlyDraw) {
                   </div>
                 ) : (
                   <select
-                    value={drawForm.presetWinnerUserId}
+                    value={
+                      drawForm.presetWinnerRegistryId
+                        ? `registry:${drawForm.presetWinnerRegistryId}`
+                        : drawForm.presetWinnerUserId
+                          ? `user:${drawForm.presetWinnerUserId}`
+                          : ""
+                    }
                     onChange={(e) => {
-                      const selectedUserId =
+                      const selectedIdentity =
                         e.target.value;
 
                       const selectedParticipant =
                         editingParticipants.find(
-                          (participant) =>
-                            participant.user_id ===
-                            selectedUserId,
+                          (participant) => {
+                            const identity =
+                              participant.registry_id
+                                ? `registry:${participant.registry_id}`
+                                : participant.user_id
+                                  ? `user:${participant.user_id}`
+                                  : "";
+
+                            return (
+                              identity ===
+                              selectedIdentity
+                            );
+                          },
                         );
 
                       setDrawForm((s) => ({
                         ...s,
                         presetWinnerUserId:
-                          selectedUserId,
+                          selectedParticipant
+                            ?.user_id ?? "",
+                        presetWinnerRegistryId:
+                          selectedParticipant
+                            ?.registry_id ?? "",
                         presetWinnerName:
                           selectedParticipant
                             ?.student_name ?? "",
@@ -540,17 +573,26 @@ function prepareParticipants(draw: MonthlyDraw) {
                     </option>
 
                     {editingParticipants.map(
-                      (participant) => (
-                        <option
-                          key={participant.user_id}
-                          value={participant.user_id}
-                        >
-                          {participant.student_name}
-                          {" — "}
-                          {participant.entries_count}
-                          {" فرصة"}
-                        </option>
-                      ),
+                      (participant) => {
+                        const identity =
+                          participant.registry_id
+                            ? `registry:${participant.registry_id}`
+                            : participant.user_id
+                              ? `user:${participant.user_id}`
+                              : `entry:${participant.id}`;
+
+                        return (
+                          <option
+                            key={participant.id}
+                            value={identity}
+                          >
+                            {participant.student_name}
+                            {" — "}
+                            {participant.entries_count}
+                            {" فرصة"}
+                          </option>
+                        );
+                      },
                     )}
                   </select>
                 )}

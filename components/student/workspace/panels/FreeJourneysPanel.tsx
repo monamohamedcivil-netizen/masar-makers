@@ -15,12 +15,16 @@ import type {
 
 type Props = {
   groups: StudentFreeJourneyGroup[];
+  initialLessonId?: string;
 };
 
 const BUTTON =
   "inline-flex h-9 items-center justify-center gap-2 rounded-[10px] bg-[#07152E] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#102747] disabled:cursor-not-allowed disabled:opacity-50";
 
-export default function FreeJourneysPanel({ groups }: Props) {
+export default function FreeJourneysPanel({
+  groups,
+  initialLessonId,
+}: Props) {
   if (!groups.length) {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
@@ -77,6 +81,7 @@ export default function FreeJourneysPanel({ groups }: Props) {
             <FreePathView
               key={path.id}
               path={path}
+              initialLessonId={initialLessonId}
             />
           ),
         };
@@ -87,11 +92,24 @@ export default function FreeJourneysPanel({ groups }: Props) {
 
 function FreePathView({
   path,
+  initialLessonId,
 }: {
   path: StudentFreeJourneyGroup;
+  initialLessonId?: string;
 }) {
+  const initialStation = initialLessonId
+    ? path.stations.find((station) =>
+        station.journeys.some(
+          (journey) =>
+            journey.lessonId === initialLessonId,
+        ),
+      ) ?? null
+    : null;
+
   const [selectedStationId, setSelectedStationId] =
-    useState<string | null>(null);
+    useState<string | null>(
+      initialStation?.id ?? null,
+    );
 
   const selectedStation = selectedStationId
     ? path.stations.find(
@@ -113,8 +131,16 @@ function FreePathView({
         />
 
         <StationFreeLessons
-          key={selectedStation.id}
+          key={`${selectedStation.id}-${initialLessonId ?? "manual"}`}
           station={selectedStation}
+          initialLessonId={
+            selectedStation.journeys.some(
+              (journey) =>
+                journey.lessonId === initialLessonId,
+            )
+              ? initialLessonId
+              : undefined
+          }
         />
       </div>
     );
@@ -282,11 +308,15 @@ function StationButton({
 
 function StationFreeLessons({
   station,
+  initialLessonId,
 }: {
   station: StudentJourneyStationGroup;
+  initialLessonId?: string;
 }) {
   const [selectedLessonId, setSelectedLessonId] =
-    useState<string | null>(null);
+    useState<string | null>(
+      initialLessonId ?? null,
+    );
 
   const fundamentals = station.journeys.filter(
     (journey) =>

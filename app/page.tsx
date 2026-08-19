@@ -15,56 +15,148 @@ import TestimonialsFromDB from "@/sections/TestimonialsFromDB";
 import Partners from "@/sections/Partners";
 import FinalCTA from "@/sections/FinalCTA";
 
+type Locale = "ar" | "en";
+
 const sectionContent = {
-  paths: {
-    title: "المسارات المهنية",
-    description: "اختر المسار الذي يقودك إلى مستقبل احترافي",
+  ar: {
+    paths: {
+      title: "المسارات المهنية",
+      description: "اختر المسار الذي يقودك إلى مستقبل احترافي",
+    },
+
+    learning: {
+      title: "كيف تحب أن تتعلم؟",
+      description: "اختر أسلوب التعلم الذي يناسب وقتك وهدفك",
+    },
+
+    why: {
+      title: "لماذا صناع المسار؟",
+      description: "رحلات تعليمية احترافية تساعدك على بناء مسيرتك المهنية",
+    },
+
+    popular: {
+      title: "الرحلات الأكثر طلبًا",
+      description:
+        "اكتشف الرحلات التي اختارها أكبر عدد من المهندسين لتطوير مهاراتهم",
+    },
+
+    projects: {
+      title: "من التدريب إلى التنفيذ",
+      description:
+        "نماذج من مشاريع المتدربين التي تحولت فيها المعرفة إلى تطبيقات هندسية حقيقية",
+    },
+
+    testimonials: {
+      title: "قصص نجاح المتدربين",
+      description:
+        "آراء وتجارب مهندسين تحول فيها التعلم إلى تطبيق عملي ونتائج مهنية حقيقية",
+    },
+
+    partners: {
+      title: "شركاؤنا في النجاح",
+      description:
+        "تعاونات مهنية وتقنية تساعدنا على تقديم تجربة تعلم أكثر قوة وارتباطًا بسوق العمل",
+    },
+
+    cta: {
+      title: "ابدأ رحلتك الآن",
+      description:
+        "اختر هدفك وابدأ بخطوة عملية تقودك إلى مستوى مهني أقوى",
+    },
   },
 
-  learning: {
-    title: "كيف تحب أن تتعلم؟",
-    description: "اختر أسلوب التعلم الذي يناسب وقتك وهدفك",
-  },
+  en: {
+    paths: {
+      title: "Career Paths",
+      description:
+        "Choose the path that leads you toward a professional future",
+    },
 
-  why: {
-    title: "لماذا صناع المسار؟",
-    description: "رحلات تعليمية احترافية تساعدك على بناء مسيرتك المهنية",
-  },
-  popular: {
-  title: "الرحلات الأكثر طلبًا",
-  description:
-    "اكتشف الرحلات التي اختارها أكبر عدد من المهندسين لتطوير مهاراتهم",
-},
-projects: {
-  title: "من التدريب إلى التنفيذ",
-  description:
-    "نماذج من مشاريع المتدربين التي تحولت فيها المعرفة إلى تطبيقات هندسية حقيقية",
-},
-testimonials: {
-  title: "قصص نجاح المتدربين",
-  description:
-    "آراء وتجارب مهندسين تحول فيها التعلم إلى تطبيق عملي ونتائج مهنية حقيقية",
-},
-partners: {
-  title: "شركاؤنا في النجاح",
-  description:
-    "تعاونات مهنية وتقنية تساعدنا على تقديم تجربة تعلم أكثر قوة وارتباطًا بسوق العمل",
-},
-cta: {
-  title: "ابدأ رحلتك الآن",
-  description:
-    "اختر هدفك وابدأ بخطوة عملية تقودك إلى مستوى مهني أقوى",
-},
-};
+    learning: {
+      title: "How Do You Prefer to Learn?",
+      description:
+        "Choose the learning experience that best fits your time and goals",
+    },
 
-type SectionKey = keyof typeof sectionContent;
+    why: {
+      title: "Why Masar Makers?",
+      description:
+        "Professional learning journeys designed to help you build your career",
+    },
+
+    popular: {
+      title: "Most Popular Journeys",
+      description:
+        "Discover the journeys chosen by engineers to develop their professional skills",
+    },
+
+    projects: {
+      title: "From Learning to Practice",
+      description:
+        "Explore trainee projects where engineering knowledge became real-world applications",
+    },
+
+    testimonials: {
+      title: "Learner Success Stories",
+      description:
+        "Real experiences from engineers who transformed learning into practical results",
+    },
+
+    partners: {
+      title: "Our Success Partners",
+      description:
+        "Professional and technology partnerships that strengthen the learning experience",
+    },
+
+    cta: {
+      title: "Start Your Journey",
+      description:
+        "Choose your goal and take the first practical step toward stronger professional skills",
+    },
+  },
+} as const;
+
+type SectionKey = keyof (typeof sectionContent)["ar"];
 
 export default function Home() {
   const mainRef = useRef<HTMLElement | null>(null);
 
   const [activeSection, setActiveSection] =
     useState<SectionKey>("paths");
+const [locale, setLocale] = useState<Locale>("ar");
 
+useEffect(() => {
+  const savedLocale = window.localStorage.getItem("masar-locale");
+
+  if (savedLocale === "ar" || savedLocale === "en") {
+    setLocale(savedLocale);
+  }
+
+  const handleLocaleChange = (event: Event) => {
+    const customEvent = event as CustomEvent<{
+      locale?: Locale;
+    }>;
+
+    if (
+      customEvent.detail?.locale === "ar" ||
+      customEvent.detail?.locale === "en"
+    ) {
+      setLocale(customEvent.detail.locale);
+    }
+  };
+
+  window.addEventListener(
+    "masar:locale-change",
+    handleLocaleChange
+  );
+
+  return () => {
+    window.removeEventListener(
+      "masar:locale-change",
+      handleLocaleChange
+    );
+  };
+}, []);
   useEffect(() => {
     const mainElement = mainRef.current;
 
@@ -97,8 +189,12 @@ export default function Home() {
         }
       },
       {
+        // Activate a section when it reaches the central band of the
+        // scroll area. This works consistently for short and tall
+        // sections, so no section disappears because of its height.
         root: mainElement,
-        threshold: [0.35, 0.5, 0.65, 0.8],
+        rootMargin: "-35% 0px -35% 0px",
+        threshold: 0,
       }
     );
 
@@ -109,12 +205,13 @@ export default function Home() {
     return () => observer.disconnect();
   }, []);
 
-  const currentContent = sectionContent[activeSection];
+  const currentContent =
+  sectionContent[locale][activeSection];
 
   const sectionAnimation = (section: SectionKey) =>
     activeSection === section
       ? "translate-y-0 scale-100 opacity-100"
-      : "pointer-events-none translate-y-8 scale-[0.98] opacity-0";
+      : "pointer-events-none translate-y-5 scale-[0.985] opacity-0";
 
   return (
     <>
@@ -131,20 +228,23 @@ export default function Home() {
       <main
         ref={mainRef}
         className="
-          h-[calc(100vh-479px)]
-          min-h-[350px]
-          overflow-y-auto
-          scroll-smooth
-          snap-y
-          snap-mandatory
-          bg-[#F7F8FA]
-        "
+  h-[calc(100svh-390px)]
+  min-h-[330px]
+  overflow-y-auto
+  snap-y
+  snap-mandatory
+  scroll-smooth
+  overscroll-contain
+  bg-[#F7F8FA]
+  md:h-[calc(100vh-479px)]
+  md:min-h-[350px]
+"
       >
         {/* Career Paths */}
 
         <section
           data-home-section="paths"
-          className="flex min-h-full snap-start items-center overflow-hidden"
+          className="flex min-h-full snap-start snap-always items-center overflow-hidden"
         >
           <div
             className={`w-full transform-gpu transition-all duration-700 ease-out ${sectionAnimation(
@@ -159,7 +259,7 @@ export default function Home() {
 
         <section
           data-home-section="learning"
-          className="flex min-h-full snap-start items-center overflow-hidden"
+          className="flex min-h-full snap-start snap-always items-center overflow-hidden"
         >
           <div
             className={`w-full transform-gpu transition-all duration-700 ease-out ${sectionAnimation(
@@ -174,7 +274,7 @@ export default function Home() {
 
         <section
   data-home-section="why"
-  className="flex min-h-full snap-start items-center overflow-hidden"
+  className="flex min-h-full snap-start snap-always items-center overflow-hidden"
 >
   <div
     className={`w-full transform-gpu transition-all duration-700 ease-out ${sectionAnimation(
@@ -189,7 +289,7 @@ export default function Home() {
 </section>
 <section
   data-home-section="popular"
-  className="flex min-h-full snap-start items-center overflow-hidden"
+  className="flex min-h-full snap-start snap-always items-center overflow-hidden"
 >
   <div
     className={`w-full transform-gpu transition-all duration-700 ease-out ${sectionAnimation(
@@ -204,7 +304,7 @@ export default function Home() {
 
 <section
   data-home-section="projects"
-  className="flex min-h-full snap-start items-center overflow-hidden"
+  className="flex min-h-full snap-start snap-always items-center overflow-hidden"
 >
   <div
     className={`w-full transform-gpu transition-all duration-700 ease-out ${sectionAnimation(
@@ -219,7 +319,7 @@ export default function Home() {
 
 <section
   data-home-section="testimonials"
-  className="flex min-h-full snap-start items-center overflow-hidden"
+  className="flex min-h-full snap-start snap-always items-center overflow-hidden"
 >
   <div
     className={`w-full transform-gpu transition-all duration-700 ease-out ${sectionAnimation(
@@ -234,7 +334,7 @@ export default function Home() {
 
 <section
   data-home-section="partners"
-  className="flex min-h-full snap-start items-center overflow-hidden"
+  className="flex min-h-full snap-start snap-always items-center overflow-hidden"
 >
   <div
     className={`w-full transform-gpu transition-all duration-700 ease-out ${sectionAnimation(
@@ -249,7 +349,7 @@ export default function Home() {
 
 <section
   data-home-section="cta"
-  className="flex min-h-full snap-start items-center overflow-hidden"
+  className="flex min-h-full snap-start snap-always items-center overflow-hidden"
 >
   <div
     className={`w-full transform-gpu transition-all duration-700 ease-out ${sectionAnimation(

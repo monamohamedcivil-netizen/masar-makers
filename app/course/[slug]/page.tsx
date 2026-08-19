@@ -35,7 +35,6 @@ import type {
 
 import {
   getCourse,
-  getCourseReviews,
   getFreeSession,
   getWorkshop,
 } from "@/lib/helpers";
@@ -45,6 +44,7 @@ import type {
   CourseVariant,
   CurriculumItem,
   FreeSession,
+  PathSlug,
   Review,
   Workshop,
 } from "@/data/types";
@@ -72,6 +72,9 @@ import type {
 import CourseActionButton from "@/components/course/CourseActionButton";
 import BunnyVideoPlayer from "@/components/student/player/BunnyVideoPlayer";
 import { getCourseEnrollmentAccess } from "@/lib/actions/enroll";
+import {
+  createAdminClient,
+} from "@/lib/supabase/server";
 
 import {
   getCourseProjects,
@@ -82,6 +85,7 @@ type CoursePageProps = {
   }>;
   searchParams?: Promise<{
     lesson?: string | string[];
+    journey?: string | string[];
   }>;
 };
 
@@ -159,6 +163,19 @@ export default async function CoursePage({
   )
     ? resolvedSearchParams.lesson[0]
     : resolvedSearchParams.lesson;
+
+  const requestedJourney = Array.isArray(
+    resolvedSearchParams.journey,
+  )
+    ? resolvedSearchParams.journey[0]
+    : resolvedSearchParams.journey;
+
+  const initialJourneyType =
+    requestedJourney === "one_day" ||
+    requestedJourney === "free" ||
+    requestedJourney === "integrated"
+      ? requestedJourney
+      : "integrated";
 
   const pageData =
     await loadCoursePageData(slug);
@@ -256,6 +273,7 @@ const courseProjects = pageData
     "نتائج الرحلة"
   }
   initialPanelContents={initialPanelContents}
+  initialJourneyType={initialJourneyType}
 />
     </main>
   );
@@ -509,6 +527,18 @@ statsLevelLabel:
   } as Course;
 
   /*
+    تقييمات صفحة الكورس تأتي من student_surveys مباشرة.
+    نستخدم Course ID الحقيقي للـ representativeCourse حتى يظهر كل تقييم
+    مفعّل له show_on_course داخل صفحة الكورس الصحيحة.
+  */
+  const reviews =
+    await loadPublishedCourseReviews(
+      representativeCourse.id,
+      course.pathSlug,
+      course.slug,
+    );
+
+  /*
     نحول محطات المسار إلى Course[]
     لأن CourseJourneyHeader الحالي يعتمد
     على النوع المحلي Course.
@@ -539,9 +569,6 @@ statsLevelLabel:
 
   const workshops =
     loadLocalWorkshops(course);
-
-  const reviews =
-    loadLocalReviews(course);
 
    const learningModes =
   await getCourseLearningModes(
@@ -1002,6 +1029,179 @@ function getVariantType(
   return "integrated";
 }
 
+type CourseReviewRow = {
+  id: string;
+  user_id: string | null;
+  rating: number | string | null;
+  comment: string | null;
+  submitted_at: string | null;
+
+  student_name: string | null;
+  student_job_title: string | null;
+  student_country: string | null;
+};
+
+type CourseReviewProfileRow = {
+  id: string;
+  full_name: string | null;
+  country: string | null;
+};
+
+async function loadPublishedCourseReviews(
+  courseId: string,
+  pathSlug: PathSlug,
+  courseSlug: string,
+): Promise<Review[]> {
+  const supabase = createAdminClient();
+
+  /*
+   * أولًا:
+   * قراءة التقييمات المنشورة لهذا الكورس.
+   *
+   * لا نستخدم profiles(...) هنا لأن student_surveys.user_id
+   * ليس Foreign Key مباشرًا إلى profiles.id.
+   */
+  const { data, error } = await supabase
+    .from("student_surveys")
+    .select(`
+      id,
+      user_id,
+      rating,
+      comment,
+      submitted_at,
+      student_name,
+      student_job_title,
+      student_country
+    `)
+    .eq("course_id", courseId)
+    .eq("show_on_course", true)
+    .eq("status", "approved")
+    .order("submitted_at", {
+      ascending: false,
+    });
+
+  if (error) {
+    console.error(
+      "Failed to load published course reviews:",
+      error.message,
+    );
+
+    return [];
+  }
+
+  const rows =
+    (data ?? []) as CourseReviewRow[];
+
+  /*
+   * ثانيًا:
+   * نجمع الحسابات المسجلة المرتبطة بالتقييمات.
+   */
+  const userIds = Array.from(
+    new Set(
+      rows
+        .map((row) => row.user_id)
+        .filter(
+          (id): id is string =>
+            typeof id === "string" &&
+            id.length > 0,
+        ),
+    ),
+  );
+
+  let profileRows: CourseReviewProfileRow[] = [];
+
+  if (userIds.length > 0) {
+    const {
+      data: profilesData,
+      error: profilesError,
+    } = await supabase
+      .from("profiles")
+      .select(`
+  id,
+  full_name,
+  country
+`)
+      .in("id", userIds);
+
+    if (profilesError) {
+      console.error(
+        "Failed to load review profiles:",
+        profilesError.message,
+      );
+    } else {
+      profileRows =
+        (profilesData ?? []) as CourseReviewProfileRow[];
+    }
+  }
+
+  const profilesMap = new Map(
+    profileRows.map((profile) => [
+      profile.id,
+      profile,
+    ]),
+  );
+
+  /*
+   * ثالثًا:
+   * إذا كان التقييم مربوطًا بحساب حقيقي،
+   * نعطي بيانات الحساب الأولوية.
+   *
+   * وإذا كان الطالب مستوردًا ولم يسجل بعد،
+   * نستخدم البيانات المحفوظة في student_surveys.
+   */
+  return rows
+    .filter(
+      (row) =>
+        Number(row.rating ?? 0) > 0,
+    )
+    .map((row, index) => {
+      const profile = row.user_id
+        ? profilesMap.get(row.user_id)
+        : undefined;
+
+      return {
+        id: index + 1,
+
+        studentName:
+          profile?.full_name?.trim() ||
+          row.student_name?.trim() ||
+          "أحد متدربي Masar Makers",
+
+        studentRole:
+  row.student_job_title?.trim() ||
+  "",
+
+        country:
+          profile?.country?.trim() ||
+          row.student_country?.trim() ||
+          "",
+
+        pathSlug,
+        courseSlug,
+
+        rating: Math.max(
+          1,
+          Math.min(
+            5,
+            Math.round(
+              Number(row.rating ?? 0),
+            ),
+          ),
+        ),
+
+        review:
+          row.comment?.trim() || "",
+
+        approved: true,
+        featured: false,
+
+        createdAt:
+          row.submitted_at ??
+          new Date().toISOString(),
+      };
+    });
+}
+
 /* ==================================================
    Local Temporary Data
 ================================================== */
@@ -1046,17 +1246,6 @@ function loadLocalWorkshops(
   );
 }
 
-function loadLocalReviews(
-  course: Course
-): Review[] {
-  /*
-    getCourseReviews يعتمد على Slug
-    الكورس المحلي القديم.
-  */
-  return getCourseReviews(
-    course.slug
-  );
-}
 
 /* ==================================================
    Formatting

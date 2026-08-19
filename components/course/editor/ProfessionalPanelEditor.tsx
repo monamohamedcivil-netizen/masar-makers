@@ -280,32 +280,58 @@ export default function ProfessionalPanelEditor({
             </EditorField>
 
             <EditorField label="عنوان العمود الأول">
-              <input
-                value={value.columnOneTitle}
-                onChange={(event) =>
-                  updatePanel(
-                    "columnOneTitle",
-                    event.target.value
-                  )
-                }
-                placeholder="مثال: رحلة الأساسيات"
-                className={inputClassName}
-              />
+              <div className="space-y-3">
+                <input
+                  value={value.columnOneTitle}
+                  onChange={(event) =>
+                    updatePanel(
+                      "columnOneTitle",
+                      event.target.value
+                    )
+                  }
+                  placeholder="مثال: رحلة الأساسيات"
+                  className={inputClassName}
+                />
+
+                <HeaderVisibilityToggle
+                  checked={value.showColumnOneHeader}
+                  label="إظهار هيدر العمود الأول"
+                  onChange={(checked) =>
+                    updatePanel(
+                      "showColumnOneHeader",
+                      checked
+                    )
+                  }
+                />
+              </div>
             </EditorField>
 
             {value.columnCount === 2 && (
               <EditorField label="عنوان العمود الثاني">
-                <input
-                  value={value.columnTwoTitle}
-                  onChange={(event) =>
-                    updatePanel(
-                      "columnTwoTitle",
-                      event.target.value
-                    )
-                  }
-                  placeholder="مثال: الرحلة المتقدمة"
-                  className={inputClassName}
-                />
+                <div className="space-y-3">
+                  <input
+                    value={value.columnTwoTitle}
+                    onChange={(event) =>
+                      updatePanel(
+                        "columnTwoTitle",
+                        event.target.value
+                      )
+                    }
+                    placeholder="مثال: الرحلة المتقدمة"
+                    className={inputClassName}
+                  />
+
+                  <HeaderVisibilityToggle
+                    checked={value.showColumnTwoHeader}
+                    label="إظهار هيدر العمود الثاني"
+                    onChange={(checked) =>
+                      updatePanel(
+                        "showColumnTwoHeader",
+                        checked
+                      )
+                    }
+                  />
+                </div>
               </EditorField>
             )}
           </div>
@@ -381,6 +407,46 @@ export default function ProfessionalPanelEditor({
         />
       )}
     </div>
+  );
+}
+
+function HeaderVisibilityToggle({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="flex w-full items-center justify-between rounded-xl border border-[#D8E0E9] bg-[#F8FAFC] px-3 py-2.5 text-right transition hover:border-[#F7B548]/70"
+    >
+      <span className="text-xs font-black text-[#07152E]">
+        {label}
+      </span>
+
+      <span
+        className={`relative h-6 w-11 shrink-0 rounded-full transition ${
+          checked
+            ? "bg-[#F7B548]"
+            : "bg-slate-300"
+        }`}
+      >
+        <span
+          className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all ${
+            checked
+              ? "right-1"
+              : "right-6"
+          }`}
+        />
+      </span>
+    </button>
   );
 }
 

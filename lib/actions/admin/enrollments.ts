@@ -10,6 +10,10 @@ import { activateEnrollmentWorkflow } from "@/lib/workflows";
 
 export type EnrollmentSource = "paid" | "reward";
 
+export type RewardSource =
+  | "rewards_card"
+  | "monthly_draw";
+
 export interface AdminEnrollmentRequest {
   id: string;
   userId: string;
@@ -19,6 +23,7 @@ export interface AdminEnrollmentRequest {
   actionKey: string | null;
   actionTitle: string | null;
   enrollmentSource: EnrollmentSource;
+  rewardSource: RewardSource | null;
   status: EnrollmentStatus;
   createdAt: string;
   updatedAt: string | null;
@@ -53,6 +58,7 @@ type EnrollmentRow = {
   action_key: string | null;
   action_title: string | null;
   enrollment_source: string | null;
+  reward_source: string | null;
   status: EnrollmentStatus;
   created_at: string;
   updated_at: string | null;
@@ -64,6 +70,7 @@ type ApproveEnrollmentRow = {
   course_id: string;
   journey_type: string | null;
   enrollment_source: string | null;
+  reward_source: string | null;
   status: EnrollmentStatus;
   courses:
     | {
@@ -187,6 +194,23 @@ function normalizeEnrollmentSource(
   return value === "reward" ? "reward" : "paid";
 }
 
+function normalizeRewardSource(
+  enrollmentSource: EnrollmentSource,
+  value: string | null | undefined,
+): RewardSource | null {
+  if (enrollmentSource !== "reward") {
+    return null;
+  }
+
+  /*
+   * الطلبات القديمة التي كانت reward قبل إضافة reward_source
+   * تعتبر مكافأة بطاقة المكافآت حفاظًا على النظام السابق.
+   */
+  return value === "monthly_draw"
+    ? "monthly_draw"
+    : "rewards_card";
+}
+
 function revalidateEnrollmentPages() {
   revalidatePath("/admin");
   revalidatePath("/admin/dashboard");
@@ -205,7 +229,7 @@ export async function getEnrollmentRequests(): Promise<
   const { data, error } = await supabase
     .from("enrollments")
     .select(
-      "id,user_id,course_id,journey_type,action_key,action_title,enrollment_source,status,created_at,updated_at",
+      "id,user_id,course_id,journey_type,action_key,action_title,enrollment_source,reward_source,status,created_at,updated_at",
     )
     .order("created_at", { ascending: false });
 
@@ -301,6 +325,12 @@ export async function getEnrollmentRequests(): Promise<
       enrollmentSource: normalizeEnrollmentSource(
         enrollment.enrollment_source,
       ),
+      rewardSource: normalizeRewardSource(
+        normalizeEnrollmentSource(
+          enrollment.enrollment_source,
+        ),
+        enrollment.reward_source,
+      ),
 
       status: enrollment.status,
       createdAt: enrollment.created_at,
@@ -327,6 +357,7 @@ export async function getEnrollmentRequests(): Promise<
 export async function updateEnrollmentSource(
   enrollmentId: string,
   enrollmentSource: EnrollmentSource,
+  rewardSource?: RewardSource | null,
 ): Promise<AdminActionResult> {
   if (!enrollmentId?.trim()) {
     return {
@@ -341,6 +372,24 @@ export async function updateEnrollmentSource(
       message: "نوع الاشتراك غير صحيح.",
     };
   }
+
+  if (
+    enrollmentSource === "reward" &&
+    rewardSource &&
+    !["rewards_card", "monthly_draw"].includes(
+      rewardSource,
+    )
+  ) {
+    return {
+      success: false,
+      message: "مصدر المكافأة غير صحيح.",
+    };
+  }
+
+  const normalizedRewardSource =
+    enrollmentSource === "reward"
+      ? rewardSource ?? "rewards_card"
+      : null;
 
   const { supabase } = await requireAdmin();
 
@@ -381,6 +430,7 @@ export async function updateEnrollmentSource(
     .from("enrollments")
     .update({
       enrollment_source: enrollmentSource,
+      reward_source: normalizedRewardSource,
       updated_at: new Date().toISOString(),
     })
     .eq("id", enrollmentId);
@@ -455,6 +505,7 @@ export async function approveEnrollment(
       course_id,
       journey_type,
       enrollment_source,
+      reward_source,
       status,
       courses (
         title,
@@ -478,6 +529,12 @@ export async function approveEnrollment(
     enrollment.enrollment_source,
   );
 
+  const rewardSource =
+    normalizeRewardSource(
+      enrollmentSource,
+      enrollment.reward_source,
+    );
+
   if (
     enrollmentSource === "reward" &&
     !isOneDayJourney(enrollment.journey_type)
@@ -488,15 +545,146 @@ export async function approveEnrollment(
     };
   }
 
-  if (enrollmentSource === "reward") {
-    const passport = await getMasarPassport(enrollment.user_id);
+  let reservedMonthlyDrawId:
+    | string
+    | null = null;
 
-    if (passport.availableRewards <= 0) {
+  if (
+    enrollmentSource === "reward" &&
+    rewardSource === "rewards_card"
+  ) {
+    const passport =
+      await getMasarPassport(
+        enrollment.user_id,
+      );
+
+    if (
+      passport.availableRewards <= 0
+    ) {
       return {
         success: false,
-        message: "الطالب لا يمتلك مكافأة متاحة حاليًا.",
+        message:
+          "الطالب لا يمتلك مكافأة بطاقة متاحة حاليًا.",
       };
     }
+  }
+
+  if (
+    enrollmentSource === "reward" &&
+    rewardSource === "monthly_draw"
+  ) {
+    const { data: registryRow, error: registryError } =
+      await supabase
+        .from("student_registry")
+        .select("id")
+        .eq(
+          "user_id",
+          enrollment.user_id,
+        )
+        .maybeSingle();
+
+    if (registryError) {
+      return {
+        success: false,
+        message:
+          `تعذر التحقق من هوية الطالب في السحب: ${registryError.message}`,
+      };
+    }
+
+    const registryId =
+      registryRow?.id ?? null;
+
+    const winnerConditions = [
+      `winner_user_id.eq.${enrollment.user_id}`,
+    ];
+
+    if (registryId) {
+      winnerConditions.push(
+        `winner_registry_id.eq.${registryId}`,
+      );
+    }
+
+    const {
+      data: availableDraw,
+      error: drawError,
+    } = await supabase
+      .from("monthly_draws")
+      .select("id,completed_at")
+      .eq("status", "completed")
+      .is(
+        "reward_enrollment_id",
+        null,
+      )
+      .or(
+        winnerConditions.join(","),
+      )
+      .order(
+        "completed_at",
+        {
+          ascending: true,
+          nullsFirst: false,
+        },
+      )
+      .limit(1)
+      .maybeSingle();
+
+    if (drawError) {
+      return {
+        success: false,
+        message:
+          `تعذر التحقق من جائزة السحب: ${drawError.message}`,
+      };
+    }
+
+    if (!availableDraw) {
+      return {
+        success: false,
+        message:
+          "الطالب لا يمتلك جائزة سحب شهرية متاحة حاليًا.",
+      };
+    }
+
+    const redeemedAt =
+      new Date().toISOString();
+
+    const {
+      data: reservedDraw,
+      error: reserveError,
+    } = await supabase
+      .from("monthly_draws")
+      .update({
+        reward_enrollment_id:
+          enrollmentId,
+        reward_redeemed_at:
+          redeemedAt,
+        updated_at:
+          redeemedAt,
+      })
+      .eq(
+        "id",
+        availableDraw.id,
+      )
+      .is(
+        "reward_enrollment_id",
+        null,
+      )
+      .select("id")
+      .maybeSingle();
+
+    if (
+      reserveError ||
+      !reservedDraw
+    ) {
+      return {
+        success: false,
+        message:
+          reserveError?.message ||
+          "تعذر حجز جائزة السحب لهذا الطلب. حاول مرة أخرى.",
+      };
+    }
+
+    reservedMonthlyDrawId =
+      reservedDraw.id;
   }
 
   const result = await activateEnrollmentWorkflow(
@@ -505,6 +693,35 @@ export async function approveEnrollment(
   );
 
   if (!result.success) {
+    if (reservedMonthlyDrawId) {
+      const { error: rollbackError } =
+        await supabase
+          .from("monthly_draws")
+          .update({
+            reward_enrollment_id:
+              null,
+            reward_redeemed_at:
+              null,
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq(
+            "id",
+            reservedMonthlyDrawId,
+          )
+          .eq(
+            "reward_enrollment_id",
+            enrollmentId,
+          );
+
+      if (rollbackError) {
+        console.error(
+          "MONTHLY DRAW REWARD ROLLBACK ERROR:",
+          rollbackError.message,
+        );
+      }
+    }
+
     return {
       success: false,
       message: result.message,
@@ -513,7 +730,10 @@ export async function approveEnrollment(
 
   let rewardWarning: string | undefined;
 
-  if (enrollmentSource === "reward") {
+  if (
+    enrollmentSource === "reward" &&
+    rewardSource === "rewards_card"
+  ) {
     const { data: profileData, error: profileLoadError } =
       await supabase
         .from("profiles")
@@ -563,10 +783,15 @@ export async function approveEnrollment(
   return {
     success: true,
     message:
-      enrollmentSource === "reward"
-        ? "تم قبول الاشتراك وتسجيله كمكافأة."
-        : result.message,
-    warning: rewardWarning ?? result.warning,
+      enrollmentSource !== "reward"
+        ? result.message
+        : rewardSource ===
+            "monthly_draw"
+          ? "تم قبول الاشتراك واستخدام جائزة السحب الشهري."
+          : "تم قبول الاشتراك وتسجيله كمكافأة بطاقة المكافآت.",
+    warning:
+      rewardWarning ??
+      result.warning,
   };
 }
 

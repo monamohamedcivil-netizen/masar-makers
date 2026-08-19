@@ -20,16 +20,84 @@ import type { StudentDashboardData } from "@/lib/queries/student-dashboard";
 type Props = {
   data: StudentDashboardData;
   initialPanelId?: WorkspacePanelId;
+  initialLessonId?: string;
 };
 
 export default function StudentJourneyDashboard({
   data,
   initialPanelId,
+  initialLessonId,
 }: Props) {
-  const totalCourses =
-    data.activeCourses.length +
-    data.completedCourses.length +
-    data.pendingCourses.length;
+  /*
+   * إحصائيات رحلة الاحتراف تعتمد على careerPaths فقط.
+   * كل learningPart متاح يمثل رحلة تعليمية مستقلة:
+   * - integrated في كورس split = Fundamentals + Advanced = رحلتان
+   * - single = رحلة واحدة
+   * الرحلات المجانية واليوم الواحد لا تدخل هنا.
+   */
+  const professionalJourneyParts =
+    data.careerPaths.flatMap((path) =>
+      path.stations.flatMap((station) =>
+        station.learningParts
+          .filter((part) => part.access !== "locked")
+          .map((part) => {
+            const progressValues =
+              part.lessons.map(
+                (lesson) =>
+                  lesson.progressPercent,
+              );
+
+            const progressPercent =
+              progressValues.length > 0
+                ? Math.round(
+                    progressValues.reduce(
+                      (sum, value) =>
+                        sum + value,
+                      0,
+                    ) /
+                      progressValues.length,
+                  )
+                : station.progressPercent;
+
+            const completed =
+              part.lessons.length > 0
+                ? part.lessons.every(
+                    (lesson) =>
+                      lesson.completed ||
+                      lesson.progressPercent >= 100,
+                  )
+                : station.status === "completed";
+
+            return {
+              access: part.access,
+              progressPercent,
+              completed,
+            };
+          }),
+      ),
+    );
+
+  const professionalCount =
+    professionalJourneyParts.length;
+
+  const professionalPendingCount =
+    professionalJourneyParts.filter(
+      (part) => part.access === "pending",
+    ).length;
+
+  const professionalCompletedCount =
+    professionalJourneyParts.filter(
+      (part) =>
+        part.access === "active" &&
+        part.completed,
+    ).length;
+
+  const professionalActiveCount =
+    professionalJourneyParts.filter(
+      (part) =>
+        part.access === "active" &&
+        !part.completed,
+    ).length;
 
   const oneDayCount = data.oneDayJourneyGroups.reduce(
   (total, path) =>
@@ -53,6 +121,92 @@ const freeCount = data.freeJourneyGroups.reduce(
   0,
 );
 
+const oneDayJourneys =
+  data.oneDayJourneyGroups.flatMap(
+    (path) =>
+      path.stations.flatMap(
+        (station) =>
+          station.journeys,
+      ),
+  );
+
+const freeJourneys =
+  data.freeJourneyGroups.flatMap(
+    (path) =>
+      path.stations.flatMap(
+        (station) =>
+          station.journeys,
+      ),
+  );
+
+const oneDayActiveCount =
+  oneDayJourneys.filter(
+    (journey) =>
+      journey.status !== "completed",
+  ).length;
+
+const oneDayCompletedCount =
+  oneDayJourneys.filter(
+    (journey) =>
+      journey.status === "completed",
+  ).length;
+
+const freeActiveCount =
+  freeJourneys.filter(
+    (journey) =>
+      journey.status !== "completed",
+  ).length;
+
+const freeCompletedCount =
+  freeJourneys.filter(
+    (journey) =>
+      journey.status === "completed",
+  ).length;
+
+const activeJourneys =
+  professionalActiveCount +
+  oneDayActiveCount +
+  freeActiveCount;
+
+const completedJourneys =
+  professionalCompletedCount +
+  oneDayCompletedCount +
+  freeCompletedCount;
+
+const pendingJourneys =
+  professionalPendingCount;
+
+const allProgressValues = [
+  ...professionalJourneyParts
+    .filter(
+      (part) => part.access === "active",
+    )
+    .map(
+      (part) =>
+        part.progressPercent,
+    ),
+  ...oneDayJourneys.map(
+    (journey) =>
+      journey.progressPercent,
+  ),
+  ...freeJourneys.map(
+    (journey) =>
+      journey.progressPercent,
+  ),
+];
+
+const averageJourneyProgress =
+  allProgressValues.length > 0
+    ? Math.round(
+        allProgressValues.reduce(
+          (sum, value) =>
+            sum + value,
+          0,
+        ) /
+          allProgressValues.length,
+      )
+    : 0;
+
   const statistics: StudentStatisticsData = {
     learning: [
       {
@@ -62,7 +216,7 @@ const freeCount = data.freeJourneyGroups.reduce(
         splitValue: {
           primaryValue: data.careerPaths.length,
           primaryLabel: "مسارات",
-          secondaryValue: totalCourses,
+          secondaryValue: professionalCount,
           secondaryLabel: "رحلات",
         },
       },
@@ -103,25 +257,25 @@ const freeCount = data.freeJourneyGroups.reduce(
         id: "active",
         label: "الرحلات النشطة",
         icon: Compass,
-        value: data.summary.active,
+        value: activeJourneys,
       },
       {
         id: "progress",
         label: "متوسط التقدم",
         icon: BarChart3,
-        progress: data.summary.averageProgress,
+        progress: averageJourneyProgress,
       },
       {
         id: "completed",
         label: "الرحلات المكتملة",
         icon: GraduationCap,
-        value: data.summary.completed,
+        value: completedJourneys,
       },
       {
         id: "pending",
         label: "بانتظار الاعتماد",
         icon: Target,
-        value: data.summary.pending,
+        value: pendingJourneys,
       },
     ],
   };
@@ -143,6 +297,7 @@ const freeCount = data.freeJourneyGroups.reduce(
           definition={studentWorkspaceDefinition}
           data={data}
           initialPanelId={initialPanelId}
+          initialLessonId={initialLessonId}
         />
       </div>
     </div>

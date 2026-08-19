@@ -13,6 +13,19 @@ export interface StudentImportRow {
   courseCode: string;
   journeyType: string;
 
+  /*
+   * Progress imported from Excel.
+   *
+   * - progress: Single / normal course progress.
+   * - fundamentalsProgress / advancedProgress:
+   *   independent progress for Split courses.
+   *
+   * null means the Excel cell was left blank.
+   */
+  progress: number | null;
+  fundamentalsProgress: number | null;
+  advancedProgress: number | null;
+
   certificateType: string;
 
   rating: number;

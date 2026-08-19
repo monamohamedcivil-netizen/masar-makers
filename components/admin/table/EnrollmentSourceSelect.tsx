@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import {
   updateEnrollmentSource,
   type EnrollmentSource,
+  type RewardSource,
 } from "@/lib/actions/admin/enrollments";
 
 interface EnrollmentSourceSelectProps {
@@ -13,6 +14,7 @@ interface EnrollmentSourceSelectProps {
   journeyType: string;
   status: string;
   initialSource: EnrollmentSource;
+  initialRewardSource: RewardSource | null;
 }
 
 function normalizeJourneyType(value: string) {
@@ -27,17 +29,47 @@ export default function EnrollmentSourceSelect({
   journeyType,
   status,
   initialSource,
+  initialRewardSource,
 }: EnrollmentSourceSelectProps) {
-  const [source, setSource] =
-    useState<EnrollmentSource>(initialSource);
+  type SourceOption =
+    | "paid"
+    | "rewards_card"
+    | "monthly_draw";
 
-  const [error, setError] = useState("");
+  const getInitialOption =
+    (): SourceOption => {
+      if (
+        initialSource !== "reward"
+      ) {
+        return "paid";
+      }
+
+      return initialRewardSource ===
+        "monthly_draw"
+        ? "monthly_draw"
+        : "rewards_card";
+    };
+
+  const [selectedOption, setSelectedOption] =
+    useState<SourceOption>(
+      getInitialOption(),
+    );
+
+  const [error, setError] =
+    useState("");
+
   const [isPending, startTransition] =
     useTransition();
 
   useEffect(() => {
-    setSource(initialSource);
-  }, [initialSource]);
+    setSelectedOption(
+      getInitialOption(),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    initialSource,
+    initialRewardSource,
+  ]);
 
   const normalizedJourneyType =
     normalizeJourneyType(journeyType);
@@ -54,38 +86,60 @@ export default function EnrollmentSourceSelect({
     isOneDayJourney;
 
   if (!isEditable) {
+    const label =
+      selectedOption === "paid"
+        ? "مدفوع"
+        : selectedOption ===
+            "monthly_draw"
+          ? "مكافأة السحب الشهري"
+          : "مكافأة بطاقة المكافآت";
+
     return (
       <span
         className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${
-          source === "reward"
-            ? "bg-[#FFF5DD] text-[#B8790B]"
-            : "bg-slate-100 text-slate-600"
+          selectedOption === "paid"
+            ? "bg-slate-100 text-slate-600"
+            : "bg-[#FFF5DD] text-[#B8790B]"
         }`}
       >
-        {source === "reward"
-          ? "مكافأة"
-          : "مدفوع"}
+        {label}
       </span>
     );
   }
 
   const handleChange = (
-    nextSource: EnrollmentSource,
+    nextOption: SourceOption,
   ) => {
-    const previousSource = source;
+    const previousOption =
+      selectedOption;
 
-    setSource(nextSource);
+    setSelectedOption(nextOption);
     setError("");
+
+    const enrollmentSource:
+      EnrollmentSource =
+        nextOption === "paid"
+          ? "paid"
+          : "reward";
+
+    const rewardSource:
+      RewardSource | null =
+        nextOption === "paid"
+          ? null
+          : nextOption;
 
     startTransition(async () => {
       const result =
         await updateEnrollmentSource(
           enrollmentId,
-          nextSource,
+          enrollmentSource,
+          rewardSource,
         );
 
       if (!result.success) {
-        setSource(previousSource);
+        setSelectedOption(
+          previousOption,
+        );
         setError(
           result.message ||
             "تعذر تحديث نوع الاشتراك.",
@@ -98,12 +152,12 @@ export default function EnrollmentSourceSelect({
     <div className="min-w-[150px]">
       <div className="relative">
         <select
-          value={source}
+          value={selectedOption}
           disabled={isPending}
           onChange={(event) =>
             handleChange(
               event.target
-                .value as EnrollmentSource,
+                .value as SourceOption,
             )
           }
           className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 pl-9 text-xs font-black text-[#07152E] outline-none transition focus:border-[#F7B548] disabled:cursor-wait disabled:opacity-70"
@@ -112,8 +166,12 @@ export default function EnrollmentSourceSelect({
             اشتراك مدفوع
           </option>
 
-          <option value="reward">
-            مكافأة
+          <option value="rewards_card">
+            مكافأة بطاقة المكافآت
+          </option>
+
+          <option value="monthly_draw">
+            مكافأة السحب الشهري
           </option>
         </select>
 

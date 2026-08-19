@@ -3,7 +3,6 @@
 import {
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 
@@ -11,6 +10,8 @@ import {
   ArrowLeft,
   ArrowRight,
   Building2,
+  ChevronLeft,
+  ChevronRight,
   ExternalLink,
   ImageIcon,
   MapPin,
@@ -29,6 +30,8 @@ import {
   type HomeProject,
 } from "@/lib/projects/home-projects";
 
+type Locale = "ar" | "en";
+
 type ProjectCategory =
   | "الكل"
   | "Civil 3D"
@@ -46,25 +49,52 @@ const categories: ProjectCategory[] = [
   "BIM",
 ];
 
+const labels = {
+  ar: {
+    all: "الكل",
+  
+    previous: "المشاريع السابقة",
+    next: "المشاريع التالية",
+    featured: "مشروع مميز",
+    images: "صور",
+    empty: "لا توجد مشاريع منشورة في هذا التصنيف بعد.",
+    projectNext: "مشروعك القادم قد يكون هنا",
+    projectNextDescription:
+      "طبّق ما تتعلمه، وارفع مشروعك ليصبح جزءًا من معرض صناع المسار.",
+    explore: "استكشف الرحلات",
+    goToProject: "الانتقال إلى المشروع",
+  },
+  en: {
+    all: "All",
+   
+    previous: "Previous projects",
+    next: "Next projects",
+    featured: "Featured Project",
+    images: "Images",
+    empty: "No published projects are available in this category yet.",
+    projectNext: "Your next project could be here",
+    projectNextDescription:
+      "Apply what you learn and showcase your project as part of the Masar Makers gallery.",
+    explore: "Explore Journeys",
+    goToProject: "Go to project",
+  },
+} as const;
+
 const categoryStyles: Record<
   Exclude<ProjectCategory, "الكل">,
   string
 > = {
   "Civil 3D": "bg-[#1E66D0] text-white",
   CSD: "bg-[#7DBB37] text-white",
-  Deliverables:
-    "bg-[#F29B2D] text-[#07152E]",
-  "Vehicle Tracking":
-    "bg-[#7455C6] text-white",
+  Deliverables: "bg-[#F29B2D] text-[#07152E]",
+  "Vehicle Tracking": "bg-[#7455C6] text-white",
   BIM: "bg-[#12A4B7] text-white",
 };
 
 function getProjectImages(
   project: HomeProject,
 ): string[] {
-  const images = Array.isArray(
-    project.images,
-  )
+  const images = Array.isArray(project.images)
     ? project.images
     : [];
 
@@ -82,29 +112,71 @@ function getProjectImages(
 }
 
 export default function StudentProjects() {
-  const [projects, setProjects] = useState<
-    HomeProject[]
-  >([]);
+  const [projects, setProjects] =
+    useState<HomeProject[]>([]);
 
   const [isLoading, setIsLoading] =
     useState(true);
 
-  const [
-    selectedProject,
-    setSelectedProject,
-  ] =
-    useState<ProjectGalleryData | null>(
-      null,
-    );
+  const [selectedProject, setSelectedProject] =
+    useState<ProjectGalleryData | null>(null);
 
   const [activeCategory, setActiveCategory] =
     useState<ProjectCategory>("الكل");
 
-  const [activeProjectIndex, setActiveProjectIndex] =
+  const [startIndex, setStartIndex] =
     useState(0);
 
-  const sliderRef =
-    useRef<HTMLDivElement | null>(null);
+  const [visibleCount, setVisibleCount] =
+    useState(2);
+
+  const [locale, setLocale] =
+    useState<Locale>("ar");
+
+  useEffect(() => {
+    const savedLocale =
+      window.localStorage.getItem(
+        "masar-locale",
+      ) as Locale | null;
+
+    if (
+      savedLocale === "ar" ||
+      savedLocale === "en"
+    ) {
+      setLocale(savedLocale);
+    }
+
+    const handleLocaleChange = (
+      event: Event,
+    ) => {
+      const customEvent =
+        event as CustomEvent<{
+          locale?: Locale;
+        }>;
+
+      const nextLocale =
+        customEvent.detail?.locale;
+
+      if (
+        nextLocale === "ar" ||
+        nextLocale === "en"
+      ) {
+        setLocale(nextLocale);
+      }
+    };
+
+    window.addEventListener(
+      "masar:locale-change",
+      handleLocaleChange,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "masar:locale-change",
+        handleLocaleChange,
+      );
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -131,6 +203,11 @@ export default function StudentProjects() {
     };
   }, []);
 
+  const text = labels[locale];
+  const isArabic = locale === "ar";
+  const DirectionArrow =
+    isArabic ? ArrowLeft : ArrowRight;
+
   const visibleProjects = useMemo(() => {
     if (activeCategory === "الكل") {
       return projects;
@@ -144,19 +221,30 @@ export default function StudentProjects() {
   }, [activeCategory, projects]);
 
   useEffect(() => {
-    setActiveProjectIndex(0);
-
-    requestAnimationFrame(() => {
-      const slider = sliderRef.current;
-
-      if (slider) {
-        slider.scrollTo({
-          left: slider.scrollWidth,
-          behavior: "smooth",
-        });
-      }
-    });
+    setStartIndex(0);
   }, [activeCategory]);
+
+  useEffect(() => {
+    const updateVisibleCount = () => {
+      const width = window.innerWidth;
+
+      if (width >= 1280) {
+        setVisibleCount(4);
+      } else if (width >= 1024) {
+        setVisibleCount(3);
+      } else {
+        setVisibleCount(2);
+      }
+    };
+
+    updateVisibleCount();
+
+    window.addEventListener("resize", updateVisibleCount);
+
+    return () => {
+      window.removeEventListener("resize", updateVisibleCount);
+    };
+  }, []);
 
   const openProjectGallery = (
     project: HomeProject,
@@ -173,100 +261,74 @@ export default function StudentProjects() {
     });
   };
 
-  const scrollToProject = (
-    targetIndex: number,
-  ) => {
-    const slider = sliderRef.current;
-
-    if (!slider) {
-      return;
+  const carouselProjects = useMemo(() => {
+    if (visibleProjects.length === 0) {
+      return [];
     }
 
-    const cards = Array.from(
-      slider.querySelectorAll<HTMLElement>(
-        "[data-project-card]",
-      ),
+    const count = Math.min(
+      visibleCount,
+      visibleProjects.length,
     );
 
-    if (cards.length === 0) {
-      return;
-    }
-
-    const normalizedIndex =
-      targetIndex < 0
-        ? cards.length - 1
-        : targetIndex >= cards.length
-          ? 0
-          : targetIndex;
-
-    cards[normalizedIndex]?.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-      inline: "center",
-    });
-
-    setActiveProjectIndex(normalizedIndex);
-  };
-
-  const handleSliderScroll = () => {
-    const slider = sliderRef.current;
-
-    if (!slider) {
-      return;
-    }
-
-    const cards = Array.from(
-      slider.querySelectorAll<HTMLElement>(
-        "[data-project-card]",
-      ),
+    return Array.from(
+      { length: count },
+      (_, index) =>
+        visibleProjects[
+          (startIndex + index) %
+            visibleProjects.length
+        ],
     );
+  }, [
+    visibleCount,
+    visibleProjects,
+    startIndex,
+  ]);
 
-    if (cards.length === 0) {
+  const nextProjects = () => {
+    if (visibleProjects.length <= 1) {
       return;
     }
 
-    const sliderRect =
-      slider.getBoundingClientRect();
-
-    const sliderCenter =
-      sliderRect.left +
-      sliderRect.width / 2;
-
-    let closestIndex = 0;
-    let closestDistance = Number.POSITIVE_INFINITY;
-
-    cards.forEach((card, index) => {
-      const cardRect =
-        card.getBoundingClientRect();
-
-      const cardCenter =
-        cardRect.left +
-        cardRect.width / 2;
-
-      const distance = Math.abs(
-        cardCenter - sliderCenter,
-      );
-
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestIndex = index;
-      }
-    });
-
-    setActiveProjectIndex(closestIndex);
+    setStartIndex(
+      (current) =>
+        (current + 1) %
+        visibleProjects.length,
+    );
   };
+
+  const previousProjects = () => {
+    if (visibleProjects.length <= 1) {
+      return;
+    }
+
+    setStartIndex(
+      (current) =>
+        (current -
+          1 +
+          visibleProjects.length) %
+        visibleProjects.length,
+    );
+  };
+
+  const categoryLabel = (
+    category: ProjectCategory,
+  ) =>
+    category === "الكل"
+      ? text.all
+      : category;
 
   return (
     <>
       <section
         id="student-projects"
-        dir="rtl"
-        className="w-full bg-[#F7F8FA] px-4 py-3 sm:px-6"
+        dir={isArabic ? "rtl" : "ltr"}
+        className="w-full bg-[#F7F8FA] py-2 sm:py-2.5 lg:py-3"
       >
-        <div className="mx-auto max-w-[1580px]">
+        <div className="mx-auto w-full max-w-[1580px] px-3 sm:px-4 md:px-5 lg:px-6">
           {/* Filters */}
-          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="mb-2 flex items-center justify-between gap-2 sm:mb-2.5 lg:mb-3">
+            <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-2">
               {categories.map(
                 (category) => (
                   <button
@@ -277,84 +339,93 @@ export default function StudentProjects() {
                         category,
                       )
                     }
-                    className={`rounded-full px-4 py-2 text-[12px] font-black transition duration-300 ${
+                    className={`shrink-0 rounded-full px-2.5 py-1.5 text-[9px] font-black transition duration-300 sm:px-3 sm:text-[10px] lg:px-3.5 lg:text-[11px] ${
                       activeCategory ===
                       category
                         ? "bg-[#07152E] text-white shadow-md"
                         : "border border-[#DCE3EC] bg-white text-slate-600 hover:border-[#F7B548] hover:text-[#07152E]"
                     }`}
                   >
-                    {category}
+                    {categoryLabel(
+                      category,
+                    )}
                   </button>
                 ),
               )}
             </div>
 
-            <button
-              type="button"
-              className="group hidden shrink-0 items-center gap-2 text-[13px] font-black text-[#07152E] transition hover:text-[#D49319] lg:flex"
-            >
-              عرض معرض المشاريع
+            {/* Slider controls - same style as Popular Courses / Success Stories */}
+            <div className="flex shrink-0 items-center gap-1.5">
+              <button
+                type="button"
+                onClick={previousProjects}
+                aria-label={text.previous}
+                disabled={
+                  visibleProjects.length <= 1 ||
+                  isLoading
+                }
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-[#DCE3EC] bg-white text-[#07152E] shadow-sm transition duration-300 hover:border-[#F7B548] hover:bg-[#F7B548] disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9"
+              >
+                {isArabic ? (
+                  <ChevronRight className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+                ) : (
+                  <ChevronLeft className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+                )}
+              </button>
 
-              <ArrowLeft
-                size={17}
-                className="transition-transform duration-300 group-hover:-translate-x-1"
-              />
-            </button>
+              <button
+                type="button"
+                onClick={nextProjects}
+                aria-label={text.next}
+                disabled={
+                  visibleProjects.length <= 1 ||
+                  isLoading
+                }
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-[#DCE3EC] bg-white text-[#07152E] shadow-sm transition duration-300 hover:border-[#F7B548] hover:bg-[#F7B548] disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:w-9"
+              >
+                {isArabic ? (
+                  <ChevronLeft className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Projects Slider */}
           {isLoading ? (
-            <div className="flex h-[290px] gap-4 overflow-hidden">
+            <div
+              className={`grid h-[220px] gap-2.5 sm:h-[230px] sm:gap-3 lg:h-[240px] ${
+                visibleCount === 4
+                  ? "grid-cols-4"
+                  : visibleCount === 3
+                    ? "grid-cols-3"
+                    : "grid-cols-2"
+              }`}
+            >
               {Array.from({
-                length: 4,
+                length: visibleCount,
               }).map((_, index) => (
                 <div
                   key={index}
-                  className="h-full min-w-[280px] animate-pulse rounded-[24px] bg-slate-200 sm:min-w-[310px] lg:min-w-[325px]"
+                  className="h-full animate-pulse rounded-[18px] bg-slate-200"
                 />
               ))}
             </div>
           ) : visibleProjects.length > 0 ? (
             <div className="relative">
-              {/* Previous Arrow */}
-              {visibleProjects.length > 1 ? (
-                <button
-                  type="button"
-                  aria-label="المشاريع السابقة"
-                  onClick={() =>
-                    scrollToProject(
-                      activeProjectIndex - 1,
-                    )
-                  }
-                  className="absolute -right-3 top-1/2 z-30 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/50 bg-[#07152E] text-white shadow-[0_8px_24px_rgba(7,21,46,0.25)] transition hover:scale-105 hover:bg-[#F7B548] hover:text-[#07152E] sm:-right-5"
-                >
-                  <ArrowRight size={19} />
-                </button>
-              ) : null}
-
-              {/* Next Arrow */}
-              {visibleProjects.length > 1 ? (
-                <button
-                  type="button"
-                  aria-label="المشاريع التالية"
-                  onClick={() =>
-                    scrollToProject(
-                      activeProjectIndex + 1,
-                    )
-                  }
-                  className="absolute -left-3 top-1/2 z-30 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/50 bg-[#07152E] text-white shadow-[0_8px_24px_rgba(7,21,46,0.25)] transition hover:scale-105 hover:bg-[#F7B548] hover:text-[#07152E] sm:-left-5"
-                >
-                  <ArrowLeft size={19} />
-                </button>
-              ) : null}
-
-              <div
-                ref={sliderRef}
-                onScroll={handleSliderScroll}
-                className="flex h-[290px] snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              >
-                {visibleProjects.map(
+             <div
+  className={`mx-auto grid h-[220px] justify-center gap-2.5 sm:h-[230px] sm:gap-3 lg:h-[240px] ${
+    carouselProjects.length === 1
+      ? "w-full max-w-[380px] grid-cols-1"
+      : carouselProjects.length === 2
+        ? "w-full max-w-[760px] grid-cols-2"
+        : carouselProjects.length === 3
+          ? "w-full max-w-[1100px] grid-cols-3"
+          : "w-full grid-cols-4"
+  }`}
+>
+                {carouselProjects.map(
                   (project) => {
                     const projectImages =
                       getProjectImages(
@@ -387,7 +458,7 @@ export default function StudentProjects() {
                             );
                           }
                         }}
-                        className="group relative h-[275px] min-w-[270px] snap-center cursor-pointer overflow-hidden rounded-[24px] bg-[#07152E] shadow-[0_14px_36px_rgba(7,21,46,0.10)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_48px_rgba(7,21,46,0.20)] focus:outline-none focus:ring-2 focus:ring-[#F7B548] sm:min-w-[300px] lg:min-w-[315px] xl:min-w-[325px]"
+                        className="group relative h-[214px] w-full cursor-pointer overflow-hidden rounded-[18px] bg-[#07152E] shadow-[0_12px_30px_rgba(7,21,46,0.10)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(7,21,46,0.18)] focus:outline-none focus:ring-2 focus:ring-[#F7B548] sm:h-[224px] sm:rounded-[20px] lg:h-[234px]"
                       >
                         {/* Blurred Background */}
                         {project.image ? (
@@ -400,12 +471,11 @@ export default function StudentProjects() {
                               aria-hidden="true"
                               loading="lazy"
                               decoding="async"
-                              className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-xl"
+                              className="absolute inset-0 h-full w-full scale-110 object-cover opacity-45 blur-xl"
                             />
 
-                            <div className="absolute inset-0 bg-[#07152E]/25" />
+                            <div className="absolute inset-0 bg-[#07152E]/20" />
 
-                            {/* Main Image */}
                             <img
                               src={
                                 project.image
@@ -415,21 +485,25 @@ export default function StudentProjects() {
                               }
                               loading="lazy"
                               decoding="async"
-                              className="absolute inset-0 h-full w-full object-contain transition-transform duration-500 group-hover:scale-[1.025]"
+                              className="absolute inset-0 h-full w-full object-contain [image-rendering:auto] transition-transform duration-500 group-hover:scale-[1.015]"
                             />
                           </>
                         ) : (
                           <div className="absolute inset-0 flex items-center justify-center bg-slate-200">
-                            <ImageIcon className="h-10 w-10 text-slate-400" />
+                            <ImageIcon className="h-8 w-8 text-slate-400 sm:h-9 sm:w-9" />
                           </div>
                         )}
 
                         {/* Overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#07152E]/95 via-[#07152E]/20 to-transparent transition duration-500 group-hover:via-[#07152E]/38" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#07152E]/95 via-[#07152E]/15 to-transparent transition duration-500 group-hover:via-[#07152E]/34" />
 
                         {/* Category */}
                         <span
-                          className={`absolute right-3 top-3 rounded-full px-3 py-1.5 text-[10px] font-black shadow-md ${
+                          className={`absolute top-2 rounded-full px-2 py-1 text-[7.5px] font-black shadow-md sm:top-2.5 sm:px-2.5 sm:text-[8.5px] lg:text-[9px] ${
+                            isArabic
+                              ? "right-2 sm:right-2.5"
+                              : "left-2 sm:left-2.5"
+                          } ${
                             categoryStyles[
                               project.category
                             ]
@@ -440,61 +514,74 @@ export default function StudentProjects() {
 
                         {/* Featured */}
                         {project.featured ? (
-                          <span className="absolute left-3 top-3 rounded-full bg-[#F7B548] px-3 py-1.5 text-[10px] font-black text-[#07152E] shadow-md">
-                            مشروع مميز
+                          <span
+                            className={`absolute top-2 rounded-full bg-[#F7B548] px-2 py-1 text-[7.5px] font-black text-[#07152E] shadow-md sm:top-2.5 sm:px-2.5 sm:text-[8.5px] lg:text-[9px] ${
+                              isArabic
+                                ? "left-2 sm:left-2.5"
+                                : "right-2 sm:right-2.5"
+                            }`}
+                          >
+                            {text.featured}
                           </span>
                         ) : null}
 
                         {/* Images Count */}
                         {projectImages.length >
                         1 ? (
-                          <span className="absolute left-3 top-12 rounded-full bg-black/65 px-2.5 py-1 text-[9px] font-black text-white backdrop-blur">
+                          <span
+                            className={`absolute top-9 rounded-full bg-black/65 px-2 py-1 text-[7px] font-black text-white backdrop-blur sm:top-10 sm:text-[8px] ${
+                              isArabic
+                                ? "left-2 sm:left-2.5"
+                                : "right-2 sm:right-2.5"
+                            }`}
+                          >
                             {
                               projectImages.length
                             }{" "}
-                            صور
+                            {text.images}
                           </span>
                         ) : null}
 
                         {/* Video */}
                         {project.video ? (
-                          <div className="absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/40 bg-white/20 text-white backdrop-blur-md transition duration-300 group-hover:scale-110">
+                          <div className="absolute left-1/2 top-[44%] flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/40 bg-white/20 text-white backdrop-blur-md transition duration-300 group-hover:scale-110 sm:h-10 sm:w-10">
                             <Play
-                              size={20}
+                              className="h-4 w-4 sm:h-[18px] sm:w-[18px]"
                               fill="currentColor"
                             />
                           </div>
                         ) : null}
 
                         {/* Content */}
-                        <div className="absolute inset-x-0 bottom-0 z-10 p-4">
-                          <div className="translate-y-1 transition-transform duration-300 group-hover:translate-y-0">
-                            <h3 className="line-clamp-1 text-[17px] font-black leading-tight text-white">
-                              {
-                                project.title
-                              }
-                            </h3>
-
-                            <p className="mt-1 text-[11px] font-bold text-[#F7B548]">
-                              {
-                                project.software
-                              }
+                        <div className="absolute inset-x-0 bottom-0 z-10 p-2.5 sm:p-3 lg:p-3.5">
+                          <div className="translate-y-0.5 transition-transform duration-300 group-hover:translate-y-0">
+                            <p
+                              className={`line-clamp-1 font-black leading-tight text-white ${
+                                isArabic
+                                  ? "text-[13px] sm:text-[15px] lg:text-[17px]"
+                                  : "text-[12px] sm:text-[14px] lg:text-[16px]"
+                              }`}
+                            >
+                              {project.software}
                             </p>
 
                             {project.description ? (
-                              <p className="mt-2 line-clamp-2 text-[10px] font-medium leading-5 text-slate-200 opacity-0 transition duration-300 group-hover:opacity-100">
+                              <p
+                                className={`mt-1 line-clamp-1 font-medium text-slate-200 opacity-0 transition duration-300 group-hover:opacity-100 ${
+                                  isArabic
+                                    ? "text-[7.5px] leading-[1.4] sm:text-[8.5px]"
+                                    : "text-[7px] leading-[1.35] sm:text-[8px]"
+                                }`}
+                              >
                                 {
                                   project.description
                                 }
                               </p>
                             ) : null}
 
-                            <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px] font-bold text-slate-300">
-                              <span className="flex min-w-0 items-center gap-1.5">
-                                <Building2
-                                  size={13}
-                                  className="shrink-0 text-[#F7B548]"
-                                />
+                            <div className="mt-1.5 flex min-w-0 items-center gap-2 text-[7px] font-bold text-slate-300 sm:mt-2 sm:text-[8px] lg:text-[9px]">
+                              <span className="flex min-w-0 items-center gap-1">
+                                <Building2 className="h-3 w-3 shrink-0 text-[#F7B548]" />
 
                                 <span className="truncate">
                                   {
@@ -504,11 +591,8 @@ export default function StudentProjects() {
                               </span>
 
                               {project.country ? (
-                                <span className="flex items-center gap-1.5">
-                                  <MapPin
-                                    size={13}
-                                    className="text-[#F7B548]"
-                                  />
+                                <span className="flex shrink-0 items-center gap-1">
+                                  <MapPin className="h-3 w-3 text-[#F7B548]" />
 
                                   {
                                     project.country
@@ -518,14 +602,18 @@ export default function StudentProjects() {
                             </div>
                           </div>
 
-                          <span className="absolute bottom-4 left-4 flex h-9 w-9 translate-y-3 items-center justify-center rounded-full bg-white text-[#07152E] opacity-0 shadow-lg transition duration-300 group-hover:translate-y-0 group-hover:opacity-100">
-                            <ExternalLink
-                              size={16}
-                            />
+                          <span
+                            className={`absolute bottom-2.5 flex h-7 w-7 translate-y-2 items-center justify-center rounded-full bg-white text-[#07152E] opacity-0 shadow-lg transition duration-300 group-hover:translate-y-0 group-hover:opacity-100 sm:h-8 sm:w-8 ${
+                              isArabic
+                                ? "left-2.5 sm:left-3"
+                                : "right-2.5 sm:right-3"
+                            }`}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
                           </span>
                         </div>
 
-                        <div className="pointer-events-none absolute inset-0 rounded-[24px] border border-white/15 transition group-hover:border-[#F7B548]/70" />
+                        <div className="pointer-events-none absolute inset-0 rounded-[18px] border border-white/15 transition group-hover:border-[#F7B548]/70 sm:rounded-[20px]" />
                       </article>
                     );
                   },
@@ -533,29 +621,28 @@ export default function StudentProjects() {
               </div>
 
               {/* Slider Dots */}
-              {visibleProjects.length > 1 ? (
+              {visibleProjects.length >
+              1 ? (
                 <div
                   dir="ltr"
-                  className="mt-2 flex items-center justify-center gap-2"
+                  className="mt-1.5 flex items-center justify-center gap-1.5 sm:mt-2"
                 >
                   {visibleProjects.map(
                     (project, index) => (
                       <button
                         key={`project-dot-${project.id}`}
                         type="button"
-                        aria-label={`الانتقال إلى المشروع ${
+                        aria-label={`${text.goToProject} ${
                           index + 1
                         }`}
                         onClick={() =>
-                          scrollToProject(
-                            index,
-                          )
+                          setStartIndex(index)
                         }
-                        className={`h-2 rounded-full transition-all duration-300 ${
+                        className={`h-[5px] rounded-full transition-all duration-300 ${
                           index ===
-                          activeProjectIndex
-                            ? "w-8 bg-[#F7B548]"
-                            : "w-2 bg-slate-300 hover:bg-slate-400"
+                          startIndex
+                            ? "w-7 bg-[#F7B548]"
+                            : "w-[5px] bg-slate-300 hover:bg-slate-400"
                         }`}
                       />
                     ),
@@ -564,47 +651,56 @@ export default function StudentProjects() {
               ) : null}
             </div>
           ) : (
-            <div className="flex h-[275px] items-center justify-center rounded-[26px] border border-dashed border-[#D6DEE8] bg-white text-center">
+            <div className="flex h-[210px] items-center justify-center rounded-[20px] border border-dashed border-[#D6DEE8] bg-white text-center sm:h-[220px]">
               <div>
-                <ImageIcon className="mx-auto h-10 w-10 text-slate-300" />
+                <ImageIcon className="mx-auto h-8 w-8 text-slate-300 sm:h-9 sm:w-9" />
 
-                <p className="mt-3 text-[13px] font-black text-[#07152E]">
-                  لا توجد مشاريع منشورة في
-                  هذا التصنيف بعد.
+                <p className="mt-2 text-[10px] font-black text-[#07152E] sm:text-[11px] lg:text-[12px]">
+                  {text.empty}
                 </p>
               </div>
             </div>
           )}
 
           {/* Bottom Message */}
-          <div className="mt-2 flex min-h-[55px] items-center justify-between gap-4 rounded-[18px] border border-[#E0E6EE] bg-white px-5 py-2 shadow-[0_8px_24px_rgba(7,21,46,0.04)]">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FFF6DF] text-[#D49319]">
-                <Route size={21} />
+          <div className="mt-2 flex min-h-[48px] items-center justify-between gap-2 rounded-[16px] border border-[#E0E6EE] bg-white px-3 py-2 shadow-[0_8px_24px_rgba(7,21,46,0.04)] sm:px-4 lg:min-h-[52px]">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#FFF6DF] text-[#D49319] sm:h-9 sm:w-9">
+                <Route className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
               </div>
 
-              <div>
-                <p className="text-[14px] font-black text-[#07152E]">
-                  مشروعك القادم قد يكون هنا
+              <div className="min-w-0">
+                <p
+                  className={`font-black text-[#07152E] ${
+                    isArabic
+                      ? "text-[10px] sm:text-[11px] lg:text-[12px]"
+                      : "text-[9px] sm:text-[10px] lg:text-[11px]"
+                  }`}
+                >
+                  {text.projectNext}
                 </p>
 
-                <p className="text-[11px] font-medium text-slate-500">
-                  طبّق ما تتعلمه، وارفع
-                  مشروعك ليصبح جزءًا من معرض
-                  صناع المسار.
+                <p
+                  className={`mt-0.5 line-clamp-1 font-medium text-slate-500 ${
+                    isArabic
+                      ? "text-[8px] sm:text-[9px] lg:text-[10px]"
+                      : "text-[7.5px] sm:text-[8.5px] lg:text-[9.5px]"
+                  }`}
+                >
+                  {
+                    text.projectNextDescription
+                  }
                 </p>
               </div>
             </div>
 
-            <AuthLink href="/career-path/road">
-              <button
-                type="button"
-                className="hidden items-center gap-2 rounded-xl bg-[#07152E] px-5 py-2.5 text-[12px] font-black text-white transition hover:bg-[#F7B548] hover:text-[#07152E] md:flex"
-              >
-                استكشف الرحلات
+            <AuthLink
+              href="/career-path/road-design"
+              className="hidden shrink-0 items-center gap-1.5 rounded-xl bg-[#07152E] px-3 py-2 text-[9px] font-black text-white transition hover:bg-[#F7B548] hover:text-[#07152E] md:flex lg:px-4 lg:text-[10px]"
+            >
+              {text.explore}
 
-                <ArrowLeft size={16} />
-              </button>
+              <DirectionArrow className="h-3.5 w-3.5" />
             </AuthLink>
           </div>
         </div>

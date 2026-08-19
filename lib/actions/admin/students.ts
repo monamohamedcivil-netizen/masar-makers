@@ -34,6 +34,8 @@ export interface StudentSummary {
 lastBonusReason: string | null;
   rewardCourses: number;
   drawEntries: number;
+  drawWins: number;
+  availableDrawEntries: number;
 
 earnedRewards: number;
 redeemedRewards: number;
@@ -130,6 +132,9 @@ function isProfessionalJourney(
     "professional",
     "professional_journey",
     "integrated",
+    "fundamental",
+    "fundamentals",
+    "advanced",
   ].includes(type);
 }
 
@@ -187,6 +192,77 @@ function isPendingStatus(
   ].includes(value);
 }
 
+type CoursePartsInfo = {
+  hasFundamentals: boolean;
+  hasAdvanced: boolean;
+};
+
+function getEnrollmentJourneyCount(
+  enrollment: GenericRow,
+  coursePartsMap: Map<string, CoursePartsInfo>,
+) {
+  const journeyType =
+    normalizeValue(enrollment.journey_type);
+
+  const courseId =
+    textValue(enrollment.course_id);
+
+  if (!courseId) {
+    return 1;
+  }
+
+  if (
+    isOneDayJourney(journeyType) ||
+    isFreeJourney(journeyType)
+  ) {
+    return 1;
+  }
+
+  if (!isProfessionalJourney(journeyType)) {
+    return 1;
+  }
+
+  const parts =
+    coursePartsMap.get(courseId);
+
+  if (!parts) {
+    return 1;
+  }
+
+  const isSplitCourse =
+    parts.hasFundamentals ||
+    parts.hasAdvanced;
+
+  if (!isSplitCourse) {
+    return 1;
+  }
+
+  if (
+    journeyType === "fundamental" ||
+    journeyType === "fundamentals" ||
+    journeyType === "advanced"
+  ) {
+    return 1;
+  }
+
+  const grantsAll =
+    journeyType === "integrated" ||
+    journeyType === "professional" ||
+    journeyType === "professional_journey" ||
+    journeyType === "career_path" ||
+    journeyType === "career";
+
+  if (grantsAll) {
+    const count =
+      Number(parts.hasFundamentals) +
+      Number(parts.hasAdvanced);
+
+    return Math.max(1, count);
+  }
+
+  return 1;
+}
+
 export async function getStudentsSummary(): Promise<
   StudentSummary[]
 > {
@@ -201,7 +277,7 @@ export async function getStudentsSummary(): Promise<
     supabase
       .from("enrollments")
       .select(
-        "user_id,status,journey_type",
+        "user_id,course_id,status,journey_type,action_key",
       ),
 
     supabase
@@ -243,6 +319,170 @@ export async function getStudentsSummary(): Promise<
   const enrollments = (
     enrollmentsResult.data ?? []
   ) as GenericRow[];
+
+  const enrollmentCourseIds = [
+    ...new Set(
+      enrollments
+        .map((enrollment) =>
+          textValue(enrollment.course_id),
+        )
+        .filter(
+          (courseId): courseId is string =>
+            Boolean(courseId),
+        ),
+    ),
+  ];
+
+  const coursePartsMap =
+    new Map<string, CoursePartsInfo>();
+
+  if (enrollmentCourseIds.length > 0) {
+    const {
+      data: lessonRows,
+      error: lessonsError,
+    } = await supabase
+      .from("lessons")
+      .select("course_id,course_part,status")
+      .in("course_id", enrollmentCourseIds)
+      .eq("status", "published");
+
+    if (lessonsError) {
+      console.error(
+        "LOAD ADMIN STUDENT COURSE PARTS ERROR",
+        lessonsError.message,
+      );
+    } else {
+      for (const lesson of lessonRows ?? []) {
+        const courseId =
+          textValue(lesson.course_id);
+
+        if (!courseId) {
+          continue;
+        }
+
+        const current =
+          coursePartsMap.get(courseId) ?? {
+            hasFundamentals: false,
+            hasAdvanced: false,
+          };
+
+        const part =
+          normalizeValue(lesson.course_part);
+
+        if (
+          part === "fundamental" ||
+          part === "fundamentals"
+        ) {
+          current.hasFundamentals = true;
+        }
+
+        if (part === "advanced") {
+          current.hasAdvanced = true;
+        }
+
+        coursePartsMap.set(courseId, current);
+      }
+    }
+  }
+
+  /*
+   * الرحلات المجانية الجديدة مرتبطة بمحاضرة محددة
+   * عبر action_key = free:lesson:LESSON_ID.
+   * نقرأ تقدم هذه المحاضرات حتى يكون عمود "النشط"
+   * = الرحلات التي لم تُكمل بعد فقط.
+   */
+  const freeLessonIds = [
+    ...new Set(
+      enrollments
+        .filter((enrollment) =>
+          isFreeJourney(
+            enrollment.journey_type,
+          ),
+        )
+        .map((enrollment) =>
+          textValue(
+            enrollment.action_key,
+          ),
+        )
+        .filter(
+          (actionKey): actionKey is string =>
+            Boolean(
+              actionKey?.startsWith(
+                "free:lesson:",
+              ),
+            ),
+        )
+        .map((actionKey) =>
+          actionKey.slice(
+            "free:lesson:".length,
+          ),
+        )
+        .filter(Boolean),
+    ),
+  ];
+
+  const freeLessonProgressMap =
+    new Map<
+      string,
+      {
+        completed: boolean;
+        progressPercent: number;
+      }
+    >();
+
+  if (freeLessonIds.length > 0) {
+    const {
+      data: freeProgressRows,
+      error: freeProgressError,
+    } = await supabase
+      .from("lesson_progress")
+      .select(
+        "lesson_id,completed,progress_percent",
+      )
+      .in("lesson_id", freeLessonIds);
+
+    if (freeProgressError) {
+      console.error(
+        "LOAD ADMIN FREE JOURNEY PROGRESS ERROR",
+        freeProgressError.message,
+      );
+    } else {
+      for (
+        const row of
+          freeProgressRows ?? []
+      ) {
+        const lessonId =
+          textValue(row.lesson_id);
+
+        if (!lessonId) {
+          continue;
+        }
+
+        freeLessonProgressMap.set(
+          lessonId,
+          {
+            completed:
+              Boolean(row.completed) ||
+              Number(
+                row.progress_percent ??
+                  0,
+              ) >= 100,
+            progressPercent:
+              Math.max(
+                0,
+                Math.min(
+                  100,
+                  Number(
+                    row.progress_percent ??
+                      0,
+                  ) || 0,
+                ),
+              ),
+          },
+        );
+      }
+    }
+  }
 
   const profiles = (
     profilesResult.data ?? []
@@ -419,6 +659,8 @@ lastRewardCourseId: null,
 lastRewardCourseTitle: null,
 lastRewardRedeemedAt: null,
       drawEntries: 0,
+      drawWins: 0,
+      availableDrawEntries: 0,
     };
 
     students.set(userId, student);
@@ -435,7 +677,83 @@ lastRewardRedeemedAt: null,
     const student =
       ensureStudent(userId);
 
-    student.totalEnrollments += 1;
+    const journeyCount =
+      getEnrollmentJourneyCount(
+        enrollment,
+        coursePartsMap,
+      );
+
+    const isFree =
+      isFreeJourney(
+        enrollment.journey_type,
+      );
+
+    /*
+     * الرحلات المجانية رحلات تعليمية فعلية،
+     * لكنها ليست اشتراكات مدفوعة.
+     */
+    if (isFree) {
+      student.freeEnrollments +=
+        journeyCount;
+
+      const actionKey =
+        textValue(
+          enrollment.action_key,
+        );
+
+      const freeLessonId =
+        actionKey?.startsWith(
+          "free:lesson:",
+        )
+          ? actionKey.slice(
+              "free:lesson:".length,
+            )
+          : null;
+
+      const freeProgress =
+        freeLessonId
+          ? freeLessonProgressMap.get(
+              freeLessonId,
+            )
+          : undefined;
+
+      const freeJourneyCompleted =
+        Boolean(
+          freeProgress?.completed,
+        ) ||
+        Number(
+          freeProgress?.progressPercent ??
+            0,
+        ) >= 100;
+
+      /*
+       * الرحلة المجانية لا تدخل في إجمالي الاشتراكات،
+       * لكن تدخل في "النشط" طالما لم تُكمل بعد.
+       */
+      if (
+        !freeJourneyCompleted &&
+        isApprovedStatus(
+          enrollment.status,
+        )
+      ) {
+        student.approvedEnrollments +=
+          journeyCount;
+      }
+
+      if (
+        isPendingStatus(
+          enrollment.status,
+        )
+      ) {
+        student.pendingEnrollments +=
+          journeyCount;
+      }
+
+      continue;
+    }
+
+    student.totalEnrollments +=
+      journeyCount;
 
     if (
       isProfessionalJourney(
@@ -443,7 +761,7 @@ lastRewardRedeemedAt: null,
       )
     ) {
       student.professionalEnrollments +=
-        1;
+        journeyCount;
     }
 
     if (
@@ -451,15 +769,8 @@ lastRewardRedeemedAt: null,
         enrollment.journey_type,
       )
     ) {
-      student.oneDayEnrollments += 1;
-    }
-
-    if (
-      isFreeJourney(
-        enrollment.journey_type,
-      )
-    ) {
-      student.freeEnrollments += 1;
+      student.oneDayEnrollments +=
+        journeyCount;
     }
 
     if (
@@ -467,7 +778,8 @@ lastRewardRedeemedAt: null,
         enrollment.status,
       )
     ) {
-      student.approvedEnrollments += 1;
+      student.approvedEnrollments +=
+        journeyCount;
     }
 
     if (
@@ -475,7 +787,8 @@ lastRewardRedeemedAt: null,
         enrollment.status,
       )
     ) {
-      student.pendingEnrollments += 1;
+      student.pendingEnrollments +=
+        journeyCount;
     }
   }
 
@@ -557,6 +870,12 @@ student.lastRewardRedeemedAt =
   passport.lastRewardRedeemedAt;
         student.drawEntries =
           passport.drawEntries;
+
+        student.drawWins =
+          passport.drawWins;
+
+        student.availableDrawEntries =
+          passport.availableDrawEntries;
       } catch (error) {
         console.error(
           `LOAD PASSPORT ERROR: ${student.userId}`,

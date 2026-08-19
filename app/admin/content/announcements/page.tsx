@@ -1,6 +1,11 @@
 import AdminPageHeader from "@/components/admin/layout/AdminPageHeader";
+import AnnouncementsManager from "@/components/admin/announcements/AnnouncementsManager";
+import { getAdminPlatformAnnouncements } from "@/lib/admin/platform-announcements";
 
-export default function AnnouncementsPage() {
+export default async function AnnouncementsPage() {
+  const announcements =
+    await getAdminPlatformAnnouncements();
+
   return (
     <>
       <AdminPageHeader
@@ -8,9 +13,9 @@ export default function AnnouncementsPage() {
         description="إدارة إعلانات المنصة."
       />
 
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-20 text-center text-slate-500">
-        قريباً...
-      </div>
+      <AnnouncementsManager
+        initialAnnouncements={announcements}
+      />
     </>
   );
 }

@@ -20,6 +20,31 @@ export default function CSDCertificatePDF({
   templateDataUrl,
   qrCodeDataUrl,
 }: Props) {
+  const studentName =
+    (
+      certificate.studentNameEn ||
+      certificate.studentName
+    )
+      .trim()
+      .replace(/\\s+/g, " ");
+
+  /*
+   * React PDF لا يوفّر لنا قياس DOM مثل AutoFitText،
+   * لذلك نستخدم درجات آمنة وواضحة حسب طول الاسم.
+   * الأسماء الطويلة جدًا تُصغّر بشكل ملحوظ حتى لا
+   * تتجاوز المساحة المخصصة في قالب الشهادة.
+   */
+  const studentNameFontSize =
+    studentName.length >= 32
+      ? 16
+      : studentName.length >= 28
+        ? 18
+        : studentName.length >= 24
+          ? 21
+          : studentName.length >= 20
+            ? 24
+            : 28;
+
   return (
     <Document
       title={`Certificate-${certificate.certificateNumber}`}
@@ -37,12 +62,16 @@ export default function CSDCertificatePDF({
           style={styles.background}
         />
 
-        <View style={styles.studentNameContainer}>
-          <Text style={styles.studentName}>
-            {certificate.studentNameEn ||
-              certificate.studentName}
-          </Text>
-        </View>
+     <View style={styles.studentNameContainer}>
+  <Text
+    style={[
+      styles.studentName,
+      { fontSize: studentNameFontSize },
+    ]}
+  >
+    {studentName}
+  </Text>
+</View>
 
         <Text style={styles.certificateNumber}>
           {certificate.certificateNumber}
@@ -83,21 +112,21 @@ const styles = StyleSheet.create({
     height: "100%",
   },
 
-  studentNameContainer: {
-    position: "absolute",
-    top: "34.8%",
-    left: "11%",
-    width: "78%",
-    height: 55,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
+studentNameContainer: {
+  position: "absolute",
+  top: "34.8%",
+  left: "18%",
+  width: "64%",
+  height: 55,
+  alignItems: "center",
+  justifyContent: "center",
+},
   studentName: {
-    fontSize: 34,
+    fontSize: 28,
     fontWeight: 700,
     color: "#07152E",
     textAlign: "center",
+    letterSpacing: 0,
   },
 
   certificateNumber: {

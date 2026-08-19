@@ -16,11 +16,32 @@ import {
   type PublicMonthlyDrawState,
 } from "@/lib/public/monthly-draws";
 
+type Locale = "ar" | "en";
+
 type Remaining = {
   days: number;
   hours: number;
   minutes: number;
 };
+
+const drawText = {
+  ar: {
+    nextPrize: "جائزة السحب القادم",
+    nextDrawAfter: "السحب القادم بعد",
+    day: "يوم",
+    hour: "ساعة",
+    minute: "دقيقة",
+    previousResult: "عرض نتيجة السحب السابق",
+  },
+  en: {
+    nextPrize: "Next Draw Prize",
+    nextDrawAfter: "Next draw in",
+    day: "Day",
+    hour: "Hour",
+    minute: "Min",
+    previousResult: "View Previous Draw Result",
+  },
+} as const;
 
 const EMPTY_REMAINING: Remaining = {
   days: 0,
@@ -29,6 +50,9 @@ const EMPTY_REMAINING: Remaining = {
 };
 
 export default function HomeMonthlyDrawStatus() {
+  const [locale, setLocale] =
+    useState<Locale>("ar");
+
   const [draw, setDraw] =
     useState<PublicMonthlyDrawState | null>(
       null,
@@ -38,6 +62,62 @@ export default function HomeMonthlyDrawStatus() {
     useState<Remaining>(
       EMPTY_REMAINING,
     );
+
+  useEffect(() => {
+    const savedLocale =
+      window.localStorage.getItem(
+        "masar-locale"
+      );
+
+    if (
+      savedLocale === "ar" ||
+      savedLocale === "en"
+    ) {
+      setLocale(savedLocale);
+    }
+
+    const handleLocaleChange = (
+      event: Event
+    ) => {
+      const customEvent =
+        event as CustomEvent<{
+          locale?: Locale;
+        }>;
+
+      if (
+        customEvent.detail?.locale === "ar" ||
+        customEvent.detail?.locale === "en"
+      ) {
+        setLocale(
+          customEvent.detail.locale
+        );
+      }
+    };
+
+    window.addEventListener(
+      "masar:locale-change",
+      handleLocaleChange
+    );
+
+    return () => {
+      window.removeEventListener(
+        "masar:locale-change",
+        handleLocaleChange
+      );
+    };
+  }, []);
+
+  const text = drawText[locale];
+
+  const rawPrizeTitle =
+    draw?.nextPrizeTitle?.trim() ||
+    draw?.prizeTitle?.trim() ||
+    "---";
+
+  const prizeTitle =
+    locale === "en"
+      ? translatePrizeTitleToEnglish(rawPrizeTitle)
+      : rawPrizeTitle;
 
   const loadDraw =
     useCallback(async () => {
@@ -57,10 +137,6 @@ export default function HomeMonthlyDrawStatus() {
   useEffect(() => {
     void loadDraw();
 
-    /*
-     * Result data changes very rarely after a draw is completed.
-     * One refresh every five minutes is enough on the homepage.
-     */
     const timer =
       window.setInterval(
         () => {
@@ -114,11 +190,6 @@ export default function HomeMonthlyDrawStatus() {
           target - Date.now(),
         );
 
-      /*
-       * نستخدم ceil بدل floor:
-       * لو باقي أقل من دقيقة نظهر 1 دقيقة،
-       * وأول ما يصل الموعد فعليًا تصبح 0.
-       */
       const totalMinutes =
         diff <= 0
           ? 0
@@ -143,10 +214,6 @@ export default function HomeMonthlyDrawStatus() {
 
     update();
 
-    /*
-     * No seconds are shown, so the component only needs to
-     * update once per minute instead of every second.
-     */
     const timer =
       window.setInterval(
         update,
@@ -180,77 +247,84 @@ export default function HomeMonthlyDrawStatus() {
     );
   }
 
-  const nextPrizeTitle =
-    draw.nextPrizeTitle?.trim() ||
-    draw.prizeTitle?.trim() ||
-    "رحلة يوم واحد مجانية من اختيار الفائز";
-
   return (
-    <div
-      dir="rtl"
-      className="absolute left-[34.8%] top-[112px] z-20 w-[350px] max-w-[34vw] -translate-x-1/2"
-    >
-      <div className="overflow-hidden rounded-[17px] border border-[#F7B548]/55 bg-white/95 shadow-[0_10px_26px_rgba(7,21,46,.20)] backdrop-blur-xl">
-        <div className="flex min-h-[70px] items-stretch">
-          <button
-            type="button"
-            onClick={openResult}
-            className="group flex w-[43%] shrink-0 items-center gap-2.5 bg-[#F7B548] px-3.5 py-2 text-right transition hover:bg-[#ffc158]"
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#07152E] text-[#F7B548] shadow-sm">
-              <Trophy size={18} />
+ <div
+  dir={locale === "ar" ? "rtl" : "ltr"}
+  className={`absolute top-1/2 z-30 w-[145px] -translate-y-1/2 sm:w-[172px] lg:w-[180px] ${
+    locale === "ar"
+      ? "right-[max(8px,calc((90vw-1280px)/2+8px))]"
+      : "left-[max(8px,calc((80vw-1280px)/2+5px))]"
+  }`}
+>
+      <div className="overflow-hidden rounded-[14px] border border-[#F7B548]/80 bg-white/95 shadow-[0_8px_22px_rgba(7,21,46,.22)] backdrop-blur-xl">
+        <div className="border-b border-[#F7B548]/25 bg-[#FFF9ED] px-2 py-1 text-center sm:px-2.5">
+          <div className="flex items-center justify-center gap-2 text-[#B77A0B]">
+            <Gift size={15} />
+            <span className="text-[11px] font-black sm:text-[12px]">
+              {text.nextPrize}
             </span>
+          </div>
 
-            <span className="min-w-0">
-              <span className="block whitespace-nowrap text-[10px] font-black text-[#07152E]">
-                نتيجة السحب الشهري
-              </span>
-              <span className="mt-0.5 block text-[8px] font-bold text-[#07152E]/65">
-                عرض اسم الفائز
-              </span>
+          <p className="mt-0 line-clamp-2 text-[10px] font-black leading-3 text-[#07152E] sm:text-[10px] sm-mt-0 ">
+            {prizeTitle}
+          </p>
+        </div>
+
+        <div className="mt-0.5 px-2 py-1.5 sm:px-2.5 sm:py-0.5">
+          <div className="mb-1 flex items-center justify-center gap-1.5 text-[#B77A0B]">
+            <CalendarClock
+              size={14}
+              className="text-[#C88712]"
+            />
+            <span className="text-[10px] font-black sm:text-[12px]">
+              {text.nextDrawAfter}
             </span>
-          </button>
+          </div>
 
-          <div className="flex min-w-0 flex-1 flex-col justify-center px-3 py-2">
-            <div className="flex items-center justify-center gap-1.5 text-[#B77A0B]">
-              <CalendarClock size={11} />
-              <span className="text-[9px] font-black">
-                السحب القادم بعد
-              </span>
-            </div>
-
-            <div className="mt-1.5 grid grid-cols-3 gap-1.5">
-              <TimeBox
-                value={remaining.days}
-                label="يوم"
-              />
-              <TimeBox
-                value={remaining.hours}
-                label="ساعة"
-              />
-              <TimeBox
-                value={remaining.minutes}
-                label="دقيقة"
-              />
-            </div>
+          <div className="grid grid-cols-3 gap-1">
+            <TimeBox
+              value={remaining.days}
+              label={text.day}
+            />
+            <TimeBox
+              value={remaining.hours}
+              label={text.hour}
+            />
+            <TimeBox
+              value={remaining.minutes}
+              label={text.minute}
+            />
           </div>
         </div>
 
-        <div className="flex items-center justify-center gap-1.5 border-t border-[#F7B548]/20 bg-[#FFF9ED] px-3 py-1.5">
-          <Gift
-            size={11}
-            className="shrink-0 text-[#C88712]"
-          />
-          <p className="truncate text-[9px] font-black text-[#07152E]">
-            جائزة السحب القادم:
-            <span className="mr-1 text-[#B77A0B]">
-              {nextPrizeTitle}
-            </span>
-          </p>
+        <div className="mt-1 border-t border-[#F7B548]/20 p-1">
+          <button
+            type="button"
+            onClick={openResult}
+            className="group flex w-full items-center justify-center gap-0.5 rounded-[10px] bg-[#F7B548] px-2 py-1.5 text-[10px] font-black text-[#07152E] shadow-[0_4px_12px_rgba(247,181,72,.20)] transition hover:bg-[#ffc158] sm:text-[10px]"
+          >
+            <Trophy size={15} />
+            {text.previousResult}
+          </button>
         </div>
       </div>
     </div>
   );
+}
+
+function translatePrizeTitleToEnglish(
+  value: string,
+): string {
+  const normalized = value.trim();
+
+  const translations: Record<string, string> = {
+    "رحلة يوم واحد مجانية من اختيار الفائز":
+      "One free One-Day Journey of the winner's choice",
+    "رحلة مجانية من اختيار الفائز":
+      "One free journey of the winner's choice",
+  };
+
+  return translations[normalized] ?? normalized;
 }
 
 function TimeBox({
@@ -261,16 +335,17 @@ function TimeBox({
   label: string;
 }) {
   return (
-    <div className="rounded-[9px] bg-[#07152E] px-1 py-1.5 text-center shadow-[0_3px_9px_rgba(7,21,46,.12)]">
-      <p className="text-[13px] font-black leading-none text-[#F7B548]">
+    <div className="rounded-[9px] bg-[#07152E] px-1 py-1.5 text-center shadow-[0_3px_8px_rgba(7,21,46,.13)]">
+      <p className="text-[14px] font-black leading-none text-[#F7B548] sm:text-[14px]">
         {String(value).padStart(
           2,
           "0",
         )}
       </p>
 
-      <p className="mt-1 text-[7px] font-bold leading-none text-white/80">
+      <p className="mt-1 text-[8px] font-bold leading-none text-white sm:text-[8px]">
         {label}
       </p>
     </div>
-  );}
+  );
+}

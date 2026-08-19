@@ -1,8 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
-import { getMasarPassport } from "@/lib/dashboard/masar-passport";
+import {
+  createAdminClient,
+  createClient,
+} from "@/lib/supabase/server";
+import {
+  getMasarPassport,
+  getMasarPassportForRegistry,
+} from "@/lib/dashboard/masar-passport";
 export type MonthlyDrawStatus =
   | "draft"
   | "scheduled"
@@ -30,10 +36,12 @@ export type MonthlyDraw = {
   winner_mode: MonthlyDrawWinnerMode;
 
   preset_winner_user_id: string | null;
+  preset_winner_registry_id: string | null;
   preset_winner_name: string | null;
   winner_selection_note: string | null;
 
   winner_user_id: string | null;
+  winner_registry_id: string | null;
   winner_name: string | null;
   winning_ticket: number | null;
 
@@ -67,7 +75,10 @@ export type MonthlyDrawSettings = {
 export type MonthlyDrawParticipant = {
   id: string;
   draw_id: string;
-  user_id: string;
+  user_id: string | null;
+  registry_id: string | null;
+  masar_id: number | null;
+  student_email: string | null;
   student_name: string;
   points_snapshot: number;
   entries_count: number;
@@ -116,6 +127,45 @@ async function requireAdmin() {
   }
 
   return supabase;
+}
+
+function buildWinnerCountMaps(
+  rows: Array<{
+    winner_user_id: string | null;
+    winner_registry_id: string | null;
+  }>,
+) {
+  const winsByUserId =
+    new Map<string, number>();
+
+  const winsByRegistryId =
+    new Map<string, number>();
+
+  for (const row of rows) {
+    if (row.winner_registry_id) {
+      winsByRegistryId.set(
+        row.winner_registry_id,
+        (winsByRegistryId.get(
+          row.winner_registry_id,
+        ) ?? 0) + 1,
+      );
+      continue;
+    }
+
+    if (row.winner_user_id) {
+      winsByUserId.set(
+        row.winner_user_id,
+        (winsByUserId.get(
+          row.winner_user_id,
+        ) ?? 0) + 1,
+      );
+    }
+  }
+
+  return {
+    winsByUserId,
+    winsByRegistryId,
+  };
 }
 
 /* =========================================================
@@ -297,6 +347,7 @@ export async function createMonthlyDraw(
     scheduledAt: string;
     winnerMode: MonthlyDrawWinnerMode;
     presetWinnerUserId?: string;
+    presetWinnerRegistryId?: string;
     presetWinnerName?: string;
     winnerSelectionNote?: string;
     isPublished?: boolean;
@@ -380,6 +431,12 @@ export async function createMonthlyDraw(
             null
           : null,
 
+      preset_winner_registry_id:
+        input.winnerMode === "manual"
+          ? input.presetWinnerRegistryId ||
+            null
+          : null,
+
       preset_winner_name:
         input.winnerMode === "manual"
           ? input.presetWinnerName?.trim() ||
@@ -426,6 +483,7 @@ export async function updateMonthlyDraw(
     scheduledAt: string;
     winnerMode: MonthlyDrawWinnerMode;
     presetWinnerUserId?: string;
+    presetWinnerRegistryId?: string;
     presetWinnerName?: string;
     winnerSelectionNote?: string;
     isPublished?: boolean;
@@ -524,6 +582,12 @@ export async function updateMonthlyDraw(
       preset_winner_user_id:
         input.winnerMode === "manual"
           ? input.presetWinnerUserId ||
+            null
+          : null,
+
+      preset_winner_registry_id:
+        input.winnerMode === "manual"
+          ? input.presetWinnerRegistryId ||
             null
           : null,
 
@@ -708,6 +772,31 @@ export async function prepareMonthlyDrawParticipants(
     };
   }
 
+  const {
+    data: completedWinnerRows,
+    error: completedWinnerRowsError,
+  } = await supabase
+    .from("monthly_draws")
+    .select(
+      "winner_user_id,winner_registry_id",
+    )
+    .eq("status", "completed");
+
+  if (completedWinnerRowsError) {
+    return {
+      success: false,
+      message:
+        completedWinnerRowsError.message,
+    };
+  }
+
+  const {
+    winsByUserId,
+    winsByRegistryId,
+  } = buildWinnerCountMaps(
+    completedWinnerRows ?? [],
+  );
+
   const { data: profiles, error: profilesError } =
     await supabase
       .from("profiles")
@@ -731,9 +820,54 @@ export async function prepareMonthlyDrawParticipants(
     },
   );
 
+  const eligibleUserIds =
+    eligibleProfiles.map(
+      (profile) => profile.id,
+    );
+
+  const {
+    data: linkedRegistryRows,
+    error: linkedRegistryError,
+  } =
+    eligibleUserIds.length > 0
+      ? await createAdminClient()
+          .from("student_registry")
+          .select("id,user_id,masar_id")
+          .in(
+            "user_id",
+            eligibleUserIds,
+          )
+      : {
+          data: [],
+          error: null,
+        };
+
+  if (linkedRegistryError) {
+    return {
+      success: false,
+      message:
+        linkedRegistryError.message,
+    };
+  }
+
+  const registryByUserId =
+    new Map(
+      (linkedRegistryRows ?? [])
+        .filter(
+          (row) => row.user_id,
+        )
+        .map((row) => [
+          row.user_id as string,
+          row,
+        ]),
+    );
+
   const participants: Array<{
     draw_id: string;
-    user_id: string;
+    user_id: string | null;
+    registry_id: string | null;
+    masar_id: number | null;
+    student_email: string | null;
     student_name: string;
     points_snapshot: number;
     entries_count: number;
@@ -752,9 +886,36 @@ export async function prepareMonthlyDrawParticipants(
         Number(passport.totalPoints ?? 0),
       );
 
+      const baseEntries = Math.max(
+        0,
+        Number(
+          passport.drawEntries ?? 0,
+        ),
+      );
+
+      const linkedRegistry =
+        registryByUserId.get(
+          profile.id,
+        ) ?? null;
+
+      const previousWins =
+        (
+          linkedRegistry
+            ? winsByRegistryId.get(
+                linkedRegistry.id,
+              ) ?? 0
+            : 0
+        ) +
+        (
+          winsByUserId.get(
+            profile.id,
+          ) ?? 0
+        );
+
       const entries = Math.max(
         0,
-        Number(passport.drawEntries ?? 0),
+        baseEntries -
+          previousWins,
       );
 
       if (entries < 1) {
@@ -768,6 +929,15 @@ export async function prepareMonthlyDrawParticipants(
       participants.push({
         draw_id: drawId,
         user_id: profile.id,
+        registry_id:
+          linkedRegistry?.id ??
+          null,
+        masar_id:
+          Number(
+            linkedRegistry?.masar_id ??
+              0,
+          ) || null,
+        student_email: null,
 
         student_name:
           profile.full_name?.trim() ||
@@ -785,6 +955,170 @@ export async function prepareMonthlyDrawParticipants(
     } catch (error) {
       console.error(
         `Failed to prepare draw participant ${profile.id}:`,
+        error,
+      );
+    }
+  }
+
+  /*
+   * الطلاب المستوردون الذين لم ينشئوا حسابًا بعد.
+   *
+   * نستبعد أي Registry مرتبط بـ user_id لأن هذا الطالب
+   * تم احتسابه بالفعل من profiles أعلاه.
+   */
+  const admin = createAdminClient();
+
+  const {
+    data: importedRegistryRows,
+    error: importedRegistryError,
+  } = await admin
+    .from("student_registry")
+    .select(
+      "id,masar_id,student_name,email,normalized_email,user_id",
+    )
+    .is("user_id", null)
+    .order("masar_id", {
+      ascending: true,
+    });
+
+  if (importedRegistryError) {
+    return {
+      success: false,
+      message:
+        importedRegistryError.message,
+    };
+  }
+
+  for (
+    const registry of
+      importedRegistryRows ?? []
+  ) {
+    try {
+      /*
+       * لا ندخل Registry فارغًا لا يملك بيانات استيراد.
+       * مصدر وجود الطالب المستورد الفعلي هو enrollment
+       * القادم من admin_import.
+       */
+      const email = String(
+        registry.normalized_email ??
+          registry.email ??
+          "",
+      )
+        .trim()
+        .toLowerCase();
+
+      if (!email) {
+        continue;
+      }
+
+      const {
+        count: importedEnrollmentCount,
+        error: importedEnrollmentError,
+      } = await admin
+        .from("enrollments")
+        .select("id", {
+          count: "exact",
+          head: true,
+        })
+        .ilike(
+          "student_email",
+          email,
+        )
+        .eq(
+          "source",
+          "admin_import",
+        );
+
+      if (importedEnrollmentError) {
+        throw new Error(
+          importedEnrollmentError.message,
+        );
+      }
+
+      if (
+        !importedEnrollmentCount ||
+        importedEnrollmentCount < 1
+      ) {
+        continue;
+      }
+
+      const passport =
+        await getMasarPassportForRegistry(
+          registry.id,
+        );
+
+      const points = Math.max(
+        0,
+        Number(
+          passport.totalPoints ?? 0,
+        ),
+      );
+
+      const baseEntries = Math.max(
+        0,
+        Number(
+          passport.drawEntries ?? 0,
+        ),
+      );
+
+      const previousWins =
+        winsByRegistryId.get(
+          registry.id,
+        ) ?? 0;
+
+      const entries = Math.max(
+        0,
+        baseEntries -
+          previousWins,
+      );
+
+      if (entries < 1) {
+        continue;
+      }
+
+      const ticketStart =
+        nextTicket;
+
+      const ticketEnd =
+        ticketStart +
+        entries -
+        1;
+
+      participants.push({
+        draw_id: drawId,
+        user_id: null,
+        registry_id:
+          registry.id,
+        masar_id:
+          Number(
+            registry.masar_id ??
+              0,
+          ) || null,
+        student_email:
+          email,
+        student_name:
+          String(
+            registry.student_name ??
+              "",
+          ).trim() ||
+          email.split("@")[0] ||
+          "طالب Masar Makers",
+
+        points_snapshot:
+          points,
+        entries_count:
+          entries,
+        ticket_start:
+          ticketStart,
+        ticket_end:
+          ticketEnd,
+      });
+
+      nextTicket =
+        ticketEnd + 1;
+    } catch (error) {
+      console.error(
+        `Failed to prepare imported draw participant ${registry.id}:`,
         error,
       );
     }

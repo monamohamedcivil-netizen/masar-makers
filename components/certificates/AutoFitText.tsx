@@ -18,35 +18,54 @@ type AutoFitTextProps = {
 export default function AutoFitText({
   text,
   className,
-  maxFontSize = 64,
-  minFontSize = 24,
+  maxFontSize = 60,
+  minFontSize = 36,
   style,
 }: AutoFitTextProps) {
-  const ref = useRef<HTMLHeadingElement>(null);
+  const ref =
+    useRef<HTMLHeadingElement>(null);
 
-  const [fontSize, setFontSize] = useState(maxFontSize);
+  const [
+    fontSize,
+    setFontSize,
+  ] = useState(maxFontSize);
 
   useLayoutEffect(() => {
-    const element = ref.current;
+    const element =
+      ref.current;
 
-    if (!element) return;
+    if (!element) {
+      return;
+    }
 
-    let size = maxFontSize;
+    let size =
+      maxFontSize;
 
-    element.style.fontSize = `${size}px`;
+    element.style.fontSize =
+      `${size}px`;
 
+    /*
+     * نصغر الاسم فقط إذا تجاوز العرض المتاح.
+     * لا نعتمد على الارتفاع حتى لا يتم
+     * تصغير الاسم بدون داعٍ.
+     */
     while (
-      (element.scrollWidth > element.clientWidth ||
-        element.scrollHeight > element.clientHeight) &&
+      element.scrollWidth >
+        element.clientWidth &&
       size > minFontSize
     ) {
-      size--;
+      size -= 1;
 
-      element.style.fontSize = `${size}px`;
+      element.style.fontSize =
+        `${size}px`;
     }
 
     setFontSize(size);
-  }, [text, maxFontSize, minFontSize]);
+  }, [
+    text,
+    maxFontSize,
+    minFontSize,
+  ]);
 
   return (
     <h1
@@ -54,9 +73,21 @@ export default function AutoFitText({
       className={className}
       style={{
         ...style,
+
         fontSize,
-        whiteSpace: "nowrap",
-        overflow: "hidden",
+
+        whiteSpace:
+          "nowrap",
+
+        overflow:
+          "hidden",
+
+        textOverflow:
+          "clip",
+
+        margin: 0,
+
+        padding: 0,
       }}
     >
       {text}

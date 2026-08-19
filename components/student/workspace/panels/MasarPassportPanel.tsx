@@ -20,7 +20,7 @@ import JourneyTabs from "../components/JourneyTabs";
 import MasarPassportCard from "../passport/MasarPassportCard";
 import PointsRulesCard from "../passport/PointsRulesCard";
 import RewardsCard from "../passport/RewardsCard";
-import DrawModal from "../passport/DrawModal";
+
 import ProgressModal from "../passport/ProgressModal";
 
 import type {
@@ -32,7 +32,6 @@ type Props = {
 };
 
 type ModalType =
-  | "draw"
   | "progress"
   | null;
 
@@ -154,6 +153,12 @@ export default function MasarPassportPanel({
   const monthlyDrawEntries =
     passport.drawEntries;
 
+  const monthlyDrawWins =
+    passport.drawWins;
+
+  const monthlyDrawAvailableEntries =
+    passport.availableDrawEntries;
+
   const currentLevel =
     levels.find(
       (level) =>
@@ -223,12 +228,20 @@ export default function MasarPassportPanel({
   remainingPoints={remainingPoints}
   totalPoints={totalPoints}
   monthlyDrawEntries={monthlyDrawEntries}
+  monthlyDrawWins={monthlyDrawWins}
+  monthlyDrawAvailableEntries={
+    monthlyDrawAvailableEntries
+  }
   onShowProgress={() =>
     setActiveModal("progress")
   }
-  onShowDraw={() =>
-    setActiveModal("draw")
-  }
+  onShowDraw={() => {
+  window.dispatchEvent(
+    new CustomEvent(
+      "masar:open-monthly-draw",
+    ),
+  );
+}}
 />
               ),
             },
@@ -259,6 +272,15 @@ export default function MasarPassportPanel({
                     }
                     availableRewards={
                       passport.availableRewards
+                    }
+                    drawRewardsEarned={
+                      passport.drawRewardsEarned
+                    }
+                    drawRewardsRedeemed={
+                      passport.drawRewardsRedeemed
+                    }
+                    drawRewardsAvailable={
+                      passport.drawRewardsAvailable
                     }
                     visibleRewardItems={
                       visibleRewardItems
@@ -297,19 +319,7 @@ export default function MasarPassportPanel({
         />
       </div>
 
-      <DrawModal
-        open={
-          activeModal === "draw"
-        }
-        monthlyDrawEntries={
-          monthlyDrawEntries
-        }
-        onClose={() =>
-          setActiveModal(null)
-        }
-      />
-
-      <ProgressModal
+          <ProgressModal
         open={
           activeModal ===
           "progress"

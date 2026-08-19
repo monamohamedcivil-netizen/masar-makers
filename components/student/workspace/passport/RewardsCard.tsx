@@ -6,6 +6,7 @@ interface RewardItem {
   key: string;
   courseName: string;
   courseTypeLabel?: string | null;
+  iconUrl?: string | null;
 }
 
 interface Props {
@@ -16,6 +17,10 @@ interface Props {
   earnedRewards: number;
   redeemedRewards: number;
   availableRewards: number;
+
+  drawRewardsEarned: number;
+  drawRewardsRedeemed: number;
+  drawRewardsAvailable: number;
 
   visibleRewardItems: RewardItem[];
 }
@@ -28,6 +33,10 @@ rewardPercent,
 earnedRewards,
 redeemedRewards,
 availableRewards,
+
+drawRewardsEarned,
+drawRewardsRedeemed,
+drawRewardsAvailable,
 
 visibleRewardItems,
 }: Props) {
@@ -53,41 +62,64 @@ visibleRewardItems,
           <p className="mt-2 max-w-[220px] text-[10px] font-bold leading-5 text-white/65">
             أكمل عشر رحلات تعليمية احترافية واحصل على مكافأة خاصة.
           </p>
-<div className="mt-6 border-t border-white/15 pt-5">
+<div className="mt-2 border-t border-white/15 pt-1">
 
-    <div className="grid grid-cols-3 gap-2 text-center">
-
-        <div>
-            <div className="text-xl font-black text-green-400">
-                {earnedRewards}
-            </div>
-
-            <div className="mt-1 text-[10px] text-white/70">
-                المكتسبة
-            </div>
-        </div>
-
-        <div>
-            <div className="text-xl font-black text-[#F7B548]">
-                {redeemedRewards}
-            </div>
-
-            <div className="mt-1 text-[10px] text-white/70">
-                المستخدمة
-            </div>
-        </div>
-
-        <div>
-            <div className="text-xl font-black text-blue-300">
-                {availableRewards}
-            </div>
-
-            <div className="mt-1 text-[10px] text-white/70">
-                المتاحة
-            </div>
-        </div>
-
+  {/* Header */}
+  <div className="grid grid-cols-4 items-center text-center text-[10px] font-bold text-white/65">
+    <div className="py-1">
+      حالة المكافآت
     </div>
+
+    <div className="py-1">
+      المكتسبة
+    </div>
+
+    <div className="py-1">
+      المستخدمة
+    </div>
+
+    <div className="py-1">
+      المتاحة
+    </div>
+  </div>
+
+  {/* Rewards Card */}
+  <div className="grid grid-cols-4 items-center border-t border-white/10 text-center text-[10px] font-bold">
+    <div className="py-0 text-white/80">
+      بطاقة المكافآت
+    </div>
+
+    <div className="py-0 text-sm text-green-400">
+      {earnedRewards}
+    </div>
+
+    <div className="py-0 text-sm text-[#F7B548]">
+      {redeemedRewards}
+    </div>
+
+    <div className="py-0 text-sm text-blue-300">
+      {availableRewards}
+    </div>
+  </div>
+
+  {/* Monthly Draw */}
+  <div className="grid grid-cols-4 items-center border-t border-white/10 text-center text-[10px] font-bold">
+    <div className="py-0 text-white/80">
+      السحب الشهري
+    </div>
+
+    <div className="py-0 text-sm text-green-400">
+      {drawRewardsEarned}
+    </div>
+
+    <div className="py-0 text-sm text-[#F7B548]">
+      {drawRewardsRedeemed}
+    </div>
+
+    <div className="py-0 text-sm text-blue-300">
+      {drawRewardsAvailable}
+    </div>
+  </div>
 
 </div>
         </div>
@@ -135,17 +167,50 @@ visibleRewardItems,
   {Array.from({ length: rewardTarget }).map((_, index) => {
 
     const completed = index < rewardProgress;
+    const rewardItem = visibleRewardItems[index];
+
+    const fallbackLabel =
+      rewardItem?.courseName
+        ?.trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((word) => word[0])
+        .join("")
+        .toUpperCase() || `${index + 1}`;
 
     return (
 
       <div
-        key={index}
-        className={`h-[54px] rounded-lg border transition-all ${
+        key={rewardItem?.key ?? index}
+        title={
+          completed && rewardItem
+            ? `${rewardItem.courseName}${
+                rewardItem.courseTypeLabel
+                  ? ` - ${rewardItem.courseTypeLabel}`
+                  : ""
+              }`
+            : undefined
+        }
+        className={`relative flex h-[54px] items-center justify-center overflow-hidden rounded-lg border transition-all ${
           completed
             ? "border-[#F7B548] bg-[#FFF8E9]"
             : "border-[#DCE3EB] bg-[#F3F5F8]"
         }`}
-      />
+      >
+        {completed && rewardItem ? (
+          rewardItem.iconUrl ? (
+            <img
+  src={rewardItem.iconUrl}
+  alt={rewardItem.courseName}
+  className="h-full w-full object-contain p-1"
+/>
+          ) : (
+            <span className="px-1 text-center text-[9px] font-black leading-tight text-[#07152E]">
+              {fallbackLabel}
+            </span>
+          )
+        ) : null}
+      </div>
 
     );
 

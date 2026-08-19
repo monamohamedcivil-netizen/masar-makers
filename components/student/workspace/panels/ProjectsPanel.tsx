@@ -103,15 +103,18 @@ export default function ProjectsPanel({
       (data.careerPaths ?? [])
         .map((path) => ({
           ...path,
+          // Keep the full professional path visible.
+          // Enrollment controls activation/clickability, not visibility.
           stations: path.stations.filter(
-            (station) =>
-              station.isEnrolled &&
-              station.status !== "pending" &&
-              Boolean(station.courseId),
+            (station) => Boolean(station.courseId),
           ),
         }))
-        .filter(
-          (path) => path.stations.length > 0,
+        .filter((path) =>
+          path.stations.some(
+            (station) =>
+              station.isEnrolled &&
+              station.status !== "pending",
+          ),
         ),
     [data.careerPaths],
   );
@@ -407,7 +410,19 @@ export default function ProjectsPanel({
       <ProjectDialog
         open={dialogOpen}
         onClose={handleDialogClose}
-        paths={paths}
+        paths={paths
+          .map((path) => ({
+            ...path,
+            stations: path.stations.filter(
+              (station) =>
+                station.isEnrolled &&
+                station.status !== "pending",
+            ),
+          }))
+          .filter(
+            (path) =>
+              path.stations.length > 0,
+          )}
         initialCourseId={
           dialogCourseId
         }
@@ -476,13 +491,24 @@ function ProjectPathView({
     project: StudentProject,
   ) => void;
 }) {
+  const selectableStations = useMemo(
+    () =>
+      path.stations.filter(
+        (station) =>
+          station.isEnrolled &&
+          station.status !== "pending" &&
+          Boolean(station.courseId),
+      ),
+    [path.stations],
+  );
+
   const [activeCourseId, setActiveCourseId] =
     useState(
-      path.stations[0]?.courseId ?? "",
+      selectableStations[0]?.courseId ?? "",
     );
 
   useEffect(() => {
-    const exists = path.stations.some(
+    const exists = selectableStations.some(
       (station) =>
         station.courseId ===
         activeCourseId,
@@ -490,18 +516,21 @@ function ProjectPathView({
 
     if (!exists) {
       setActiveCourseId(
-        path.stations[0]?.courseId ??
+        selectableStations[0]?.courseId ??
           "",
       );
     }
-  }, [path, activeCourseId]);
+  }, [
+    selectableStations,
+    activeCourseId,
+  ]);
 
   const activeCourse =
-    path.stations.find(
+    selectableStations.find(
       (station) =>
         station.courseId ===
         activeCourseId,
-    ) ?? path.stations[0];
+    ) ?? selectableStations[0];
 
   if (!activeCourse) {
     return null;
@@ -531,38 +560,38 @@ function ProjectPathView({
 
       <section className="overflow-hidden rounded-b-[24px] border border-[#DCE2EA] bg-white shadow-[0_12px_32px_rgba(7,21,46,0.07)]">
         <header className="flex items-center justify-between gap-4 border-b border-[#E5EAF0] bg-[#F7F9FC] px-5 py-2.5">
-  <div className="text-right" dir="rtl">
-    <p className="text-[9px] font-black text-[#C88712]">
-      مشاريعي
-    </p>
+          <div className="text-right" dir="rtl">
+            <p className="text-[9px] font-black text-[#C88712]">
+              مشاريعي
+            </p>
 
-    <div className="mt-0.5 flex items-center gap-2">
-      <h3 className="text-[16px] font-black text-[#07152E]">
-        {activeCourse.shortTitle ||
-          activeCourse.title}
-      </h3>
+            <div className="mt-0.5 flex items-center gap-2">
+              <h3 className="text-[16px] font-black text-[#07152E]">
+                {activeCourse.shortTitle ||
+                  activeCourse.title}
+              </h3>
 
-      <span className="text-[9px] font-bold text-slate-500">
-        {activeCourseProjects.length > 0
-          ? `${activeCourseProjects.length} مشروع`
-          : "لا توجد مشاريع"}
-      </span>
-    </div>
-  </div>
+              <span className="text-[9px] font-bold text-slate-500">
+                {activeCourseProjects.length > 0
+                  ? `${activeCourseProjects.length} مشروع`
+                  : "لا توجد مشاريع"}
+              </span>
+            </div>
+          </div>
 
-  <button
-    type="button"
-    onClick={() =>
-      onCreateProject(
-        activeCourse.courseId,
-      )
-    }
-    className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#07152E] px-4 text-[10px] font-black text-white transition hover:bg-[#102A50]"
-  >
-    <Plus size={14} />
-    إضافة مشروع
-  </button>
-</header>
+          <button
+            type="button"
+            onClick={() =>
+              onCreateProject(
+                activeCourse.courseId,
+              )
+            }
+            className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#07152E] px-4 text-[10px] font-black text-white transition hover:bg-[#102A50]"
+          >
+            <Plus size={14} />
+            إضافة مشروع
+          </button>
+        </header>
 
         <div className="p-4">
           {activeCourseProjects.length ===
@@ -579,10 +608,9 @@ function ProjectPathView({
                 الهندسية وأضف أول مشروع قمت
                 بتنفيذه خلال هذا الكورس.
               </p>
-
-                        </div>
+            </div>
           ) : (
-           <div className="grid gap-3">
+            <div className="grid gap-3">
               {activeCourseProjects.map(
                 (project) => (
                   <ProjectCard
@@ -631,90 +659,122 @@ function CompactStationRoad({
 }) {
   return (
     <div className="relative px-3 py-3">
-        <div
-          className="relative mx-auto grid w-full items-start gap-1 px-2 pt-1 sm:px-4"
-          style={{
-            gridTemplateColumns: `repeat(${stations.length}, minmax(0, 1fr))`,
-          }}
-        >
-          <div className="absolute left-[11%] right-[11%] top-[32px] h-[8px] bg-[#07152E]">
-            <div className="absolute inset-x-0 top-1/2 h-[0.5px] -translate-y-1/2 bg-[#F7B548]" />
-          </div>
+      <div
+        className="relative mx-auto grid w-full items-start gap-1 px-2 pt-1 sm:px-4"
+        style={{
+          gridTemplateColumns: `repeat(${stations.length}, minmax(0, 1fr))`,
+        }}
+      >
+        <div className="absolute left-[11%] right-[11%] top-[32px] h-[8px] bg-[#07152E]">
+          <div className="absolute inset-x-0 top-1/2 h-[0.5px] -translate-y-1/2 bg-[#F7B548]" />
+        </div>
 
-          {stations.map(
-            (station, index) => {
-              const active =
-                station.courseId ===
+        {stations.map(
+          (station, index) => {
+            const enrolled =
+              station.isEnrolled &&
+              station.status !== "pending";
+
+            const active =
+              enrolled &&
+              station.courseId ===
                 activeCourseId;
 
-              const projectsCount =
-                getCourseProjectsCount(
+            const projectsCount = enrolled
+              ? getCourseProjectsCount(
                   station.courseId,
-                );
+                )
+              : 0;
 
-              return (
-                <button
-                  key={station.stationId}
-                  type="button"
-                  onClick={() =>
-                    onSelectCourse(
-                      station.courseId,
-                    )
-                  }
-                  className="group relative z-10 flex min-w-0 flex-col items-center px-1 py-1"
-                >
-                  <span
-                    className={`relative flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full border-[2px] bg-white transition ${
-                      active
+            return (
+              <button
+                key={station.stationId}
+                type="button"
+                disabled={!enrolled}
+                aria-disabled={!enrolled}
+                onClick={() => {
+                  if (!enrolled) return;
+
+                  onSelectCourse(
+                    station.courseId,
+                  );
+                }}
+                className={`group relative z-10 flex min-w-0 flex-col items-center px-1 py-1 ${
+                  enrolled
+                    ? "cursor-pointer"
+                    : "cursor-default"
+                }`}
+              >
+                <span
+                  className={`relative flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full border-[2px] bg-white transition ${
+                    !enrolled
+                      ? "border-[#D5DCE6] bg-[#F1F3F6]"
+                      : active
                         ? "scale-110 border-[#F7B548] shadow-[0_6px_18px_rgba(247,181,72,0.28)]"
                         : projectsCount > 0
                           ? "border-[#F7B548]/70"
                           : "border-[#D5DCE6] group-hover:border-[#F7B548]"
-                    }`}
-                  >
-                    {station.iconUrl ? (
-                      <img
-                        src={station.iconUrl}
-                        alt={
-                          station.shortTitle ||
-                          station.title
-                        }
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-xs font-black text-[#07152E]">
-                        {index + 1}
-                      </span>
-                    )}
-                  </span>
+                  }`}
+                >
+                  {station.iconUrl ? (
+                    <img
+                      src={station.iconUrl}
+                      alt={
+                        station.shortTitle ||
+                        station.title
+                      }
+                      className={`h-full w-full object-cover ${
+                        enrolled
+                          ? ""
+                          : "grayscale opacity-40"
+                      }`}
+                    />
+                  ) : (
+                    <span
+                      className={`text-xs font-black ${
+                        enrolled
+                          ? "text-[#07152E]"
+                          : "text-slate-400"
+                      }`}
+                    >
+                      {index + 1}
+                    </span>
+                  )}
+                </span>
 
-                  <span
-                    className={`mt-2 w-full truncate text-center text-[9px] font-black sm:text-[10px] ${
-                      active
+                <span
+                  className={`mt-2 w-full truncate text-center text-[9px] font-black sm:text-[10px] ${
+                    !enrolled
+                      ? "text-slate-400"
+                      : active
                         ? "text-[#C88712]"
                         : "text-[#334155]"
-                    }`}
-                  >
-                    {station.shortTitle ||
-                      station.title}
-                  </span>
+                  }`}
+                >
+                  {station.shortTitle ||
+                    station.title}
+                </span>
 
-                  <span
-                    className={`mt-0.5 text-[8px] font-bold ${
-                      projectsCount > 0
+                <span
+                  className={`mt-0.5 text-[8px] font-bold ${
+                    !enrolled
+                      ? "text-slate-400"
+                      : projectsCount > 0
                         ? "text-[#C88712]"
                         : "text-slate-400"
-                    }`}
-                  >
-                    {projectsCount > 0
+                  }`}
+                >
+                  {!enrolled
+                    ? "غير مشترك"
+                    : projectsCount > 0
                       ? `${projectsCount} مشروع`
                       : "لا توجد مشاريع"}
-                  </span>
-                </button>
-              );
-            },
-          )}
-        </div>
+                </span>
+              </button>
+            );
+          },
+        )}
+      </div>
     </div>
   );
 }

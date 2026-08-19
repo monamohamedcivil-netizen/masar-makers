@@ -12,12 +12,14 @@ type Props = {
   definition: WorkspaceDefinition;
   data: StudentDashboardData;
   initialPanelId?: WorkspacePanelId;
+  initialLessonId?: string;
 };
 
 export default function StudentWorkspace({
   definition,
   data,
   initialPanelId,
+  initialLessonId,
 }: Props) {
   const validInitialPanel =
     initialPanelId &&
@@ -180,7 +182,11 @@ export default function StudentWorkspace({
           <div className="overflow-hidden rounded-b-[28px] rounded-t-none border border-t-0 border-[#DCE2EA] bg-white shadow-[0_18px_45px_rgba(7,21,46,0.20)] lg:contents">
             <WorkspacePanelHeader panel={activePanel} />
             <div className="min-h-[400px] px-4 pb-4 pt-2 sm:px-6 sm:pb-6 sm:pt-2">
-              <WorkspacePanelRenderer panel={activePanel} data={data} />
+              <WorkspacePanelRenderer
+                panel={activePanel}
+                data={data}
+                initialLessonId={initialLessonId}
+              />
             </div>
           </div>
         </main>

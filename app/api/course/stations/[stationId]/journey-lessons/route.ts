@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 
 type Context = {
   params: Promise<{
@@ -71,7 +71,7 @@ export async function GET(
         : "free";
 
     const supabase =
-      await createClient();
+  createAdminClient();
 
     const {
       data: courses,

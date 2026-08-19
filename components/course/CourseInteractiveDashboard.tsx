@@ -83,6 +83,7 @@ export type PlatformPageMode =
 
 type CourseInteractiveDashboardProps = {
   mode?: PlatformPageMode;
+  initialJourneyType?: "integrated" | "one_day" | "free";
   stationId: string;
   builderPage?: CatalogBuiltTemplatePage;
   course: Course;
@@ -179,6 +180,7 @@ function MobileCourseTabs({
 
 export default function CourseInteractiveDashboard({
   mode = "student",
+  initialJourneyType = "integrated",
   stationId,
   course,
   enrollmentStatuses,
@@ -290,11 +292,36 @@ export default function CourseInteractiveDashboard({
     mappedResultItems[0]?.id ??
     "professional";
 
+  const requestedInitialPanel = useMemo<CoursePanelTab>(() => {
+    if (initialJourneyType === "one_day") {
+      return "workshop";
+    }
+
+    if (initialJourneyType === "free") {
+      return "free";
+    }
+
+    return "professional";
+  }, [initialJourneyType]);
+
+  const availablePanelIds = useMemo(
+    () => [
+      ...mappedLearningItems,
+      ...mappedResultItems,
+    ].map((item) => item.id),
+    [mappedLearningItems, mappedResultItems]
+  );
+
+  const initialPanel =
+    availablePanelIds.includes(requestedInitialPanel)
+      ? requestedInitialPanel
+      : defaultPanel;
+
   const [activePanel, setActivePanel] =
-    useState<CoursePanelTab>(defaultPanel);
+    useState<CoursePanelTab>(initialPanel);
 
   const [displayedPanel, setDisplayedPanel] =
-    useState<CoursePanelTab>(defaultPanel);
+    useState<CoursePanelTab>(initialPanel);
 
   const [panelVisible, setPanelVisible] =
     useState(true);
@@ -302,6 +329,20 @@ export default function CourseInteractiveDashboard({
   useEffect(() => {
     setPanelContents(normalizePanelMap(initialPanelContents));
   }, [initialPanelContents, stationId]);
+
+  useEffect(() => {
+    if (!availablePanelIds.includes(requestedInitialPanel)) {
+      return;
+    }
+
+    setActivePanel(requestedInitialPanel);
+    setDisplayedPanel(requestedInitialPanel);
+    setPanelVisible(true);
+  }, [
+    stationId,
+    requestedInitialPanel,
+    availablePanelIds,
+  ]);
 
   useEffect(() => {
     const availablePanels = [
@@ -496,7 +537,13 @@ ${errorMessage}`
         />
       );
     }
-if (displayedPanel === "reviews") {
+const hasCustomScreenContent =
+  currentPanelContent.blocks.length > 0;
+
+if (
+  displayedPanel === "reviews" &&
+  !hasCustomScreenContent
+) {
   return (
     <SuccessStoriesPanel
       reviews={reviews}
@@ -505,30 +552,31 @@ if (displayedPanel === "reviews") {
   );
 }
 
-    if (
-      displayedPanel === "free" ||
-      displayedPanel === "workshop"
-    ) {
-      return (
-        <CourseJourneyLessonsPanel
-          key={`${stationId}-${displayedPanel}-journey-lessons`}
-          stationId={stationId}
-          kind={displayedPanel}
-          enrollmentStatuses={enrollmentStatuses}
-        />
-      );
-    }
-    return (
-      <ProfessionalPanelViewer
-        key={`${stationId}-${displayedPanel}-viewer`}
-        stationId={stationId}
-        courseId={course.slug}
-        panelComponent={displayedPanel}
-        enrollmentStatuses={enrollmentStatuses}
-        enrollmentAccess={enrollmentAccess}
-        value={currentPanelContent}
-      />
-    );
+ if (
+  displayedPanel === "free" ||
+  displayedPanel === "workshop"
+) {
+  return (
+    <CourseJourneyLessonsPanel
+      key={`${stationId}-${displayedPanel}-journey-lessons`}
+      stationId={stationId}
+      kind={displayedPanel}
+      enrollmentStatuses={enrollmentStatuses}
+    />
+  );
+}
+
+return (
+  <ProfessionalPanelViewer
+    key={`${stationId}-${displayedPanel}-viewer`}
+    stationId={stationId}
+    courseId={course.slug}
+    panelComponent={displayedPanel}
+    enrollmentStatuses={enrollmentStatuses}
+    enrollmentAccess={enrollmentAccess}
+    value={currentPanelContent}
+  />
+);
   };
 
   return (

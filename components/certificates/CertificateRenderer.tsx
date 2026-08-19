@@ -28,23 +28,23 @@ export default function CertificateRenderer({
           className="object-contain"
         />
 
-        {/* Student Name */}
-        <div
-          className="absolute left-1/2 flex justify-center"
-          style={{
-            top: "34.8%",
-            width: "78%",
-            height: "78px",
-            transform: "translateX(-50%)",
-          }}
-        >
-          <AutoFitText
-            text={certificate.studentName}
-            maxFontSize={64}
-            minFontSize={26}
-            className="w-full text-center font-black leading-none tracking-wide text-[#07152E] drop-shadow-[0_1px_1px_rgba(0,0,0,0.15)]"
-          />
-        </div>
+   {/* Student Name */}
+<div
+  className="absolute left-1/2 flex items-center justify-center"
+  style={{
+    top: "34.8%",
+    width: "54%",
+    height: "82px",
+    transform: "translateX(calc(-50% + 20px))",
+  }}
+>
+<AutoFitText
+  text={certificate.studentName}
+  maxFontSize={44}
+minFontSize={16}
+  className="w-full text-center font-black leading-none tracking-wide text-[#07152E] drop-shadow-[0_1px_1px_rgba(0,0,0,0.15)]"
+/>
+</div>
 
         {/* QR Code */}
         <div

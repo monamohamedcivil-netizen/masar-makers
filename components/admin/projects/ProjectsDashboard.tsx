@@ -6,7 +6,6 @@ import {
   ChevronRight,
   Eye,
   ImageIcon,
-  Loader2,
   Search,
   X,
 } from "lucide-react";
@@ -340,24 +339,38 @@ export default function ProjectsDashboard({
                     </Cell>
 
                     <Cell>
-                      <span
-                        className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${getStatusClass(
-                          project.status,
-                        )}`}
-                      >
-                        {getStatusLabel(project.status)}
-                      </span>
-                    </Cell>
-
-                    <Cell>
-                      <ToggleButton
-                        active={project.showOnHome}
+                      <ApprovalToggle
+                        approved={project.status === "approved"}
                         disabled={
                           isPending &&
                           processingId === project.id
                         }
-                        activeLabel="ظاهر"
-                        inactiveLabel="مخفي"
+                        onClick={() =>
+                          applyUpdate(
+                            project.id,
+                            project.status === "approved"
+                              ? {
+                                  status: "submitted",
+                                  showOnHome: false,
+                                  showOnCourse: false,
+                                }
+                              : {
+                                  status: "approved",
+                                },
+                          )
+                        }
+                      />
+                    </Cell>
+
+                    <Cell>
+                      <PublishSwitch
+                        active={project.showOnHome}
+                        disabled={
+                          project.status !== "approved" ||
+                          (isPending &&
+                            processingId === project.id)
+                        }
+                        ariaLabel="عرض المشروع في الرئيسية"
                         onClick={() =>
                           applyUpdate(project.id, {
                             showOnHome:
@@ -368,14 +381,14 @@ export default function ProjectsDashboard({
                     </Cell>
 
                     <Cell>
-                      <ToggleButton
+                      <PublishSwitch
                         active={project.showOnCourse}
                         disabled={
-                          isPending &&
-                          processingId === project.id
+                          project.status !== "approved" ||
+                          (isPending &&
+                            processingId === project.id)
                         }
-                        activeLabel="ظاهر"
-                        inactiveLabel="مخفي"
+                        ariaLabel="عرض المشروع في صفحة الكورس"
                         onClick={() =>
                           applyUpdate(project.id, {
                             showOnCourse:
@@ -398,27 +411,6 @@ export default function ProjectsDashboard({
                           عرض
                         </button>
 
-                        {project.status !== "approved" ? (
-                          <button
-                            type="button"
-                            disabled={
-                              isPending &&
-                              processingId === project.id
-                            }
-                            onClick={() =>
-                              applyUpdate(project.id, {
-                                status: "approved",
-                              })
-                            }
-                            className="inline-flex h-9 items-center justify-center rounded-lg bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700 disabled:opacity-50"
-                          >
-                            {processingId === project.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              "اعتماد"
-                            )}
-                          </button>
-                        ) : null}
                       </div>
                     </Cell>
                   </tr>
@@ -678,17 +670,61 @@ function Cell({
   );
 }
 
-function ToggleButton({
+function ApprovalToggle({
+  approved,
+  disabled,
+  onClick,
+}: {
+  approved: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-center gap-2">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={
+          approved
+            ? "إلغاء اعتماد المشروع"
+            : "اعتماد المشروع"
+        }
+        className={`relative h-7 w-12 shrink-0 rounded-full transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
+          approved
+            ? "bg-[#F7B548]"
+            : "bg-[#CAD7E6]"
+        }`}
+      >
+        <span
+          className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all duration-200 ${
+            approved ? "left-1" : "left-6"
+          }`}
+        />
+      </button>
+
+      <span
+        className={`min-w-[58px] text-[11px] font-black ${
+          approved
+            ? "text-emerald-700"
+            : "text-slate-500"
+        }`}
+      >
+        {approved ? "معتمد" : "غير معتمد"}
+      </span>
+    </div>
+  );
+}
+
+function PublishSwitch({
   active,
   disabled,
-  activeLabel,
-  inactiveLabel,
+  ariaLabel,
   onClick,
 }: {
   active: boolean;
   disabled: boolean;
-  activeLabel: string;
-  inactiveLabel: string;
+  ariaLabel: string;
   onClick: () => void;
 }) {
   return (
@@ -696,13 +732,25 @@ function ToggleButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-full px-3 py-1 text-xs font-black disabled:opacity-50 ${
+      aria-label={ariaLabel}
+      title={
+        disabled
+          ? "يجب اعتماد المشروع أولًا"
+          : active
+            ? "إخفاء"
+            : "إظهار"
+      }
+      className={`relative h-7 w-12 rounded-full transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-45 ${
         active
-          ? "bg-emerald-100 text-emerald-700"
-          : "bg-slate-100 text-slate-500"
+          ? "bg-[#F7B548]"
+          : "bg-[#CAD7E6]"
       }`}
     >
-      {active ? activeLabel : inactiveLabel}
+      <span
+        className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all duration-200 ${
+          active ? "left-1" : "left-6"
+        }`}
+      />
     </button>
   );
 }

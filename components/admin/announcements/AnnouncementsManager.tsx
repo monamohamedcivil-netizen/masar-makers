@@ -29,8 +29,11 @@ type Props = {
 type FormState = {
   type: PlatformAnnouncementType;
   title: string;
+  titleEn: string;
   description: string;
+  descriptionEn: string;
   buttonText: string;
+  buttonTextEn: string;
   href: string;
   isActive: boolean;
   displayOrder: number;
@@ -41,8 +44,11 @@ type FormState = {
 const EMPTY_FORM: FormState = {
   type: "news",
   title: "",
+  titleEn: "",
   description: "",
+  descriptionEn: "",
   buttonText: "التفاصيل",
+  buttonTextEn: "Details",
   href: "#",
   isActive: true,
   displayOrder: 0,
@@ -118,10 +124,16 @@ export default function AnnouncementsManager({
     setForm({
       type: item.type,
       title: item.title,
+      titleEn:
+        item.title_en ?? "",
       description:
         item.description ?? "",
+      descriptionEn:
+        item.description_en ?? "",
       buttonText:
         item.button_text || "التفاصيل",
+      buttonTextEn:
+        item.button_text_en || "Details",
       href: item.href || "#",
       isActive: item.is_active,
       displayOrder:
@@ -155,8 +167,11 @@ export default function AnnouncementsManager({
       const input = {
         type: form.type,
         title: form.title,
+        titleEn: form.titleEn,
         description: form.description,
+        descriptionEn: form.descriptionEn,
         buttonText: form.buttonText,
+        buttonTextEn: form.buttonTextEn,
         href: form.href,
         isActive: form.isActive,
         displayOrder:
@@ -360,17 +375,13 @@ export default function AnnouncementsManager({
             />
           </Field>
 
-          <Field
-            label="عنوان الإعلان"
-            className="md:col-span-2"
-          >
+          <Field label="عنوان الإعلان بالعربية">
             <input
               value={form.title}
               onChange={(event) =>
                 setForm((current) => ({
                   ...current,
-                  title:
-                    event.target.value,
+                  title: event.target.value,
                 }))
               }
               required
@@ -379,17 +390,28 @@ export default function AnnouncementsManager({
             />
           </Field>
 
-          <Field
-            label="الوصف المختصر"
-            className="md:col-span-2"
-          >
+          <Field label="عنوان الإعلان بالإنجليزية">
+            <input
+              value={form.titleEn}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  titleEn: event.target.value,
+                }))
+              }
+              dir="ltr"
+              className={`${INPUT} text-left`}
+              placeholder="Example: Vehicle Tracking registration is now open"
+            />
+          </Field>
+
+          <Field label="الوصف المختصر بالعربية">
             <textarea
               value={form.description}
               onChange={(event) =>
                 setForm((current) => ({
                   ...current,
-                  description:
-                    event.target.value,
+                  description: event.target.value,
                 }))
               }
               rows={2}
@@ -398,14 +420,29 @@ export default function AnnouncementsManager({
             />
           </Field>
 
-          <Field label="نص الزر">
+          <Field label="الوصف المختصر بالإنجليزية">
+            <textarea
+              value={form.descriptionEn}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  descriptionEn: event.target.value,
+                }))
+              }
+              rows={2}
+              dir="ltr"
+              className={`${INPUT} h-auto min-h-[78px] py-3 text-left`}
+              placeholder="Short description shown below the announcement title"
+            />
+          </Field>
+
+          <Field label="نص الزر بالعربية">
             <input
               value={form.buttonText}
               onChange={(event) =>
                 setForm((current) => ({
                   ...current,
-                  buttonText:
-                    event.target.value,
+                  buttonText: event.target.value,
                 }))
               }
               className={INPUT}
@@ -413,14 +450,28 @@ export default function AnnouncementsManager({
             />
           </Field>
 
-          <Field label="رابط الزر">
+          <Field label="نص الزر بالإنجليزية">
+            <input
+              value={form.buttonTextEn}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  buttonTextEn: event.target.value,
+                }))
+              }
+              dir="ltr"
+              className={`${INPUT} text-left`}
+              placeholder="Details"
+            />
+          </Field>
+
+          <Field label="رابط الزر" className="md:col-span-2">
             <input
               value={form.href}
               onChange={(event) =>
                 setForm((current) => ({
                   ...current,
-                  href:
-                    event.target.value,
+                  href: event.target.value,
                 }))
               }
               dir="ltr"
@@ -582,9 +633,27 @@ export default function AnnouncementsManager({
                       {item.title}
                     </h3>
 
+                    {item.title_en ? (
+                      <p
+                        dir="ltr"
+                        className="mt-1 text-left text-[11px] font-black text-[#C88712]"
+                      >
+                        {item.title_en}
+                      </p>
+                    ) : null}
+
                     {item.description ? (
                       <p className="mt-1 line-clamp-2 text-[10px] font-semibold leading-5 text-slate-500">
                         {item.description}
+                      </p>
+                    ) : null}
+
+                    {item.description_en ? (
+                      <p
+                        dir="ltr"
+                        className="mt-1 line-clamp-2 text-left text-[10px] font-semibold leading-5 text-slate-400"
+                      >
+                        {item.description_en}
                       </p>
                     ) : null}
                   </div>

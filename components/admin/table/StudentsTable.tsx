@@ -67,6 +67,8 @@ bonusPoints: number;
 lastBonusReason: string | null;
 
 drawEntries: number;
+drawWins: number;
+availableDrawEntries: number;
 }
 
 interface StudentsTableProps {
@@ -284,7 +286,9 @@ function StudentJourneyTable({
             <TableHead>النقاط</TableHead>
             <TableHead>إضافة نقاط</TableHead>
 <TableHead>سبب النقاط</TableHead>
-            <TableHead>السحب</TableHead>
+            <TableHead>إجمالي فرص السحب</TableHead>
+            <TableHead>مرات الفوز</TableHead>
+            <TableHead>الفرص المتبقية</TableHead>
             <TableHead>بطاقة المكافأة</TableHead>
 
 <TableHead>المكتسبة</TableHead>
@@ -360,6 +364,16 @@ function StudentJourneyTable({
 />
               <MetricCell
                 value={student.drawEntries}
+              />
+
+              <MetricCell
+                value={student.drawWins}
+              />
+
+              <MetricCell
+                value={
+                  student.availableDrawEntries
+                }
               />
 
               <td className="px-4 py-4 text-center">

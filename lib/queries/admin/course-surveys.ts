@@ -38,6 +38,8 @@ export type AdminCourseSurvey = {
   editedByStudent: boolean;
 
   studentLastEditAt: string | null;
+  studentJobTitle: string | null;
+studentCountry: string | null;
 };
 
 export async function getCourseSurveys(courseId: string) {
@@ -50,6 +52,8 @@ export async function getCourseSurveys(courseId: string) {
       user_id,
       student_name,
       student_email,
+      student_job_title,
+student_country,
       course_id,
 
       rating,
@@ -114,7 +118,11 @@ studentEmail:
   profile?.email ||
   survey.student_email ||
   "",
+studentJobTitle:
+  survey.student_job_title ?? null,
 
+studentCountry:
+  survey.student_country ?? null,
       courseId: survey.course_id,
 
       rating: Number(survey.rating ?? 0),

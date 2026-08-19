@@ -77,9 +77,11 @@ export type ProfessionalPanelDraft = {
   columnCount: 1 | 2;
 
   columnOneTitle: string;
+  showColumnOneHeader: boolean;
   columnOneAction: ProfessionalActionConfig;
 
   columnTwoTitle: string;
+  showColumnTwoHeader: boolean;
   columnTwoAction: ProfessionalActionConfig;
 
   blocks: ProfessionalContentBlock[];

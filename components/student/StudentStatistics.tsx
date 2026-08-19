@@ -43,10 +43,9 @@ export default function StudentStatistics({
       ? (currentLevel as keyof typeof levelMeta)
       : "Explorer";
 
-  const safeProgress = Math.max(
-    0,
-    Math.min(100, progressPercent),
-  );
+  const safeProgress = Math.round(
+  Math.max(0, Math.min(100, progressPercent))
+);
 
   return (
     <section className="border-b border-[#DCE2EA] bg-[#CDD8E6] pb-1.5">

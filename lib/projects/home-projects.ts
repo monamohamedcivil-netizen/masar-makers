@@ -287,29 +287,55 @@ const userIds = Array.from(
   ),
 );
 
-const { data: profileRows } =
+const {
+  data: profileRows,
+  error: profilesError,
+} =
   userIds.length > 0
     ? await supabase
-        .from("member_profiles")
-        .select("user_id,country")
-        .in("user_id", userIds)
+        .from("profiles")
+        .select(
+          "id,full_name,country",
+        )
+        .in("id", userIds)
     : {
         data: [],
+        error: null,
       };
 
-const countryByUserId = new Map(
+if (profilesError) {
+  console.error(
+    "GET HOME PROJECT PROFILES ERROR:",
+    profilesError.message,
+  );
+}
+
+const profileByUserId = new Map(
   (profileRows ?? []).map((profile) => [
-    String(profile.user_id),
-    typeof profile.country === "string"
-      ? profile.country.trim()
-      : "",
+    String(profile.id),
+    {
+      fullName:
+        typeof profile.full_name === "string"
+          ? profile.full_name.trim()
+          : "",
+
+      country:
+        typeof profile.country === "string"
+          ? profile.country.trim()
+          : "",
+    },
   ]),
 );
   const projects: HomeProject[] = [];
 
   for (const rawRow of data ?? []) {
     const row = rawRow as ProjectRow;
-
+const linkedProfile =
+  row.user_id
+    ? profileByUserId.get(
+        String(row.user_id),
+      )
+    : undefined;
     const uploadedImages = [
   ...(row.student_project_images ?? []),
 ].sort(
@@ -396,12 +422,11 @@ const courseTitle =
     : [image],
       category,
       student:
-        row.student_name?.trim() ||
-        "أحد طلاب Masar Makers",
-      country:
-  countryByUserId.get(
-    String(row.user_id ?? ""),
-  )?.trim() ||
+  linkedProfile?.fullName ||
+  row.student_name?.trim() ||
+  "أحد طلاب Masar Makers",
+     country:
+  linkedProfile?.country ||
   (
     row.student_country?.trim() &&
     row.student_country

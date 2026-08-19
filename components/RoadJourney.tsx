@@ -11,38 +11,30 @@ export default function RoadJourney({
   items,
   activeIndex,
   onChange,
+  direction = "rtl",
 }: {
   items: JourneyItem[];
   activeIndex: number;
   onChange: (index: number) => void;
+  direction?: "rtl" | "ltr";
 }) {
-  const progress = (activeIndex / (items.length - 1)) * 100;
-
+  
   return (
     <div className="relative h-[110px] w-full overflow-hidden rounded-[22px]">
       {/* Road base - thinner */}
-      <div className="absolute left-6 right-6 top-[39px] h-[26px] rounded-full bg-[#2C3037] shadow-[inset_0_4px_10px_rgba(0,0,0,0.65)]" />
+      <div className="absolute left-15 right-15 top-[30px] h-[20px] rounded-full bg-[#2C3037] shadow-[inset_0_4px_10px_rgba(0,0,0,0.65)]" />
 
-      <div className="absolute left-6 right-6 top-[39px] h-[26px] rounded-full border border-white/25" />
+      <div className="absolute left-15 right-15 top-[30px] h-[20px] rounded-full border border-white/25" />
 
-      {/* Gold progress - thinner and shorter */}
-      <div
-        className="absolute right-6 top-[39px] h-[26px] rounded-full bg-[#F7B548] shadow-[0_0_22px_rgba(247,181,72,0.75)] transition-all duration-700 ease-out"
-        style={{
-          width: `calc(${progress}% - 40px)`,
-          minWidth: activeIndex === 0 ? "0px" : "40px",
-        }}
-      />
+      
 
       {/* Dashed line */}
-      <div className="absolute left-12 right-12 top-[51px] border-t-2 border-dashed border-white/60" />
+      <div className="absolute left-17 right-17 top-[40px] border-t-2 border-dashed border-white/60" />
 
-      <div
-        className="absolute right-12 top-[51px] border-t-2 border-dashed border-white transition-all duration-700 ease-out"
-        style={{
-          width: `calc(${progress}% - 97px)`,
-          minWidth: activeIndex === 0 ? "0px" : "20px",
-        }}
+     <div
+  className={`absolute top-[51px] border-t-2 border-dashed border-white transition-all duration-700 ease-out ${
+    direction === "rtl" ? "right-12" : "left-12"
+  }`}
       />
 
       {/* Stations */}

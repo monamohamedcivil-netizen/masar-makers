@@ -42,7 +42,7 @@ export function createEmptyListItem(): ProfessionalListItem {
     hasButton: false,
     buttonText: "شاهد الآن",
     buttonLink: "",
-    buttonMode: "link",
+    buttonMode: "enrollment",
   };
 };
 
@@ -103,8 +103,10 @@ export function createInitialProfessionalPanel(): ProfessionalPanelDraft {
     screenAction: createDefaultAction("اشترك الآن"),
     columnCount: 1,
     columnOneTitle: "رحلة الأساسيات",
+    showColumnOneHeader: true,
     columnOneAction: createDefaultAction("اشترك الآن"),
     columnTwoTitle: "الرحلة المتقدمة",
+    showColumnTwoHeader: true,
     columnTwoAction: createDefaultAction("اشترك الآن"),
     blocks: [],
   };
@@ -116,12 +118,10 @@ function normalizeAction(
 ): ProfessionalActionConfig {
   const fallback = createDefaultAction(fallbackLabel);
 
- const validModes: ProfessionalActionMode[] = [
+  const validModes: ProfessionalActionMode[] = [
     "enrollment",
     "free",
-    "whatsapp",
-    "link",
-];
+  ];
 
   const savedMode =
     value?.mode && validModes.includes(value.mode)
@@ -169,21 +169,29 @@ export function normalizeProfessionalPanel(
     return initial;
   }
 
-  const blocks = Array.isArray(value.blocks)
-    ? value.blocks.map((block) => {
-        if (block.type !== "list") {
-          return block;
-        }
+  const blocks: ProfessionalContentBlock[] =
+    Array.isArray(value.blocks)
+      ? value.blocks.map((block) => {
+          if (block.type !== "list") {
+            return block;
+          }
 
-        return {
-          ...block,
-         items: block.items.map((item) => ({
-            ...item,
-            buttonMode: item.buttonMode ?? "link",
-          })),
-        };
-      })
-    : [];
+          const normalizedList: ProfessionalListBlock = {
+            ...block,
+            items: block.items.map(
+              (item): ProfessionalListItem => ({
+                ...item,
+                buttonMode:
+                  item.buttonMode === "free"
+                    ? "free"
+                    : "enrollment",
+              }),
+            ),
+          };
+
+          return normalizedList;
+        })
+      : [];
 
   return {
     screenTitle:
@@ -206,6 +214,10 @@ export function normalizeProfessionalPanel(
       typeof value.columnOneTitle === "string"
         ? value.columnOneTitle
         : initial.columnOneTitle,
+    showColumnOneHeader:
+      typeof value.showColumnOneHeader === "boolean"
+        ? value.showColumnOneHeader
+        : initial.showColumnOneHeader,
     columnOneAction: normalizeAction(
       value.columnOneAction,
       "اشترك الآن",
@@ -214,6 +226,10 @@ export function normalizeProfessionalPanel(
       typeof value.columnTwoTitle === "string"
         ? value.columnTwoTitle
         : initial.columnTwoTitle,
+    showColumnTwoHeader:
+      typeof value.showColumnTwoHeader === "boolean"
+        ? value.showColumnTwoHeader
+        : initial.showColumnTwoHeader,
     columnTwoAction: normalizeAction(
       value.columnTwoAction,
       "اشترك الآن",

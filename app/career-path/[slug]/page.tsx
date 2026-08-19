@@ -295,27 +295,27 @@ export default async function CareerPathPage({
     35 ساعة   -> 35 ساعة
     36 ساعة   -> 40 ساعة
   */
-  const activeCourseIds = activeStations.flatMap(
-    (station) =>
+  const totalTrainingHours = activeStations.reduce(
+  (stationTotal, station) => {
+    const stationHours =
       station.courses
         .filter((course) => course.is_active)
-        .map((course) => course.id)
-  );
+        .reduce(
+          (courseTotal, course) =>
+            courseTotal +
+            Math.max(
+              0,
+              Number(
+                course.duration_hours ?? 0
+              )
+            ),
+          0
+        );
 
-  const totalTrainingMinutes =
-    await getCoursesTrainingMinutes(
-      activeCourseIds
-    );
-
-  const exactTrainingHours =
-    totalTrainingMinutes / 60;
-
-  const totalTrainingHours =
-    totalTrainingMinutes > 0
-      ? Math.ceil(
-          exactTrainingHours / 5
-        ) * 5
-      : 0;
+    return stationTotal + stationHours;
+  },
+  0
+);
 
   const heroImage =
     path.image_url ??

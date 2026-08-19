@@ -12,7 +12,15 @@ import {
   Trophy,
   TriangleAlert,
   ArrowLeft,
+  ArrowRight,
 } from "lucide-react";
+
+type Locale = "ar" | "en";
+
+const labels = {
+  ar: { counter: "الإعلان", from: "من", details: "التفاصيل", show: "عرض الإعلان" },
+  en: { counter: "Announcement", from: "of", details: "Details", show: "Show announcement" },
+} as const;
 
 type AnnouncementType =
   | "offer"
@@ -25,8 +33,11 @@ type Announcement = {
   id: string;
   type: AnnouncementType;
   title: string;
+  title_en: string | null;
   description: string | null;
+  description_en: string | null;
   button_text: string | null;
+  button_text_en: string | null;
   href: string | null;
   is_active: boolean;
   display_order: number;
@@ -34,11 +45,72 @@ type Announcement = {
   ends_at: string | null;
 };
 
+function getAnnouncementFontSize(
+  value: string,
+  kind: "title" | "description",
+  isArabic: boolean
+) {
+  const length = value.trim().length;
+
+  if (kind === "title") {
+    if (isArabic) {
+      if (length > 95) return "10px";
+      if (length > 75) return "11px";
+      if (length > 55) return "12px";
+      return "14px";
+    }
+
+    if (length > 100) return "9px";
+    if (length > 80) return "10px";
+    if (length > 60) return "11px";
+    if (length > 45) return "12px";
+    return "14px";
+  }
+
+  if (isArabic) {
+    if (length > 120) return "9px";
+    if (length > 95) return "10px";
+    if (length > 70) return "11px";
+    return "12px";
+  }
+
+  if (length > 125) return "8.5px";
+  if (length > 100) return "9px";
+  if (length > 80) return "10px";
+  if (length > 60) return "11px";
+  return "12px";
+}
+
 export default function AnnouncementBar() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [current, setCurrent] = useState(0);
   const [paused, setPaused] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [locale, setLocale] = useState<Locale>("ar");
+
+  useEffect(() => {
+    const savedLocale = window.localStorage.getItem("masar-locale") as Locale | null;
+
+    if (savedLocale === "ar" || savedLocale === "en") {
+      setLocale(savedLocale);
+    }
+
+    const handleLocaleChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{ locale?: Locale }>;
+      const nextLocale = customEvent.detail?.locale;
+
+      if (nextLocale === "ar" || nextLocale === "en") {
+        setLocale(nextLocale);
+      }
+    };
+
+    window.addEventListener("masar:locale-change", handleLocaleChange);
+    return () => window.removeEventListener("masar:locale-change", handleLocaleChange);
+  }, []);
+
+  const text = labels[locale];
+  const isArabic = locale === "ar";
+  const CTAArrow = isArabic ? ArrowLeft : ArrowRight;
 
   useEffect(() => {
     let cancelled = false;
@@ -50,7 +122,7 @@ export default function AnnouncementBar() {
         const { data, error } = await supabase
           .from("platform_announcements")
           .select(
-            "id,type,title,description,button_text,href,is_active,display_order,starts_at,ends_at"
+            "id,type,title,title_en,description,description_en,button_text,button_text_en,href,is_active,display_order,starts_at,ends_at"
           )
           .order("display_order", { ascending: true })
           .order("created_at", { ascending: false });
@@ -167,8 +239,27 @@ export default function AnnouncementBar() {
   }, [item?.type]);
 
   const href = item?.href?.trim() || "#";
+
+  const title =
+    locale === "en"
+      ? item?.title_en?.trim() ||
+        item?.title ||
+        ""
+      : item?.title || "";
+
+  const description =
+    locale === "en"
+      ? item?.description_en?.trim() ||
+        item?.description ||
+        null
+      : item?.description || null;
+
   const buttonText =
-    item?.button_text?.trim() || "التفاصيل";
+    locale === "en"
+      ? item?.button_text_en?.trim() ||
+        text.details
+      : item?.button_text?.trim() ||
+        text.details;
 
   const isExternalLink =
     /^https?:\/\//i.test(href);
@@ -177,11 +268,18 @@ export default function AnnouncementBar() {
     <section
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
+      dir={isArabic ? "rtl" : "ltr"}
       className="relative h-16 border-b border-[#E8EEF8] bg-gradient-to-r from-[#FFFDF7] via-[#FFF8EB] to-[#F8FBFF]"
     >
       <div className="relative mx-auto h-full max-w-7xl px-6">
-        {/* Right - Personal Notification Center */}
-        <NotificationCenter />
+        {/* Personal Notification Center */}
+        <div
+          className={`absolute top-1/2 z-20 -translate-y-1/2 ${
+            isArabic ? "right-6" : "left-6"
+          }`}
+        >
+          <NotificationCenter />
+        </div>
 
         {/* No active platform announcements */}
         {!loading && !item ? null : item ? (
@@ -192,7 +290,7 @@ export default function AnnouncementBar() {
                 {/* Counter */}
                 <div className="flex justify-end">
                   <div className="whitespace-nowrap rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 shadow-sm">
-                    الإعلان {current + 1} من{" "}
+                    {text.counter} {current + 1} {text.from}{" "}
                     {announcements.length}
                   </div>
                 </div>
@@ -209,19 +307,33 @@ export default function AnnouncementBar() {
                 </div>
 
                 {/* Text */}
-                <div className="text-right leading-tight">
+                <div className={`${isArabic ? "text-right" : "text-left"} leading-tight`}>
                   <h3
-                    className="text-sm font-extrabold"
+                    className="whitespace-nowrap font-extrabold"
                     style={{
                       color: theme.color,
+                      fontSize: getAnnouncementFontSize(
+                        title,
+                        "title",
+                        isArabic
+                      ),
                     }}
                   >
-                    {item.title}
+                    {title}
                   </h3>
 
-                  {item.description ? (
-                    <p className="text-xs text-slate-600">
-                      {item.description}
+                  {description ? (
+                    <p
+                      className="whitespace-nowrap text-slate-600"
+                      style={{
+                        fontSize: getAnnouncementFontSize(
+                          description,
+                          "description",
+                          isArabic
+                        ),
+                      }}
+                    >
+                      {description}
                     </p>
                   ) : null}
                 </div>
@@ -235,7 +347,7 @@ export default function AnnouncementBar() {
                       <button
                         key={announcement.id}
                         type="button"
-                        aria-label={`عرض الإعلان ${
+                        aria-label={`${text.show} ${
                           index + 1
                         }`}
                         onClick={() =>
@@ -254,7 +366,7 @@ export default function AnnouncementBar() {
             </div>
 
             {/* Left - CTA */}
-            <div className="absolute left-6 top-1/2 flex -translate-y-1/2">
+            <div className={`absolute top-1/2 flex -translate-y-1/2 ${isArabic ? "left-6" : "right-6"}`}>
               {isExternalLink ? (
                 <a
                   href={href}
@@ -263,7 +375,7 @@ export default function AnnouncementBar() {
                   className="flex items-center gap-2 rounded-full bg-[#F7B548] px-5 py-2 text-sm font-bold text-[#07152E] transition duration-300 hover:scale-105 hover:shadow-lg"
                 >
                   {buttonText}
-                  <ArrowLeft size={15} />
+                  <CTAArrow size={15} />
                 </a>
               ) : (
                 <AuthLink
@@ -271,7 +383,7 @@ export default function AnnouncementBar() {
                   className="flex items-center gap-2 rounded-full bg-[#F7B548] px-5 py-2 text-sm font-bold text-[#07152E] transition duration-300 hover:scale-105 hover:shadow-lg"
                 >
                   {buttonText}
-                  <ArrowLeft size={15} />
+                  <CTAArrow size={15} />
                 </AuthLink>
               )}
             </div>

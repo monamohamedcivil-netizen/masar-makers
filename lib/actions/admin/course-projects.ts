@@ -152,7 +152,50 @@ const supabase = createAdminClient();
         data: [],
       };
     }
+const userIds = Array.from(
+  new Set(
+    projectRows
+      .map((project) => project.user_id)
+      .filter(
+        (id): id is string =>
+          typeof id === "string" &&
+          id.trim().length > 0,
+      ),
+  ),
+);
 
+const profilesByUserId = new Map<
+  string,
+  {
+    full_name: string | null;
+    email: string | null;
+  }
+>();
+
+if (userIds.length > 0) {
+  const {
+    data: profilesData,
+    error: profilesError,
+  } = await supabase
+    .from("profiles")
+    .select("id,full_name,email")
+    .in("id", userIds);
+
+  if (profilesError) {
+    return {
+      success: false,
+      message: profilesError.message,
+      data: [],
+    };
+  }
+
+  for (const profile of profilesData ?? []) {
+    profilesByUserId.set(profile.id, {
+      full_name: profile.full_name,
+      email: profile.email,
+    });
+  }
+}
     const projectIds = projectRows.map(
       (project) => project.id,
     );
@@ -264,6 +307,9 @@ function normalizeImportedImages(
 }
     const projects: AdminCourseProject[] =
   projectRows.map((project) => {
+    const linkedProfile = project.user_id
+  ? profilesByUserId.get(project.user_id)
+  : undefined;
     const uploadedImages =
       imagesByProjectId.get(project.id) ?? [];
 
@@ -305,8 +351,13 @@ const importedImages: AdminProjectImage[] =
       id: project.id,
       userId: project.user_id,
       courseId: project.course_id,
-      studentName: project.student_name,
-      studentEmail: project.student_email,
+      studentName:
+  linkedProfile?.full_name?.trim() ||
+  project.student_name,
+
+studentEmail:
+  linkedProfile?.email?.trim() ||
+  project.student_email,
       projectTitle: project.project_title,
       projectDescription:
         project.project_description,

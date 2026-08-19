@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 type PageProps = {
   searchParams?: Promise<{
     panel?: string | string[];
+    lesson?: string | string[];
   }>;
 };
 
@@ -39,6 +40,9 @@ export default async function StudentDashboardPage({
   try {
     const params = searchParams ? await searchParams : undefined;
     const initialPanelId = resolvePanel(params?.panel);
+    const initialLessonId = Array.isArray(params?.lesson)
+      ? params?.lesson[0]
+      : params?.lesson;
 
     const { data } = await loadStudentWorkspace();
 
@@ -52,6 +56,7 @@ export default async function StudentDashboardPage({
           <StudentJourneyDashboard
             data={data}
             initialPanelId={initialPanelId}
+            initialLessonId={initialLessonId}
           />
         </section>
       </main>

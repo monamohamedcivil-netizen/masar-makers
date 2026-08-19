@@ -781,14 +781,14 @@ export default function MonthlyDrawOverlay() {
       {open ? (
         <div
           dir="rtl"
-          className="fixed inset-0 z-[400] flex items-center justify-center bg-[#020817]/88 p-3 backdrop-blur-md sm:p-5"
+          className="fixed inset-0 z-[400] flex items-start justify-center overflow-y-auto bg-[#020817]/88 p-2 backdrop-blur-md sm:p-4 lg:items-center"
         >
-          <div className="relative w-full max-w-[1180px] overflow-hidden rounded-[34px] border border-[#F7B548]/25 bg-[#061127] shadow-[0_35px_120px_rgba(0,0,0,0.68)]">
+          <div className="relative my-2 w-[94vw] max-w-[430px] overflow-hidden rounded-[20px] sm:w-[92vw] sm:max-w-[620px] lg:w-full lg:max-w-[1040px] lg:rounded-[30px] border border-[#F7B548]/35 bg-[#061127] shadow-[0_30px_90px_rgba(0,0,0,0.58)] sm:rounded-[26px] lg:my-0 lg:rounded-[30px]">
             <button
               type="button"
               onClick={closeOverlay}
               aria-label="إغلاق شاشة السحب"
-              className="absolute left-5 top-5 z-[90] flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/8 text-white transition hover:bg-white/15"
+              className="absolute left-3 top-3 z-[90] flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-[#07152E]/80 text-white shadow-md transition hover:bg-[#07152E] sm:h-9 sm:w-9 lg:left-4 lg:top-4 lg:h-10 lg:w-10"
             >
               <X size={20} />
             </button>
@@ -796,21 +796,152 @@ export default function MonthlyDrawOverlay() {
             <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[#F7B548]/10 blur-3xl" />
             <div className="pointer-events-none absolute -bottom-32 -left-20 h-96 w-96 rounded-full bg-[#F7B548]/8 blur-3xl" />
 
-            <div className="grid min-h-[650px] lg:grid-cols-[1.55fr_.92fr]">
-              <section className="relative flex min-h-[650px] flex-col items-center justify-center overflow-hidden border-b border-white/10 px-6 py-8 lg:border-b-0 lg:border-l lg:px-8">
+
+            {/* Mobile layout */}
+            <div className="lg:hidden">
+              <section className="relative overflow-hidden bg-[#061127] px-2.5 pb-2.5 pt-3.5">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[#F7B548]/8 to-transparent" />
+
+                <div className="relative z-10 flex items-center justify-center gap-2 pr-10">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F7B548] text-[#07152E] shadow-[0_0_20px_rgba(247,181,72,.18)]">
+                    <Gift size={18} />
+                  </span>
+
+                  <div className="text-center">
+                    <h2 className="text-[22px] font-black leading-none text-white">
+                      السحب الشهري
+                    </h2>
+
+                    <p className="mt-1 text-[10px] font-black text-[#F7B548]">
+                      {currentDraw.phase === "countdown"
+                        ? "استعدوا... السحب يبدأ الآن"
+                        : spinning
+                          ? "جاري اختيار الفائز"
+                          : showResultPanel
+                            ? "تم اختيار الفائز"
+                            : "جاري السحب الآن..."}
+                    </p>
+                  </div>
+                </div>
+
+                {currentDraw.phase === "countdown" ? (
+                  <div className="mt-3">
+                    <Countdown
+                      remaining={
+                        remaining ??
+                        currentDraw.countdownSeconds
+                      }
+                    />
+                  </div>
+                ) : (
+                  <div className="mt-1">
+                    <DrumReel
+                      names={weightedNames}
+                      index={spinIndex}
+                      spinning={spinning}
+                      winnerName={
+                        showResultPanel
+                          ? currentDraw.winnerName
+                          : null
+                      }
+                    />
+                  </div>
+                )}
+
+                <p className="mt-1 text-center text-[10px] font-black text-white/80">
+                  ✨ كلما زادت نقاطك زادت فرصتك في الفوز ✨
+                </p>
+              </section>
+
+              <aside className="relative bg-[#FFF6DF] px-2.5 py-2.5">
+                <div className="pointer-events-none absolute inset-2 rounded-[18px] border border-[#E7B54E]/40" />
+
+                <div className="relative z-10 space-y-2">
+                  {showResultPanel ? (
+                    <WinnerSummary
+                      name={
+                        currentDraw.winnerName ??
+                        "فائز Masar Makers"
+                      }
+                      monthKey={currentDraw.monthKey}
+                    />
+                  ) : (
+                    <div className="rounded-[14px] border border-[#E7C36E] bg-white/85 px-3 py-2.5 text-center shadow-sm">
+                      <p className="text-[10px] font-black text-[#C88712]">
+                        بانتظار إعلان الفائز
+                      </p>
+                      <p className="mt-1 text-[9px] font-semibold leading-4 text-[#07152E]/60">
+                        تابع السحب حتى النهاية لمعرفة اسم الفائز.
+                      </p>
+                    </div>
+                  )}
+
+                  {currentDraw.prizeTitle ? (
+                    <div className="rounded-[14px] border border-[#E5BE62] bg-white/90 px-3 py-2.5 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F7B548] text-[#07152E]">
+                          <Gift size={18} />
+                        </span>
+
+                        <div className="min-w-0">
+                          <p className="text-[9px] font-black text-[#C88712]">
+                            الجائزة لهذا الشهر
+                          </p>
+                          <p className="mt-0.5 line-clamp-2 text-[13px] font-black leading-5 text-[#07152E]">
+                            {currentDraw.prizeTitle}
+                          </p>
+                        </div>
+                      </div>
+
+                      {currentDraw.prizeDescription ? (
+                        <p className="mt-1.5 line-clamp-2 text-[9px] font-semibold leading-4 text-[#07152E]/60">
+                          {currentDraw.prizeDescription}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <div className="rounded-[14px] border border-[#E5BE62] bg-[#FFFDF8] px-3 py-2.5 shadow-sm">
+                    <div className="mb-2 flex items-center justify-center gap-1.5">
+                      <CalendarClock size={14} className="text-[#C88712]" />
+                      <p className="text-[10px] font-black text-[#C88712]">
+                        السحب القادم بعد
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <TimeBox value={nextDrawRemaining.days} label="يوم" />
+                      <TimeBox value={nextDrawRemaining.hours} label="ساعة" />
+                      <TimeBox value={nextDrawRemaining.minutes} label="دقيقة" />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPointsModal(true)}
+                    className="flex h-9 w-full items-center justify-center rounded-xl bg-[#F7B548] text-[12px] font-black text-[#07152E] shadow-sm transition hover:bg-[#ffc45d]"
+                  >
+                    كيف أزيد نقاطي؟
+                  </button>
+                </div>
+              </aside>
+            </div>
+
+            <div className="hidden min-h-[560px] lg:grid lg:grid-cols-[1.48fr_.92fr]">
+              <section className="relative flex min-h-[560px] flex-col items-center justify-center overflow-hidden border-b border-white/10 bg-[#061127] px-5 py-6 lg:border-b-0 lg:border-l lg:px-7">
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-[#F7B548]/8 to-transparent" />
 
                 <div className="relative z-10 flex items-center justify-center gap-3">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F7B548] text-[#07152E] shadow-[0_0_30px_rgba(247,181,72,.20)]">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F7B548] text-[#07152E] shadow-[0_0_24px_rgba(247,181,72,.18)]">
                     <Gift size={22} />
                   </span>
 
                   <div className="text-center">
-                    <h2 className="text-[34px] font-black leading-none text-white">
+                    <h2 className="text-[30px] font-black leading-none text-white">
                       السحب الشهري
                     </h2>
 
-                    <p className="mt-2 text-[16px] font-black text-[#F7B548]">
+                    <p className="mt-1.5 text-[14px] font-black text-[#F7B548]">
                       {currentDraw.phase ===
                       "countdown"
                         ? "استعدوا... السحب يبدأ الآن"
@@ -834,7 +965,7 @@ export default function MonthlyDrawOverlay() {
                     />
                   </div>
                 ) : (
-                  <div className="mt-5 w-full">
+                  <div className="mt-3 w-full">
                     <DrumReel
                       names={
                         weightedNames
@@ -854,25 +985,25 @@ export default function MonthlyDrawOverlay() {
                   </div>
                 )}
 
-                <p className="mt-5 text-center text-[16px] font-black text-white">
+                <p className="mt-3 text-center text-[14px] font-black text-white/90">
                   ✨ كلما زادت نقاطك... زادت فرصتك في الفوز ✨
                 </p>
               </section>
 
-              <aside className="relative flex min-h-[650px] flex-col justify-center bg-[#07152E]/78 px-6 py-8 sm:px-8">
-                <div className="pointer-events-none absolute inset-4 rounded-[26px] border border-[#F7B548]/25" />
+              <aside className="relative flex min-h-[560px] flex-col justify-center bg-[#FFF6DF] px-5 py-6 sm:px-6">
+                <div className="pointer-events-none absolute inset-3 rounded-[24px] border border-[#E7B54E]/45" />
 
                 <div className="relative z-10">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-[#F7B548] bg-[#061127] text-[#F7B548]">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#E2A62F] bg-white text-[#C88712] shadow-sm">
                       <Trophy size={27} />
                     </span>
 
                     <div>
-                      <p className="text-[13px] font-black text-white">
+                      <p className="text-[12px] font-black text-[#07152E]/70">
                         سحب مكافآت
                       </p>
-                      <p className="mt-1 text-[25px] font-black text-white">
+                      <p className="mt-1 text-[22px] font-black text-[#07152E]">
                         الشهري{" "}
                         <span className="text-[#F7B548]">
                           Masar Makers
@@ -892,43 +1023,43 @@ export default function MonthlyDrawOverlay() {
                       }
                     />
                   ) : (
-                    <div className="mt-6 rounded-[20px] border border-[#F7B548]/20 bg-white/[0.035] px-4 py-5 text-center">
+                    <div className="mt-5 rounded-[18px] border border-[#E7C36E] bg-white/80 px-4 py-4 text-center shadow-sm">
                       <p className="text-[12px] font-black text-[#F7B548]">
                         بانتظار إعلان الفائز
                       </p>
-                      <p className="mt-2 text-[13px] font-semibold leading-7 text-white/65">
+                      <p className="mt-2 text-[12px] font-semibold leading-6 text-[#07152E]/65">
                         تابع السحب حتى النهاية لمعرفة اسم الفائز لهذا الشهر.
                       </p>
                     </div>
                   )}
 
                   {currentDraw.prizeTitle ? (
-                    <div className="mt-5 rounded-[22px] border border-[#F7B548]/30 bg-[#061127]/70 px-5 py-5">
+                    <div className="mt-4 rounded-[20px] border border-[#E5BE62] bg-white/85 px-4 py-4 shadow-sm">
                       <div className="flex items-center gap-3">
-                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#F7B548] text-[#07152E]">
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#F7B548] text-[#07152E]">
                           <Gift size={24} />
                         </span>
 
                         <div>
-                          <p className="text-[15px] font-black text-[#F7B548]">
+                          <p className="text-[13px] font-black text-[#C88712]">
                             الجائزة لهذا الشهر
                           </p>
 
-                          <p className="mt-1 text-[22px] font-black leading-8 text-white">
+                          <p className="mt-1 text-[18px] font-black leading-7 text-[#07152E]">
                             {currentDraw.prizeTitle}
                           </p>
                         </div>
                       </div>
 
                       {currentDraw.prizeDescription ? (
-                        <p className="mt-3 text-[13px] font-semibold leading-7 text-white/70">
+                        <p className="mt-2 text-[11px] font-semibold leading-6 text-[#07152E]/65">
                           {currentDraw.prizeDescription}
                         </p>
                       ) : null}
                     </div>
                   ) : null}
 
-                  <div className="mt-5 rounded-[22px] border border-[#F7B548]/30 bg-[#061127]/65 px-4 py-5">
+                  <div className="mt-4 rounded-[20px] border border-[#E5BE62] bg-[#FFFDF8] px-4 py-4 shadow-sm">
                     <div className="flex items-center justify-center gap-2">
                       <CalendarClock
                         size={17}
@@ -967,7 +1098,7 @@ export default function MonthlyDrawOverlay() {
                       onClick={() =>
                         setShowPointsModal(true)
                       }
-                      className="flex h-12 w-full items-center justify-center rounded-xl bg-[#F7B548] text-[16px] font-black text-[#07152E] transition hover:-translate-y-0.5 hover:bg-[#ffc45d]"
+                      className="flex h-10 w-full items-center justify-center rounded-xl bg-[#F7B548] text-[14px] font-black text-[#07152E] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#ffc45d]"
                     >
                       كيف أزيد نقاطي؟
                     </button>
@@ -982,39 +1113,39 @@ export default function MonthlyDrawOverlay() {
       {showPointsModal ? (
         <div
           dir="rtl"
-          className="fixed inset-0 z-[520] flex items-center justify-center bg-[#020817]/70 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[520] flex items-center justify-center bg-[#020817]/70 p-2 backdrop-blur-sm sm:p-4"
         >
-          <div className="relative w-full max-w-[900px] overflow-hidden rounded-[30px] border border-[#F7B548]/55 bg-white shadow-[0_30px_90px_rgba(0,0,0,.48)]">
+          <div className="relative max-h-[88vh] w-[90vw] max-w-[360px] overflow-y-auto rounded-[18px] border border-[#F7B548]/55 bg-white shadow-[0_24px_70px_rgba(0,0,0,.42)] sm:max-h-[92vh] sm:w-full sm:max-w-[700px] sm:rounded-[26px] lg:max-w-[900px] lg:rounded-[30px]">
             <button
               type="button"
               onClick={() =>
                 setShowPointsModal(false)
               }
               aria-label="إغلاق طرق زيادة النقاط"
-              className="absolute left-5 top-5 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-[#07152E] shadow-sm transition hover:bg-slate-50"
+              className="absolute left-2.5 top-2.5 z-30 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[#07152E] shadow-sm transition hover:bg-slate-50 sm:left-4 sm:top-4 sm:h-9 sm:w-9 lg:left-5 lg:top-5 lg:h-10 lg:w-10"
             >
               <X size={18} />
             </button>
 
-            <div className="border-b border-[#F7B548]/30 bg-gradient-to-l from-[#FFF6DF] via-white to-white px-7 py-5">
-              <div className="flex items-center justify-center gap-3">
-                <span className="h-px w-20 bg-[#F7B548]" />
+            <div className="border-b border-[#F7B548]/30 bg-gradient-to-l from-[#FFF6DF] via-white to-white px-3 py-3 sm:px-5 sm:py-4 lg:px-7 lg:py-5">
+              <div className="flex items-center justify-center gap-2 sm:gap-3">
+                <span className="h-px w-8 bg-[#F7B548] sm:w-14 lg:w-20" />
 
                 <div className="text-center">
-                  <p className="text-[24px] font-black text-[#07152E]">
+                  <p className="text-[16px] font-black text-[#07152E] sm:text-[20px] lg:text-[24px]">
                     طرق زيادة النقاط
                   </p>
 
-                  <p className="mt-1 text-[11px] font-bold text-slate-500">
+                  <p className="mx-auto mt-0.5 max-w-[250px] text-[8px] font-bold leading-4 text-slate-500 sm:mt-1 sm:max-w-none sm:text-[10px] lg:text-[11px]">
                     اجمع النقاط من رحلاتك وتفاعلك على المنصة لزيادة فرصك في السحب الشهري
                   </p>
                 </div>
 
-                <span className="h-px w-20 bg-[#F7B548]" />
+                <span className="h-px w-8 bg-[#F7B548] sm:w-14 lg:w-20" />
               </div>
             </div>
 
-            <div className="space-y-5 p-6 sm:p-7">
+            <div className="space-y-3 p-3 sm:space-y-4 sm:p-5 lg:space-y-5 lg:p-7">
               <PointsSection
                 title="الرحلات وأنواعها"
                 icon={<BookOpen size={19} />}
@@ -1075,12 +1206,12 @@ export default function MonthlyDrawOverlay() {
                 />
               </PointsSection>
 
-              <div className="rounded-2xl border border-[#F7B548]/40 bg-[#FFF8E8] px-5 py-4 text-center">
-                <p className="text-[14px] font-black text-[#C88712]">
+              <div className="rounded-xl border border-[#F7B548]/40 bg-[#FFF8E8] px-2.5 py-2 text-center sm:rounded-2xl sm:px-4 sm:py-3 lg:px-5 lg:py-4">
+                <p className="text-[10px] font-black text-[#C88712] sm:text-[12px] lg:text-[14px]">
                   كل 100 نقطة = فرصة إضافية في السحب الشهري
                 </p>
 
-                <p className="mt-1 text-[10px] font-bold text-slate-500">
+                <p className="mt-0.5 text-[7.5px] font-bold text-slate-500 sm:mt-1 sm:text-[9px] lg:text-[10px]">
                   كلما زادت نقاطك زادت فرصك في الفوز
                 </p>
               </div>
@@ -1099,10 +1230,10 @@ function Countdown({
 }) {
   return (
     <div className="text-center">
-      <div className="mx-auto flex h-48 w-48 items-center justify-center rounded-full border border-[#F7B548]/45 bg-white/[0.04] shadow-[inset_0_0_55px_rgba(247,181,72,0.09),0_0_50px_rgba(247,181,72,.10)]">
+      <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-full sm:h-36 sm:w-36 lg:h-48 lg:w-48 border border-[#F7B548]/45 bg-white/[0.04] shadow-[inset_0_0_55px_rgba(247,181,72,0.09),0_0_50px_rgba(247,181,72,.10)]">
         <span
           key={remaining}
-          className="animate-pulse text-8xl font-black text-white"
+          className="animate-pulse text-5xl font-black text-white sm:text-6xl lg:text-8xl"
         >
           {Math.max(
             0,
@@ -1154,8 +1285,8 @@ function DrumReel({
   }
 
   return (
-    <div className="mx-auto w-full max-w-[760px]">
-      <div className="relative mx-auto h-[455px] w-full max-w-[720px]">
+    <div className="mx-auto w-full max-w-[680px]">
+      <div className="relative mx-auto h-[205px] w-full max-w-[350px] sm:h-[275px] sm:max-w-[465px] lg:h-[385px] lg:max-w-[640px]">
 
         {/* صورة جسم العجلة فقط */}
         <img
@@ -1177,7 +1308,7 @@ function DrumReel({
             overflow-hidden
           "
           style={{
-            height: "330px",
+            height: "clamp(148px, 38vw, 278px)",
             perspective: "850px",
           }}
         >
@@ -1225,7 +1356,9 @@ function DrumReel({
                   key={offset}
                   className="
                     flex
-                    h-[44px]
+                    h-[29px]
+                    sm:h-[36px]
+                    lg:h-[44px]
                     items-center
                     justify-center
                     border-b
@@ -1252,12 +1385,12 @@ function DrumReel({
                       text-white
                       ${
                         isWinner
-                          ? "text-[30px] drop-shadow-[0_0_10px_rgba(255,255,255,.45)]"
+                          ? "text-[17px] sm:text-[23px] lg:text-[30px] drop-shadow-[0_0_10px_rgba(255,255,255,.45)]"
                           : distance === 1
-                            ? "text-[21px]"
+                            ? "text-[12px] sm:text-[16px] lg:text-[21px]"
                             : distance === 2
-                              ? "text-[18px]"
-                              : "text-[16px]"
+                              ? "text-[10px] sm:text-[14px] lg:text-[18px]"
+                              : "text-[9px] sm:text-[12px] lg:text-[16px]"
                       }
                     `}
                   >
@@ -1269,9 +1402,9 @@ function DrumReel({
           </div>
 
           {/* تلاشي أعلى وأسفل الأسماء */}
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-40 h-[78px] bg-gradient-to-b from-[#07152E]/95 via-[#07152E]/70 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-40 h-[44px] sm:h-[60px] lg:h-[78px] bg-gradient-to-b from-[#07152E]/95 via-[#07152E]/70 to-transparent" />
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-40 h-[78px] bg-gradient-to-t from-[#07152E]/95 via-[#07152E]/70 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-40 h-[44px] sm:h-[60px] lg:h-[78px] bg-gradient-to-t from-[#07152E]/95 via-[#07152E]/70 to-transparent" />
         </div>
 
         {/* إطار الفائز نضيفه بالكود وليس داخل الصورة */}
@@ -1283,7 +1416,9 @@ function DrumReel({
             right-[22.5%]
             top-[48.5%]
             z-50
-            h-[67px]
+            h-[34px]
+            sm:h-[42px]
+            lg:h-[50px]
             -translate-y-1/2
             rounded-[9px]
             border-2
@@ -1313,13 +1448,13 @@ function DrumReel({
             rounded-xl
             bg-gradient-to-r
             from-transparent
-            via-[#F7B548]/[0.055]
+           
             to-transparent
           "
         />
       </div>
 
-      <p className="mt-1 text-center text-[16px] font-black text-white">
+      <p className="mt-0 text-center text-[10px] font-black text-white sm:mt-0.5 sm:text-[12px] lg:text-[14px]">
         {spinning
           ? "جاري اختيار الفائز..."
           : winnerName
@@ -1341,17 +1476,17 @@ function PointsSection({
 }) {
   return (
     <section>
-      <div className="mb-3 flex items-center gap-2 text-[#C88712]">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FFF5DD]">
+      <div className="mb-1.5 flex items-center gap-1.5 text-[#C88712] sm:mb-2.5 sm:gap-2 lg:mb-3">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#FFF5DD] sm:h-9 sm:w-9 sm:rounded-xl lg:h-10 lg:w-10">
           {icon}
         </span>
 
-        <h4 className="text-[15px] font-black text-[#07152E]">
+        <h4 className="text-[11px] font-black text-[#07152E] sm:text-[13px] lg:text-[15px]">
           {title}
         </h4>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-1.5 sm:gap-2.5 lg:grid-cols-4 lg:gap-3">
         {children}
       </div>
     </section>
@@ -1368,17 +1503,17 @@ function PointsRule({
   icon: ReactNode;
 }) {
   return (
-    <div className="flex min-h-[82px] items-center gap-3 rounded-2xl border border-[#E9C673] bg-white px-4 py-3 shadow-[0_7px_22px_rgba(7,21,46,.04)]">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FFF5DD] text-[#C88712]">
+    <div className="flex min-h-[54px] items-center gap-1.5 rounded-xl border border-[#E9C673] bg-white px-2 py-1.5 shadow-[0_5px_14px_rgba(7,21,46,.04)] sm:min-h-[68px] sm:gap-2.5 sm:rounded-2xl sm:px-3 sm:py-2.5 lg:min-h-[82px] lg:gap-3 lg:px-4 lg:py-3">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#FFF5DD] text-[#C88712] sm:h-9 sm:w-9 sm:rounded-xl lg:h-10 lg:w-10">
         {icon}
       </span>
 
       <div className="min-w-0">
-        <p className="text-[12px] font-black leading-5 text-[#07152E]">
+        <p className="text-[8px] font-black leading-3.5 text-[#07152E] sm:text-[10px] sm:leading-4 lg:text-[12px] lg:leading-5">
           {title}
         </p>
 
-        <p className="mt-1 text-[12px] font-black text-[#C88712]">
+        <p className="mt-0.5 text-[8px] font-black text-[#C88712] sm:text-[10px] lg:mt-1 lg:text-[12px]">
           {points} نقطة
         </p>
       </div>
@@ -1414,7 +1549,7 @@ function WinnerSummary({
       : monthKey;
 
   return (
-    <div className="mt-6 rounded-[22px] border border-[#F7B548]/30 bg-white/[0.035] px-5 py-5 text-center">
+    <div className="mt-0 rounded-[14px] border border-[#E5BE62] bg-white/90 px-3 py-2.5 text-center shadow-sm sm:rounded-[18px] lg:mt-5 lg:rounded-[20px] lg:px-4 lg:py-4">
       <div className="flex items-center justify-center gap-2 text-[#F7B548]">
         <Sparkles size={15} />
         <p className="text-[15px] font-black">
@@ -1423,7 +1558,7 @@ function WinnerSummary({
         <Sparkles size={15} />
       </div>
 
-      <h3 className="mt-3 text-[38px] font-black leading-tight text-white">
+      <h3 className="mt-1 text-[22px] font-black leading-tight text-[#07152E] sm:text-[26px] lg:mt-2 lg:text-[30px]">
         {name}
       </h3>
     </div>
@@ -1438,15 +1573,15 @@ function TimeBox({
   label: string;
 }) {
   return (
-    <div className="rounded-xl border border-[#F7B548]/18 bg-[#061127] px-2 py-3 text-center">
-      <p className="text-[28px] font-black leading-none text-white">
+    <div className="rounded-xl border border-[#E6C575] bg-white px-1 py-1.5 text-center shadow-sm sm:px-2 sm:py-2 lg:py-2.5">
+      <p className="text-[18px] font-black leading-none text-[#07152E] sm:text-[21px] lg:text-[24px]">
         {String(value).padStart(
           2,
           "0",
         )}
       </p>
 
-      <p className="mt-2 text-[14px] font-black text-[#F7B548]">
+      <p className="mt-1 text-[10px] font-black text-[#C88712] sm:text-[12px] lg:mt-2 lg:text-[14px]">
         {label}
       </p>
     </div>

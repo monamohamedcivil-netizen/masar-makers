@@ -50,7 +50,7 @@ export default function SectionTitle({
               : "-translate-y-3 opacity-0"
           }`}
         >
-          <h2 className="text-4xl font-black text-[#07152E]">
+          <h2 className="text-3xl font-black text-[#07152E]">
             {displayedTitle}
           </h2>
 

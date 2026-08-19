@@ -1,4 +1,7 @@
-import { createClient } from "@/lib/supabase/server";
+import {
+  createClient,
+  createAdminClient,
+} from "@/lib/supabase/server";
 import { getMasarPassport } from "@/lib/dashboard/masar-passport";
 import type { EnrollmentStatus } from "@/lib/actions/enroll";
 
@@ -657,7 +660,7 @@ export async function getStudentDashboardData(
   targetUserId?: string,
 ): Promise<StudentDashboardData> {
   const supabase = await createClient();
-
+const adminSupabase = createAdminClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -973,7 +976,12 @@ pdfUrl:
    * لا نعتمد على اسم الكورس إطلاقًا لتحديد Single/Fundamentals/Advanced.
    * المصدر الوحيد هو lessons.course_part من قاعدة البيانات.
    */
-  const allPathCourseIds = allPathCourseRows.map((course) => course.id);
+  const allPathCourseIds = [
+  ...new Set([
+    ...allPathCourseRows.map((course) => course.id),
+    ...courseIds,
+  ]),
+];
 
   const stationLearningLessonsResult = allPathCourseIds.length
     ? await supabase
@@ -996,8 +1004,8 @@ pdfUrl:
    * لا نستنتج نوع المحاضرة من وجود اشتراك آخر على نفس الكورس.
    */
   const allJourneysResult = allPathCourseIds.length
-    ? await supabase
-        .from("journeys")
+  ? await adminSupabase
+      .from("journeys")
         .select("id,course_id,journey_type")
         .in("course_id", allPathCourseIds)
         .eq("is_active", true)
@@ -1016,8 +1024,8 @@ pdfUrl:
     .filter((id): id is string => Boolean(id));
 
   const allLessonJourneyLinksResult = allJourneyIds.length
-    ? await supabase
-        .from("lesson_journeys")
+  ? await adminSupabase
+      .from("lesson_journeys")
         .select("lesson_id,journey_id")
         .in("journey_id", allJourneyIds)
     : { data: [], error: null };
@@ -1044,13 +1052,79 @@ pdfUrl:
     kind: StudentNextStepKind,
   ) => lessonJourneyKinds.get(lessonId)?.has(kind) ?? false;
 
-  const studentLearningLessonRows = stationLearningLessonRows.filter(
-    (lesson) =>
-      lessonBelongsToJourney(
-        lesson.id,
-        "professional",
-      ),
+  /*
+   * محاضرات رحلة الاحتراف:
+   *
+   * المصدر الأساسي يظل lesson_journeys + journeys.
+   *
+   * لكن بعض كورسات Single القديمة/المستوردة (مثل SPD) قد تكون
+   * المحاضرات الاحترافية صحيحة في قاعدة البيانات، بينما لا تصل
+   * روابط lesson_journeys إلى هذا الاستعلام في سياق الطالب.
+   *
+   * لذلك نستخدم fallback آمن فقط للكورسات التي لدى الطالب عليها
+   * اشتراك احترافي فعلي وغير مرفوض/ملغي/موقوف:
+   * إذا لم نستطع اكتشاف أي Professional lesson للكورس من روابط
+   * الرحلات، نستخدم محاضراته المنشورة نفسها.
+   *
+   * لا يطبق هذا الـ fallback على Free أو One Day.
+   */
+  const professionalEnrolledCourseIds = new Set(
+    enrollmentRows
+      .filter((enrollment) => {
+        const kind = getJourneyKind(
+          enrollment.journey_type,
+        );
+
+        const status = normalizeStatus(
+          enrollment.status,
+        );
+
+        return (
+          kind === "professional" &&
+          ![
+            "rejected",
+            "suspended",
+            "expired",
+            "cancelled",
+          ].includes(status)
+        );
+      })
+      .map((enrollment) => enrollment.course_id),
   );
+
+  const coursesWithDetectedProfessionalLessons = new Set(
+    stationLearningLessonRows
+      .filter((lesson) =>
+        lessonBelongsToJourney(
+          lesson.id,
+          "professional",
+        ),
+      )
+      .map((lesson) => lesson.course_id),
+  );
+
+  const studentLearningLessonRows =
+    stationLearningLessonRows.filter(
+      (lesson) => {
+        if (
+          lessonBelongsToJourney(
+            lesson.id,
+            "professional",
+          )
+        ) {
+          return true;
+        }
+
+        return (
+          professionalEnrolledCourseIds.has(
+            lesson.course_id,
+          ) &&
+          !coursesWithDetectedProfessionalLessons.has(
+            lesson.course_id,
+          )
+        );
+      },
+    );
 
   /*
    * نحمّل تقدم جميع المحاضرات المرتبطة بأنواع الرحلات الثلاثة مرة واحدة،
@@ -1232,6 +1306,24 @@ pdfUrl:
     cards.map((card) => [card.courseId, card]),
   );
 
+  /*
+   * مهم: خريطة رحلة الاحتراف يجب أن تعتمد فقط على اشتراكات الاحتراف.
+   * لا يجوز أن تجعل رحلة مجانية أو رحلة يوم واحد المحطة تبدو كمحطة
+   * احترافية مشترك بها.
+   */
+  const professionalCardsByCourseId = new Map(
+    cards
+      .filter(
+        (card) =>
+          getJourneyKind(card.journeyType) ===
+          "professional",
+      )
+      .map((card) => [
+        card.courseId,
+        card,
+      ]),
+  );
+
   const pendingStatusSet = new Set([
     "pending",
     "requested",
@@ -1379,7 +1471,11 @@ pdfUrl:
           });
 
           const enrolledCards = stationCourses
-            .map((course) => cardsByCourseId.get(course.id))
+            .map((course) =>
+              professionalCardsByCourseId.get(
+                course.id,
+              ),
+            )
             .filter(
               (card): card is StudentCourseCard => Boolean(card),
             )
@@ -2226,7 +2322,10 @@ freeJourneysByStation.set(
           candidate.lessons.some((lesson) => lesson.lessonId === nextLesson.lessonId),
         );
 
-        const matchingCard = cardsByCourseId.get(nextLesson.courseId);
+        const matchingCard =
+          professionalCardsByCourseId.get(
+            nextLesson.courseId,
+          );
         const enrollmentId =
           matchingCard?.enrollmentId || station.enrollmentId || `station:${station.stationId}`;
 

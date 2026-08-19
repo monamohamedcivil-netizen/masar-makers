@@ -28,6 +28,8 @@ interface MasarPassportCardProps {
   totalPoints: number;
 
   monthlyDrawEntries: number;
+  monthlyDrawWins: number;
+  monthlyDrawAvailableEntries: number;
 
   onShowProgress: () => void;
 
@@ -42,6 +44,8 @@ export default function MasarPassportCard({
   remainingPoints,
   totalPoints,
   monthlyDrawEntries,
+  monthlyDrawWins,
+  monthlyDrawAvailableEntries,
   onShowProgress,
   onShowDraw,
 }: MasarPassportCardProps) {
@@ -174,10 +178,18 @@ const currentBadge =
                 </p>
 
                 <p className="text-[23px] font-black leading-6 text-[#07152E]">
-                  {monthlyDrawEntries}
+                  {monthlyDrawAvailableEntries}
                 </p>
               </div>
             </div>
+
+            <p className="mt-1 text-[8px] font-bold text-slate-500">
+              الحالية {monthlyDrawAvailableEntries}
+              {" / "}
+              مرات الفوز {monthlyDrawWins}
+              {" / "}
+              إجمالي الفرص {monthlyDrawEntries}
+            </p>
 
             <div className="mt-1.5 flex items-center justify-center gap-2">
               <p className="text-[8px] font-bold text-slate-500">

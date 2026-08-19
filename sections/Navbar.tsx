@@ -92,12 +92,19 @@ export default function Navbar({ activeItem }: NavbarProps) {
   }, []);
 
   useEffect(() => {
-    if (!localeReady) return;
+  if (!localeReady) return;
 
-    document.documentElement.lang = locale;
-    document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
-    window.localStorage.setItem("masar-locale", locale);
-  }, [locale, localeReady]);
+  document.documentElement.lang = locale;
+  document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
+
+  window.localStorage.setItem("masar-locale", locale);
+
+  window.dispatchEvent(
+    new CustomEvent("masar:locale-change", {
+      detail: { locale },
+    })
+  );
+}, [locale, localeReady]);
 
   useEffect(() => setMobileOpen(false), [pathname]);
 
@@ -185,7 +192,11 @@ export default function Navbar({ activeItem }: NavbarProps) {
             type="button"
             onClick={() => setLocale((value) => (value === "ar" ? "en" : "ar"))}
             className="flex h-9 items-center gap-2 rounded-xl border border-white/20 px-3 text-xs font-black text-white transition hover:border-[#F7B548] hover:text-[#F7B548]"
-            aria-label="تغيير اللغة"
+            aria-label={
+  locale === "ar"
+    ? "Switch to English"
+    : "التبديل إلى العربية"
+}
           >
             <Languages size={16} />
             <span>{text.language}</span>

@@ -124,7 +124,7 @@ const isPointsTab = tab.id === "points";
               onKeyDown={(event) =>
                 handleTabKeyDown(event, index)
               }
-              className={`group relative min-w-[150px] max-w-[210px] flex-1 snap-start border px-4 text-right transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F7B548] ${
+              className={`group relative min-w-[150px] max-w-[210px] flex-1 snap-start border px-4 translate-y-0 text-right transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F7B548] ${
   isPointsTab
     ? isActive
       ? "z-20 h-[50px] rounded-t-[18px] border-[#F7B548] border-b-[#F7B548] bg-[#F7B548] text-[#07152E] shadow-[0_-5px_18px_rgba(247,181,72,0.22)]"
@@ -191,7 +191,7 @@ const isPointsTab = tab.id === "points";
       role="tabpanel"
       aria-labelledby={`journey-tab-${activeTab.id}`}
       tabIndex={0}
-      className="-mt-px animate-[journeyPanelFade_.22s_ease-out] focus:outline-none"
+      className="mt-0 animate-[journeyPanelFade_.22s_ease-out] focus:outline-none"
     >
       {activeTab.content}
     </div>

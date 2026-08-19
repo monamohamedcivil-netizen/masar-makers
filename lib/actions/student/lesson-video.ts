@@ -1,6 +1,9 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import {
+  createClient,
+  createAdminClient,
+} from "@/lib/supabase/server";
 import { createBunnyEmbedUrl } from "@/lib/bunny/stream";
 
 type Result<T = unknown> =
@@ -94,7 +97,8 @@ export async function getStudentLessonPlayback(
 
     const supabase =
       await createClient();
-
+const adminSupabase =
+  createAdminClient();
     const {
       data: { user },
       error: authError,
@@ -110,10 +114,10 @@ export async function getStudentLessonPlayback(
     }
 
     const {
-      data: lesson,
-      error: lessonError,
-    } = await supabase
-      .from("lessons")
+  data: lesson,
+  error: lessonError,
+} = await adminSupabase
+  .from("lessons")
       .select(`
         id,
         course_id,
@@ -209,10 +213,10 @@ export async function getStudentLessonPlayback(
 
       if (stationId) {
         const {
-          data: stationCourses,
-          error: stationCoursesError,
-        } = await supabase
-          .from("courses")
+  data: stationCourses,
+  error: stationCoursesError,
+} = await adminSupabase
+  .from("courses")
           .select("id")
           .eq("station_id", stationId);
 
@@ -233,10 +237,10 @@ export async function getStudentLessonPlayback(
       }
 
       const {
-        data: lessonJourneyLinks,
-        error: lessonJourneyLinksError,
-      } = await supabase
-        .from("lesson_journeys")
+  data: lessonJourneyLinks,
+  error: lessonJourneyLinksError,
+} = await adminSupabase
+  .from("lesson_journeys")
         .select(`
           journey_id,
           journeys (

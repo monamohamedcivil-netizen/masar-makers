@@ -3,7 +3,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-export type StudentJourneySource = "paid" | "reward";
+export type StudentJourneySource = "paid" | "reward" | "free";
+
+type CoursePart = "single" | "fundamentals" | "advanced";
 
 export interface StudentJourneyRow {
   id: string;
@@ -38,6 +40,7 @@ type EnrollmentRow = {
   course_id: string;
   journey_type: string | null;
   enrollment_source: string | null;
+  action_key: string | null;
   status: string | null;
   created_at: string;
   updated_at: string | null;
@@ -58,8 +61,16 @@ type StationRow = {
   name: string | null;
 };
 
-type ProgressRow = {
+type LessonRow = {
+  id: string;
   course_id: string;
+  course_part: string | null;
+  status: string | null;
+};
+
+type LessonProgressRow = {
+  lesson_id: string;
+  completed: boolean | null;
   progress_percent: number | string | null;
 };
 
@@ -92,25 +103,67 @@ async function requireAdmin() {
   return supabase;
 }
 
-function normalizeSource(value: string | null): StudentJourneySource {
+function normalizeSource(
+  value: string | null,
+  journeyType?: string | null,
+): StudentJourneySource {
+  const normalizedJourneyType =
+    normalizeStatus(journeyType);
+
+  if (
+    normalizedJourneyType === "free" ||
+    normalizedJourneyType === "free_session" ||
+    normalizedJourneyType === "free_journey"
+  ) {
+    return "free";
+  }
+
   return value === "reward" ? "reward" : "paid";
 }
 
-function normalizeProgress(value: number | string | null) {
+function normalizeProgress(
+  value: number | string | null | undefined,
+) {
   const parsed = Number(value ?? 0);
 
   if (!Number.isFinite(parsed)) {
     return 0;
   }
 
-  return Math.max(0, Math.min(100, Math.round(parsed)));
+  return Math.max(
+    0,
+    Math.min(100, Math.round(parsed)),
+  );
 }
 
-function normalizeStatus(value: string | null) {
+function normalizeStatus(
+  value: string | null | undefined,
+) {
   return (value ?? "pending").trim().toLowerCase();
 }
 
-function getCourseTitle(course: CourseRow | undefined) {
+function normalizeCoursePart(
+  value: string | null | undefined,
+): CoursePart {
+  const normalized = normalizeStatus(value);
+
+  if (
+    normalized === "fundamental" ||
+    normalized === "fundamentals"
+  ) {
+    return "fundamentals";
+  }
+
+  if (normalized === "advanced") {
+    return "advanced";
+  }
+
+  return "single";
+}
+
+function getCourseTitle(
+  course: CourseRow | undefined,
+) {
   return (
     course?.title_ar?.trim() ||
     course?.title?.trim() ||
@@ -118,13 +171,112 @@ function getCourseTitle(course: CourseRow | undefined) {
   );
 }
 
-function getStationTitle(station: StationRow | undefined) {
+function getStationTitle(
+  station: StationRow | undefined,
+) {
   return (
     station?.title_ar?.trim() ||
     station?.title?.trim() ||
     station?.name?.trim() ||
     null
   );
+}
+
+function getPartTitle(
+  baseTitle: string,
+  part: CoursePart,
+) {
+  if (part === "fundamentals") {
+    return `${baseTitle} - Fundamentals`;
+  }
+
+  if (part === "advanced") {
+    return `${baseTitle} - Advanced`;
+  }
+
+  return baseTitle;
+}
+
+function getPartJourneyType(
+  part: CoursePart,
+  originalJourneyType: string,
+) {
+  if (part === "fundamentals") {
+    return "fundamentals";
+  }
+
+  if (part === "advanced") {
+    return "advanced";
+  }
+
+  return originalJourneyType;
+}
+
+function calculatePartProgress(
+  lessons: LessonRow[],
+  lessonProgressMap: Map<string, LessonProgressRow>,
+) {
+  if (lessons.length === 0) {
+    return 0;
+  }
+
+  let accumulatedProgress = 0;
+
+  for (const lesson of lessons) {
+    const progress =
+      lessonProgressMap.get(lesson.id);
+
+    const percent = normalizeProgress(
+      progress?.progress_percent,
+    );
+
+    const completed =
+      Boolean(progress?.completed) ||
+      percent >= 100;
+
+    accumulatedProgress += completed
+      ? 100
+      : percent;
+  }
+
+  return normalizeProgress(
+    accumulatedProgress / lessons.length,
+  );
+}
+
+function enrollmentAllowsPart(
+  journeyType: string,
+  part: CoursePart,
+) {
+  const normalized =
+    normalizeStatus(journeyType);
+
+  const grantsAll =
+    normalized === "integrated" ||
+    normalized === "professional" ||
+    normalized === "career_path" ||
+    normalized === "";
+
+  if (part === "single") {
+    return true;
+  }
+
+  if (part === "fundamentals") {
+    return (
+      grantsAll ||
+      normalized === "fundamental" ||
+      normalized === "fundamentals"
+    );
+  }
+
+  if (part === "advanced") {
+    return (
+      grantsAll ||
+      normalized === "advanced"
+    );
+  }
+
+  return false;
 }
 
 export async function getStudentJourneys(
@@ -150,14 +302,18 @@ export async function getStudentJourneys(
 
   const supabase = await requireAdmin();
 
-  const { data: enrollmentData, error: enrollmentError } =
-    await supabase
-      .from("enrollments")
-      .select(
-        "id,course_id,journey_type,enrollment_source,status,created_at,updated_at",
-      )
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+  const {
+    data: enrollmentData,
+    error: enrollmentError,
+  } = await supabase
+    .from("enrollments")
+    .select(
+      "id,course_id,journey_type,enrollment_source,action_key,status,created_at,updated_at",
+    )
+    .eq("user_id", userId)
+    .order("created_at", {
+      ascending: false,
+    });
 
   if (enrollmentError) {
     return {
@@ -168,7 +324,8 @@ export async function getStudentJourneys(
     };
   }
 
-  const enrollments = (enrollmentData ?? []) as EnrollmentRow[];
+  const enrollments =
+    (enrollmentData ?? []) as EnrollmentRow[];
 
   if (enrollments.length === 0) {
     return {
@@ -179,23 +336,42 @@ export async function getStudentJourneys(
   }
 
   const courseIds = Array.from(
-    new Set(enrollments.map((item) => item.course_id).filter(Boolean)),
+    new Set(
+      enrollments
+        .map((item) => item.course_id)
+        .filter(Boolean),
+    ),
   );
 
+  /*
+   * نحمل بيانات الكورسات + المحاضرات المنشورة.
+   * lessons.course_part هو مصدر الحقيقة لتحديد:
+   * single / fundamentals / advanced
+   */
   const [
-    { data: courseData, error: courseError },
-    { data: progressData, error: progressError },
+    {
+      data: courseData,
+      error: courseError,
+    },
+    {
+      data: lessonData,
+      error: lessonError,
+    },
   ] = await Promise.all([
     supabase
       .from("courses")
-      .select("id,title,title_ar,course_code,station_id")
+      .select(
+        "id,title,title_ar,course_code,station_id",
+      )
       .in("id", courseIds),
 
     supabase
-      .from("student_course_progress")
-      .select("course_id,progress_percent")
-      .eq("user_id", userId)
-      .in("course_id", courseIds),
+      .from("lessons")
+      .select(
+        "id,course_id,course_part,status",
+      )
+      .in("course_id", courseIds)
+      .eq("status", "published"),
   ]);
 
   if (courseError) {
@@ -207,26 +383,74 @@ export async function getStudentJourneys(
     };
   }
 
-  if (progressError) {
-    console.error(
-      "Failed to load student journey progress:",
-      progressError.message,
-    );
+  if (lessonError) {
+    return {
+      success: false,
+      message: lessonError.message,
+      journeys: [],
+      statistics: emptyStatistics,
+    };
   }
 
-  const courses = (courseData ?? []) as CourseRow[];
-  const progressRows = (progressData ?? []) as ProgressRow[];
+  const courses =
+    (courseData ?? []) as CourseRow[];
+
+  const lessons =
+    (lessonData ?? []) as LessonRow[];
+
+  const lessonIds = lessons.map(
+    (lesson) => lesson.id,
+  );
+
+  /*
+   * نقرأ التقدم الحقيقي لكل محاضرة.
+   */
+  let lessonProgressRows: LessonProgressRow[] =
+    [];
+
+  if (lessonIds.length > 0) {
+    const {
+      data: lessonProgressData,
+      error: lessonProgressError,
+    } = await supabase
+      .from("lesson_progress")
+      .select(
+        "lesson_id,completed,progress_percent",
+      )
+      .eq("user_id", userId)
+      .in("lesson_id", lessonIds);
+
+    if (lessonProgressError) {
+      console.error(
+        "Failed to load lesson progress:",
+        lessonProgressError.message,
+      );
+    } else {
+      lessonProgressRows =
+        (lessonProgressData ??
+          []) as LessonProgressRow[];
+    }
+  }
 
   const stationIds = Array.from(
-    new Set(courses.map((course) => course.station_id).filter(Boolean)),
+    new Set(
+      courses
+        .map((course) => course.station_id)
+        .filter(Boolean),
+    ),
   ) as string[];
 
   let stations: StationRow[] = [];
 
   if (stationIds.length > 0) {
-    const { data: stationData, error: stationError } = await supabase
+    const {
+      data: stationData,
+      error: stationError,
+    } = await supabase
       .from("course_stations")
-      .select("id,title,title_ar,name")
+      .select(
+        "id,title,title_ar,name",
+      )
       .in("id", stationIds);
 
     if (stationError) {
@@ -235,76 +459,374 @@ export async function getStudentJourneys(
         stationError.message,
       );
     } else {
-      stations = (stationData ?? []) as StationRow[];
+      stations =
+        (stationData ?? []) as StationRow[];
     }
   }
 
   const courseMap = new Map(
-    courses.map((course) => [course.id, course]),
-  );
-
-  const stationMap = new Map(
-    stations.map((station) => [station.id, station]),
-  );
-
-  const progressMap = new Map(
-    progressRows.map((progress) => [
-      progress.course_id,
-      normalizeProgress(progress.progress_percent),
+    courses.map((course) => [
+      course.id,
+      course,
     ]),
   );
 
-  const journeys: StudentJourneyRow[] = enrollments.map((enrollment) => {
-    const course = courseMap.get(enrollment.course_id);
+  const stationMap = new Map(
+    stations.map((station) => [
+      station.id,
+      station,
+    ]),
+  );
+
+  const lessonProgressMap = new Map(
+    lessonProgressRows.map((progress) => [
+      progress.lesson_id,
+      progress,
+    ]),
+  );
+
+  /*
+   * نجمع المحاضرات حسب الكورس ثم حسب الجزء.
+   */
+  const lessonsByCourse = new Map<
+    string,
+    LessonRow[]
+  >();
+
+  for (const lesson of lessons) {
+    const current =
+      lessonsByCourse.get(
+        lesson.course_id,
+      ) ?? [];
+
+    current.push(lesson);
+
+    lessonsByCourse.set(
+      lesson.course_id,
+      current,
+    );
+  }
+
+  const journeys: StudentJourneyRow[] =
+    [];
+
+  for (const enrollment of enrollments) {
+    const course =
+      courseMap.get(enrollment.course_id);
+
     const station = course?.station_id
-      ? stationMap.get(course.station_id)
+      ? stationMap.get(
+          course.station_id,
+        )
       : undefined;
 
-    return {
-      id: enrollment.id,
-      courseId: enrollment.course_id,
-      courseTitle: getCourseTitle(course),
-      courseCode: course?.course_code?.trim() || null,
-      stationTitle: getStationTitle(station),
-      journeyType:
-        enrollment.journey_type?.trim() || "career_path",
-      enrollmentSource: normalizeSource(
-        enrollment.enrollment_source,
-      ),
-      status: normalizeStatus(enrollment.status),
-      progressPercent:
-        progressMap.get(enrollment.course_id) ?? 0,
-      enrolledAt: enrollment.created_at,
-      updatedAt: enrollment.updated_at,
-    };
-  });
+    const baseCourseTitle =
+      getCourseTitle(course);
 
+    const originalJourneyType =
+      enrollment.journey_type?.trim() ||
+      "career_path";
+
+    const courseLessons =
+      lessonsByCourse.get(
+        enrollment.course_id,
+      ) ?? [];
+
+    /*
+     * نحدد الأجزاء الموجودة فعليًا من lessons.course_part.
+     */
+    const fundamentalsLessons =
+      courseLessons.filter(
+        (lesson) =>
+          normalizeCoursePart(
+            lesson.course_part,
+          ) === "fundamentals",
+      );
+
+    const advancedLessons =
+      courseLessons.filter(
+        (lesson) =>
+          normalizeCoursePart(
+            lesson.course_part,
+          ) === "advanced",
+      );
+
+    const singleLessons =
+      courseLessons.filter(
+        (lesson) =>
+          normalizeCoursePart(
+            lesson.course_part,
+          ) === "single",
+      );
+
+    const isSplitCourse =
+      fundamentalsLessons.length > 0 ||
+      advancedLessons.length > 0;
+
+    const isFreeEnrollment =
+      [
+        "free",
+        "free_session",
+        "free_journey",
+      ].includes(
+        normalizeStatus(
+          originalJourneyType,
+        ),
+      );
+
+    /*
+     * الرحلة المجانية تظل رحلة واحدة كما سُجلت،
+     * حتى إذا كان الكورس نفسه مقسمًا.
+     */
+    if (isFreeEnrollment) {
+      /*
+       * الرحلة المجانية الجديدة مرتبطة بمحاضرة محددة:
+       * free:lesson:LESSON_ID
+       *
+       * لذلك تقدمها يجب أن يُحسب من هذه المحاضرة فقط،
+       * وليس من جميع محاضرات الكورس.
+       */
+      const requestedLessonId =
+        enrollment.action_key?.startsWith(
+          "free:lesson:",
+        )
+          ? enrollment.action_key.slice(
+              "free:lesson:".length,
+            )
+          : null;
+
+      const freeJourneyLessons =
+        requestedLessonId
+          ? courseLessons.filter(
+              (lesson) =>
+                lesson.id ===
+                requestedLessonId,
+            )
+          : courseLessons;
+
+      journeys.push({
+        id: enrollment.id,
+        courseId:
+          enrollment.course_id,
+        courseTitle:
+          baseCourseTitle,
+        courseCode:
+          course?.course_code?.trim() ||
+          null,
+        stationTitle:
+          getStationTitle(station),
+        journeyType:
+          originalJourneyType,
+        enrollmentSource: "free",
+        status:
+          normalizeStatus(
+            enrollment.status,
+          ),
+        progressPercent:
+          calculatePartProgress(
+            freeJourneyLessons,
+            lessonProgressMap,
+          ),
+        enrolledAt:
+          enrollment.created_at,
+        updatedAt:
+          enrollment.updated_at,
+      });
+
+      continue;
+    }
+
+    /*
+     * الكورس المقسم:
+     * Integrated = Fundamentals + Advanced.
+     *
+     * Fundamentals فقط = صف واحد.
+     * Advanced فقط = صف واحد.
+     */
+    if (isSplitCourse) {
+      if (
+        fundamentalsLessons.length > 0 &&
+        enrollmentAllowsPart(
+          originalJourneyType,
+          "fundamentals",
+        )
+      ) {
+        journeys.push({
+          id: `${enrollment.id}:fundamentals`,
+          courseId:
+            enrollment.course_id,
+          courseTitle:
+            getPartTitle(
+              baseCourseTitle,
+              "fundamentals",
+            ),
+          courseCode:
+            course?.course_code?.trim() ||
+            null,
+          stationTitle:
+            getStationTitle(station),
+          journeyType:
+            getPartJourneyType(
+              "fundamentals",
+              originalJourneyType,
+            ),
+          enrollmentSource:
+            normalizeSource(
+              enrollment.enrollment_source,
+              enrollment.journey_type,
+            ),
+          status:
+            normalizeStatus(
+              enrollment.status,
+            ),
+          progressPercent:
+            calculatePartProgress(
+              fundamentalsLessons,
+              lessonProgressMap,
+            ),
+          enrolledAt:
+            enrollment.created_at,
+          updatedAt:
+            enrollment.updated_at,
+        });
+      }
+
+      if (
+        advancedLessons.length > 0 &&
+        enrollmentAllowsPart(
+          originalJourneyType,
+          "advanced",
+        )
+      ) {
+        journeys.push({
+          id: `${enrollment.id}:advanced`,
+          courseId:
+            enrollment.course_id,
+          courseTitle:
+            getPartTitle(
+              baseCourseTitle,
+              "advanced",
+            ),
+          courseCode:
+            course?.course_code?.trim() ||
+            null,
+          stationTitle:
+            getStationTitle(station),
+          journeyType:
+            getPartJourneyType(
+              "advanced",
+              originalJourneyType,
+            ),
+          enrollmentSource:
+            normalizeSource(
+              enrollment.enrollment_source,
+              enrollment.journey_type,
+            ),
+          status:
+            normalizeStatus(
+              enrollment.status,
+            ),
+          progressPercent:
+            calculatePartProgress(
+              advancedLessons,
+              lessonProgressMap,
+            ),
+          enrolledAt:
+            enrollment.created_at,
+          updatedAt:
+            enrollment.updated_at,
+        });
+      }
+
+      /*
+       * إذا كان الكورس معرفًا كمقسم ولكن لا توجد محاضرات
+       * للجزء الذي يسمح به الاشتراك، لا ننشئ صفًا وهميًا.
+       */
+      continue;
+    }
+
+    /*
+     * الكورس غير المقسم يظل صفًا واحدًا.
+     */
+    journeys.push({
+      id: enrollment.id,
+      courseId:
+        enrollment.course_id,
+      courseTitle:
+        baseCourseTitle,
+      courseCode:
+        course?.course_code?.trim() ||
+        null,
+      stationTitle:
+        getStationTitle(station),
+      journeyType:
+        originalJourneyType,
+      enrollmentSource:
+        normalizeSource(
+          enrollment.enrollment_source,
+          enrollment.journey_type,
+        ),
+      status:
+        normalizeStatus(
+          enrollment.status,
+        ),
+      progressPercent:
+        calculatePartProgress(
+          singleLessons,
+          lessonProgressMap,
+        ),
+      enrolledAt:
+        enrollment.created_at,
+      updatedAt:
+        enrollment.updated_at,
+    });
+  }
+
+  /*
+   * الإحصائيات تحسب الرحلات التعليمية الناتجة،
+   * وليس عدد صفوف enrollments الخام.
+   *
+   * لذلك Integrated المقسم إلى Fundamentals + Advanced
+   * يحسب رحلتين.
+   */
   const statistics = journeys.reduce(
     (result, journey) => {
       result.total += 1;
 
-      if (journey.enrollmentSource === "reward") {
+      if (
+        journey.enrollmentSource ===
+        "reward"
+      ) {
         result.reward += 1;
-      } else {
+      } else if (
+        journey.enrollmentSource ===
+        "paid"
+      ) {
         result.paid += 1;
       }
 
       if (
-        ["active", "approved", "enrolled", "confirmed"].includes(
-          journey.status,
-        )
+        [
+          "active",
+          "approved",
+          "enrolled",
+          "confirmed",
+        ].includes(journey.status)
       ) {
         result.active += 1;
       }
 
       if (
-        journey.status === "completed" ||
+        journey.status ===
+          "completed" ||
         journey.progressPercent >= 100
       ) {
         result.completed += 1;
       }
 
-      if (journey.status === "pending") {
+      if (
+        journey.status === "pending"
+      ) {
         result.pending += 1;
       }
 

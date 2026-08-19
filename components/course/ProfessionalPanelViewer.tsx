@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { CalendarDays, CheckCircle2, Gift, MessageSquareQuote, Play, PlayCircle, Rocket, Target } from "lucide-react";
+import { CalendarDays, CheckCircle2, Gift, MessageSquareQuote, Play, PlayCircle, Rocket, Target, X } from "lucide-react";
 
 import PlatformActionButton from "./PlatformActionButton";
 
@@ -66,17 +66,23 @@ export default function ProfessionalPanelViewer({
       data-panel-component={panelComponent}
       className="min-h-[400px] overflow-hidden rounded-[24px] border border-[#C9D2DE] bg-white shadow-[0_22px_55px_rgba(7,21,46,0.16),0_4px_12px_rgba(7,21,46,0.08)]"
     >
-      <header className="flex min-h-[64px] items-center justify-between gap-3 border-b-[3px] border-[#F7B548] bg-[#07152E] px-4 py-2.5 sm:px-6">
+      <header className="flex min-h-[66px] items-center justify-between gap-3 border-b-[3px] border-[#F7B548] bg-[#07152E] px-4 py-2.5 sm:px-6">
         <div className="flex min-w-0 items-center gap-2.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F7B548] text-[#07152E]">
             <HeaderIcon size={16} />
           </div>
 
           <div className="min-w-0">
-            <h2 className="truncate text-[15px] font-black leading-5 text-white sm:text-[20px]">
-              {panelHeader.title}
-            </h2>
-          </div>
+  <h2 className="truncate text-[18px] font-black leading-5 text-white sm:text-[22px]">
+    {panelHeader.title}
+  </h2>
+
+  {value.screenSubtitle?.trim() && (
+    <p className="mt-1 text-[9px] font-bold leading-4 text-white/70 sm:text-[14px]">
+      {value.screenSubtitle}
+    </p>
+  )}
+</div>
         </div>
 
         {value.screenAction.enabled && showIntegrated && (
@@ -120,13 +126,15 @@ export default function ProfessionalPanelViewer({
               onClick={() =>
                 setMobileColumn("fundamental")
               }
-              className={`relative min-h-[46px] px-3 text-[11px] font-black transition ${
+              className={`relative min-h-[46px] px-3 text-[12px] font-black transition ${
                 mobileColumn === "fundamental"
                   ? "bg-[#173A61] text-white"
                   : "bg-[#EEF1F5] text-[#4B5563]"
               }`}
             >
-              {value.columnOneTitle}
+              {value.showColumnOneHeader
+                ? value.columnOneTitle
+                : "العمود الأول"}
 
               {mobileColumn ===
               "fundamental" ? (
@@ -143,13 +151,15 @@ export default function ProfessionalPanelViewer({
               onClick={() =>
                 setMobileColumn("advanced")
               }
-              className={`relative min-h-[46px] px-3 text-[11px] font-black transition ${
+              className={`relative min-h-[46px] px-3 text-[12px] font-black transition ${
                 mobileColumn === "advanced"
                   ? "bg-[#102D50] text-white"
                   : "bg-[#EEF1F5] text-[#4B5563]"
               }`}
             >
-              {value.columnTwoTitle}
+              {value.showColumnTwoHeader
+                ? value.columnTwoTitle
+                : "العمود الثاني"}
 
               {mobileColumn ===
               "advanced" ? (
@@ -207,6 +217,7 @@ export default function ProfessionalPanelViewer({
               action={value.columnOneAction}
               showAction={showFundamental}
               blocks={fundamentalBlocks}
+              showHeader={value.showColumnOneHeader}
             />
 
             <ViewerColumn
@@ -221,6 +232,7 @@ export default function ProfessionalPanelViewer({
               action={value.columnTwoAction}
               showAction={showAdvanced}
               blocks={advancedBlocks}
+              showHeader={value.showColumnTwoHeader}
             />
           </div>
         </>
@@ -238,6 +250,7 @@ export default function ProfessionalPanelViewer({
             action={value.columnOneAction}
             showAction={showFundamental}
             blocks={fundamentalBlocks}
+            showHeader={value.showColumnOneHeader}
           />
         </div>
       )}
@@ -255,6 +268,7 @@ type ViewerColumnProps = {
   action: ProfessionalActionConfig;
   showAction: boolean;
   blocks: ProfessionalContentBlock[];
+  showHeader?: boolean;
   hideColumnHeader?: boolean;
 };
 
@@ -268,6 +282,7 @@ function ViewerColumn({
   action,
   showAction,
   blocks,
+  showHeader = true,
   hideColumnHeader = false,
 }: ViewerColumnProps) {
   const headerColor =
@@ -277,11 +292,11 @@ function ViewerColumn({
 
   return (
     <article className="flex min-h-[333px] flex-col bg-white">
-      {!hideColumnHeader ? (
+      {!hideColumnHeader && showHeader ? (
         <div
           className={`flex min-h-[50px] flex-wrap items-center justify-between gap-2 px-4 py-2 text-white ${headerColor}`}
         >
-          <h3 className="text-[13px] font-black">{title}</h3>
+          <h3 className="text-[16px] font-black">{title}</h3>
 
           {action.enabled && showAction && (
             <PlatformActionButton
@@ -352,33 +367,77 @@ function ViewerBlock({
   enrollmentStatuses?: EnrollmentStatusMap;
   block: ProfessionalContentBlock;
 }) {
+  const [isImageOpen, setIsImageOpen] = useState(false);
 
   if (block.type === "image") {
     return (
-      <figure className="overflow-hidden rounded-xl border border-[#DCE3EB] bg-[#F8FAFC]">
-        {block.imageUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={block.imageUrl}
-            alt={block.altText || block.title}
-            className="h-auto w-full object-cover"
-          />
-        )}
+      <>
+        <figure className="mx-auto w-full max-w-[620px] overflow-hidden rounded-xl border border-[#DCE3EB] bg-[#F8FAFC]">
+          {block.imageUrl && (
+            <button
+              type="button"
+              onClick={() => setIsImageOpen(true)}
+              className="group flex aspect-video w-full cursor-zoom-in items-center justify-center overflow-hidden bg-[#F3F6F9]"
+              aria-label="تكبير الصورة"
+              title="اضغط لتكبير الصورة"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={block.imageUrl}
+                alt={block.altText || block.title}
+                className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.015]"
+              />
+            </button>
+          )}
 
-        {(block.title || block.caption) && (
-          <figcaption className="p-3">
-            {block.title && (
-              <h4 className="text-[12px] font-black text-[#07152E]">{block.title}</h4>
-            )}
+          {(block.title || block.caption) && (
+            <figcaption className="p-3">
+              {block.title && (
+                <h4 className="text-[16px] font-black text-[#07152E]">
+                  {block.title}
+                </h4>
+              )}
 
-            {block.caption && (
-              <p className="mt-1 text-[10px] font-bold leading-4 text-slate-500">
-                {block.caption}
-              </p>
-            )}
-          </figcaption>
-        )}
-      </figure>
+              {block.caption && (
+                <p className="mt-1 text-[13px] font-bold leading-4 text-slate-500">
+                  {block.caption}
+                </p>
+              )}
+            </figcaption>
+          )}
+        </figure>
+
+        {isImageOpen && block.imageUrl ? (
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#020817]/80 p-6 sm:p-10 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-label="معاينة الصورة بالحجم الكبير"
+            onClick={() => setIsImageOpen(false)}
+          >
+            <button
+              type="button"
+              onClick={() => setIsImageOpen(false)}
+              className="absolute right-5 top-5 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#07152E] shadow-lg transition hover:bg-[#F7B548] sm:right-8 sm:top-8"
+              aria-label="إغلاق الصورة"
+            >
+              <X size={22} />
+            </button>
+
+            <div
+              className="flex max-h-[82vh] max-w-[88vw] items-center justify-center rounded-2xl bg-white p-3 shadow-[0_24px_80px_rgba(0,0,0,0.45)] sm:p-5"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={block.imageUrl}
+                alt={block.altText || block.title}
+                className="max-h-[76vh] max-w-[82vw] object-contain"
+              />
+            </div>
+          </div>
+        ) : null}
+      </>
     );
   }
 
@@ -396,20 +455,20 @@ function ViewerBlock({
     const displayThumbnail = videoBlock.thumbnail?.trim() || youtubeThumbnail;
 
     return (
-      <article className="overflow-hidden rounded-xl border border-[#DCE3EB] bg-[#F8FAFC]">
+      <article className="mx-auto w-full max-w-[760px] overflow-hidden rounded-xl border border-[#DCE3EB] bg-[#F8FAFC]">
         {displayThumbnail && videoBlock.videoUrl ? (
           <a
             href={videoBlock.videoUrl}
             target="_blank"
             rel="noreferrer"
-            className="group relative block aspect-video overflow-hidden bg-[#07152E]"
+            className="group relative flex aspect-video w-full items-center justify-center overflow-hidden bg-[#07152E]"
             aria-label="فتح الفيديو"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={displayThumbnail}
               alt={videoBlock.title || "غلاف الفيديو"}
-              className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+              className="h-full w-full object-contain transition duration-500 group-hover:scale-[1.02]"
             />
 
             <div className="absolute inset-0 bg-[#07152E]/30 transition group-hover:bg-[#07152E]/20" />
@@ -430,7 +489,7 @@ function ViewerBlock({
           <h4 className="text-[12px] font-black text-[#07152E]">{videoBlock.title}</h4>
 
           {videoBlock.caption && (
-            <p className="mt-1 text-[10px] font-bold leading-4 text-slate-500">
+            <p className="mt-1 text-[12px] font-bold leading-4 text-slate-500">
               {videoBlock.caption}
             </p>
           )}
@@ -440,7 +499,7 @@ function ViewerBlock({
               href={videoBlock.videoUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#07152E] px-3 text-[9px] font-black text-white transition hover:bg-[#214B75]"
+              className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#07152E] px-3 text-[16px] font-black text-white transition hover:bg-[#214B75]"
             >
               <Play size={14} fill="currentColor" />
               فتح الفيديو
@@ -468,7 +527,7 @@ function ViewerBlock({
   return (
     <div className="rounded-xl border border-[#DCE3EB] bg-white p-3 shadow-sm">
       {listBlock.title && (
-        <h4 className="mb-2 text-[12px] font-black text-[#07152E]">{listBlock.title}</h4>
+        <h4 className="mb-2 text-[16px] font-black text-[#07152E]">{listBlock.title}</h4>
       )}
 
       <div className="space-y-2">
@@ -484,10 +543,10 @@ function ViewerBlock({
               />
 
               <div>
-                <p className="text-[11px] font-black text-[#07152E]">{item.title}</p>
+                <p className="text-[14px] font-black text-[#07152E]">{item.title}</p>
 
                 {item.description && (
-                  <p className="mt-0.5 text-[9px] font-bold leading-4 text-slate-500">
+                  <p className="mt-0.5 text-[14px] font-bold leading-4 text-slate-500">
                     {item.description}
                   </p>
                 )}

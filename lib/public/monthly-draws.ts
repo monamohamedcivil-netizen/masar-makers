@@ -3,7 +3,10 @@
 import { randomInt } from "crypto";
 
 import { createAdminClient } from "@/lib/supabase/server";
-import { getMasarPassport } from "@/lib/dashboard/masar-passport";
+import {
+  getMasarPassport,
+  getMasarPassportForRegistry,
+} from "@/lib/dashboard/masar-passport";
 
 const DRAW_SPIN_SECONDS = 10;
 
@@ -74,7 +77,9 @@ type DrawRow = {
   status: string;
   winner_mode: "random" | "manual";
   preset_winner_user_id: string | null;
+  preset_winner_registry_id: string | null;
   winner_user_id: string | null;
+  winner_registry_id: string | null;
   winner_name: string | null;
   winning_ticket: number | null;
   total_participants: number | null;
@@ -89,13 +94,55 @@ type DrawRow = {
 type EntryRow = {
   id: string;
   draw_id: string;
-  user_id: string;
+  user_id: string | null;
+  registry_id: string | null;
+  masar_id: number | null;
+  student_email: string | null;
   student_name: string;
   points_snapshot: number;
   entries_count: number;
   ticket_start: number | null;
   ticket_end: number | null;
 };
+
+function buildWinnerCountMaps(
+  rows: Array<{
+    winner_user_id: string | null;
+    winner_registry_id: string | null;
+  }>,
+) {
+  const winsByUserId =
+    new Map<string, number>();
+
+  const winsByRegistryId =
+    new Map<string, number>();
+
+  for (const row of rows) {
+    if (row.winner_registry_id) {
+      winsByRegistryId.set(
+        row.winner_registry_id,
+        (winsByRegistryId.get(
+          row.winner_registry_id,
+        ) ?? 0) + 1,
+      );
+      continue;
+    }
+
+    if (row.winner_user_id) {
+      winsByUserId.set(
+        row.winner_user_id,
+        (winsByUserId.get(
+          row.winner_user_id,
+        ) ?? 0) + 1,
+      );
+    }
+  }
+
+  return {
+    winsByUserId,
+    winsByRegistryId,
+  };
+}
 
 async function getSettings(): Promise<SettingsRow | null> {
   const supabase = createAdminClient();
@@ -128,7 +175,7 @@ async function getEntries(
   const { data, error } = await supabase
     .from("monthly_draw_entries")
     .select(
-      "id,draw_id,user_id,student_name,points_snapshot,entries_count,ticket_start,ticket_end",
+      "id,draw_id,user_id,registry_id,masar_id,student_email,student_name,points_snapshot,entries_count,ticket_start,ticket_end",
     )
     .eq("draw_id", drawId)
     .order("ticket_start", { ascending: true });
@@ -162,6 +209,29 @@ async function ensureParticipantSnapshot(
 
   const supabase = createAdminClient();
 
+  const {
+    data: completedWinnerRows,
+    error: completedWinnerRowsError,
+  } = await supabase
+    .from("monthly_draws")
+    .select(
+      "winner_user_id,winner_registry_id",
+    )
+    .eq("status", "completed");
+
+  if (completedWinnerRowsError) {
+    throw new Error(
+      completedWinnerRowsError.message,
+    );
+  }
+
+  const {
+    winsByUserId,
+    winsByRegistryId,
+  } = buildWinnerCountMaps(
+    completedWinnerRows ?? [],
+  );
+
   const { data: profiles, error: profilesError } =
     await supabase
       .from("profiles")
@@ -190,9 +260,54 @@ async function ensureParticipantSnapshot(
     },
   );
 
+  const eligibleUserIds =
+    eligibleProfiles.map(
+      (profile) => profile.id,
+    );
+
+  const {
+    data: linkedRegistryRows,
+    error: linkedRegistryError,
+  } =
+    eligibleUserIds.length > 0
+      ? await supabase
+          .from("student_registry")
+          .select(
+            "id,user_id,masar_id",
+          )
+          .in(
+            "user_id",
+            eligibleUserIds,
+          )
+      : {
+          data: [],
+          error: null,
+        };
+
+  if (linkedRegistryError) {
+    throw new Error(
+      linkedRegistryError.message,
+    );
+  }
+
+  const registryByUserId =
+    new Map(
+      (linkedRegistryRows ?? [])
+        .filter(
+          (row) => row.user_id,
+        )
+        .map((row) => [
+          row.user_id as string,
+          row,
+        ]),
+    );
+
   const rows: Array<{
     draw_id: string;
-    user_id: string;
+    user_id: string | null;
+    registry_id: string | null;
+    masar_id: number | null;
+    student_email: string | null;
     student_name: string;
     points_snapshot: number;
     entries_count: number;
@@ -216,15 +331,39 @@ async function ensureParticipantSnapshot(
         ),
       );
 
-      const entries = Math.floor(
-        points /
-          Math.max(
-            1,
-            Number(
-              settings.points_per_entry ??
-                100,
-            ),
+      const baseEntries = Math.max(
+        0,
+        Math.floor(
+          Number(
+            passport.drawEntries ??
+              0,
           ),
+        ),
+      );
+
+      const linkedRegistry =
+        registryByUserId.get(
+          profile.id,
+        ) ?? null;
+
+      const previousWins =
+        (
+          linkedRegistry
+            ? winsByRegistryId.get(
+                linkedRegistry.id,
+              ) ?? 0
+            : 0
+        ) +
+        (
+          winsByUserId.get(
+            profile.id,
+          ) ?? 0
+        );
+
+      const entries = Math.max(
+        0,
+        baseEntries -
+          previousWins,
       );
 
       if (entries < 1) {
@@ -238,6 +377,15 @@ async function ensureParticipantSnapshot(
       rows.push({
         draw_id: draw.id,
         user_id: profile.id,
+        registry_id:
+          linkedRegistry?.id ??
+          null,
+        masar_id:
+          Number(
+            linkedRegistry?.masar_id ??
+              0,
+          ) || null,
+        student_email: null,
 
         student_name:
           profile.full_name?.trim() ||
@@ -260,6 +408,167 @@ async function ensureParticipantSnapshot(
     }
   }
 
+  /*
+   * أضف الطلاب المستوردين الذين لم يسجلوا بعد.
+   * أي Registry أصبح مرتبطًا بـ user_id مستبعد هنا لأنه
+   * دخل بالفعل من profiles أعلاه.
+   */
+  const {
+    data: importedRegistryRows,
+    error: importedRegistryError,
+  } = await supabase
+    .from("student_registry")
+    .select(
+      "id,masar_id,student_name,email,normalized_email,user_id",
+    )
+    .is("user_id", null)
+    .order("masar_id", {
+      ascending: true,
+    });
+
+  if (importedRegistryError) {
+    throw new Error(
+      importedRegistryError.message,
+    );
+  }
+
+  for (
+    const registry of
+      importedRegistryRows ?? []
+  ) {
+    try {
+      const email = String(
+        registry.normalized_email ??
+          registry.email ??
+          "",
+      )
+        .trim()
+        .toLowerCase();
+
+      if (!email) {
+        continue;
+      }
+
+      const {
+        count: importedEnrollmentCount,
+        error: importedEnrollmentError,
+      } = await supabase
+        .from("enrollments")
+        .select("id", {
+          count: "exact",
+          head: true,
+        })
+        .ilike(
+          "student_email",
+          email,
+        )
+        .eq(
+          "source",
+          "admin_import",
+        );
+
+      if (importedEnrollmentError) {
+        throw new Error(
+          importedEnrollmentError.message,
+        );
+      }
+
+      if (
+        !importedEnrollmentCount ||
+        importedEnrollmentCount < 1
+      ) {
+        continue;
+      }
+
+      const passport =
+        await getMasarPassportForRegistry(
+          registry.id,
+        );
+
+      const points = Math.max(
+        0,
+        Math.floor(
+          Number(
+            passport.totalPoints ??
+              0,
+          ),
+        ),
+      );
+
+      const baseEntries = Math.max(
+        0,
+        Math.floor(
+          Number(
+            passport.drawEntries ??
+              0,
+          ),
+        ),
+      );
+
+      const previousWins =
+        winsByRegistryId.get(
+          registry.id,
+        ) ?? 0;
+
+      const entries = Math.max(
+        0,
+        baseEntries -
+          previousWins,
+      );
+
+      if (entries < 1) {
+        continue;
+      }
+
+      const ticketStart =
+        nextTicket;
+
+      const ticketEnd =
+        ticketStart +
+        entries -
+        1;
+
+      rows.push({
+        draw_id: draw.id,
+        user_id: null,
+        registry_id:
+          registry.id,
+        masar_id:
+          Number(
+            registry.masar_id ??
+              0,
+          ) || null,
+        student_email:
+          email,
+
+        student_name:
+          String(
+            registry.student_name ??
+              "",
+          ).trim() ||
+          email.split("@")[0] ||
+          "طالب Masar Makers",
+
+        points_snapshot:
+          points,
+        entries_count:
+          entries,
+        ticket_start:
+          ticketStart,
+        ticket_end:
+          ticketEnd,
+      });
+
+      nextTicket =
+        ticketEnd + 1;
+    } catch (error) {
+      console.error(
+        `AUTO PREPARE IMPORTED MONTHLY DRAW PARTICIPANT ${registry.id} ERROR:`,
+        error,
+      );
+    }
+  }
+
   if (rows.length > 0) {
     /*
      * HomeMonthlyDrawStatus and MonthlyDrawOverlay can request the
@@ -270,16 +579,21 @@ async function ensureParticipantSnapshot(
      * (draw_id, user_id), so use an idempotent upsert and ignore the
      * duplicate row from the second concurrent request.
      */
+    /*
+     * لا نستخدم upsert على (draw_id,user_id) لكل الصفوف لأن
+     * user_id = null عند الطالب المستورد. نعتمد على الـ unique
+     * indexes الخاصة بـ user_id وregistry_id، ومع التزامن قد تصل
+     * محاولة ثانية لنفس Snapshot؛ عندها نتجاهل duplicate key.
+     */
     const { error: insertError } =
       await supabase
         .from("monthly_draw_entries")
-        .upsert(rows, {
-          onConflict:
-            "draw_id,user_id",
-          ignoreDuplicates: true,
-        });
+        .insert(rows);
 
-    if (insertError) {
+    if (
+      insertError &&
+      insertError.code !== "23505"
+    ) {
       throw new Error(
         insertError.message,
       );
@@ -367,7 +681,7 @@ async function completeDraw(
   if (
     latest.status ===
       "completed" &&
-    latest.winner_user_id
+    latest.winner_name
   ) {
     return latest;
   }
@@ -408,15 +722,30 @@ async function completeDraw(
 
   if (
     latest.winner_mode ===
-      "manual" &&
-    latest.preset_winner_user_id
+    "manual"
   ) {
-    winnerEntry =
-      entries.find(
-        (entry) =>
-          entry.user_id ===
-          latest.preset_winner_user_id,
-      ) ?? null;
+    if (
+      latest.preset_winner_registry_id
+    ) {
+      winnerEntry =
+        entries.find(
+          (entry) =>
+            entry.registry_id ===
+            latest.preset_winner_registry_id,
+        ) ?? null;
+    }
+
+    if (
+      !winnerEntry &&
+      latest.preset_winner_user_id
+    ) {
+      winnerEntry =
+        entries.find(
+          (entry) =>
+            entry.user_id ===
+            latest.preset_winner_user_id,
+        ) ?? null;
+    }
 
     if (winnerEntry) {
       const start = Math.max(
@@ -486,6 +815,8 @@ async function completeDraw(
         status: "completed",
         winner_user_id:
           winnerEntry.user_id,
+        winner_registry_id:
+          winnerEntry.registry_id,
         winner_name:
           winnerEntry.student_name,
         winning_ticket:
@@ -1122,7 +1453,9 @@ function toPublicState(
     participants:
       entries.map((entry) => ({
         userId:
-          entry.user_id,
+          entry.user_id ??
+          entry.registry_id ??
+          entry.id,
         studentName:
           entry.student_name,
         entriesCount:

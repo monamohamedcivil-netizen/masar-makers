@@ -1,294 +1,374 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
+  ArrowRight,
   ChevronLeft,
   ChevronRight,
-  Clock3,
-  FolderKanban,
   Star,
-  Users,
 } from "lucide-react";
+
 import AuthLink from "@/components/AuthLink";
+
+type Locale = "ar" | "en";
+
+type LocalizedText = {
+  ar: string;
+  en: string;
+};
 
 type Course = {
   title: string;
-  subtitle: string;
-  description: string;
+  subtitle: LocalizedText;
+  description: LocalizedText;
   image: string;
-  category: string;
-  duration: string;
-  projects: string;
-  students: string;
-  rating: string;
-  badge: string;
+  href: string;
+  category: LocalizedText;
+  badge: LocalizedText;
 };
+
+const labels = {
+  ar: {
+    viewAll: "عرض جميع الرحلات",
+    explore: "استكشف الرحلة",
+    previous: "عرض الرحلات السابقة",
+    next: "عرض الرحلات التالية",
+    showCourse: "عرض رحلة",
+  },
+  en: {
+    viewAll: "View All Journeys",
+    explore: "Explore Journey",
+    previous: "View previous journeys",
+    next: "View next journeys",
+    showCourse: "Show journey",
+  },
+} as const;
 
 const courses: Course[] = [
   {
     title: "Civil Site Design",
-    subtitle: "من الأساس إلى الاحتراف",
-    description:
-      "رحلة عملية متكاملة لتصميم الطرق والتقاطعات وإدارة المشروع باستخدام Civil Site Design.",
+    subtitle: {
+      ar: "من الأساس إلى الاحتراف",
+      en: "From Fundamentals to Professional Practice",
+    },
+    description: {
+      ar: "رحلة عملية متكاملة لتصميم الطرق والتقاطعات وإدارة المشروع باستخدام Civil Site Design.",
+      en: "A complete practical journey for road and intersection design and project management using Civil Site Design.",
+    },
     image: "/images/courses/course-csd.jpg",
-    category: "تصميم الطرق",
-    duration: "36 ساعة",
-    projects: "6 مشاريع",
-    students: "+150 متدرب",
-    rating: "4.9",
-    badge: "الأكثر طلبًا",
+    href: "/course/civil-site-design",
+    category: {
+      ar: "تصميم الطرق",
+      en: "Road Design",
+    },
+    badge: {
+      ar: "الأكثر طلبًا",
+      en: "Most Popular",
+    },
   },
   {
     title: "Smart Project Deliverables",
-    subtitle: "إخراج اللوحات بسرعة فائقة",
-    description:
-      "تعلم منهجية احترافية لاستخراج اللوحات وتنظيم ملفات المشروع وتسليمها بسرعة ودقة.",
+    subtitle: {
+      ar: "إخراج اللوحات بسرعة فائقة",
+      en: "Faster Project Deliverables",
+    },
+    description: {
+      ar: "تعلم منهجية احترافية لاستخراج اللوحات وتنظيم ملفات المشروع وتسليمها بسرعة ودقة.",
+      en: "Learn a professional workflow for producing drawings, organizing project files, and delivering them quickly and accurately.",
+    },
     image: "/images/courses/course-spd.jpg",
-    category: "إخراج المشاريع",
-    duration: "18 ساعة",
-    projects: "500+ لوحة",
-    students: "+120 متدرب",
-    rating: "4.9",
-    badge: "الأكثر تطبيقًا",
+    href: "/course/smart-project-deliverables",
+    category: {
+      ar: "إخراج المشاريع",
+      en: "Deliverables",
+    },
+    badge: {
+      ar: "الأكثر تطبيقًا",
+      en: "Most Practical",
+    },
   },
   {
     title: "BIM for Roads",
-    subtitle: "حوّل تصميمك إلى نموذج ثلاثي الأبعاد",
-    description:
-      "أنشئ نموذج BIM متكاملًا للطرق يشمل العلامات المرورية والإنارة وعناصر الطريق المختلفة.",
+    subtitle: {
+      ar: "حوّل تصميمك إلى نموذج ثلاثي الأبعاد",
+      en: "Turn Your Design into a 3D Model",
+    },
+    description: {
+      ar: "أنشئ نموذج BIM متكاملًا للطرق يشمل العلامات المرورية والإنارة وعناصر الطريق المختلفة.",
+      en: "Build a complete BIM road model including markings, lighting, and key road furniture elements.",
+    },
     image: "/images/courses/course-bim.jpg",
-    category: "BIM للطرق",
-    duration: "20 ساعة",
-    projects: "4 مشاريع",
-    students: "+100 متدرب",
-    rating: "4.8",
-    badge: "الأحدث",
-  },
-  {
-    title: "Civil 3D Fundamentals",
-    subtitle: "ابدأ رحلة تصميم الطرق",
-    description:
-      "تعلم الأساسيات والمنهجية الصحيحة لبناء مشروع طرق متكامل باستخدام Civil 3D.",
-    image: "/images/courses/course-civil3d.jpg",
-    category: "تصميم الطرق",
-    duration: "30 ساعة",
-    projects: "5 مشاريع",
-    students: "+180 متدرب",
-    rating: "4.9",
-    badge: "الأكثر مشاهدة",
+    href: "/course/bim-roads",
+    category: {
+      ar: "BIM للطرق",
+      en: "Road BIM",
+    },
+    badge: {
+      ar: "الأحدث",
+      en: "Newest",
+    },
   },
   {
     title: "Vehicle Tracking",
-    subtitle: "تحليل حركة المركبات",
-    description:
-      "تعلم فحص مسارات المركبات وتصميم الدوارات والمواقف ومناطق الحركة بأمان وكفاءة.",
+    subtitle: {
+      ar: "تحليل حركة المركبات",
+      en: "Vehicle Movement Analysis",
+    },
+    description: {
+      ar: "تعلم فحص مسارات المركبات وتصميم الدوارات والمواقف ومناطق الحركة بأمان وكفاءة.",
+      en: "Learn swept-path analysis and the design of roundabouts, parking areas, and vehicle movement zones.",
+    },
     image: "/images/courses/course-vt.jpg",
-    category: "تحليل الحركة",
-    duration: "12 ساعة",
-    projects: "3 مشاريع",
-    students: "+80 متدرب",
-    rating: "4.8",
-    badge: "مهارة مطلوبة",
+    href: "/course/vehicle-tracking",
+    category: {
+      ar: "تحليل الحركة",
+      en: "Movement Analysis",
+    },
+    badge: {
+      ar: "مهارة مطلوبة",
+      en: "In-Demand Skill",
+    },
   },
 ];
 
 export default function PopularCourses() {
   const [startIndex, setStartIndex] = useState(0);
+  const [locale, setLocale] = useState<Locale>("ar");
+  const [visibleCount, setVisibleCount] = useState(2);
 
-  const visibleCourses = Array.from({ length: 3 }, (_, index) => {
-    return courses[(startIndex + index) % courses.length];
-  });
+  useEffect(() => {
+    const savedLocale = window.localStorage.getItem(
+      "masar-locale"
+    ) as Locale | null;
+
+    if (savedLocale === "ar" || savedLocale === "en") {
+      setLocale(savedLocale);
+    }
+
+    const handleLocaleChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        locale?: Locale;
+      }>;
+
+      const nextLocale = customEvent.detail?.locale;
+
+      if (nextLocale === "ar" || nextLocale === "en") {
+        setLocale(nextLocale);
+      }
+    };
+
+    window.addEventListener(
+      "masar:locale-change",
+      handleLocaleChange
+    );
+
+    return () => {
+      window.removeEventListener(
+        "masar:locale-change",
+        handleLocaleChange
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    const updateVisibleCount = () => {
+      setVisibleCount(window.innerWidth >= 1024 ? 3 : 2);
+    };
+
+    updateVisibleCount();
+
+    window.addEventListener("resize", updateVisibleCount);
+
+    return () => {
+      window.removeEventListener("resize", updateVisibleCount);
+    };
+  }, []);
+
+  const text = labels[locale];
+  const isArabic = locale === "ar";
+  const ExploreArrow = isArabic ? ArrowLeft : ArrowRight;
+
+  const visibleCourses = Array.from(
+    { length: visibleCount },
+    (_, index) => courses[(startIndex + index) % courses.length]
+  );
 
   const nextCourses = () => {
-    setStartIndex((current) => (current + 1) % courses.length);
+    setStartIndex(
+      (current) => (current + 1) % courses.length
+    );
   };
 
   const previousCourses = () => {
     setStartIndex(
-      (current) => (current - 1 + courses.length) % courses.length
+      (current) =>
+        (current - 1 + courses.length) % courses.length
     );
   };
 
   return (
     <section
       id="popular-courses"
-      dir="rtl"
-      className="w-full bg-[#F7F8FA] px-6 py-1"
+      dir={isArabic ? "rtl" : "ltr"}
+      className="w-full bg-[#F7F8FA] py-2 sm:py-2.5 lg:py-3"
     >
-      <div className="mx-auto max-w-[1580px]">
+      <div className="mx-auto w-full max-w-[1580px] px-3 sm:px-4 md:px-5 lg:px-6">
         {/* Controls */}
-        <div className="mb-4 flex items-center justify-between">
-          <button
-            type="button"
-            className="group flex items-center gap-2 text-[14px] font-black text-[#07152E] transition hover:text-[#D49319]"
+        <div className="mb-2 flex items-center justify-between sm:mb-2.5 lg:mb-3">
+          <AuthLink
+            href="/career-path/road-design"
+            className="group flex items-center gap-1.5 text-[11px] font-black text-[#07152E] transition hover:text-[#D49319] sm:text-[12px] lg:text-[13px]"
           >
-            عرض جميع الرحلات
-            <ArrowLeft
-              size={17}
-              className="transition-transform duration-300 group-hover:-translate-x-1"
-            />
-          </button>
+            {text.viewAll}
 
-          <div className="flex items-center gap-2">
+            <ExploreArrow className="h-3.5 w-3.5 transition-transform duration-300 sm:h-4 sm:w-4" />
+          </AuthLink>
+
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={previousCourses}
-              aria-label="عرض الرحلات السابقة"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-[#DCE3EC] bg-white text-[#07152E] shadow-sm transition duration-300 hover:border-[#F7B548] hover:bg-[#F7B548]"
+              aria-label={text.previous}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-[#DCE3EC] bg-white text-[#07152E] shadow-sm transition duration-300 hover:border-[#F7B548] hover:bg-[#F7B548] sm:h-9 sm:w-9"
             >
-              <ChevronRight size={20} />
+              {isArabic ? (
+                <ChevronRight className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+              ) : (
+                <ChevronLeft className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+              )}
             </button>
 
             <button
               type="button"
               onClick={nextCourses}
-              aria-label="عرض الرحلات التالية"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-[#DCE3EC] bg-white text-[#07152E] shadow-sm transition duration-300 hover:border-[#F7B548] hover:bg-[#F7B548]"
+              aria-label={text.next}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-[#DCE3EC] bg-white text-[#07152E] shadow-sm transition duration-300 hover:border-[#F7B548] hover:bg-[#F7B548] sm:h-9 sm:w-9"
             >
-              <ChevronLeft size={20} />
+              {isArabic ? (
+                <ChevronLeft className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+              ) : (
+                <ChevronRight className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+              )}
             </button>
           </div>
         </div>
 
-        {/* Course cards */}
-        <div className="grid gap-5 lg:grid-cols-3">
+        {/* Cards: 2 on mobile/tablet, 3 on desktop */}
+        <div
+          className={`grid gap-2.5 sm:gap-3 lg:gap-3.5 ${
+            visibleCount === 2
+              ? "grid-cols-2"
+              : "grid-cols-3"
+          }`}
+        >
           {visibleCourses.map((course, index) => (
             <article
               key={`${course.title}-${startIndex}-${index}`}
-              className="
-                group flex h-[365px] flex-col overflow-hidden
-                rounded-[28px] border border-[#DCE3EC] bg-white
-                shadow-[0_14px_36px_rgba(7,21,46,0.07)]
-                transition-all duration-500
-                hover:-translate-y-1.5
-                hover:border-[#F7B548]/70
-                hover:shadow-[0_22px_50px_rgba(7,21,46,0.13)]text-[22px]
-              "
+              className="group flex h-[270px] flex-col overflow-hidden rounded-[18px] border border-[#DCE3EC] bg-white shadow-[0_12px_30px_rgba(7,21,46,0.07)] transition-all duration-500 hover:-translate-y-1 hover:border-[#F7B548]/70 hover:shadow-[0_18px_40px_rgba(7,21,46,0.12)] sm:h-[280px] sm:rounded-[20px] lg:h-[292px] lg:rounded-[22px]"
             >
-              {/* Image */}
-              <div className="relative h-[155px] shrink-0 overflow-hidden bg-[#07152E]">
+              {/* Larger image without increasing card height */}
+              <div className="relative h-[132px] shrink-0 overflow-hidden bg-[#07152E] sm:h-[140px] lg:h-[150px]">
                 <Image
                   src={course.image}
                   alt={course.title}
                   fill
-                  sizes="(max-width: 1024px) 100vw, 33vw"
-                  className="object-cover transition-transform duration-700 group-hover:scale-[1.05]"
+                  sizes="(max-width: 1023px) 50vw, 33vw"
+                  className="object-cover transition-transform duration-700 group-hover:scale-[1.04]"
                 />
 
                 <div className="absolute inset-0 bg-gradient-to-t from-[#07152E]/55 via-transparent to-black/10" />
 
-                {/* Category */}
-                <span className="absolute right-4 top-4 rounded-full border border-white/25 bg-[#07152E]/75 px-4 py-1.5 text-[11px] font-black text-white backdrop-blur-md">
-                  {course.category}
+                <span
+                  className={`absolute top-2 rounded-full border border-white/25 bg-[#07152E]/75 px-2 py-1 text-[7.5px] font-black text-white backdrop-blur-md sm:px-2.5 sm:text-[8.5px] lg:text-[9.5px] ${
+                    isArabic
+                      ? "right-2 sm:right-2.5"
+                      : "left-2 sm:left-2.5"
+                  }`}
+                >
+                  {course.category[locale]}
                 </span>
 
-                {/* Badge */}
-                <span className="absolute left-4 top-4 flex items-center gap-1.5 rounded-full bg-[#F7B548] px-4 py-1.5 text-[11px] font-black text-[#07152E] shadow-md">
-                  <Star size={13} fill="currentColor" />
-                  {course.badge}
+                <span
+                  className={`absolute top-2 flex items-center gap-1 rounded-full bg-[#F7B548] px-2 py-1 text-[7.5px] font-black text-[#07152E] shadow-md sm:px-2.5 sm:text-[8.5px] lg:text-[9.5px] ${
+                    isArabic
+                      ? "left-2 sm:left-2.5"
+                      : "right-2 sm:right-2.5"
+                  }`}
+                >
+                  <Star
+                    className="h-2.5 w-2.5 sm:h-3 sm:w-3"
+                    fill="currentColor"
+                  />
+                  {course.badge[locale]}
                 </span>
               </div>
 
-              {/* Content */}
-              <div className="flex flex-1 flex-col justify-between px-5 pb-4 pt-2 text-right">
-                <div>
-                  <h3 className="text-[19px] font-black leading-tight text-[#07152E]">
+              {/* Compact content */}
+              <div
+                className={`flex min-h-0 flex-1 flex-col px-2.5 pb-2.5 pt-2 sm:px-3 sm:pb-3 lg:px-4 ${
+                  isArabic ? "text-right" : "text-left"
+                }`}
+              >
+                <div className="min-h-0 flex-1">
+                  <h3
+                    className={`line-clamp-1 font-black leading-tight text-[#07152E] ${
+                      isArabic
+                        ? "text-[12px] sm:text-[14px] lg:text-[16px]"
+                        : "text-[11px] sm:text-[13px] lg:text-[15px]"
+                    }`}
+                  >
                     {course.title}
                   </h3>
 
-                  <p className="mt-1 text-[13px] font-black text-[#D49319]">
-                    {course.subtitle}
+                  <p
+                    className={`mt-0.5 line-clamp-1 font-black leading-snug text-[#D49319] ${
+                      isArabic
+                        ? "text-[8.5px] sm:text-[9.5px] lg:text-[10.5px]"
+                        : "text-[7.5px] sm:text-[8.5px] lg:text-[9.5px]"
+                    }`}
+                  >
+                    {course.subtitle[locale]}
                   </p>
 
-                  <p className="mt-1 min-h-[38px] text-[12px] font-medium leading-5 text-slate-600">
-                    {course.description}
+                  <p
+                    className={`mt-1 line-clamp-2 font-medium text-slate-600 ${
+                      isArabic
+                        ? "text-[7.8px] leading-[1.45] sm:text-[8.8px] lg:text-[9.8px]"
+                        : "text-[7px] leading-[1.4] sm:text-[8px] lg:text-[9px]"
+                    }`}
+                  >
+                    {course.description[locale]}
                   </p>
                 </div>
 
-                {/* Stats */}
-                <div className="mt-0 grid grid-cols-4 gap-2 border-y border-[#E9EDF3] py-2 text-center">
-  <div>
-    <Clock3
-      size={19}
-      className="mx-auto mb-1 text-[#D49319]"
-    />
-    <p className="text-[12px] font-black text-slate-700">
-      {course.duration}
-    </p>
-  </div>
-
-  <div>
-    <FolderKanban
-      size={19}
-      className="mx-auto mb-1 text-[#D49319]"
-    />
-    <p className="text-[12px] font-black text-slate-700">
-      {course.projects}
-    </p>
-  </div>
-
-  <div>
-    <Users
-      size={19}
-      className="mx-auto mb-1 text-[#D49319]"
-    />
-    <p className="text-[12px] font-black text-slate-700">
-      {course.students}
-    </p>
-  </div>
-
-  <div>
-    <Star
-      size={19}
-      fill="currentColor"
-      className="mx-auto mb-1 text-[#F7B548]"
-    />
-    <p className="text-[12px] font-black text-slate-700">
-      {course.rating}
-    </p>
-  </div>
-</div>
-
-                {/* Button */}
-      <AuthLink href="/career-path/road">       
-                <button
-  className="
-    mt-0
-    flex h-[42px] w-full items-center justify-center gap-2
-    rounded-xl
-    bg-[#07152E]
-    text-[13px]
-    font-black
-    text-white
-    transition
-    hover:bg-[#F7B548]
-    hover:text-[#07152E]
-  "
-
+                {/* Direct link to the course station */}
+                <AuthLink
+                  href={course.href}
+                  className="mt-2 flex h-8 w-full shrink-0 items-center justify-center gap-1 rounded-lg bg-[#07152E] px-1.5 text-[8.5px] font-black text-white transition hover:bg-[#F7B548] hover:text-[#07152E] sm:h-9 sm:rounded-xl sm:text-[9.5px] lg:text-[11px]"
                 >
-                  استكشف الرحلة
-                  <ArrowLeft size={17} />
-                </button>
-                </AuthLink>  
+                  {text.explore}
+
+                  <ExploreArrow className="h-3 w-3 sm:h-3.5 sm:w-3.5 lg:h-4 lg:w-4" />
+                </AuthLink>
               </div>
             </article>
           ))}
         </div>
 
         {/* Indicators */}
-        <div className="mt-4 flex justify-center gap-2">
+        <div className="mt-2.5 flex justify-center gap-1.5 sm:mt-3">
           {courses.map((course, index) => (
             <button
               key={course.title}
               type="button"
               onClick={() => setStartIndex(index)}
-              aria-label={`عرض رحلة ${course.title}`}
-              className={`h-[6px] rounded-full transition-all duration-500 ${
+              aria-label={`${text.showCourse} ${course.title}`}
+              className={`h-[5px] rounded-full transition-all duration-500 ${
                 index === startIndex
-                  ? "w-9 bg-[#F7B548]"
-                  : "w-[6px] bg-slate-300 hover:bg-slate-400"
+                  ? "w-7 bg-[#F7B548]"
+                  : "w-[5px] bg-slate-300 hover:bg-slate-400"
               }`}
             />
           ))}
