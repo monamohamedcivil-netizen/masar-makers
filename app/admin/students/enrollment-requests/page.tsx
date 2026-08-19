@@ -21,8 +21,10 @@ function toTableRow(
     actionKey: request.actionKey ?? "",
     actionTitle: request.actionTitle ?? "",
     enrollmentSource:
-      request.enrollmentSource ?? "paid",
-    status: request.status,
+  request.enrollmentSource ?? "paid",
+rewardSource:
+  request.rewardSource ?? null,
+status: request.status,
     createdAt: request.createdAt,
   };
 }

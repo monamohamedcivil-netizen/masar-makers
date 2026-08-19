@@ -455,7 +455,12 @@ function emptyDashboard(
   pointsToNextLevel: 500,
 
   drawEntries: 0,
+drawWins: 0,
+availableDrawEntries: 0,
 
+drawRewardsEarned: 0,
+drawRewardsRedeemed: 0,
+drawRewardsAvailable: 0,
   rewardCourses: 0,
   rewardItems: [],
 

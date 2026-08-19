@@ -47,11 +47,9 @@ export default async function EditCoursePage({
             course.duration_hours ?? 0,
           ),
           price: Number(course.price ?? 0),
-          journey_type:
-            course.journey_type ?? "career_path",
+          
           status: course.status ?? "draft",
-          whatsapp_number:
-  course.whatsapp_number ?? "",
+         
 
 course_code:
   course.course_code ?? "",

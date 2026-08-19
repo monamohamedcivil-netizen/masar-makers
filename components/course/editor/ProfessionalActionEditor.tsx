@@ -1,7 +1,5 @@
 "use client";
 
-import { Link2 } from "lucide-react";
-
 import type {
   ProfessionalActionConfig,
 } from "./ProfessionalPanelTypes";
@@ -71,75 +69,46 @@ export default function ProfessionalActionEditor({
               className={inputClassName}
             >
               <option value="enrollment">
-                طلب الاشتراك في الرحلة
-              </option>
-              <option value="whatsapp">
-                واتساب فقط
-              </option>
-              <option value="link">
-                فتح الرابط فقط
-              </option>
-              <option value="link_and_whatsapp">
-                فتح الرابط + واتساب
-              </option>
+  طلب الاشتراك في الرحلة
+</option>
+
+<option value="free">
+  رحلة مجانية
+</option>
             </select>
           </EditorField>
 
           {value.mode === "enrollment" ? (
-            <>
-              <EditorField label="كود الكورس (Slug)">
-                <input
-                  value={value.courseSlug}
-                  onChange={(event) =>
-                    onChange({
-                      ...value,
-                      courseSlug: event.target.value,
-                    })
-                  }
-                  placeholder="اتركيه فارغًا لاستخدام الكورس الحالي"
-                  className={inputClassName}
-                />
-              </EditorField>
+  <>
+    <EditorField label="كود الكورس (Slug)">
+      <input
+        value={value.courseSlug}
+        onChange={(event) =>
+          onChange({
+            ...value,
+            courseSlug: event.target.value,
+          })
+        }
+        placeholder="اتركيه فارغًا لاستخدام الكورس الحالي"
+        className={inputClassName}
+      />
+    </EditorField>
 
-              <EditorField label="نوع الرحلة">
-                <input
-                  value={value.journeyType}
-                  onChange={(event) =>
-                    onChange({
-                      ...value,
-                      journeyType: event.target.value,
-                    })
-                  }
-                  placeholder="fundamental / advanced / integrated"
-                  className={inputClassName}
-                />
-              </EditorField>
-            </>
-          ) : (
-            value.mode !== "whatsapp" && (
-              <div className="md:col-span-2">
-                <EditorField label="رابط الزر">
-                  <div className="relative">
-                    <Link2
-                      size={16}
-                      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-                    <input
-                      value={value.link}
-                      onChange={(event) =>
-                        onChange({
-                          ...value,
-                          link: event.target.value,
-                        })
-                      }
-                      placeholder="https://..."
-                      className={`${inputClassName} pr-10`}
-                    />
-                  </div>
-                </EditorField>
-              </div>
-            )
-          )}
+    <EditorField label="نوع الرحلة">
+      <input
+        value={value.journeyType}
+        onChange={(event) =>
+          onChange({
+            ...value,
+            journeyType: event.target.value,
+          })
+        }
+        placeholder="fundamental / advanced / integrated"
+        className={inputClassName}
+      />
+    </EditorField>
+  </>
+) : null}
         </div>
       )}
     </section>
