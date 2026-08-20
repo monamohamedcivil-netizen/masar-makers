@@ -1330,6 +1330,37 @@ function getDerivedNextDrawAt(
 
   return nextLocal.toISOString();
 }
+async function getCurrentWinnerName(
+  draw: DrawRow,
+): Promise<string | null> {
+  if (!draw.winner_user_id) {
+    return draw.winner_name;
+  }
+
+  const supabase = createAdminClient();
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("full_name,full_name_en")
+    .eq("id", draw.winner_user_id)
+    .maybeSingle();
+
+  if (error) {
+    console.error(
+      "PUBLIC MONTHLY DRAW WINNER PROFILE ERROR:",
+      error.message,
+    );
+
+    return draw.winner_name;
+  }
+
+  const currentName =
+    data?.full_name?.trim() ||
+    data?.full_name_en?.trim() ||
+    null;
+
+  return currentName || draw.winner_name;
+}
 
 function toPublicState(
   draw: DrawRow,
@@ -1337,6 +1368,7 @@ function toPublicState(
   entries: EntryRow[],
   nextDrawAt?: string,
   nextPrizeTitle?: string | null,
+  currentWinnerName?: string | null,
 ): PublicMonthlyDrawState {
   const scheduledAt =
     new Date(draw.scheduled_at);
@@ -1469,9 +1501,10 @@ function toPublicState(
       })),
 
     winnerName:
-      phase === "completed"
-        ? draw.winner_name
-        : null,
+  phase === "completed"
+    ? currentWinnerName ||
+      draw.winner_name
+    : null,
 
     winningTicket:
       phase === "completed"
@@ -1628,6 +1661,11 @@ export async function getPublicMonthlyDrawState(): Promise<
         advanced.id,
       );
 
+    const currentWinnerName =
+      await getCurrentWinnerName(
+        advanced,
+      );
+
     return toPublicState(
       advanced,
       settings,
@@ -1636,6 +1674,7 @@ export async function getPublicMonthlyDrawState(): Promise<
       nextUpcomingDraw?.prize_title ??
         dueDraw.prize_title ??
         DEFAULT_MONTHLY_PRIZE_TITLE,
+      currentWinnerName,
     );
   }
 
@@ -1664,6 +1703,11 @@ export async function getPublicMonthlyDrawState(): Promise<
       latestCompleted.id,
     );
 
+  const currentWinnerName =
+    await getCurrentWinnerName(
+      latestCompleted,
+    );
+
   return toPublicState(
     latestCompleted,
     settings,
@@ -1672,5 +1716,6 @@ export async function getPublicMonthlyDrawState(): Promise<
     nextUpcomingDraw?.prize_title ??
       latestCompleted.prize_title ??
       DEFAULT_MONTHLY_PRIZE_TITLE,
+    currentWinnerName,
   );
 }
