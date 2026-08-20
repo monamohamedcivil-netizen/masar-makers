@@ -8,9 +8,18 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/auth/confirmed";
 
+  // Production:
+  // https://masarmakers.com
+  //
+  // Local development:
+  // falls back to the current origin if NEXT_PUBLIC_APP_URL is not defined.
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+    origin;
+
   if (!code) {
     return NextResponse.redirect(
-      `${origin}/login?error=invalid_confirmation_link`
+      `${appUrl}/login?error=invalid_confirmation_link`
     );
   }
 
@@ -26,9 +35,9 @@ export async function GET(request: NextRequest) {
     );
 
     return NextResponse.redirect(
-      `${origin}/login?error=confirmation_failed`
+      `${appUrl}/login?error=confirmation_failed`
     );
   }
 
-  return NextResponse.redirect(`${origin}${next}`);
+  return NextResponse.redirect(`${appUrl}${next}`);
 }
