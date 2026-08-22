@@ -21,17 +21,20 @@ const sectionContent = {
   ar: {
     paths: {
       title: "المسارات المهنية",
-      description: "اختر المسار الذي يقودك إلى مستقبل احترافي",
+      description:
+        "اختر المسار الذي يقودك إلى مستقبل احترافي",
     },
 
     learning: {
       title: "كيف تحب أن تتعلم؟",
-      description: "اختر أسلوب التعلم الذي يناسب وقتك وهدفك",
+      description:
+        "اختر أسلوب التعلم الذي يناسب وقتك وهدفك",
     },
 
     why: {
       title: "لماذا صناع المسار؟",
-      description: "رحلات تعليمية احترافية تساعدك على بناء مسيرتك المهنية",
+      description:
+        "رحلات تعليمية احترافية تساعدك على بناء مسيرتك المهنية",
     },
 
     popular: {
@@ -116,251 +119,368 @@ const sectionContent = {
   },
 } as const;
 
-type SectionKey = keyof (typeof sectionContent)["ar"];
+type SectionKey =
+  keyof (typeof sectionContent)["ar"];
 
 export default function Home() {
-  const mainRef = useRef<HTMLElement | null>(null);
+  const mainRef =
+    useRef<HTMLElement | null>(null);
 
   const [activeSection, setActiveSection] =
     useState<SectionKey>("paths");
-const [locale, setLocale] = useState<Locale>("ar");
 
-useEffect(() => {
-  const savedLocale = window.localStorage.getItem("masar-locale");
+  const [locale, setLocale] =
+    useState<Locale>("ar");
 
-  if (savedLocale === "ar" || savedLocale === "en") {
-    setLocale(savedLocale);
-  }
-
-  const handleLocaleChange = (event: Event) => {
-    const customEvent = event as CustomEvent<{
-      locale?: Locale;
-    }>;
+  useEffect(() => {
+    const savedLocale =
+      window.localStorage.getItem(
+        "masar-locale",
+      );
 
     if (
-      customEvent.detail?.locale === "ar" ||
-      customEvent.detail?.locale === "en"
+      savedLocale === "ar" ||
+      savedLocale === "en"
     ) {
-      setLocale(customEvent.detail.locale);
+      setLocale(savedLocale);
     }
-  };
 
-  window.addEventListener(
-    "masar:locale-change",
-    handleLocaleChange
-  );
+    const handleLocaleChange = (
+      event: Event,
+    ) => {
+      const customEvent =
+        event as CustomEvent<{
+          locale?: Locale;
+        }>;
 
-  return () => {
-    window.removeEventListener(
+      if (
+        customEvent.detail?.locale ===
+          "ar" ||
+        customEvent.detail?.locale ===
+          "en"
+      ) {
+        setLocale(
+          customEvent.detail.locale,
+        );
+      }
+    };
+
+    window.addEventListener(
       "masar:locale-change",
-      handleLocaleChange
+      handleLocaleChange,
     );
-  };
-}, []);
+
+    return () => {
+      window.removeEventListener(
+        "masar:locale-change",
+        handleLocaleChange,
+      );
+    };
+  }, []);
+
   useEffect(() => {
-    const mainElement = mainRef.current;
+    const mainElement =
+      mainRef.current;
 
     if (!mainElement) return;
 
-    const sections = mainElement.querySelectorAll<HTMLElement>(
-      "[data-home-section]"
-    );
+    const sections =
+      mainElement.querySelectorAll<HTMLElement>(
+        "[data-home-section]",
+      );
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visibleSections = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort(
-            (a, b) =>
-              b.intersectionRatio - a.intersectionRatio
-          );
+    const isDesktop =
+      window.matchMedia(
+        "(min-width: 768px)",
+      ).matches;
 
-        const mostVisibleSection = visibleSections[0];
+    const observer =
+      new IntersectionObserver(
+        (entries) => {
+          const visibleSections =
+            entries
+              .filter(
+                (entry) =>
+                  entry.isIntersecting,
+              )
+              .sort(
+                (a, b) =>
+                  b.intersectionRatio -
+                  a.intersectionRatio,
+              );
 
-        if (!mostVisibleSection) return;
+          const mostVisibleSection =
+            visibleSections[0];
 
-        const sectionName =
-          mostVisibleSection.target.getAttribute(
-            "data-home-section"
-          ) as SectionKey | null;
+          if (!mostVisibleSection) {
+            return;
+          }
 
-        if (sectionName) {
-          setActiveSection(sectionName);
-        }
-      },
-      {
-        // Activate a section when it reaches the central band of the
-        // scroll area. This works consistently for short and tall
-        // sections, so no section disappears because of its height.
-        root: mainElement,
-        rootMargin: "-35% 0px -35% 0px",
-        threshold: 0,
-      }
-    );
+          const sectionName =
+            mostVisibleSection.target.getAttribute(
+              "data-home-section",
+            ) as SectionKey | null;
+
+          if (sectionName) {
+            setActiveSection(
+              sectionName,
+            );
+          }
+        },
+        {
+          /*
+           * Desktop:
+           * main نفسه هو منطقة الـ scroll.
+           *
+           * Mobile:
+           * الصفحة كلها تتحرك بصورة طبيعية،
+           * لذلك نراقب بالنسبة للـ viewport.
+           */
+          root:
+            isDesktop
+              ? mainElement
+              : null,
+
+          rootMargin:
+            isDesktop
+              ? "-35% 0px -35% 0px"
+              : "-25% 0px -55% 0px",
+
+          threshold: 0,
+        },
+      );
 
     sections.forEach((section) => {
       observer.observe(section);
     });
 
-    return () => observer.disconnect();
+    return () =>
+      observer.disconnect();
   }, []);
 
   const currentContent =
-  sectionContent[locale][activeSection];
+    sectionContent[locale][
+      activeSection
+    ];
 
-  const sectionAnimation = (section: SectionKey) =>
+  /*
+   * Animation الحالية نحتفظ بها على Desktop فقط.
+   *
+   * على Mobile يجب ألا نخفي السكاشن غير النشطة،
+   * لأن الصفحة أصبحت Scroll طبيعي.
+   */
+  const sectionAnimation = (
+    section: SectionKey,
+  ) =>
     activeSection === section
-      ? "translate-y-0 scale-100 opacity-100"
-      : "pointer-events-none translate-y-5 scale-[0.985] opacity-0";
+      ? `
+          md:translate-y-0
+          md:scale-100
+          md:opacity-100
+        `
+      : `
+          md:pointer-events-none
+          md:translate-y-5
+          md:scale-[0.985]
+          md:opacity-0
+        `;
+
+  const sectionClassName = `
+    relative
+    w-full
+    min-w-0
+    overflow-visible
+    py-3
+
+    md:flex
+    md:min-h-full
+    md:snap-start
+    md:snap-always
+    md:items-center
+    md:overflow-hidden
+    md:py-0
+  `;
+
+  const contentClassName = (
+    section: SectionKey,
+  ) => `
+    w-full
+    min-w-0
+    max-w-full
+    transform-gpu
+    opacity-100
+
+    md:transition-all
+    md:duration-700
+    md:ease-out
+
+    ${sectionAnimation(section)}
+  `;
 
   return (
-    <>
+    <div className="w-full max-w-full overflow-x-hidden">
       <Navbar activeItem="home" />
+
       <div className="h-[55px]" />
+
       <AnnouncementBar />
+
       <Hero />
 
       <SectionTitle
         title={currentContent.title}
-        description={currentContent.description}
+        description={
+          currentContent.description
+        }
       />
 
       <main
         ref={mainRef}
         className="
-  h-[calc(100svh-390px)]
-  min-h-[330px]
-  overflow-y-auto
-  snap-y
-  snap-mandatory
-  scroll-smooth
-  overscroll-contain
-  bg-[#F7F8FA]
-  md:h-[calc(100vh-479px)]
-  md:min-h-[350px]
-"
+          w-full
+          min-w-0
+          max-w-full
+          overflow-x-hidden
+          overflow-y-visible
+          bg-[#F7F8FA]
+
+          md:h-[calc(100vh-479px)]
+          md:min-h-[350px]
+          md:overflow-y-auto
+          md:snap-y
+          md:snap-mandatory
+          md:scroll-smooth
+          md:overscroll-contain
+        "
       >
         {/* Career Paths */}
-
         <section
           data-home-section="paths"
-          className="flex min-h-full snap-start snap-always items-center overflow-hidden"
+          className={
+            sectionClassName
+          }
         >
           <div
-            className={`w-full transform-gpu transition-all duration-700 ease-out ${sectionAnimation(
-              "paths"
-            )}`}
+            className={contentClassName(
+              "paths",
+            )}
           >
             <CareerPaths />
           </div>
         </section>
 
         {/* Learning Modes */}
-
         <section
           data-home-section="learning"
-          className="flex min-h-full snap-start snap-always items-center overflow-hidden"
+          className={
+            sectionClassName
+          }
         >
           <div
-            className={`w-full transform-gpu transition-all duration-700 ease-out ${sectionAnimation(
-              "learning"
-            )}`}
+            className={contentClassName(
+              "learning",
+            )}
           >
             <LearningModes />
           </div>
         </section>
 
         {/* Why Masar */}
-
         <section
-  data-home-section="why"
-  className="flex min-h-full snap-start snap-always items-center overflow-hidden"
->
-  <div
-    className={`w-full transform-gpu transition-all duration-700 ease-out ${sectionAnimation(
-      "why"
-    )}`}
-  >
-    <WhyMasar />
-  </div>
+          data-home-section="why"
+          className={
+            sectionClassName
+          }
+        >
+          <div
+            className={contentClassName(
+              "why",
+            )}
+          >
+            <WhyMasar />
+          </div>
+        </section>
 
-   {/* PopularCourses */}
+        {/* Popular Courses */}
+        <section
+          data-home-section="popular"
+          className={
+            sectionClassName
+          }
+        >
+          <div
+            className={contentClassName(
+              "popular",
+            )}
+          >
+            <PopularCourses />
+          </div>
+        </section>
 
-</section>
-<section
-  data-home-section="popular"
-  className="flex min-h-full snap-start snap-always items-center overflow-hidden"
->
-  <div
-    className={`w-full transform-gpu transition-all duration-700 ease-out ${sectionAnimation(
-      "popular"
-    )}`}
-  >
-    <PopularCourses />
-  </div>
-</section>
+        {/* Student Projects */}
+        <section
+          data-home-section="projects"
+          className={
+            sectionClassName
+          }
+        >
+          <div
+            className={contentClassName(
+              "projects",
+            )}
+          >
+            <StudentProjects />
+          </div>
+        </section>
 
-{/* StudentProjects */}
+        {/* Testimonials */}
+        <section
+          data-home-section="testimonials"
+          className={
+            sectionClassName
+          }
+        >
+          <div
+            className={contentClassName(
+              "testimonials",
+            )}
+          >
+            <TestimonialsFromDB />
+          </div>
+        </section>
 
-<section
-  data-home-section="projects"
-  className="flex min-h-full snap-start snap-always items-center overflow-hidden"
->
-  <div
-    className={`w-full transform-gpu transition-all duration-700 ease-out ${sectionAnimation(
-      "projects"
-    )}`}
-  >
-    <StudentProjects />
-  </div>
-</section>
+        {/* Partners */}
+        <section
+          data-home-section="partners"
+          className={
+            sectionClassName
+          }
+        >
+          <div
+            className={contentClassName(
+              "partners",
+            )}
+          >
+            <Partners />
+          </div>
+        </section>
 
-{/* Testimonials */}
-
-<section
-  data-home-section="testimonials"
-  className="flex min-h-full snap-start snap-always items-center overflow-hidden"
->
-  <div
-    className={`w-full transform-gpu transition-all duration-700 ease-out ${sectionAnimation(
-      "testimonials"
-    )}`}
-  >
-    <TestimonialsFromDB />
-  </div>
-</section>
-
-{/* partners */}
-
-<section
-  data-home-section="partners"
-  className="flex min-h-full snap-start snap-always items-center overflow-hidden"
->
-  <div
-    className={`w-full transform-gpu transition-all duration-700 ease-out ${sectionAnimation(
-      "partners"
-    )}`}
-  >
-    <Partners />
-  </div>
-</section>
-
-{/* Final CTA */}
-
-<section
-  data-home-section="cta"
-  className="flex min-h-full snap-start snap-always items-center overflow-hidden"
->
-  <div
-    className={`w-full transform-gpu transition-all duration-700 ease-out ${sectionAnimation(
-      "cta"
-    )}`}
-  >
-    <FinalCTA />
-  </div>
-</section>
+        {/* Final CTA */}
+        <section
+          data-home-section="cta"
+          className={
+            sectionClassName
+          }
+        >
+          <div
+            className={contentClassName(
+              "cta",
+            )}
+          >
+            <FinalCTA />
+          </div>
+        </section>
       </main>
-    </>
+    </div>
   );
-  
 }
