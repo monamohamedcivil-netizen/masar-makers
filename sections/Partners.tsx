@@ -146,8 +146,8 @@ export default function Partners() {
   <h3
     className={`font-black leading-tight ${
       isArabic
-        ? "text-[22px] xl:text-[23px]"
-        : "text-[20px] xl:text-[21px]"
+  ? "text-[18px] sm:text-[20px] xl:text-[23px]"
+  : "text-[17px] sm:text-[19px] xl:text-[21px]"
     }`}
   >
     {text.title}
@@ -156,10 +156,10 @@ export default function Partners() {
 
               <p
                 className={`mt-2.5 font-medium text-slate-300 ${
-                  isArabic
-                    ? "text-[13px] leading-6 xl:text-[13px]"
-                    : "text-[12px] leading-[1.65] xl:text-[12px]"
-                }`}
+                 isArabic
+  ? "text-[11px] leading-5 sm:text-[12px] sm:leading-6 xl:text-[13px]"
+  : "text-[10px] leading-[1.55] sm:text-[11px] xl:text-[12px]"
+ }`}
               >
                 {text.description}
               </p>
@@ -169,7 +169,7 @@ export default function Partners() {
                   isArabic ? "justify-end" : "justify-start"
                 }`}
               >
-                <span className="text-[14px] font-black tracking-wide text-[#F7B548] xl:text-[13px]">
+                <span className="text-[12px] font-black tracking-wide text-[#F7B548] sm:text-[13px] xl:text-[13px]">
                   {text.discover}
                 </span>
 
@@ -199,7 +199,7 @@ export default function Partners() {
               </div>
 
               <div className="relative z-10 mt-3">
-                <h3 className="line-clamp-2 text-[9px] font-black leading-tight text-[#07152E] sm:text-[12px] xl:text-[15px]">
+                <h3 className="line-clamp-2 text-[8px] font-black leading-[1.15] text-[#07152E] sm:text-[10px] xl:text-[15px]">
                   {partner.name}
                 </h3>
 
@@ -207,9 +207,9 @@ export default function Partners() {
 
                 <p
                   className={`mt-3 font-bold text-slate-600 ${
-                    isArabic
-                      ? "text-[13px] leading-6 xl:text-[13px]"
-                      : "text-[12px] leading-[1.65] xl:text-[12px]"
+                   isArabic
+  ? "text-[9px] leading-[1.75] sm:text-[10px] sm:leading-5 xl:text-[13px] xl:leading-6"
+  : "text-[8.5px] leading-[1.55] sm:text-[10px] xl:text-[12px]"
                   }`}
                 >
                   {partner.description[locale]}
@@ -227,8 +227,8 @@ export default function Partners() {
             <span
               className={`font-black text-[#07152E] ${
                 isArabic
-                  ? "text-[15px]"
-                  : "text-[13px]"
+  ? "text-[10px] sm:text-[12px] lg:text-[15px]"
+  : "text-[9px] sm:text-[11px] lg:text-[13px]"
               }`}
             >
               {text.tech}
@@ -236,7 +236,7 @@ export default function Partners() {
           </div>
 
           <div className="flex items-center justify-center gap-3">
-            <ShieldCheck size={23} className="text-[#D49319]" />
+            <ShieldCheck size={18} className="text-[#D49319]" />
             <span
               className={`font-black text-[#07152E] ${
                 isArabic

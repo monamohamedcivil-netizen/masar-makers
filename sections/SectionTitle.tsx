@@ -11,10 +11,16 @@ export default function SectionTitle({
   title,
   description,
 }: SectionTitleProps) {
-  const [displayedTitle, setDisplayedTitle] = useState(title);
-  const [displayedDescription, setDisplayedDescription] =
-    useState(description);
-  const [visible, setVisible] = useState(true);
+  const [displayedTitle, setDisplayedTitle] =
+    useState(title);
+
+  const [
+    displayedDescription,
+    setDisplayedDescription,
+  ] = useState(description);
+
+  const [visible, setVisible] =
+    useState(true);
 
   useEffect(() => {
     if (
@@ -26,13 +32,17 @@ export default function SectionTitle({
 
     setVisible(false);
 
-    const timer = window.setTimeout(() => {
-      setDisplayedTitle(title);
-      setDisplayedDescription(description);
-      setVisible(true);
-    }, 220);
+    const timer =
+      window.setTimeout(() => {
+        setDisplayedTitle(title);
+        setDisplayedDescription(
+          description,
+        );
+        setVisible(true);
+      }, 220);
 
-    return () => window.clearTimeout(timer);
+    return () =>
+      window.clearTimeout(timer);
   }, [
     title,
     description,
@@ -42,23 +52,62 @@ export default function SectionTitle({
 
   return (
     <section className="relative z-30 border-y border-[#E8E8E8] bg-[#F7F8FA]">
-      <div className="mx-auto flex h-[70px] max-w-[1500px] flex-col items-center justify-center overflow-hidden text-center">
+      <div
+        className="
+          mx-auto
+          flex
+          h-[58px]
+          max-w-[1500px]
+          flex-col
+          items-center
+          justify-center
+          overflow-hidden
+          px-3
+          text-center
+
+          sm:h-[62px]
+          md:h-[70px]
+        "
+      >
         <div
-          className={`transition-all duration-500 ease-out ${
+          className={`w-full transition-all duration-500 ease-out ${
             visible
               ? "translate-y-0.5 opacity-100"
               : "-translate-y-3 opacity-0"
           }`}
         >
-          <h2 className="text-3xl font-black text-[#07152E]">
+          <h2
+            className="
+              text-[22px]
+              font-black
+              leading-tight
+              text-[#07152E]
+
+              sm:text-[24px]
+              md:text-3xl
+            "
+          >
             {displayedTitle}
           </h2>
 
-          <p className="mt-0 text-base font-medium text-slate-500">
+          <p
+            className="
+              mt-1
+              px-2
+              text-[12px]
+              font-medium
+              leading-4
+              text-slate-500
+
+              sm:text-[13px]
+              sm:leading-5
+
+              md:mt-0
+              md:text-base
+            "
+          >
             {displayedDescription}
           </p>
-
-          
         </div>
       </div>
     </section>
