@@ -121,12 +121,12 @@ export default function Hero() {
 <div
   className="
     absolute
-    left-10
+    left-3
     top-1/2
     z-20
     flex
-    h-[58px]
-    w-[58px]
+    h-[48px]
+    w-[48px]
     -translate-y-1/2
     items-center
     justify-center
@@ -147,8 +147,8 @@ export default function Hero() {
       relative
           top-0.5
       z-15
-      h-[100px]
-      w-[100px]
+      h-[80px]
+      w-[80px]
       max-w-none
       object-contain
     "
@@ -161,8 +161,8 @@ export default function Hero() {
           className="
             absolute
             inset-y-0
-            left-[140px]
-            right-[138px]
+            left-[90px]
+            right-[110px]
             z-20
             flex
             items-center
@@ -220,7 +220,7 @@ export default function Hero() {
                 flex
                 items-center
                 justify-center
-                gap-1.5
+                gap-1
               "
             >
               <AuthLink href="/dashboard">
@@ -232,8 +232,8 @@ export default function Hero() {
                     whitespace-nowrap
                     rounded-lg
                     bg-[#F7B548]
-                    px-2.5
-                    py-1.5
+                    px-2
+                    py-1
                     text-[8px]
                     font-black
                     text-[#07152E]
@@ -256,8 +256,8 @@ export default function Hero() {
                     border
                     border-white/25
                     bg-white/5
-                    px-2.5
-                    py-1.5
+                    px-2
+                    py-1
                     text-[8px]
                     font-black
                     text-white
@@ -277,7 +277,7 @@ export default function Hero() {
         <div
           className="
             absolute
-            right-5
+            right-2
             top-1/2
             z-30
             w-[90px]

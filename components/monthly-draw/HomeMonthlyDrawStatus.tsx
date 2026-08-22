@@ -406,7 +406,7 @@ export default function HomeMonthlyDrawStatus({
           ? "rtl"
           : "ltr"
       }
-      className={`absolute top-1/2 z-30 w-[180px] -translate-y-1/2 ${
+      className={`absolute top-1/2 z-30 w-[135px]  -translate-y-1/2 ${
         locale === "ar"
           ? "right-[max(8px,calc((90vw-1280px)/2+8px))]"
           : "left-[max(8px,calc((80vw-1280px)/2+5px))]"
@@ -425,7 +425,7 @@ export default function HomeMonthlyDrawStatus({
       >
         <div
           className="
-            border-b
+            border-b h-[35px]
             border-[#F7B548]/25
             bg-[#FFF9ED]
             px-2.5
@@ -444,7 +444,7 @@ export default function HomeMonthlyDrawStatus({
           >
             <Gift size={15} />
 
-            <span className="text-[12px] font-black">
+            <span className="text-[11px] font-black">
               {text.nextPrize}
             </span>
           </div>
@@ -453,7 +453,7 @@ export default function HomeMonthlyDrawStatus({
             className="
               mt-0
               line-clamp-2
-              text-[10px]
+              text-[9px]
               font-black
               leading-3
               text-[#07152E]
@@ -463,10 +463,10 @@ export default function HomeMonthlyDrawStatus({
           </p>
         </div>
 
-        <div className="px-2.5 py-1">
+        <div className="px-2.5 py-0">
           <div
             className="
-              mb-1
+              mb-0
               flex
               items-center
               justify-center
@@ -476,7 +476,7 @@ export default function HomeMonthlyDrawStatus({
           >
             <CalendarClock size={14} />
 
-            <span className="text-[12px] font-black">
+            <span className="text-[11px] font-black">
               {text.nextDrawAfter}
             </span>
           </div>
@@ -501,7 +501,7 @@ export default function HomeMonthlyDrawStatus({
 
         <div
           className="
-            mt-1
+            mt-0
             border-t
             border-[#F7B548]/20
             p-1
@@ -519,7 +519,7 @@ export default function HomeMonthlyDrawStatus({
               rounded-[10px]
               bg-[#F7B548]
               px-2
-              py-1.5
+              py-1
               text-[10px]
               font-black
               text-[#07152E]

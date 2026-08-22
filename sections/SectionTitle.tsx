@@ -78,7 +78,7 @@ export default function SectionTitle({
         >
           <h2
             className="
-              text-[22px]
+              text-[20px]
               font-black
               leading-tight
               text-[#07152E]
@@ -94,7 +94,7 @@ export default function SectionTitle({
             className="
               mt-1
               px-2
-              text-[12px]
+              text-[10px]
               font-medium
               leading-4
               text-slate-500

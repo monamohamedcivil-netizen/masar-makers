@@ -173,14 +173,14 @@ function FullStationRoad({
         </p>
       </header>
 
-      <div className="bg-[#F8FAFC] px-3 py-5 sm:px-4">
+      <div className="bg-[#F8FAFC] px-1.5 py-3 sm:px-4 sm:py-5">
           <div
-            className="relative mx-auto grid w-full items-start gap-1 px-2 pt-3 sm:px-4"
+            className="relative mx-auto grid w-full items-start gap-0 px-0 pt-1 sm:gap-1 sm:px-4 sm:pt-3"
             style={{
               gridTemplateColumns: `repeat(${path.stations.length}, minmax(0, 1fr))`,
             }}
           >
-            <div className="absolute left-[11%] right-[11%] top-[42px] h-[16px] rounded-full border-y border-[#F7B548] bg-[#07152E]" />
+            <div className="absolute left-[9%] right-[9%] top-[25px] h-[7px] border-y border-[#F7B548] bg-[#07152E] sm:left-[11%] sm:right-[11%] sm:top-[42px] sm:h-[16px] sm:rounded-full" />
 
             {path.stations.map((station, index) => (
               <StationButton
@@ -209,14 +209,14 @@ function CompactStationRoad({
   onSelectStation: (stationId: string) => void;
 }) {
   return (
-    <div className="relative px-3 py-3">
+    <div className="relative px-1.5 py-2 sm:px-3 sm:py-3">
         <div
-          className="relative mx-auto grid w-full items-start gap-1 px-2 pt-1 sm:px-4"
+          className="relative mx-auto grid w-full items-start gap-0 px-0 pt-0.5 sm:gap-1 sm:px-4 sm:pt-1"
           style={{
             gridTemplateColumns: `repeat(${stations.length}, minmax(0, 1fr))`,
           }}
         >
-          <div className="absolute left-[11%] right-[11%] top-[32px] h-[8px] bg-[#07152E]">
+          <div className="absolute left-[9%] right-[9%] top-[24px] h-[6px] bg-[#07152E] sm:left-[11%] sm:right-[11%] sm:top-[32px] sm:h-[8px]">
             <div className="absolute inset-x-0 top-1/2 h-[0.5px] -translate-y-1/2 bg-[#F7B548]" />
           </div>
 
@@ -256,10 +256,10 @@ function StationButton({
     <button
       type="button"
       onClick={onClick}
-      className="group relative z-10 flex min-w-0 flex-col items-center px-1 py-1"
+      className="group relative z-10 flex min-w-0 flex-col items-center px-0.5 py-0.5 sm:px-1 sm:py-1"
     >
       <span
-        className={`relative flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full border-[2px] bg-white transition ${
+        className={`relative flex h-[38px] w-[38px] sm:h-[52px] sm:w-[52px] items-center justify-center overflow-hidden rounded-full border-[2px] bg-white transition ${
           selected
             ? "scale-110 border-[#F7B548] shadow-[0_6px_18px_rgba(247,181,72,0.28)]"
             : hasJourneys
@@ -287,7 +287,7 @@ function StationButton({
       </span>
 
       <span
-        className={`mt-2 w-full truncate text-center text-[9px] font-black sm:text-[10px] ${
+        className={`mt-1 w-full truncate px-0.5 text-center text-[7px] font-black leading-tight sm:mt-2 sm:text-[10px] ${
           selected
             ? "text-[#C88712]"
             : "text-[#334155]"
@@ -298,7 +298,7 @@ function StationButton({
       </span>
 
       {!hasJourneys ? (
-        <span className="mt-0.5 text-[8px] font-bold text-slate-400">
+        <span className="mt-0.5 max-w-full truncate px-0.5 text-[6.5px] font-bold leading-tight sm:text-[8px] text-slate-400">
           لا توجد محاضرات
         </span>
       ) : null}

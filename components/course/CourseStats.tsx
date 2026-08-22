@@ -5,17 +5,15 @@ import {
   PlaySquare,
 } from "lucide-react";
 
-import type {
-  Course,
-} from "@/data/types";
+import type { Course } from "@/data/types";
+import { createClient } from "@/lib/supabase/server";
 
-import {
-  createClient,
-} from "@/lib/supabase/server";
+type Locale = "ar" | "en";
 
 type CourseStatsProps = {
   course: Course;
   catalogCourseId: string;
+  locale?: Locale;
 };
 
 type CourseStructureRow = {
@@ -25,39 +23,34 @@ type CourseStructureRow = {
   is_active: boolean | null;
 };
 
-/*
- * نفس منطق صفحة المسارات المهنية:
- * 31.2 -> 35
- * 35   -> 35
- * 36   -> 40
- */
-function roundHoursUpToFive(
-  minutes: number,
-) {
-  if (minutes <= 0) {
-    return 0;
-  }
+const labels = {
+  ar: {
+    journeys: "عدد الرحلات",
+    lessons: "إجمالي المحاضرات",
+    hours: "إجمالي الساعات",
+    level: "مستوى الرحلة",
+    professional: "احترافي",
+    fundamentals: "أساسيات",
+  },
+  en: {
+    journeys: "Journeys",
+    lessons: "Lectures",
+    hours: "Training Hours",
+    level: "Journey Level",
+    professional: "Professional",
+    fundamentals: "Fundamentals",
+  },
+} as const;
 
-  const hours =
-    minutes / 60;
-
-  return (
-    Math.ceil(hours / 5) * 5
-  );
+function roundHoursUpToFive(minutes: number) {
+  if (minutes <= 0) return 0;
+  const hours = minutes / 60;
+  return Math.ceil(hours / 5) * 5;
 }
 
-async function getRealCourseStats(
-  courseId: string,
-) {
-  const supabase =
-    await createClient();
+async function getRealCourseStats(courseId: string) {
+  const supabase = await createClient();
 
-  /*
-   * نقرأ الكورس الحالي فقط.
-   * level هو نفس حقل "تقسيم الكورس":
-   * single = رحلة واحدة
-   * split  = رحلتان
-   */
   const {
     data: courseRowData,
     error: courseError,
@@ -69,10 +62,7 @@ async function getRealCourseStats(
       difficulty_level,
       is_active
     `)
-    .eq(
-      "id",
-      courseId,
-    )
+    .eq("id", courseId)
     .maybeSingle();
 
   if (courseError) {
@@ -80,38 +70,27 @@ async function getRealCourseStats(
       "COURSE STATS / COURSE ERROR:",
       courseError,
     );
-
     return null;
   }
 
   const courseRow =
-    (courseRowData ??
-      null) as CourseStructureRow | null;
+    (courseRowData ?? null) as CourseStructureRow | null;
 
   if (!courseRow) {
     return {
       journeyCount: 0,
       lessonCount: 0,
       trainingHours: 0,
-      levelLabel: "احترافي",
+      difficultyLevel: null as
+        | "fundamentals"
+        | "advanced"
+        | null,
     };
   }
 
   const journeyCount =
-    courseRow.level === "split"
-      ? 2
-      : 1;
+    courseRow.level === "split" ? 2 : 1;
 
-  const levelLabel =
-    courseRow.difficulty_level === "fundamentals"
-      ? "أساسيات"
-      : "احترافي";
-
-  /*
-   * لا نقرأ جدول lessons مباشرة هنا.
-   * حساب الطالب قد تمنعه RLS من رؤية صفوف الدروس، لذلك نقرأ
-   * الإحصائيات العامة فقط من RPC آمنة.
-   */
   const {
     data: lessonStatsData,
     error: lessonStatsError,
@@ -125,19 +104,14 @@ async function getRealCourseStats(
   if (lessonStatsError) {
     console.error(
       "COURSE STATS / PUBLIC LESSON STATS ERROR:",
-      {
-        message: lessonStatsError.message,
-        details: lessonStatsError.details,
-        hint: lessonStatsError.hint,
-        code: lessonStatsError.code,
-      },
+      lessonStatsError,
     );
 
     return {
       journeyCount,
       lessonCount: 0,
       trainingHours: 0,
-      levelLabel,
+      difficultyLevel: courseRow.difficulty_level,
     };
   }
 
@@ -146,49 +120,35 @@ async function getRealCourseStats(
       ? lessonStatsData[0]
       : lessonStatsData;
 
-  const lessonCount =
-    Math.max(
-      0,
-      Number(
-        publicLessonStats?.lesson_count ??
-          0,
-      ),
-    );
+  const lessonCount = Math.max(
+    0,
+    Number(publicLessonStats?.lesson_count ?? 0),
+  );
 
-  const totalMinutes =
-    Math.max(
-      0,
-      Number(
-        publicLessonStats?.total_minutes ??
-          0,
-      ),
-    );
-
-  const trainingHours =
-    roundHoursUpToFive(
-      totalMinutes,
-    );
+  const totalMinutes = Math.max(
+    0,
+    Number(publicLessonStats?.total_minutes ?? 0),
+  );
 
   return {
     journeyCount,
     lessonCount,
-    trainingHours,
-    levelLabel,
+    trainingHours: roundHoursUpToFive(totalMinutes),
+    difficultyLevel: courseRow.difficulty_level,
   };
 }
 
 export default async function CourseStats({
   course,
   catalogCourseId,
+  locale = "ar",
 }: CourseStatsProps) {
   const realStats =
-    await getRealCourseStats(
-      catalogCourseId,
-    );
+    await getRealCourseStats(catalogCourseId);
 
-  /*
-   * Fallback فقط إذا حدث خطأ في القراءة.
-   */
+  const text = labels[locale];
+  const isArabic = locale === "ar";
+
   const journeyCount =
     realStats?.journeyCount ??
     course.statsJourneyCount ??
@@ -204,150 +164,145 @@ export default async function CourseStats({
     course.statsTrainingHours ??
     0;
 
+  const difficultyLevel =
+    realStats?.difficultyLevel ?? null;
+
   const levelLabel =
-    realStats?.levelLabel ??
-    course.statsLevelLabel ??
-    "احترافي";
+    difficultyLevel === "fundamentals"
+      ? text.fundamentals
+      : text.professional;
 
   const items = [
     {
       id: "journeys",
       icon: Layers3,
       value: journeyCount,
-      title: "عدد الرحلات",
+      title: text.journeys,
     },
     {
       id: "lessons",
       icon: PlaySquare,
       value: lessonCount,
-      title: "إجمالي المحاضرات",
+      title: text.lessons,
     },
     {
       id: "hours",
       icon: Clock3,
       value: trainingHours,
-      title: "إجمالي الساعات التدريبية",
+      title: text.hours,
     },
   ];
 
   return (
     <section
-      dir="rtl"
+      dir={isArabic ? "rtl" : "ltr"}
       className="
         border-y border-[#E2E7EE]
         bg-[#DCE7F2]
-        px-4 py-4
-        sm:px-6
+        px-2 py-2
+        sm:px-4 sm:py-3
+        lg:px-6 lg:py-4
       "
     >
       <div
         className="
-          mx-auto grid
-          max-w-[1450px]
-          overflow-hidden
-          rounded-[22px]
+          mx-auto grid max-w-[1450px]
+          grid-cols-4 overflow-hidden
+          rounded-[14px]
           border border-[#DCE3EB]
           bg-white
-          shadow-[0_12px_34px_rgba(7,21,46,0.09)]
-
-          sm:grid-cols-2
-          xl:grid-cols-4
+          shadow-[0_8px_22px_rgba(7,21,46,0.07)]
+          sm:rounded-[18px]
+          lg:rounded-[22px]
         "
       >
-        {items.map(
-          (
-            item,
-            index,
-          ) => {
-            const Icon =
-              item.icon;
+        {items.map((item, index) => {
+          const Icon = item.icon;
 
-            return (
-              <article
-                key={item.id}
-                className={`
-                  relative flex
-                  min-h-[108px]
-                  items-center
-                  justify-center
-                  gap-4 px-5 py-4
+          return (
+            <article
+              key={item.id}
+              className={`
+                relative flex min-w-0 min-h-[68px]
+                flex-col items-center justify-center
+                gap-1 px-1 py-2 text-center
+                sm:min-h-[76px] sm:gap-1.5 sm:px-2
+                lg:min-h-[108px] lg:flex-row
+                lg:gap-4 lg:px-5 lg:py-4
+                ${
+                  index !== items.length
+                    ? "border-l border-[#E6EBF0]"
+                    : ""
+                }
+              `}
+            >
+              <Icon
+                size={17}
+                strokeWidth={2}
+                className="
+                  shrink-0 text-[#D49319]
+                  sm:h-[19px] sm:w-[19px]
+                  lg:h-[30px] lg:w-[30px]
+                "
+              />
 
-                  ${
-                    index !==
-                    items.length
-                      ? "xl:border-l xl:border-[#D9E0E8]"
-                      : ""
-                  }
-
-                  ${
-                    index < 2
-                      ? "sm:border-b sm:border-[#D9E0E8] xl:border-b-0"
-                      : ""
-                  }
-                `}
-              >
-                <Icon
-                  size={30}
-                  strokeWidth={2}
+              <div className="min-w-0 text-center lg:text-right">
+                <p
                   className="
-                    shrink-0
+                    text-[15px] font-black leading-none
                     text-[#D49319]
+                    sm:text-[17px]
+                    lg:text-[25px]
                   "
-                />
+                >
+                  {item.value}
+                </p>
 
-                <div className="text-right">
-                  <p
-                    className="
-                      text-[25px]
-                      font-black
-                      leading-none
-                      text-[#D49319]
-                    "
-                  >
-                    {item.value}
-                  </p>
-
-                  <h3
-                    className="
-                      mt-2 text-[13px]
-                      font-black
-                      text-[#07152E]
-                    "
-                  >
-                    {item.title}
-                  </h3>
-
-                </div>
-              </article>
-            );
-          },
-        )}
+                <h3
+                  className="
+                    mt-1 line-clamp-2
+                    text-[7px] font-black
+                    leading-[1.25] text-[#07152E]
+                    sm:text-[8px]
+                    lg:mt-2 lg:text-[13px]
+                  "
+                >
+                  {item.title}
+                </h3>
+              </div>
+            </article>
+          );
+        })}
 
         <article
           className="
-            relative flex
-            min-h-[108px]
-            items-center
-            justify-center
-            gap-4 px-5 py-4
+            relative flex min-w-0 min-h-[68px]
+            flex-col items-center justify-center
+            gap-1 px-1 py-2 text-center
+            sm:min-h-[76px] sm:gap-1.5 sm:px-2
+            lg:min-h-[108px] lg:flex-row
+            lg:gap-4 lg:px-5 lg:py-4
+            lg:text-right
           "
         >
           <BarChart3
-            size={30}
+            size={17}
             strokeWidth={2}
             className="
-              shrink-0
-              text-[#D49319]
+              shrink-0 text-[#D49319]
+              sm:h-[19px] sm:w-[19px]
+              lg:h-[30px] lg:w-[30px]
             "
           />
 
-          <div className="text-right">
+          <div className="min-w-0">
             <p
               className="
-                text-[19px]
-                font-black
-                leading-6
+                line-clamp-1 text-[11px]
+                font-black leading-none
                 text-[#D49319]
+                sm:text-[12px]
+                lg:text-[19px] lg:leading-6
               "
             >
               {levelLabel}
@@ -355,12 +310,14 @@ export default async function CourseStats({
 
             <h3
               className="
-                mt-2 text-[13px]
-                font-black
-                text-[#07152E]
+                mt-1 line-clamp-2
+                text-[7px] font-black
+                leading-[1.25] text-[#07152E]
+                sm:text-[8px]
+                lg:mt-2 lg:text-[13px]
               "
             >
-              مستوى الرحلة
+              {text.level}
             </h3>
           </div>
         </article>

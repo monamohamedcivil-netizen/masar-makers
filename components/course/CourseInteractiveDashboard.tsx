@@ -115,28 +115,110 @@ const panelIconMap = {
 } as const;
 
 
+type Locale = "ar" | "en";
+
+const mobilePanelLabels: Record<
+  string,
+  {
+    ar?: string;
+    en: string;
+  }
+> = {
+  professional: {
+    ar: "رحلة الاحتراف",
+    en: "Professional Journey",
+  },
+  workshop: {
+    ar: "رحلة اليوم الواحد",
+    en: "One-Day Journey",
+  },
+  free: {
+    ar: "الرحلات المجانية",
+    en: "Free Journeys",
+  },
+  reviews: {
+    ar: "آراء المتدربين",
+    en: "Reviews",
+  },
+  projects: {
+    ar: "المشاريع",
+    en: "Projects",
+  },
+  certificates: {
+    ar: "الشهادات",
+    en: "Certificates",
+  },
+  surveys: {
+    ar: "الاستبيانات",
+    en: "Surveys",
+  },
+  results: {
+    ar: "النتائج",
+    en: "Results",
+  },
+};
+
+function getMobilePanelTitle(
+  item: PanelMenuItemData,
+  locale: Locale,
+) {
+  const translated =
+    mobilePanelLabels[String(item.id)];
+
+  if (locale === "en") {
+    return translated?.en ?? item.title;
+  }
+
+  return translated?.ar ?? item.title;
+}
+
+
 function MobileCourseTabs({
   items,
   activePanel,
   onChange,
+  locale,
 }: {
   items: PanelMenuItemData[];
   activePanel: CoursePanelTab;
   onChange: (panel: CoursePanelTab) => void;
+  locale: Locale;
 }) {
+  const isArabic =
+    locale === "ar";
+
   return (
     <div className="lg:hidden">
-      <div
-        dir="rtl"
-        role="tablist"
-        aria-label="تنقل صفحة الكورس"
-        className="flex w-full flex-nowrap items-end justify-center gap-1 px-1"
-      >
+     <div
+  dir={isArabic ? "rtl" : "ltr"}
+  role="tablist"
+  aria-label={
+    isArabic
+      ? "تنقل صفحة الكورس"
+      : "Course navigation"
+  }
+  className="
+    grid
+    w-full
+    items-end
+    gap-[3px]
+    px-1
+  "
+  style={{
+    gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`,
+  }}
+>
         {items.map((item) => {
           const active =
             activePanel === item.id;
 
           const Icon = item.icon;
+
+          const title =
+            getMobilePanelTitle(
+              item,
+              locale,
+            );
 
           return (
             <button
@@ -147,28 +229,31 @@ function MobileCourseTabs({
               onClick={() =>
                 onChange(item.id)
               }
-              className={`relative flex min-w-0 flex-1 items-center justify-center gap-1 border px-1.5 text-center font-black transition-all duration-200 ${
+              className={`relative flex min-w-0 items-center justify-center gap-1 border px-1 text-center font-black transition-all duration-200 ${
                 active
-                  ? "min-h-[50px] rounded-t-[18px] border-[#07152E] bg-[#07152E] py-2 text-[11px] text-white shadow-[0_-5px_18px_rgba(7,21,46,0.10)]"
-                  : "min-h-[42px] rounded-t-[14px] border-[#CBD2DB] bg-[#E2E5E9] py-2 text-[10px] text-[#4B5563] hover:min-h-[50px] hover:bg-[#D8DDE3] hover:text-[#07152E]"
+                  ? "min-h-[42px] rounded-t-[14px] border-[#07152E] bg-[#07152E] py-1.5 text-[9px] text-white shadow-[0_-5px_18px_rgba(7,21,46,0.10)]"
+                  : "min-h-[36px] rounded-t-[10px] border-[#CBD2DB] bg-[#E2E5E9] py-1.5 text-[8px] text-[#4B5563] hover:min-h-[42px] hover:bg-[#D8DDE3] hover:text-[#07152E]"
               }`}
             >
-              <Icon
-                size={16}
-                strokeWidth={1.8}
-                className={
-                  active
-                    ? "text-[#F7B548]"
-                    : "text-[#6B7280]"
-                }
-              />
+              
 
-              <span className="whitespace-nowrap text-center leading-4">
-                {item.title}
-              </span>
+              <span
+  className="
+    line-clamp-2
+    min-w-0
+    break-words
+    text-center
+    text-[7px]
+    leading-[1.15]
+
+    sm:text-[8px]
+  "
+>
+  {title}
+</span>
 
               {active ? (
-                <span className="absolute inset-x-4 bottom-0 h-[3px] bg-[#F7B548]" />
+                <span className="absolute inset-x-3 bottom-0 h-[3px] bg-[#F7B548]" />
               ) : null}
             </button>
           );
@@ -197,6 +282,53 @@ export default function CourseInteractiveDashboard({
   initialPanelContents = {},
 }: CourseInteractiveDashboardProps) {
   const router = useRouter();
+
+  const [locale, setLocale] =
+    useState<Locale>("ar");
+
+  useEffect(() => {
+    const savedLocale =
+      window.localStorage.getItem(
+        "masar-locale",
+      );
+
+    if (
+      savedLocale === "ar" ||
+      savedLocale === "en"
+    ) {
+      setLocale(savedLocale);
+    }
+
+    const handleLocaleChange = (
+      event: Event,
+    ) => {
+      const customEvent =
+        event as CustomEvent<{
+          locale?: Locale;
+        }>;
+
+      if (
+        customEvent.detail?.locale === "ar" ||
+        customEvent.detail?.locale === "en"
+      ) {
+        setLocale(
+          customEvent.detail.locale,
+        );
+      }
+    };
+
+    window.addEventListener(
+      "masar:locale-change",
+      handleLocaleChange,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "masar:locale-change",
+        handleLocaleChange,
+      );
+    };
+  }, []);
 
   // محفوظ للتوافق مع استدعاءات الصفحة الحالية.
   // الشاشات التفاعلية تقرأ محتواها حسب panel_component.
@@ -581,8 +713,8 @@ return (
 
   return (
     <section
-      dir="rtl"
-      className="bg-[#F7F8FA] px-4 pb-8 pt-3 sm:px-6"
+      dir={locale === "ar" ? "rtl" : "ltr"}
+      className="bg-[#F7F8FA] px-3 pb-8 pt-3 sm:px-6"
     >
       <div className="mx-auto max-w-[1480px]">
         {isEditMode && (
@@ -607,11 +739,12 @@ return (
         )}
 
         <div className="lg:hidden">
-          <div className="mx-auto w-[94%] sm:w-[92%]">
+          <div className="mx-auto w-full max-w-full">
             <MobileCourseTabs
               items={mobilePanelItems}
               activePanel={activePanel}
               onChange={setActivePanel}
+              locale={locale}
             />
           </div>
         </div>

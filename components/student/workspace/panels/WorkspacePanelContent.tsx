@@ -231,24 +231,39 @@ function CareerPathProgressCard({
         </div>
       </header>
 
-      <div className="bg-[#F8FAFC] px-3 py-5 sm:px-4">
-          <div
-            className="relative mx-auto grid w-full grid-cols-5 items-start gap-1 px-2 pt-3 sm:px-4"
-            dir="rtl"
-          >
-            <div className="absolute left-[11%] right-[11%] top-[42px] h-[16px] rounded-full border-y border-[#F7B548] bg-[#07152E]" />
+      <div className="bg-[#F8FAFC] px-1.5 py-3 sm:px-4 sm:py-5">
+  <div
+    className="
+      relative mx-auto grid w-full grid-cols-5
+      items-start gap-0 px-0.5 pt-2
+      sm:gap-1 sm:px-4 sm:pt-3
+    "
+    dir="rtl"
+  >
+    {/* الطريق */}
+    <div
+      className="
+        absolute left-[9%] right-[9%]
+        top-[31px] h-[10px]
+        rounded-full border-y border-[#F7B548]
+        bg-[#07152E]
+        sm:left-[11%] sm:right-[11%]
+        sm:top-[42px] sm:h-[16px]
+      "
+    />
 
-            {path.stations.map((station, index) => (
-              <PathStation
-                key={station.stationId}
-                station={station}
-                index={index}
-                onOpen={() => setSelectedStationId(station.stationId)}
-              />
-            ))}
-          </div>
-
-      </div>
+    {path.stations.map((station, index) => (
+      <PathStation
+        key={station.stationId}
+        station={station}
+        index={index}
+        onOpen={() =>
+          setSelectedStationId(station.stationId)
+        }
+      />
+    ))}
+  </div>
+</div>
     </article>
   );
 }
@@ -279,8 +294,18 @@ function PathStation({
     <>
       <div className="relative z-10 flex flex-col items-center">
         <span
-          className={`relative flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full border-[2px] bg-white text-xs font-black transition duration-300 ${statusClasses[station.status]}`}
-        >
+className={`
+  relative flex
+  h-[38px] w-[38px]
+  sm:h-[52px] sm:w-[52px]
+  items-center justify-center
+  overflow-hidden rounded-full
+  border-[2px] bg-white
+  text-[9px] sm:text-xs
+  font-black
+  transition duration-300
+  ${statusClasses[station.status]}
+`}        >
           {station.iconUrl ? (
             <Image
               src={station.iconUrl}
@@ -304,13 +329,31 @@ function PathStation({
           )}
         </span>
 
-        <span className="mt-2 w-full truncate text-center text-[9px] font-black text-[#334155] sm:text-[10px]">
-          {station.shortTitle}
-        </span>
+<span
+  className="
+    mt-1.5
+    w-full
+    min-h-[22px]
+    px-[1px]
+    text-center
+    text-[7px]
+    leading-[1.15]
+    font-black
+    text-[#334155]
+    line-clamp-2
+    sm:mt-2
+    sm:min-h-0
+    sm:truncate
+    sm:text-[10px]
+  "
+  title={station.shortTitle}
+>
+  {station.shortTitle}
+</span>
 
-        <span
-          className={`mt-0.5 min-h-4 text-center text-[8px] font-bold ${
-            station.status === "completed"
+     <span
+  className={`mt-0.5 min-h-[16px] px-[1px] text-center text-[6.5px] leading-[1.15] font-bold sm:text-[8px] ${
+        station.status === "completed"
               ? "text-[#589638]"
               : station.status === "in_progress"
                 ? "text-[#B87508]"
@@ -335,7 +378,20 @@ function PathStation({
         className="group relative z-10 flex min-w-0 flex-col items-center px-1 py-1 transition"
       >
         {content}
-        <span className="mt-2 rounded-full bg-slate-200 px-3 py-1 text-[9px] font-black text-slate-600 transition group-hover:bg-[#07152E] group-hover:text-[#F7B548]">
+        <span className="
+  mt-1.5
+  rounded-full
+  bg-slate-200
+  px-1.5 py-1
+  text-[6.5px]
+  leading-none
+  font-black
+  text-slate-600
+  transition
+  group-hover:bg-[#07152E]
+  group-hover:text-[#F7B548]
+  sm:mt-2 sm:px-3 sm:text-[9px]
+">
           استكشف الرحلة
         </span>
       </Link>
@@ -354,7 +410,20 @@ function PathStation({
       className="group relative z-10 flex min-w-0 flex-col items-center px-1 py-1 transition"
     >
       {content}
-      <span className="mt-2 rounded-full bg-[#07152E] px-3 py-1 text-[9px] font-black text-[#F7B548] transition group-hover:bg-[#F7B548] group-hover:text-[#07152E]">
+      <span className="
+  mt-1.5
+  rounded-full
+  bg-[#07152E]
+  px-1.5 py-1
+  text-[6.5px]
+  leading-none
+  font-black
+  text-[#F7B548]
+  transition
+  group-hover:bg-[#F7B548]
+  group-hover:text-[#07152E]
+  sm:mt-2 sm:px-3 sm:text-[9px]
+">
         {station.status === "not_started" ? "ابدأ الرحلة" : "متابعة الرحلة"}
       </span>
     </button>

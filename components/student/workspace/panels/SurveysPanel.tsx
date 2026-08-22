@@ -476,14 +476,14 @@ function CompactStationRoad({
   ) => void;
 }) {
   return (
-    <div className="relative px-3 py-3">
+    <div className="relative px-1.5 py-2 sm:px-3 sm:py-3">
       <div
-        className="relative mx-auto grid w-full items-start gap-1 px-2 pt-1 sm:px-4"
+        className="relative mx-auto grid w-full items-start gap-0 px-0 pt-0.5 sm:gap-1 sm:px-4 sm:pt-1"
         style={{
           gridTemplateColumns: `repeat(${stations.length}, minmax(0, 1fr))`,
         }}
       >
-        <div className="absolute left-[11%] right-[11%] top-[32px] h-[8px] bg-[#07152E]">
+        <div className="absolute left-[9%] right-[9%] top-[24px] h-[6px] bg-[#07152E] sm:left-[11%] sm:right-[11%] sm:top-[32px] sm:h-[8px]">
           <div className="absolute inset-x-0 top-1/2 h-[0.5px] -translate-y-1/2 bg-[#F7B548]" />
         </div>
 
@@ -525,14 +525,14 @@ function CompactStationRoad({
                     station.courseId,
                   );
                 }}
-                className={`group relative z-10 flex min-w-0 flex-col items-center px-1 py-1 ${
+                className={`group relative z-10 flex min-w-0 flex-col items-center px-0.5 py-0.5 sm:px-1 sm:py-1 ${
                   enrolled
                     ? "cursor-pointer"
                     : "cursor-default"
                 }`}
               >
                 <span
-                  className={`relative flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full border-[2px] bg-white transition ${
+                  className={`relative flex h-[38px] w-[38px] sm:h-[52px] sm:w-[52px] items-center justify-center overflow-hidden rounded-full border-[2px] bg-white transition ${
                     !enrolled
                       ? "border-[#D5DCE6] bg-[#F1F3F6]"
                       : active
@@ -569,7 +569,7 @@ function CompactStationRoad({
                 </span>
 
                 <span
-                  className={`mt-2 w-full truncate text-center text-[9px] font-black sm:text-[10px] ${
+                  className={`mt-1 w-full truncate px-0.5 text-center text-[7px] font-black leading-tight sm:mt-2 sm:text-[10px] ${
                     !enrolled
                       ? "text-slate-400"
                       : active
@@ -582,7 +582,7 @@ function CompactStationRoad({
                 </span>
 
                 <span
-                  className={`mt-0.5 text-[8px] font-bold ${
+                  className={`mt-0.5 max-w-full truncate px-0.5 text-[6.5px] font-bold leading-tight sm:text-[8px] ${
                     !enrolled
                       ? "text-slate-400"
                       : completed

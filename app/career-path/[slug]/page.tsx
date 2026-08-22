@@ -21,16 +21,49 @@ import {
 
 import type { Course } from "@/data/types";
 
+type Locale = "ar" | "en";
+
 type CareerPathPageProps = {
   params: Promise<{
     slug: string;
   }>;
 };
 
-/*
-  الصفحة تعتمد على جلسة المستخدم المسجل وبيانات Supabase،
-  لذلك لا نقوم بتخزينها كصفحة Static.
-*/
+const labels = {
+  ar: {
+    notFound: "المسار غير موجود | Masar Makers",
+    defaultDescription:
+      "استكشف رحلات الاحتراف في منصة صناع المسار.",
+    stations: "محطات تعليمية",
+    journeys: "رحلات تدريبية",
+    trainingContent: "محتوى تدريبي",
+    level: "المستوى",
+    professional: "احترافي",
+    hours: "ساعة",
+    trainingHours: "ساعات تدريبية",
+    journey: "رحلة",
+    journeysPlural: "رحلات",
+    heroFallback:
+      "رحلة تعليمية متكاملة تقودك إلى مستوى احترافي.",
+  },
+  en: {
+    notFound: "Career path not found | Masar Makers",
+    defaultDescription:
+      "Explore professional learning journeys on Masar Makers.",
+    stations: "Learning Stations",
+    journeys: "Training Journeys",
+    trainingContent: "Training Content",
+    level: "Level",
+    professional: "Professional",
+    hours: "Hours",
+    trainingHours: "Training Hours",
+    journey: "Journey",
+    journeysPlural: "Journeys",
+    heroFallback:
+      "An integrated learning journey that leads you to a professional level.",
+  },
+} as const;
+
 export const dynamic = "force-dynamic";
 
 /* ==================================================
@@ -46,7 +79,7 @@ export async function generateMetadata({
 
   if (!path) {
     return {
-      title: "المسار غير موجود | Masar Makers",
+      title: labels.ar.notFound,
     };
   }
 
@@ -54,7 +87,7 @@ export async function generateMetadata({
     title: `${path.title} | Masar Makers`,
     description:
       path.description ??
-      "استكشف رحلات الاحتراف في منصة صناع المسار.",
+      labels.ar.defaultDescription,
   };
 }
 
@@ -73,16 +106,19 @@ export default async function CareerPathPage({
     notFound();
   }
 
+  /*
+   * اللغة هنا عربية مؤقتًا حتى نعيد تفعيل زر اللغة.
+   * تجهيز النصوص والـlayout بالأسفل يسمح بتمرير "en"
+   * لاحقًا من cookie / route locale بدون إعادة بناء المكونات.
+   */
+  const locale: Locale = "ar";
+  const text = labels[locale];
+  const isArabic = locale === "ar";
+
   const activeStations = path.course_stations.filter(
     (station) => station.is_active
   );
 
-  /*
-    نحسب إحصائيات كل محطة على حدة:
-    - عدد الرحلات من level: single = 1 / split = 2
-    - الساعات من مجموع duration_minutes للدروس المنشورة
-      عبر نفس RPC العامة التي تعمل للطالب والأدمن.
-  */
   const stationStats = await Promise.all(
     activeStations.map(async (station) => {
       const activeCourses = station.courses.filter(
@@ -108,9 +144,7 @@ export default async function CareerPathPage({
 
       const roundedHours =
         totalMinutes > 0
-          ? Math.ceil(
-              totalMinutes / 60 / 5
-            ) * 5
+          ? Math.ceil(totalMinutes / 60 / 5) * 5
           : 0;
 
       return {
@@ -128,10 +162,6 @@ export default async function CareerPathPage({
     ])
   );
 
-  /*
-    كل محطة تظهر مرة واحدة فقط على الطريق،
-    حتى لو كانت تحتوي على أكثر من كورس.
-  */
   const roadmapCourses: Course[] =
     activeStations
       .map((station, stationIndex) => {
@@ -145,13 +175,6 @@ export default async function CareerPathPage({
         const currentStationStats =
           stationStatsMap.get(station.id);
 
-
-        /*
-          الأولوية:
-          1. الكورس المميز.
-          2. الرحلة المتكاملة.
-          3. أول كورس داخل المحطة.
-        */
         const representativeCourse =
           activeCourses.find(
             (course) => course.is_featured
@@ -180,97 +203,58 @@ export default async function CareerPathPage({
           );
 
         return {
-          /*
-            PathRoadmap الحالي يعتمد على Course المحلي،
-            لذلك نقوم بتحويل بيانات المحطة القادمة من
-            Supabase إلى نفس الشكل مؤقتًا.
-          */
           id: stationIndex + 1,
-
-          /*
-            نستخدم slug المحطة لأن صفحة المحطة الواحدة
-            ستعرض الرحلة المتكاملة والأساسية والمتقدمة.
-          */
           slug: station.slug,
-
           title: station.title,
-
           shortTitle:
             station.short_title ??
             station.title,
-
           description:
             station.description ??
             representativeCourse?.description ??
             "",
-
           image:
             station.image_url ??
             representativeCourse?.image_url ??
             "/images/courses/course-placeholder.jpg",
-
           icon:
             station.icon_url ??
             representativeCourse?.icon_url ??
             "/images/courses/icons/default.png",
-
           pathSlug: path.slug,
-
           type: "professional",
-
           duration:
             currentStationStats?.roundedHours
-              ? `${currentStationStats.roundedHours} ساعات تدريبية`
-              : "0 ساعات تدريبية",
-
+              ? `${currentStationStats.roundedHours} ${text.trainingHours}`
+              : `0 ${text.trainingHours}`,
           projects:
             `${currentStationStats?.journeysCount ?? 0} ${
               (currentStationStats?.journeysCount ?? 0) === 1
-                ? "رحلة"
-                : "رحلات"
+                ? text.journey
+                : text.journeysPlural
             }`,
-
           level:
             representativeCourse?.level ??
-            "احترافي",
-
+            text.professional,
           instructorIds: [],
-
           professionalJourneyId:
             representativeJourney?.id,
-
           professionalJourneyStatus:
             stationIsComingSoon
               ? "coming_soon"
               : representativeJourney?.status ??
                 "open",
-
           featured:
             representativeCourse?.is_featured ??
             false,
-
           active: station.is_active,
-
           order: station.display_order,
         } as Course;
       })
       .sort((a, b) => a.order - b.order);
-  /*
-    إحصائيات المسار:
-    - عدد المحطات = عدد المحطات التعليمية الفعالة.
-    - عدد الرحلات = عدد الرحلات الفعالة داخل جميع كورسات المحطات.
-    - الساعات التدريبية = مجموع مدد الدروس/الفيديوهات الفعلية داخل المسار.
-    - المستوى = احترافي.
-  */
+
   const totalStations = activeStations.length;
 
-  /*
-    عدد الرحلات يعتمد على تقسيم الكورس في لوحة التحكم:
-    - single = رحلة واحدة
-    - split  = رحلتان (Fundamentals + Advanced)
-
-    أي كورس جديد سيُحسب تلقائيًا حسب قيمة level.
-  */
   const totalJourneys = activeStations.reduce(
     (stationTotal, station) =>
       stationTotal +
@@ -285,37 +269,27 @@ export default async function CareerPathPage({
     0
   );
 
-  /*
-    المحتوى التدريبي:
-    نجمع duration_minutes لكل الدروس المنشورة التابعة
-    للكورسات الفعالة داخل هذا المسار، ثم نحولها إلى ساعات.
-
-    العرض يُقرب دائمًا إلى أقرب 5 ساعات للأعلى:
-    31.2 ساعة -> 35 ساعة
-    35 ساعة   -> 35 ساعة
-    36 ساعة   -> 40 ساعة
-  */
   const totalTrainingHours = activeStations.reduce(
-  (stationTotal, station) => {
-    const stationHours =
-      station.courses
-        .filter((course) => course.is_active)
-        .reduce(
-          (courseTotal, course) =>
-            courseTotal +
-            Math.max(
-              0,
-              Number(
-                course.duration_hours ?? 0
-              )
-            ),
-          0
-        );
+    (stationTotal, station) => {
+      const stationHours =
+        station.courses
+          .filter((course) => course.is_active)
+          .reduce(
+            (courseTotal, course) =>
+              courseTotal +
+              Math.max(
+                0,
+                Number(
+                  course.duration_hours ?? 0
+                )
+              ),
+            0
+          );
 
-    return stationTotal + stationHours;
-  },
-  0
-);
+      return stationTotal + stationHours;
+    },
+    0
+  );
 
   const heroImage =
     path.image_url ??
@@ -325,20 +299,32 @@ export default async function CareerPathPage({
 
   return (
     <main
-      dir="rtl"
+      dir={isArabic ? "rtl" : "ltr"}
       className="min-h-screen bg-[#F7F8FA]"
     >
       <Navbar />
 
-      {/* مساحة الـNavbar الثابت */}
       <div className="h-[55px]" />
 
       <AnnouncementBar />
 
-      <PathSwitcher activeSlug={path.slug} />
+      <PathSwitcher
+        activeSlug={path.slug}
+        locale={locale}
+      />
 
-      {/* Compact Hero */}
-      <section className="relative min-h-[170px] overflow-hidden bg-[#07152E] lg:h-[140px] lg:min-h-0">
+      {/* Compact responsive hero */}
+      <section
+        className="
+          relative
+          min-h-[118px]
+          overflow-hidden
+          bg-[#07152E]
+          sm:min-h-[135px]
+          lg:h-[140px]
+          lg:min-h-0
+        "
+      >
         <Image
           src={heroImage}
           alt={path.title}
@@ -348,120 +334,241 @@ export default async function CareerPathPage({
           className="object-cover object-center"
         />
 
-        <div className="absolute inset-0 bg-gradient-to-l from-[#07152E]/92 via-[#07152E]/62 to-[#07152E]/15" />
+        <div
+          className={`
+            absolute inset-0
+            ${
+              isArabic
+                ? "bg-gradient-to-l from-[#07152E]/95 via-[#07152E]/70 to-[#07152E]/30"
+                : "bg-gradient-to-r from-[#07152E]/95 via-[#07152E]/70 to-[#07152E]/30"
+            }
+          `}
+        />
 
         <div
           className="
-            relative z-10 mx-auto grid min-h-[170px]
-            max-w-[1480px] grid-cols-[1.08fr_0.92fr]
-            items-center gap-3 px-4 py-4
-            sm:gap-5 sm:px-6
-            lg:h-full lg:min-h-0 lg:grid-cols-[1.18fr_0.82fr]
-            lg:gap-8 lg:px-10 lg:py-0
+            relative z-10
+            mx-auto
+            grid min-h-[118px]
+            max-w-[1480px]
+            grid-cols-[1.05fr_0.95fr]
+            items-center
+            gap-2
+            px-3 py-2.5
+
+            sm:min-h-[135px]
+            sm:gap-4
+            sm:px-5
+            sm:py-3
+
+            lg:h-full
+            lg:min-h-0
+            lg:grid-cols-[1.18fr_0.82fr]
+            lg:gap-8
+            lg:px-10
+            lg:py-0
           "
         >
-          {/* Right: path information */}
-          <div className="min-w-0 text-right text-white">
-            <h1 className="text-[20px] font-black leading-tight sm:text-[24px] lg:text-[34px]">
+          {/* Path info */}
+          <div className="min-w-0 text-start text-white">
+            <h1
+              className="
+                text-[16px]
+                font-black
+                leading-[1.25]
+
+                sm:text-[20px]
+                lg:text-[34px]
+              "
+            >
               {path.title}
             </h1>
 
-            <p className="mt-1 max-w-[700px] text-[9px] font-medium leading-4 text-slate-200 sm:text-[10px] lg:mt-1.5 lg:text-[12px] lg:leading-5">
+            <p
+              className="
+                mt-1
+                line-clamp-2
+                max-w-[700px]
+                text-[7.5px]
+                font-medium
+                leading-3
+                text-slate-200
+
+                sm:text-[9px]
+                sm:leading-4
+
+                lg:mt-1.5
+                lg:text-[12px]
+                lg:leading-5
+              "
+            >
               {path.description ??
-                "رحلة تعليمية متكاملة تقودك إلى مستوى احترافي."}
+                text.heroFallback}
             </p>
           </div>
 
-          {/* Left: statistics */}
+          {/* Stats */}
           <div
             className="
-              grid grid-cols-2
-              gap-x-3 gap-y-3
-              border-r border-white/20 pr-4
-              max-lg:border-r-0 max-lg:pr-0
-              sm:gap-x-5 sm:gap-y-4
-              lg:gap-x-8 lg:gap-y-3 lg:border-r lg:pr-6
+              grid
+              grid-cols-2
+              gap-x-2
+              gap-y-2
+              ps-2
+
+              sm:gap-x-4
+              sm:gap-y-3
+              sm:ps-4
+
+              lg:gap-x-8
+              lg:gap-y-3
+              lg:border-s
+              lg:border-white/20
+              lg:ps-6
             "
           >
-            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-              <BookOpen
-                size={21}
-                className="shrink-0 text-[#F7B548] max-sm:h-[17px] max-sm:w-[17px]"
-              />
+            <PathStat
+              icon={BookOpen}
+              value={totalStations}
+              label={text.stations}
+            />
 
-              <div>
-                <p className="text-[14px] font-black leading-none text-white sm:text-[16px]">
-                  {totalStations}
-                </p>
+            <PathStat
+              icon={FolderKanban}
+              value={totalJourneys}
+              label={text.journeys}
+            />
 
-                <p className="mt-1 text-[8px] font-bold leading-3 text-slate-200 sm:text-[10px] lg:text-[11px]">
-                  محطات تعليمية
-                </p>
-              </div>
-            </div>
+            <PathStat
+              icon={Clock3}
+              value={
+                totalTrainingHours > 0
+                  ? `${totalTrainingHours}`
+                  : "—"
+              }
+              label={text.trainingContent}
+              suffix={
+                totalTrainingHours > 0
+                  ? text.hours
+                  : undefined
+              }
+            />
 
-            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-              <FolderKanban
-                size={21}
-                className="shrink-0 text-[#F7B548] max-sm:h-[17px] max-sm:w-[17px]"
-              />
-
-              <div>
-                <p className="text-[14px] font-black leading-none text-white sm:text-[16px]">
-                  {totalJourneys}
-                </p>
-
-                <p className="mt-1 text-[8px] font-bold leading-3 text-slate-200 sm:text-[10px] lg:text-[11px]">
-                  رحلات تدريبية
-                </p>
-              </div>
-            </div>
-
-            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-              <Clock3
-                size={21}
-                className="shrink-0 text-[#F7B548] max-sm:h-[17px] max-sm:w-[17px]"
-              />
-
-              <div>
-                <p className="text-[14px] font-black leading-none text-white sm:text-[16px]">
-                  {totalTrainingHours > 0
-                    ? `${totalTrainingHours} ساعة`
-                    : "—"}
-                </p>
-
-                <p className="mt-1 text-[8px] font-bold leading-3 text-slate-200 sm:text-[10px] lg:text-[11px]">
-                  محتوى تدريبي
-                </p>
-              </div>
-            </div>
-
-            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-              <GraduationCap
-                size={21}
-                className="shrink-0 text-[#F7B548] max-sm:h-[17px] max-sm:w-[17px]"
-              />
-
-              <div>
-                <p className="text-[14px] font-black leading-none text-white sm:text-[16px]">
-                  احترافي
-                </p>
-
-                <p className="mt-1 text-[8px] font-bold leading-3 text-slate-200 sm:text-[10px] lg:text-[11px]">
-                  المستوى
-                </p>
-              </div>
-            </div>
+            <PathStat
+              icon={GraduationCap}
+              value={text.professional}
+              label={text.level}
+              compactValue
+            />
           </div>
         </div>
       </section>
 
       {/* Roadmap */}
-      <section className="mx-auto max-w-[1480px] px-6 py-4 lg:px-10">
+      <section
+        className="
+          mx-auto
+          max-w-[1480px]
+          px-2.5
+          py-2.5
+
+          sm:px-4
+          sm:py-3
+
+          lg:px-10
+          lg:py-4
+        "
+      >
         <PathRoadmap
           courses={roadmapCourses}
+          locale={locale}
         />
       </section>
     </main>
+  );
+}
+
+function PathStat({
+  icon: Icon,
+  value,
+  label,
+  suffix,
+  compactValue = false,
+}: {
+  icon: typeof BookOpen;
+  value: string | number;
+  label: string;
+  suffix?: string;
+  compactValue?: boolean;
+}) {
+  return (
+    <div
+      className="
+        flex
+        min-w-0
+        items-center
+        gap-1.5
+
+        sm:gap-2
+        lg:gap-3
+      "
+    >
+      <Icon
+        size={15}
+        className="
+          shrink-0
+          text-[#F7B548]
+
+          sm:h-[18px]
+          sm:w-[18px]
+
+          lg:h-[21px]
+          lg:w-[21px]
+        "
+      />
+
+      <div className="min-w-0">
+        <p
+          className={`
+            truncate
+            font-black
+            leading-none
+            text-white
+
+            ${
+              compactValue
+                ? "text-[10px] sm:text-[12px] lg:text-[16px]"
+                : "text-[12px] sm:text-[14px] lg:text-[16px]"
+            }
+          `}
+        >
+          {value}
+          {suffix ? (
+            <span className="ms-0.5 text-[7px] sm:text-[8px] lg:text-[10px]">
+              {suffix}
+            </span>
+          ) : null}
+        </p>
+
+        <p
+          className="
+            mt-0.5
+            line-clamp-2
+            text-[6px]
+            font-bold
+            leading-[1.15]
+            text-slate-200
+
+            sm:text-[8px]
+            sm:leading-3
+
+            lg:mt-1
+            lg:text-[11px]
+          "
+        >
+          {label}
+        </p>
+      </div>
+    </div>
   );
 }

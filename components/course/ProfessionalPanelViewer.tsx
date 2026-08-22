@@ -64,7 +64,18 @@ export default function ProfessionalPanelViewer({
   return (
     <section
       data-panel-component={panelComponent}
-      className="min-h-[400px] overflow-hidden rounded-[24px] border border-[#C9D2DE] bg-white shadow-[0_22px_55px_rgba(7,21,46,0.16),0_4px_12px_rgba(7,21,46,0.08)]"
+      className="
+  min-h-[400px]
+  overflow-hidden
+  rounded-b-[24px]
+  rounded-t-none
+  border
+  border-[#C9D2DE]
+  bg-white
+  shadow-[0_22px_55px_rgba(7,21,46,0.16),0_4px_12px_rgba(7,21,46,0.08)]
+
+  lg:rounded-[24px]
+"
     >
       <header className="flex min-h-[66px] items-center justify-between gap-3 border-b-[3px] border-[#F7B548] bg-[#07152E] px-4 py-2.5 sm:px-6">
         <div className="flex min-w-0 items-center gap-2.5">
