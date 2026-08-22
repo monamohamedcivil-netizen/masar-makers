@@ -188,19 +188,7 @@ export default function Navbar({ activeItem }: NavbarProps) {
         </nav>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <button
-            type="button"
-            onClick={() => setLocale((value) => (value === "ar" ? "en" : "ar"))}
-            className="flex h-9 items-center gap-2 rounded-xl border border-white/20 px-3 text-xs font-black text-white transition hover:border-[#F7B548] hover:text-[#F7B548]"
-            aria-label={
-  locale === "ar"
-    ? "Switch to English"
-    : "التبديل إلى العربية"
-}
-          >
-            <Languages size={16} />
-            <span>{text.language}</span>
-          </button>
+          {/* Language switch temporarily hidden. */}
 
           <a
             href="https://wa.me/201031885659?text=السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار."

@@ -25,7 +25,6 @@ const heroText = {
     start: "ابدأ رحلتك",
     explore: "استكشف المسارات",
   },
-
   en: {
     titleOne:
       "Don't just take a course ... Build your professional journey professionally",
@@ -84,255 +83,180 @@ export default function Hero() {
     };
   }, []);
 
-  const text =
-    heroText[locale];
+  const text = heroText[locale];
 
   return (
-    <section
-      className="
-        relative
-        h-[270px]
-        overflow-hidden
-
-        sm:h-[220px]
-        lg:h-[200px]
-      "
-    >
-      <div className="absolute inset-0 overflow-hidden">
-        <Image
-          src={
-            locale === "ar"
-              ? "/images/hero-road-v4.jpg"
-              : "/images/hero-road-eng.jpg"
-          }
-          alt="Masar Makers"
-          fill
-          priority
-          sizes="100vw"
-          className="
-            object-cover
-            object-center
-            scale-[1.18]
-
-            sm:scale-[1.08]
-            lg:scale-100
-          "
-        />
-
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              locale === "ar"
-                ? "linear-gradient(to left, rgba(7,21,46,.95) 0%, rgba(7,21,46,.84) 24%, rgba(7,21,46,.48) 46%, rgba(7,21,46,.12) 72%, transparent 100%)"
-                : "linear-gradient(to right, rgba(7,21,46,.95) 0%, rgba(7,21,46,.84) 24%, rgba(7,21,46,.48) 46%, rgba(7,21,46,.12) 72%, transparent 100%)",
-          }}
-        />
-
-        <HeroWelcome />
-
-        <HomeMonthlyDrawStatus />
-
-        <div className="absolute inset-0 z-10">
+    <>
+      {/* Mobile */}
+      <section
+        dir={locale === "ar" ? "rtl" : "ltr"}
+        className="relative overflow-hidden bg-[#07152E] lg:hidden"
+      >
+        {/* Top text area */}
+        <div className="px-4 pb-4 pt-5 text-white">
           <div
-            className={`
-              mx-auto
-              flex
-              h-full
-              max-w-7xl
-              items-center
-
-              ${
-                locale === "ar"
-                  ? `
-                    pl-[142px]
-                    pr-3
-
-                    sm:pl-6
-                    sm:pr-[190px]
-
-                    lg:pl-8
-                    lg:pr-[160px]
-                  `
-                  : `
-                    pl-3
-                    pr-[142px]
-
-                    sm:pl-[190px]
-                    sm:pr-5
-
-                    lg:pl-[100px]
-                    lg:pr-8
-                  `
-              }
-            `}
+            className={
+              locale === "ar"
+                ? "text-right"
+                : "text-left"
+            }
           >
-            <div
-              dir={
-                locale === "ar"
-                  ? "rtl"
-                  : "ltr"
-              }
-              className={`
-                relative
-                w-full
-                min-w-0
-                max-w-[760px]
-                text-white
+            <h1 className="text-[19px] font-black leading-[1.55]">
+              {locale === "ar" ? (
+                <>
+                  لا تتعلم كورس فقط ...{" "}
+                  <span className="text-[#F7B548]">
+                    ابنِ مسيرتك المهنية باحتراف
+                  </span>
+                </>
+              ) : (
+                <>
+                  Don&apos;t just take a course ...{" "}
+                  <span className="text-[#F7B548]">
+                    Build your professional journey with confidence
+                  </span>
+                </>
+              )}
+            </h1>
 
-                ${
+            <p className="mt-1.5 text-[12px] font-semibold leading-6 text-white/85">
+              {text.description}
+            </p>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <AuthLink href="/dashboard">
+                <button className="flex items-center gap-1.5 rounded-xl bg-[#F7B548] px-4 py-2 text-[11px] font-black text-[#07152E]">
+                  {text.start}
+                  <ArrowLeft size={14} />
+                </button>
+              </AuthLink>
+
+              <AuthLink href="/career-path/road-design">
+                <button className="flex items-center gap-1.5 rounded-xl border border-white/30 bg-white/10 px-4 py-2 text-[11px] font-black text-white">
+                  {text.explore}
+                  <Compass size={14} />
+                </button>
+              </AuthLink>
+            </div>
+          </div>
+        </div>
+
+        {/* Clean image area */}
+        <div className="relative h-[160px] w-full overflow-hidden sm:h-[185px]">
+          <Image
+            src={
+              locale === "ar"
+                ? "/images/hero-road-v4.jpg"
+                : "/images/hero-road-eng.jpg"
+            }
+            alt="Masar Makers"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center"
+          />
+        </div>
+
+        {/* Bottom area */}
+        <div className="relative min-h-[132px] bg-gradient-to-b from-[#07152E] to-[#102442] px-3 pb-3 pt-2">
+          <HomeMonthlyDrawStatus />
+          <div className="pt-[84px]">
+            <HeroWelcome />
+          </div>
+        </div>
+      </section>
+
+      {/* Desktop / tablet - original design preserved */}
+      <section className="relative hidden h-[200px] overflow-hidden lg:block">
+        <div className="absolute inset-0 overflow-hidden">
+          <Image
+            src={
+              locale === "ar"
+                ? "/images/hero-road-v4.jpg"
+                : "/images/hero-road-eng.jpg"
+            }
+            alt="Masar Makers"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center"
+          />
+
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                locale === "ar"
+                  ? "linear-gradient(to left, rgba(7,21,46,.95) 0%, rgba(7,21,46,.88) 18%, rgba(7,21,46,.55) 38%, rgba(7,21,46,.18) 62%, transparent 100%)"
+                  : "linear-gradient(to right, rgba(7,21,46,.95) 0%, rgba(7,21,46,.88) 18%, rgba(7,21,46,.55) 38%, rgba(7,21,46,.18) 62%, transparent 100%)",
+            }}
+          />
+
+          <HeroWelcome />
+          <HomeMonthlyDrawStatus />
+
+          <div className="absolute inset-0 z-10">
+            <div
+              className={`mx-auto flex h-full max-w-7xl items-center ${
+                locale === "ar"
+                  ? "pl-8 pr-[160px]"
+                  : "pl-[100px] pr-8"
+              }`}
+            >
+              <div
+                dir={
+                  locale === "ar"
+                    ? "rtl"
+                    : "ltr"
+                }
+                className={`relative w-full max-w-[760px] text-white ${
                   locale === "ar"
                     ? "ml-auto text-right"
                     : "mr-auto text-left"
-                }
-              `}
-            >
-              <h1
-                className="
-                  max-w-[230px]
-                  text-[15px]
-                  font-black
-                  leading-[1.45]
-                  text-white
-
-                  sm:max-w-none
-                  sm:whitespace-nowrap
-                  sm:text-[14px]
-                  sm:leading-tight
-
-                  lg:text-[18px]
-                  xl:text-[28px]
-                "
+                }`}
               >
-                {locale === "ar" ? (
-                  <>
-                    لا تتعلم كورس فقط ...{" "}
-                    <span className="text-[#F7B548]">
-                      ابنِ مسيرتك المهنية باحتراف
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    Don&apos;t just take a course ...{" "}
-                    <span className="text-[#F7B548]">
-                      Build your professional journey with confidence
-                    </span>
-                  </>
-                )}
-              </h1>
+                <h1 className="whitespace-nowrap text-[18px] font-black leading-tight text-white xl:text-[28px]">
+                  {locale === "ar" ? (
+                    <>
+                      لا تتعلم كورس فقط ...{" "}
+                      <span className="text-[#F7B548]">
+                        ابنِ مسيرتك المهنية باحتراف
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      Don&apos;t just take a course ...{" "}
+                      <span className="text-[#F7B548]">
+                        Build your professional journey with confidence
+                      </span>
+                    </>
+                  )}
+                </h1>
 
-              <p
-                className="
-                  mt-2
-                  max-w-[215px]
-                  text-[10px]
-                  font-bold
-                  leading-[16px]
-                  text-white/90
+                <p className="mt-1 max-w-[610px] text-[14px] font-bold leading-5 text-white/90">
+                  {text.description}
+                </p>
 
-                  sm:mt-1
-                  sm:max-w-[610px]
-                  sm:text-[9px]
-                  sm:leading-5
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <AuthLink href="/dashboard">
+                    <button className="flex items-center gap-1 rounded-2xl bg-[#F7B548] px-4 py-1.5 text-[12px] font-bold text-[#07152E] transition duration-300 hover:scale-105 hover:shadow-[0_0_30px_rgba(247,181,72,.45)]">
+                      {text.start}
+                      <ArrowLeft size={15} />
+                    </button>
+                  </AuthLink>
 
-                  lg:text-[14px]
-                "
-              >
-                {text.description}
-              </p>
-
-              <div
-                className="
-                  mt-3
-                  flex
-                  flex-wrap
-                  gap-1.5
-
-                  sm:mt-4
-                  sm:gap-2
-                "
-              >
-                <AuthLink href="/dashboard">
-                  <button
-                    className="
-                      flex
-                      items-center
-                      gap-1
-                      rounded-xl
-                      bg-[#F7B548]
-                      px-3
-                      py-1.5
-                      text-[9px]
-                      font-bold
-                      text-[#07152E]
-                      transition
-                      duration-300
-                      hover:scale-105
-                      hover:shadow-[0_0_30px_rgba(247,181,72,.45)]
-
-                      sm:rounded-2xl
-                      sm:px-2
-                      sm:text-[11px]
-
-                      lg:text-[12px]
-                    "
-                  >
-                    {text.start}
-
-                    <ArrowLeft
-                      size={13}
-                      className="
-                        sm:h-[15px]
-                        sm:w-[15px]
-                      "
-                    />
-                  </button>
-                </AuthLink>
-
-                <AuthLink href="/career-path/road-design">
-                  <button
-                    className="
-                      flex
-                      items-center
-                      gap-1.5
-                      rounded-xl
-                      border
-                      border-white/30
-                      bg-white/10
-                      px-3
-                      py-1.5
-                      text-[9px]
-                      font-bold
-                      text-white
-                      backdrop-blur
-                      transition
-                      duration-300
-                      hover:bg-white
-                      hover:text-[#07152E]
-
-                      sm:rounded-2xl
-                      sm:px-2
-                      sm:text-[11px]
-
-                      lg:text-[12px]
-                    "
-                  >
-                    {text.explore}
-
-                    <Compass
-                      size={13}
-                      className="
-                        sm:h-[15px]
-                        sm:w-[15px]
-                      "
-                    />
-                  </button>
-                </AuthLink>
+                  <AuthLink href="/career-path/road-design">
+                    <button className="flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-4 py-1.5 text-[12px] font-bold text-white backdrop-blur transition duration-300 hover:bg-white hover:text-[#07152E]">
+                      {text.explore}
+                      <Compass size={15} />
+                    </button>
+                  </AuthLink>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </>
   );
 }

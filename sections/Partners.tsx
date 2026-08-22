@@ -8,6 +8,7 @@ import {
   Building2,
   ShieldCheck,
   Sparkles,
+  X,
 } from "lucide-react";
 
 type Locale = "ar" | "en";
@@ -32,6 +33,8 @@ const labels = {
     tech: "جهات تقنية متخصصة",
     expertise: "محتوى مدعوم بخبرة عملية",
     development: "تطوير مستمر للرحلات",
+    details: "اضغط لمعرفة التفاصيل",
+    close: "إغلاق",
   },
   en: {
     title: "Partnerships That Support Quality Learning",
@@ -41,6 +44,8 @@ const labels = {
     tech: "Specialized Technical Partners",
     expertise: "Practice-Driven Content",
     development: "Continuous Journey Development",
+    details: "Tap for details",
+    close: "Close",
   },
 } as const;
 
@@ -81,39 +86,20 @@ const partners: Partner[] = [
 
 export default function Partners() {
   const [locale, setLocale] = useState<Locale>("ar");
+  const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
 
   useEffect(() => {
-    const savedLocale = window.localStorage.getItem(
-      "masar-locale",
-    ) as Locale | null;
-
-    if (savedLocale === "ar" || savedLocale === "en") {
-      setLocale(savedLocale);
-    }
+    const savedLocale = window.localStorage.getItem("masar-locale") as Locale | null;
+    if (savedLocale === "ar" || savedLocale === "en") setLocale(savedLocale);
 
     const handleLocaleChange = (event: Event) => {
-      const customEvent = event as CustomEvent<{
-        locale?: Locale;
-      }>;
-
+      const customEvent = event as CustomEvent<{ locale?: Locale }>;
       const nextLocale = customEvent.detail?.locale;
-
-      if (nextLocale === "ar" || nextLocale === "en") {
-        setLocale(nextLocale);
-      }
+      if (nextLocale === "ar" || nextLocale === "en") setLocale(nextLocale);
     };
 
-    window.addEventListener(
-      "masar:locale-change",
-      handleLocaleChange,
-    );
-
-    return () => {
-      window.removeEventListener(
-        "masar:locale-change",
-        handleLocaleChange,
-      );
-    };
+    window.addEventListener("masar:locale-change", handleLocaleChange);
+    return () => window.removeEventListener("masar:locale-change", handleLocaleChange);
   }, []);
 
   const text = labels[locale];
@@ -127,141 +113,126 @@ export default function Partners() {
       className="w-full bg-[#F7F8FA] px-3 py-3 sm:px-4 lg:px-5"
     >
       <div className="mx-auto max-w-[1680px]">
-        {/* 5 columns = Intro + 4 partners */}
         <div className="grid gap-3 xl:grid-cols-[1.45fr_repeat(4,minmax(0,0.8875fr))]">
-          {/* Main message */}
-          <div className="relative -mx-3 flex min-h-[150px] w-[calc(100%+1.5rem)] flex-col overflow-hidden rounded-none bg-[#07152E] px-5 py-3 text-white shadow-[0_18px_45px_rgba(7,21,46,0.15)] sm:-mx-4 sm:w-[calc(100%+2rem)] sm:min-h-[135px] sm:px-6 sm:py-3 xl:mx-0 xl:min-h-[235px] xl:w-full xl:rounded-[24px] xl:p-5">
-            <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-[#F7B548]/16 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-20 left-8 h-44 w-44 rounded-full bg-white/10 blur-3xl" />
-
+          <div className="relative -mx-3 flex min-h-[150px] w-[calc(100%+1.5rem)] flex-col overflow-hidden bg-[#07152E] px-5 py-3 text-white shadow-[0_18px_45px_rgba(7,21,46,0.15)] sm:-mx-4 sm:w-[calc(100%+2rem)] sm:min-h-[135px] sm:px-6 xl:mx-0 xl:min-h-[235px] xl:w-full xl:rounded-[24px] xl:p-5">
             <div className="relative z-10 flex h-full flex-col">
-              <div
-  dir={isArabic ? "rtl" : "ltr"}
-  className="flex items-center justify-start gap-3"
->
-  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#F7B548]/35 bg-[#F7B548]/10 text-[#F7B548] xl:h-12 xl:w-12">
-    <ShieldCheck size={22} />
-  </div>
+              <div className="flex items-center justify-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#F7B548]/35 bg-[#F7B548]/10 text-[#F7B548] xl:h-12 xl:w-12">
+                  <ShieldCheck size={22} />
+                </div>
+                <h3 className={`font-black leading-tight ${isArabic ? "text-[18px] sm:text-[20px] xl:text-[23px]" : "text-[17px] sm:text-[19px] xl:text-[21px]"}`}>
+                  {text.title}
+                </h3>
+              </div>
 
-  <h3
-    className={`font-black leading-tight ${
-      isArabic
-  ? "text-[18px] sm:text-[20px] xl:text-[23px]"
-  : "text-[17px] sm:text-[19px] xl:text-[21px]"
-    }`}
-  >
-    {text.title}
-  </h3>
-</div>
-
-              <p
-                className={`mt-2.5 font-medium text-slate-300 ${
-                 isArabic
-  ? "text-[11px] leading-5 sm:text-[12px] sm:leading-6 xl:text-[13px]"
-  : "text-[10px] leading-[1.55] sm:text-[11px] xl:text-[12px]"
- }`}
-              >
+              <p className={`mt-2.5 font-medium text-slate-300 ${isArabic ? "text-[11px] leading-5 sm:text-[12px] sm:leading-6 xl:text-[13px]" : "text-[10px] leading-[1.55] sm:text-[11px] xl:text-[12px]"}`}>
                 {text.description}
               </p>
 
-              <div
-                className={`mt-auto sm:mt-0 flex items-center gap-2 pt-3 ${
-                  isArabic ? "justify-end" : "justify-start"
-                }`}
-              >
-                <span className="text-[12px] font-black tracking-wide text-[#F7B548] sm:text-[13px] xl:text-[13px]">
+              <div className={`mt-auto flex items-center gap-2 pt-3 sm:mt-0 ${isArabic ? "justify-end" : "justify-start"}`}>
+                <span className="text-[12px] font-black tracking-wide text-[#F7B548] sm:text-[13px]">
                   {text.discover}
                 </span>
-
                 <DiscoverArrow className="h-4 w-4 text-[#F7B548]" />
               </div>
             </div>
           </div>
 
-          {/* Partner cards */}
-          <div className="grid grid-cols-4 gap-2 xl:contents">
-          {partners.map((partner) => (
-            <article
-              key={partner.name}
-              className="group relative flex min-h-[148px] flex-col overflow-hidden rounded-[16px] border border-[#DCE3EC] bg-white p-2 text-center shadow-[0_10px_24px_rgba(7,21,46,0.05)] transition-all duration-500 hover:-translate-y-1 hover:border-[#F7B548]/65 hover:shadow-[0_16px_34px_rgba(7,21,46,0.09)] sm:min-h-[165px] sm:rounded-[18px] sm:p-2.5 xl:min-h-[225px] xl:rounded-[22px] xl:p-3.5"
-            >
-              <div className="pointer-events-none absolute -left-12 -top-12 h-28 w-28 rounded-full bg-[#F7B548]/0 blur-3xl transition duration-500 group-hover:bg-[#F7B548]/13" />
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:contents">
+            {partners.map((partner) => (
+              <article
+                key={partner.name}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedPartner(partner)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") setSelectedPartner(partner);
+                }}
+                className="group relative flex min-h-[142px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[18px] border border-[#DCE3EC] bg-white p-3 text-center shadow-[0_10px_24px_rgba(7,21,46,0.05)] transition active:scale-[0.98] sm:min-h-[155px] xl:min-h-[225px] xl:cursor-default xl:justify-start xl:rounded-[22px] xl:p-3.5"
+              >
+                <div className="flex h-[72px] w-full items-center justify-center px-2 sm:h-[76px] xl:h-[82px]">
+                  <Image
+                    src={partner.logo}
+                    alt={partner.name}
+                    width={180}
+                    height={90}
+                    sizes="(max-width: 639px) 38vw, (max-width: 1279px) 20vw, 180px"
+                    className="h-auto max-h-[62px] w-auto max-w-full object-contain sm:max-h-[66px] xl:max-h-[72px] xl:max-w-[150px]"
+                  />
+                </div>
 
-              <div className="relative z-10 mx-auto flex h-[58px] w-full items-center justify-center py-1 sm:h-[50px] xl:h-[82px] xl:py-2">
-                <Image
-                  src={partner.logo}
-                  alt={partner.name}
-                  width={180}
-                  height={90}
-                  sizes="180px"
-                  className="max-h-[52px] max-w-[92px] object-contain transition-all duration-500 group-hover:-translate-y-1 group-hover:scale-105 sm:max-h-[60px] sm:max-w-[110px] xl:max-h-[72px] xl:max-w-[150px]"
-                />
-              </div>
-
-              <div className="relative z-10 mt-3">
-                <h3 className="line-clamp-2 text-[8px] font-black leading-[1.15] text-[#07152E] sm:text-[10px] xl:text-[15px]">
-                  {partner.name}
-                </h3>
-
-                <div className="mx-auto mt-1.5 h-[2px] w-6 rounded-full bg-[#F7B548] transition-all duration-500 group-hover:w-10 xl:mt-2 xl:h-[3px] xl:w-9 xl:group-hover:w-14" />
-
-                <p
-                  className={`mt-3 font-bold text-slate-600 ${
-                   isArabic
-  ? "text-[9px] leading-[1.75] sm:text-[10px] sm:leading-5 xl:text-[13px] xl:leading-6"
-  : "text-[8.5px] leading-[1.55] sm:text-[10px] xl:text-[12px]"
-                  }`}
-                >
-                  {partner.description[locale]}
-                </p>
-              </div>
-            </article>
-          ))}
+                <div className="mt-2 w-full">
+                  <h3 className="mx-auto line-clamp-2 max-w-[150px] text-[11px] font-black leading-[1.25] text-[#07152E] sm:text-[12px] xl:text-[15px]">
+                    {partner.name}
+                  </h3>
+                  <div className="mx-auto mt-2 h-[2px] w-7 rounded-full bg-[#F7B548] xl:h-[3px] xl:w-9" />
+                  <p className="mt-2 text-[9px] font-bold text-slate-400 xl:hidden">{text.details}</p>
+                  <p className={`mt-3 hidden font-bold text-slate-600 xl:block ${isArabic ? "text-[13px] leading-6" : "text-[12px] leading-[1.55]"}`}>
+                    {partner.description[locale]}
+                  </p>
+                </div>
+              </article>
+            ))}
           </div>
         </div>
 
-        {/* Trust strip */}
-        <div className="mt-2.5 grid grid-cols-3 gap-3 rounded-[20px] border border-[#E0E6EE] bg-white px-5 py-2 text-center shadow-[0_8px_24px_rgba(7,21,46,0.04)]">
-          <div className="flex items-center justify-center gap-3">
-            <Building2 size={23} className="text-[#D49319]" />
-            <span
-              className={`font-black text-[#07152E] ${
-                isArabic
-  ? "text-[10px] sm:text-[12px] lg:text-[15px]"
-  : "text-[9px] sm:text-[11px] lg:text-[13px]"
-              }`}
-            >
-              {text.tech}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-center gap-3">
-            <ShieldCheck size={18} className="text-[#D49319]" />
-            <span
-              className={`font-black text-[#07152E] ${
-                isArabic
-                  ? "text-[15px]"
-                  : "text-[13px]"
-              }`}
-            >
-              {text.expertise}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-center gap-3">
-            <Sparkles size={23} className="text-[#D49319]" />
-            <span
-              className={`font-black text-[#07152E] ${
-                isArabic
-                  ? "text-[15px]"
-                  : "text-[13px]"
-              }`}
-            >
-              {text.development}
-            </span>
-          </div>
+        <div className="mt-2.5 grid grid-cols-3 gap-1.5 rounded-[18px] border border-[#E0E6EE] bg-white px-2 py-2.5 text-center shadow-[0_8px_24px_rgba(7,21,46,0.04)] sm:gap-3 sm:px-5">
+          {[
+            [Building2, text.tech],
+            [ShieldCheck, text.expertise],
+            [Sparkles, text.development],
+          ].map(([Icon, label], index) => {
+            const IconComponent = Icon as typeof Building2;
+            return (
+              <div key={index} className="flex min-w-0 flex-col items-center gap-1.5 sm:flex-row sm:justify-center sm:gap-3">
+                <IconComponent size={18} className="shrink-0 text-[#D49319]" />
+                <span className={`font-black leading-[1.45] text-[#07152E] ${isArabic ? "text-[9px] sm:text-[12px] lg:text-[15px]" : "text-[8px] sm:text-[11px] lg:text-[13px]"}`}>
+                  {label as string}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
+
+      {selectedPartner && (
+        <div
+          className="fixed inset-0 z-[300] flex items-center justify-center bg-[#07152E]/70 p-5 backdrop-blur-sm xl:hidden"
+          onClick={() => setSelectedPartner(null)}
+        >
+          <div
+            className="relative w-full max-w-[360px] rounded-[24px] bg-white p-6 text-center shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setSelectedPartner(null)}
+              aria-label={text.close}
+              className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-[#07152E]"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="mx-auto flex h-[90px] items-center justify-center px-8">
+              <Image
+                src={selectedPartner.logo}
+                alt={selectedPartner.name}
+                width={220}
+                height={110}
+                className="max-h-[82px] max-w-[210px] object-contain"
+              />
+            </div>
+
+            <h3 className="mt-3 text-[17px] font-black text-[#07152E]">
+              {selectedPartner.name}
+            </h3>
+            <div className="mx-auto mt-3 h-[3px] w-12 rounded-full bg-[#F7B548]" />
+            <p className="mt-4 text-[13px] font-semibold leading-7 text-slate-600">
+              {selectedPartner.description[locale]}
+            </p>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
