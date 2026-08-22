@@ -18,16 +18,13 @@ type Locale = "ar" | "en";
 
 const heroText = {
   ar: {
-    titleOne:
-      "لا تتعلم كورس فقط ... ابنِ مسيرتك المهنية باحتراف",
     description:
       "رحلات تعليمية عملية تنقلك من التصميم إلى الإبهار، ومن المعرفة إلى الاحتراف",
     start: "ابدأ رحلتك",
     explore: "استكشف المسارات",
   },
+
   en: {
-    titleOne:
-      "Don't just take a course ... Build your professional journey professionally",
     description:
       "Practical learning journeys that take you from design to distinction, and from knowledge to professional mastery.",
     start: "Start Your Journey",
@@ -87,87 +84,229 @@ export default function Hero() {
 
   return (
     <>
-      {/* Mobile */}
+      {/* =====================================================
+          MOBILE
+      ====================================================== */}
+
       <section
         dir={locale === "ar" ? "rtl" : "ltr"}
-        className="relative overflow-hidden bg-[#07152E] lg:hidden"
+        className="
+          relative
+          h-[10svh]
+          min-h-[100px]
+          max-h-[155px]
+          w-full
+          overflow-hidden
+          bg-[#07152E]
+          lg:hidden
+        "
       >
-        {/* Top text area */}
-        <div className="px-4 pb-4 pt-5 text-white">
-          <div
-            className={
-              locale === "ar"
-                ? "text-right"
-                : "text-left"
-            }
-          >
-            <h1 className="text-[19px] font-black leading-[1.55]">
+        {/* Decorative glow */}
+        <div
+          className="
+            pointer-events-none
+            absolute
+            -left-12
+            top-1/2
+            h-[150px]
+            w-[150px]
+            -translate-y-1/2
+            rounded-full
+            bg-[#F7B548]/10
+            blur-3xl
+          "
+        />
+
+        {/* ================= LOGO ================= */}
+<div
+  className="
+    absolute
+    left-10
+    top-1/2
+    z-20
+    flex
+    h-[58px]
+    w-[58px]
+    -translate-y-1/2
+    items-center
+    justify-center
+    overflow-hidden
+    rounded-full
+    border
+    border-[#F7B548]
+    bg-[#07152E]
+    shadow-[0_0_12px_rgba(247,181,72,.85),0_0_22px_rgba(247,181,72,.40)]
+  "
+>
+  <Image
+    src="/images/logo/masar-makers-mark.png"
+    alt="Masar Makers"
+    width={70}
+    height={70}
+    className="
+      relative
+          top-0.5
+      z-15
+      h-[100px]
+      w-[100px]
+      max-w-none
+      object-contain
+    "
+  />
+</div>
+
+        {/* ================= CENTER CONTENT ================= */}
+
+        <div
+          className="
+            absolute
+            inset-y-0
+            left-[140px]
+            right-[138px]
+            z-20
+            flex
+            items-center
+            justify-center
+          "
+        >
+          <div className="w-full text-center text-white">
+            <h1
+              className="
+                text-[13px]
+                font-black
+                leading-[1.35]
+                sm:text-[14px]
+              "
+            >
               {locale === "ar" ? (
                 <>
-                  لا تتعلم كورس فقط ...{" "}
+                  لا تتعلم كورس فقط ...
+                  <br />
+
                   <span className="text-[#F7B548]">
                     ابنِ مسيرتك المهنية باحتراف
                   </span>
                 </>
               ) : (
                 <>
-                  Don&apos;t just take a course ...{" "}
+                  Don&apos;t just take a course...
+                  <br />
+
                   <span className="text-[#F7B548]">
-                    Build your professional journey with confidence
+                    Build your professional journey
                   </span>
                 </>
               )}
             </h1>
 
-            <p className="mt-1.5 text-[12px] font-semibold leading-6 text-white/85">
+            <p
+              className="
+                mx-auto
+                mt-0
+                line-clamp-1
+                max-w-[260px]
+                text-[7.5px]
+                font-semibold
+                leading-3
+                text-white/75
+              "
+            >
               {text.description}
             </p>
 
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div
+              className="
+                mt-1
+                flex
+                items-center
+                justify-center
+                gap-1.5
+              "
+            >
               <AuthLink href="/dashboard">
-                <button className="flex items-center gap-1.5 rounded-xl bg-[#F7B548] px-4 py-2 text-[11px] font-black text-[#07152E]">
+                <button
+                  className="
+                    flex
+                    items-center
+                    gap-1
+                    whitespace-nowrap
+                    rounded-lg
+                    bg-[#F7B548]
+                    px-2.5
+                    py-1.5
+                    text-[8px]
+                    font-black
+                    text-[#07152E]
+                  "
+                >
                   {text.start}
-                  <ArrowLeft size={14} />
+
+                  <ArrowLeft size={10} />
                 </button>
               </AuthLink>
 
               <AuthLink href="/career-path/road-design">
-                <button className="flex items-center gap-1.5 rounded-xl border border-white/30 bg-white/10 px-4 py-2 text-[11px] font-black text-white">
+                <button
+                  className="
+                    flex
+                    items-center
+                    gap-1
+                    whitespace-nowrap
+                    rounded-lg
+                    border
+                    border-white/25
+                    bg-white/5
+                    px-2.5
+                    py-1.5
+                    text-[8px]
+                    font-black
+                    text-white
+                  "
+                >
                   {text.explore}
-                  <Compass size={14} />
+
+                  <Compass size={10} />
                 </button>
               </AuthLink>
             </div>
           </div>
         </div>
 
-        {/* Clean image area */}
-        <div className="relative h-[160px] w-full overflow-hidden sm:h-[185px]">
-          <Image
-            src={
-              locale === "ar"
-                ? "/images/hero-road-v4.jpg"
-                : "/images/hero-road-eng.jpg"
-            }
-            alt="Masar Makers"
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover object-center"
-          />
+        {/* ================= DRAW CARD ================= */}
+
+        <div
+          className="
+            absolute
+            right-5
+            top-1/2
+            z-30
+            w-[90px]
+                        -translate-y-1/2
+          "
+        >
+          <HomeMonthlyDrawStatus compactMobile />
         </div>
 
-        {/* Bottom area */}
-        <div className="relative min-h-[132px] bg-gradient-to-b from-[#07152E] to-[#102442] px-3 pb-3 pt-2">
-          <HomeMonthlyDrawStatus />
-          <div className="pt-[84px]">
-            <HeroWelcome />
-          </div>
-        </div>
+        {/*
+          HeroWelcome intentionally hidden on mobile
+          to reduce visual crowding.
+        */}
       </section>
 
-      {/* Desktop / tablet - original design preserved */}
-      <section className="relative hidden h-[200px] overflow-hidden lg:block">
+      {/* =====================================================
+          DESKTOP
+          Existing layout preserved
+      ====================================================== */}
+
+      <section
+        className="
+          relative
+          hidden
+          h-[200px]
+          overflow-hidden
+          lg:block
+        "
+      >
         <div className="absolute inset-0 overflow-hidden">
           <Image
             src={
@@ -193,6 +332,7 @@ export default function Hero() {
           />
 
           <HeroWelcome />
+
           <HomeMonthlyDrawStatus />
 
           <div className="absolute inset-0 z-10">
@@ -215,10 +355,20 @@ export default function Hero() {
                     : "mr-auto text-left"
                 }`}
               >
-                <h1 className="whitespace-nowrap text-[18px] font-black leading-tight text-white xl:text-[28px]">
+                <h1
+                  className="
+                    whitespace-nowrap
+                    text-[18px]
+                    font-black
+                    leading-tight
+                    text-white
+                    xl:text-[28px]
+                  "
+                >
                   {locale === "ar" ? (
                     <>
                       لا تتعلم كورس فقط ...{" "}
+
                       <span className="text-[#F7B548]">
                         ابنِ مسيرتك المهنية باحتراف
                       </span>
@@ -226,6 +376,7 @@ export default function Hero() {
                   ) : (
                     <>
                       Don&apos;t just take a course ...{" "}
+
                       <span className="text-[#F7B548]">
                         Build your professional journey with confidence
                       </span>
@@ -233,21 +384,61 @@ export default function Hero() {
                   )}
                 </h1>
 
-                <p className="mt-1 max-w-[610px] text-[14px] font-bold leading-5 text-white/90">
+                <p
+                  className="
+                    mt-1
+                    max-w-[610px]
+                    text-[14px]
+                    font-bold
+                    leading-5
+                    text-white/90
+                  "
+                >
                   {text.description}
                 </p>
 
                 <div className="mt-4 flex flex-wrap gap-2">
                   <AuthLink href="/dashboard">
-                    <button className="flex items-center gap-1 rounded-2xl bg-[#F7B548] px-4 py-1.5 text-[12px] font-bold text-[#07152E] transition duration-300 hover:scale-105 hover:shadow-[0_0_30px_rgba(247,181,72,.45)]">
+                    <button
+                      className="
+                        flex
+                        items-center
+                        gap-1
+                        rounded-2xl
+                        bg-[#F7B548]
+                        px-4
+                        py-1.5
+                        text-[12px]
+                        font-bold
+                        text-[#07152E]
+                      "
+                    >
                       {text.start}
+
                       <ArrowLeft size={15} />
                     </button>
                   </AuthLink>
 
                   <AuthLink href="/career-path/road-design">
-                    <button className="flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-4 py-1.5 text-[12px] font-bold text-white backdrop-blur transition duration-300 hover:bg-white hover:text-[#07152E]">
+                    <button
+                      className="
+                        flex
+                        items-center
+                        gap-2
+                        rounded-2xl
+                        border
+                        border-white/30
+                        bg-white/10
+                        px-4
+                        py-1.5
+                        text-[12px]
+                        font-bold
+                        text-white
+                        backdrop-blur
+                      "
+                    >
                       {text.explore}
+
                       <Compass size={15} />
                     </button>
                   </AuthLink>

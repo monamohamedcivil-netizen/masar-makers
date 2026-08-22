@@ -165,10 +165,10 @@ export default function CareerPaths() {
     <section
       id="paths"
       dir={locale === "ar" ? "rtl" : "ltr"}
-      className="w-full bg-[#F7F8FA] py-3 sm:py-4 lg:py-5"
+      className="w-full bg-[#F7F8FA] py-1 sm:py-4 lg:py-5"
     >
       <div className="mx-auto w-full max-w-[1600px] px-3 sm:px-5 lg:px-7 xl:px-10">
-        <div className="grid gap-4 xl:grid-cols-2 xl:gap-5 2xl:gap-6">
+        <div className="grid gap-2 xl:grid-cols-2 xl:gap-5 2xl:gap-">
           {paths.map((path, pathIndex) => {
             const current = activeCourse[pathIndex];
             const isRoad = path.key === "road";
@@ -186,7 +186,7 @@ export default function CareerPaths() {
                 key={path.key}
                 className="
                   group relative mx-auto
-                  h-[275px] w-full
+                  h-[210px] w-full
                   overflow-hidden rounded-[24px]
                   bg-[#07152E] text-white
                   shadow-[0_22px_55px_rgba(7,21,46,0.22)]
@@ -248,14 +248,14 @@ export default function CareerPaths() {
                       </h3>
 
                       <div
-                        className={`mt-2 h-[2px] w-36 rounded-full bg-[#F7B548] ${
+                        className={`mt-1 h-[2px] w-36 rounded-full bg-[#F7B548] ${
                           locale === "ar"
                             ? "ml-auto"
                             : "mr-auto"
                         }`}
                       />
 
-                      <p className="mt-3 line-clamp-2 text-[12px] font-semibold leading-5 text-slate-100 sm:text-[13px] sm:leading-6 lg:text-[14px]">
+                      <p className="mt-1 line-clamp-2 text-[12px] font-semibold leading-5 text-slate-100 sm:text-[13px] sm:leading-6 lg:text-[14px]">
                         {description}
                       </p>
                     </div>
@@ -281,7 +281,7 @@ export default function CareerPaths() {
                   </div>
 
                   {/* Road raised upward */}
-                  <div className="-mt-3 rounded-[22px] border border-white/15 bg-[#06142B]/90 px-3 pb-2 pt-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl sm:-mt-4 sm:px-4 sm:pb-2.5 sm:pt-1 lg:-mt-5">
+                  <div className="-mt-9 rounded-[22px] border border-white/15 bg-[#06142B]/90 px-3 pb-0 pt-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl sm:-mt-4 sm:px-4 sm:pb-2.5 sm:pt-1 lg:-mt-5">
                     <RoadJourney
   items={path.coursesList}
   activeIndex={current}
