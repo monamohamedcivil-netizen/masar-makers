@@ -120,14 +120,29 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-  }
-
-  body {
-    @apply bg-background text-foreground;
+    box-sizing: border-box;
   }
 
   html {
     @apply font-sans;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: clip;
+    margin: 0;
+  }
+
+  #__next {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
   @keyframes pathRoadFlow {

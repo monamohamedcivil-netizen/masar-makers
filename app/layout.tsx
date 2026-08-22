@@ -35,7 +35,7 @@ export default function RootLayout({
       dir="rtl"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-screen bg-[#F7F8FA]">
+      <body className="min-h-screen w-full min-w-0 max-w-full overflow-x-clip bg-[#F7F8FA]">
         <RootClientShell>
           {children}
         </RootClientShell>
