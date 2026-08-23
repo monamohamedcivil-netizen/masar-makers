@@ -17,6 +17,14 @@ import {
   useState,
 } from "react";
 
+type StudentLessonResource = {
+  id: string;
+  title: string;
+  type: string | null;
+  scope: "lesson" | "section";
+  downloadUrl: string;
+};
+
 type StudentLessonPlayback = {
   lessonId: string;
   courseId: string;
@@ -27,6 +35,8 @@ type StudentLessonPlayback = {
   initialPositionSeconds: number;
   initialProgressPercent: number;
   alreadyCompleted: boolean;
+  lessonResources: StudentLessonResource[];
+  sectionResources: StudentLessonResource[];
   watermark: {
     name: string;
     email: string;
@@ -150,6 +160,14 @@ type Props = {
 };
 
 const WATERMARK_POSITIONS = [
+  "right-[6%] top-[8%]",
+  "left-[7%] top-[12%]",
+  "right-[10%] bottom-[18%]",
+  "left-[8%] bottom-[20%]",
+  "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
+];
+
+const FULLSCREEN_WATERMARK_POSITIONS = [
   "right-[6%] top-[8%]",
   "left-[7%] top-[12%]",
   "right-[10%] bottom-[18%]",
@@ -856,78 +874,87 @@ export default function BunnyVideoPlayer({
         className={[
           "relative overflow-hidden bg-black shadow-2xl",
           isProtectedFullscreen
-            ? "fixed inset-0 z-[9999] h-screen w-screen rounded-none"
+            ? "fixed inset-0 z-[9999] flex h-[100dvh] w-screen items-center justify-center rounded-none"
             : "rounded-3xl",
         ].join(" ")}
       >
-        <iframe
-          ref={iframeRef}
-          src={
-            playback.embedUrl
-          }
-          title={
-            playback.title
-          }
-          allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
-          referrerPolicy="strict-origin-when-cross-origin"
-          className={
-            isProtectedFullscreen
-              ? "h-full w-full border-0"
-              : "aspect-video w-full border-0"
-          }
-        />
-
-        {/* ثابت: شعار Masar Makers */}
-        <img
-          src="/images/branding/masar-makers-video-logo.png"
-          alt=""
-          aria-hidden="true"
-          draggable={false}
-          className={[
-            "pointer-events-none absolute right-4 z-30 select-none object-contain drop-shadow-xl",
-            isProtectedFullscreen
-              ? "bottom-16 w-36 md:w-40"
-              : "bottom-14 w-16 md:w-20",
-          ].join(" ")}
-        />
-
-        {/* متحرك: Watermark خاص بالطالب */}
         <div
-          aria-hidden="true"
-         className={`pointer-events-none absolute z-20 select-none rounded-md bg-black/15 text-white/40 shadow-sm backdrop-blur-[1px] transition-all duration-700 ${
+          className={[
+            "relative overflow-hidden bg-black",
             isProtectedFullscreen
-              ? "max-w-[42%] px-3 py-2"
-              : "max-w-[34%] px-2 py-1"
-          } ${WATERMARK_POSITIONS[watermarkIndex]}`}
+              ? "aspect-video w-full max-h-[100dvh] max-w-[177.7778vh]"
+              : "aspect-video w-full",
+          ].join(" ")}
         >
-          {watermarkText}
-        </div>
+          <iframe
+            ref={iframeRef}
+            src={
+              playback.embedUrl
+            }
+            title={
+              playback.title
+            }
+            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+            referrerPolicy="strict-origin-when-cross-origin"
+            className="absolute inset-0 h-full w-full border-0"
+          />
 
-        {/*
-         * هذا الزر يغطي زر Full Screen الداخلي في Bunny.
-         * بالتالي يتم تكبير الفيديو + اللوجو + Watermark معًا.
-         */}
-        <button
-          type="button"
-          onClick={toggleProtectedFullscreen}
-          aria-label={
-            isProtectedFullscreen
-              ? "الخروج من ملء الشاشة"
-              : "ملء الشاشة"
-          }
-          title={
-            isProtectedFullscreen
-              ? "الخروج من ملء الشاشة"
-              : "ملء الشاشة"
-          }
-          className="absolute bottom-2 right-2 z-50 flex h-10 w-10 items-center justify-center rounded-lg bg-black/75 text-white shadow-lg backdrop-blur-sm transition hover:bg-black"
-        >
-          {isProtectedFullscreen ? (
-            <Minimize2 className="h-5 w-5" />
-          ) : (
-            <Maximize2 className="h-5 w-5" />
-          )}
-        </button>
+          {/* ثابت: شعار Masar Makers — مربوط بمساحة الفيديو نفسها */}
+          <img
+            src="/images/branding/masar-makers-video-logo.png"
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className={[
+              "pointer-events-none absolute right-3 z-30 select-none object-contain drop-shadow-xl sm:right-4",
+              isProtectedFullscreen
+                ? "bottom-4 w-16 sm:bottom-5 sm:w-20 md:w-24"
+                : "bottom-10 w-14 sm:bottom-12 sm:w-16 md:w-20",
+            ].join(" ")}
+          />
+
+          {/* متحرك: Watermark خاص بالطالب — يتحرك داخل الفيديو فقط */}
+          <div
+            aria-hidden="true"
+            className={`pointer-events-none absolute z-20 select-none rounded-md bg-black/15 text-white/40 shadow-sm backdrop-blur-[1px] transition-all duration-700 ${
+              isProtectedFullscreen
+                ? "max-w-[44%] px-2 py-1 sm:max-w-[42%] sm:px-3 sm:py-2"
+                : "max-w-[34%] px-2 py-1"
+            } ${
+              (isProtectedFullscreen
+                ? FULLSCREEN_WATERMARK_POSITIONS
+                : WATERMARK_POSITIONS)[watermarkIndex]
+            }`}
+          >
+            {watermarkText}
+          </div>
+
+          {/*
+           * هذا الزر يغطي زر Full Screen الداخلي في Bunny.
+           * بالتالي يتم تكبير الفيديو + اللوجو + Watermark معًا.
+           */}
+          <button
+            type="button"
+            onClick={toggleProtectedFullscreen}
+            aria-label={
+              isProtectedFullscreen
+                ? "الخروج من ملء الشاشة"
+                : "ملء الشاشة"
+            }
+            title={
+              isProtectedFullscreen
+                ? "الخروج من ملء الشاشة"
+                : "ملء الشاشة"
+            }
+            className="absolute bottom-2 right-2 z-50 flex h-9 w-9 items-center justify-center rounded-lg bg-black/75 text-white shadow-lg backdrop-blur-sm transition hover:bg-black sm:h-10 sm:w-10"
+          >
+            {isProtectedFullscreen ? (
+              <Minimize2 className="h-5 w-5" />
+            ) : (
+              <Maximize2 className="h-5 w-5" />
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

@@ -208,7 +208,7 @@ export default function CourseJourneyLessonsPanel({
   return (
     <section
       dir="rtl"
-      className="min-h-[400px] overflow-hidden rounded-[24px] border border-[#C9D2DE] bg-white shadow-[0_22px_55px_rgba(7,21,46,0.16),0_4px_12px_rgba(7,21,46,0.08)]"
+      className="min-h-[400px] overflow-hidden rounded-b-[24px] rounded-t-none border border-[#C9D2DE] bg-white shadow-[0_22px_55px_rgba(7,21,46,0.16),0_4px_12px_rgba(7,21,46,0.08)] lg:rounded-[24px]"
     >
       <header className="flex min-h-[64px] items-center gap-2.5 border-b-[3px] border-[#F7B548] bg-[#07152E] px-5 py-2.5 text-white sm:px-6">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F7B548] text-[#07152E]">

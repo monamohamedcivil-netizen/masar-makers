@@ -134,6 +134,13 @@ export default async function CareerPathPage({
           courseIds
         );
 
+      /*
+       * "الرحلات التدريبية" هنا تعني الرحلات التعليمية داخل المسار،
+       * وليست سجلات journeys التقنية (Professional / One Day / Free).
+       *
+       * كورس كامل = رحلة واحدة
+       * كورس Split = رحلتان (Fundamentals + Advanced)
+       */
       const journeysCount =
         activeCourses.reduce(
           (total, course) =>
@@ -150,6 +157,7 @@ export default async function CareerPathPage({
       return {
         stationId: station.id,
         journeysCount,
+        totalMinutes,
         roundedHours,
       };
     })
@@ -255,41 +263,28 @@ export default async function CareerPathPage({
 
   const totalStations = activeStations.length;
 
-  const totalJourneys = activeStations.reduce(
-    (stationTotal, station) =>
-      stationTotal +
-      station.courses
-        .filter((course) => course.is_active)
-        .reduce(
-          (courseTotal, course) =>
-            courseTotal +
-            (course.level === "split" ? 2 : 1),
-          0
-        ),
-    0
-  );
+  /*
+   * إجمالي الرحلات التدريبية في المسار
+   * بنفس تعريف الرحلة المستخدم داخل كل محطة.
+   */
+  const totalJourneys =
+    stationStats.reduce(
+      (total, item) =>
+        total + item.journeysCount,
+      0
+    );
 
-  const totalTrainingHours = activeStations.reduce(
-    (stationTotal, station) => {
-      const stationHours =
-        station.courses
-          .filter((course) => course.is_active)
-          .reduce(
-            (courseTotal, course) =>
-              courseTotal +
-              Math.max(
-                0,
-                Number(
-                  course.duration_hours ?? 0
-                )
-              ),
-            0
-          );
-
-      return stationTotal + stationHours;
-    },
-    0
-  );
+  /*
+   * المحتوى التدريبي ديناميكي من مدد المحاضرات المنشورة فعلًا.
+   * نحافظ على نفس طريقة عرض مدة كل محطة:
+   * تقريب مدة المحطة لأعلى إلى أقرب 5 ساعات، ثم جمع المحطات.
+   */
+  const totalTrainingHours =
+    stationStats.reduce(
+      (total, item) =>
+        total + item.roundedHours,
+      0
+    );
 
   const heroImage =
     path.image_url ??

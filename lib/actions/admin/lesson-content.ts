@@ -8,6 +8,22 @@ type Result<T = unknown> =
   | { success: true; data?: T; message: string }
   | { success: false; message: string };
 
+type ResourceScope = "lesson" | "section";
+type CoursePart = "single" | "fundamentals" | "advanced";
+
+function resourceScopeValue(value: unknown): ResourceScope {
+  return value === "section" ? "section" : "lesson";
+}
+
+function coursePartValue(value: unknown): CoursePart {
+  const part = String(value || "").trim().toLowerCase();
+
+  if (part === "fundamentals") return "fundamentals";
+  if (part === "advanced") return "advanced";
+
+  return "single";
+}
+
 async function adminClient() {
   const supabase = await createClient();
 
@@ -190,12 +206,34 @@ export async function saveLesson(
     }
 
     const primaryJourney = selectedJourneys[0];
+
+    /*
+     * lessons.journey_type حقل قديم وله CHECK constraint بالقيم:
+     * fundamental / advanced / integrated / workshop / free
+     *
+     * أما journeys.journey_type في النظام الحالي فيستخدم:
+     * professional / one_day / free
+     *
+     * لذلك لا يجوز نسخ primaryJourney.journey_type مباشرة إلى lessons.
+     * lesson_journeys يظل المصدر الحقيقي للربط المتعدد.
+     */
+    const legacyLessonJourneyType =
+      requestedJourneyTypes.includes("professional")
+        ? requestedCoursePart === "fundamentals"
+          ? "fundamental"
+          : requestedCoursePart === "advanced"
+            ? "advanced"
+            : "integrated"
+        : requestedJourneyTypes.includes("one_day")
+          ? "workshop"
+          : "free";
+
     const payload: Record<string, unknown> = {
       course_id: courseId,
       course_part: requestedCoursePart,
       // الحقول القديمة تبقى للتوافق فقط؛ lesson_journeys هو المصدر الحقيقي للربط المتعدد.
       journey_id: primaryJourney.id,
-      journey_type: primaryJourney.journey_type,
+      journey_type: legacyLessonJourneyType,
       title,
       description: clean(input.description),
       video_provider: clean(input.video_provider) || "bunny",
@@ -299,7 +337,8 @@ export async function deleteLessonContent(
     const { data: resources } = await supabase
       .from("lesson_resources")
       .select("file_path")
-      .eq("lesson_id", id);
+      .eq("lesson_id", id)
+      .eq("resource_scope", "lesson");
 
     const paths = (resources ?? [])
       .map(
@@ -411,6 +450,128 @@ function safeName(name: string) {
   return `${Date.now()}-${crypto.randomUUID()}-${base}.${extension}`;
 }
 
+
+/*
+ * الحد البرمجي المستقبلي للمرفقات.
+ * Supabase Free يظل صاحب الحد الفعلي الحالي (50 MB).
+ * بعد الترقية يمكن رفع Global/Bucket limit بدون إعادة تصميم الرفع.
+ */
+const RESOURCE_APP_MAX_BYTES =
+  500 * 1024 * 1024;
+
+export async function prepareLessonAssetUpload(
+  input: Record<string, unknown>,
+): Promise<
+  Result<{
+    path: string;
+    bucket: string;
+  }>
+> {
+  try {
+    const { user } =
+      await adminClient();
+
+    const resourceScope =
+      resourceScopeValue(
+        input.resource_scope,
+      );
+
+    const lessonId = clean(
+      input.lesson_id,
+    );
+
+    const courseId = clean(
+      input.course_id,
+    );
+
+    const coursePart =
+      coursePartValue(
+        input.course_part,
+      );
+
+    const fileName =
+      clean(input.file_name);
+
+    const fileSize =
+      Math.max(
+        0,
+        numberValue(
+          input.file_size,
+          0,
+        ),
+      );
+
+    if (!fileName) {
+      return {
+        success: false,
+        message:
+          "اسم الملف غير موجود.",
+      };
+    }
+
+    if (
+      resourceScope === "lesson" &&
+      !lessonId
+    ) {
+      return {
+        success: false,
+        message:
+          "رقم المحاضرة غير موجود.",
+      };
+    }
+
+    if (
+      resourceScope === "section" &&
+      !courseId
+    ) {
+      return {
+        success: false,
+        message:
+          "المحطة مطلوبة للمرفق العام للقسم.",
+      };
+    }
+
+    if (
+      fileSize >
+      RESOURCE_APP_MAX_BYTES
+    ) {
+      return {
+        success: false,
+        message:
+          "حجم المرفق يتجاوز الحد البرمجي 500 MB.",
+      };
+    }
+
+    const ownerFolder =
+      resourceScope === "section"
+        ? `sections/${courseId}/${coursePart}`
+        : `lessons/${lessonId}`;
+
+    const path =
+      `resources/${ownerFolder}/${user.id}/` +
+      safeName(fileName);
+
+    return {
+      success: true,
+      data: {
+        path,
+        bucket:
+          "lesson-resources",
+      },
+      message:
+        "تم تجهيز مسار الرفع.",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "تعذر تجهيز رفع الملف.",
+    };
+  }
+}
+
 export async function uploadLessonAsset(
   formData: FormData,
 ): Promise<
@@ -419,6 +580,8 @@ export async function uploadLessonAsset(
     name: string;
     type: string;
     size: number;
+    resourceScope: ResourceScope;
+    coursePart?: CoursePart;
   }>
 > {
   try {
@@ -426,31 +589,71 @@ export async function uploadLessonAsset(
       await adminClient();
 
     const file = formData.get("file");
+    const resourceScope =
+      resourceScopeValue(
+        formData.get("resourceScope"),
+      );
+
     const lessonId = clean(
       formData.get("lessonId"),
     );
 
-    if (!(file instanceof File) || !lessonId) {
+    const courseId = clean(
+      formData.get("courseId"),
+    );
+
+    const coursePart =
+      coursePartValue(
+        formData.get("coursePart"),
+      );
+
+    if (!(file instanceof File)) {
+      return {
+        success: false,
+        message: "اختاري ملفًا صالحًا.",
+      };
+    }
+
+    if (
+      resourceScope === "lesson" &&
+      !lessonId
+    ) {
       return {
         success: false,
         message:
-          "الملف أو رقم الدرس غير موجود.",
+          "رقم المحاضرة غير موجود.",
+      };
+    }
+
+    if (
+      resourceScope === "section" &&
+      !courseId
+    ) {
+      return {
+        success: false,
+        message:
+          "المحطة مطلوبة للمرفق العام للقسم.",
       };
     }
 
     const maximum =
-      100 * 1024 * 1024;
+      RESOURCE_APP_MAX_BYTES;
 
     if (file.size > maximum) {
       return {
         success: false,
         message:
-          "حجم المرفق يتجاوز 100 MB.",
+          "حجم المرفق يتجاوز الحد البرمجي 500 MB.",
       };
     }
 
+    const ownerFolder =
+      resourceScope === "section"
+        ? `sections/${courseId}/${coursePart}`
+        : `lessons/${lessonId}`;
+
     const path =
-      `resources/${lessonId}/${user.id}/` +
+      `resources/${ownerFolder}/${user.id}/` +
       safeName(file.name);
 
     const { error } = await supabase.storage
@@ -475,6 +678,10 @@ export async function uploadLessonAsset(
         name: file.name,
         type: file.type,
         size: file.size,
+        resourceScope,
+        ...(resourceScope === "section"
+          ? { coursePart }
+          : {}),
       },
       message: "تم رفع الملف.",
     };
@@ -539,48 +746,154 @@ export async function saveLessonResource(
     const { supabase } =
       await adminClient();
 
+    const id = clean(input.id);
+
+    const resourceScope =
+      resourceScopeValue(
+        input.resource_scope,
+      );
+
     const lessonId = clean(
       input.lesson_id,
     );
-    const title = clean(input.title);
 
-    if (!lessonId || !title) {
+    const courseId = clean(
+      input.course_id,
+    );
+
+    const coursePart =
+      coursePartValue(
+        input.course_part,
+      );
+
+    const title = clean(
+      input.title,
+    );
+
+    if (!title) {
       return {
         success: false,
         message:
-          "اسم الملف والدرس مطلوبان.",
+          "اسم المرفق مطلوب.",
       };
     }
 
+    if (
+      resourceScope === "lesson" &&
+      !lessonId
+    ) {
+      return {
+        success: false,
+        message:
+          "المحاضرة مطلوبة للمرفق الخاص بالمحاضرة.",
+      };
+    }
+
+    if (
+      resourceScope === "section" &&
+      !courseId
+    ) {
+      return {
+        success: false,
+        message:
+          "المحطة مطلوبة للمرفق العام للقسم.",
+      };
+    }
+
+    let previousFilePath:
+      | string
+      | null = null;
+
+    if (id) {
+      const {
+        data: currentResource,
+        error: currentResourceError,
+      } = await supabase
+        .from("lesson_resources")
+        .select("file_path")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (currentResourceError) {
+        return {
+          success: false,
+          message:
+            currentResourceError.message,
+        };
+      }
+
+      previousFilePath =
+        currentResource?.file_path ||
+        null;
+    }
+
     const payload = {
-      lesson_id: lessonId,
+      lesson_id:
+        resourceScope === "lesson"
+          ? lessonId
+          : null,
+
+      // journey_id لم يعد مستخدمًا في نظام المرفقات.
+      journey_id: null,
+
+      course_id:
+        resourceScope === "section"
+          ? courseId
+          : null,
+
+      course_part:
+        resourceScope === "section"
+          ? coursePart
+          : null,
+
+      resource_scope:
+        resourceScope,
+
       title,
+
       resource_type:
         clean(input.resource_type) ||
         "file",
-      file_url: clean(input.file_url),
-      file_path: clean(input.file_path),
+
+      file_url:
+        clean(input.file_url),
+
+      file_path:
+        clean(input.file_path),
+
       external_url:
         clean(input.external_url),
-      display_order: Math.max(
-        1,
-        numberValue(
-          input.display_order,
+
+      display_order:
+        Math.max(
           1,
+          numberValue(
+            input.display_order,
+            1,
+          ),
         ),
-      ),
-      is_active: booleanValue(
-        input.is_active,
-        true,
-      ),
+
+      is_active:
+        booleanValue(
+          input.is_active,
+          true,
+        ),
+
       updated_at:
         new Date().toISOString(),
     };
 
+    const query = id
+      ? supabase
+          .from("lesson_resources")
+          .update(payload)
+          .eq("id", id)
+      : supabase
+          .from("lesson_resources")
+          .insert(payload);
+
     const { data, error } =
-      await supabase
-        .from("lesson_resources")
-        .insert(payload)
+      await query
         .select()
         .single();
 
@@ -591,6 +904,22 @@ export async function saveLessonResource(
       };
     }
 
+    const nextFilePath =
+      clean(input.file_path);
+
+    if (
+      id &&
+      previousFilePath &&
+      previousFilePath !==
+        nextFilePath
+    ) {
+      await supabase.storage
+        .from("lesson-resources")
+        .remove([
+          previousFilePath,
+        ]);
+    }
+
     revalidatePath(
       "/admin/learning/lessons",
     );
@@ -598,8 +927,11 @@ export async function saveLessonResource(
     return {
       success: true,
       data,
-      message:
-        "تمت إضافة المرفق.",
+      message: id
+        ? "تم تحديث المرفق."
+        : resourceScope === "section"
+          ? "تمت إضافة مرفق القسم."
+          : "تمت إضافة مرفق المحاضرة.",
     };
   } catch (error) {
     return {
@@ -607,7 +939,172 @@ export async function saveLessonResource(
       message:
         error instanceof Error
           ? error.message
-          : "تعذر إضافة المرفق.",
+          : "تعذر حفظ المرفق.",
+    };
+  }
+}
+
+/**
+ * يستبدل الملف الفعلي لمرفق موجود مع الحفاظ على نفس سجل المرفق.
+ * المرفقات الخارجية لا تحتاج هذه الدالة؛ يكفي تحديث external_url
+ * بواسطة saveLessonResource مع تمرير id.
+ */
+export async function replaceLessonResourceFile(
+  formData: FormData,
+): Promise<
+  Result<{
+    path: string;
+    name: string;
+    type: string;
+    size: number;
+  }>
+> {
+  try {
+    const { supabase, user } =
+      await adminClient();
+
+    const resourceId = clean(
+      formData.get("resourceId"),
+    );
+
+    const file = formData.get("file");
+
+    if (!resourceId) {
+      return {
+        success: false,
+        message:
+          "رقم المرفق غير موجود.",
+      };
+    }
+
+    if (!(file instanceof File)) {
+      return {
+        success: false,
+        message:
+          "اختاري ملفًا صالحًا.",
+      };
+    }
+
+    const maximum =
+      RESOURCE_APP_MAX_BYTES;
+
+    if (file.size > maximum) {
+      return {
+        success: false,
+        message:
+          "حجم المرفق يتجاوز الحد البرمجي 500 MB.",
+      };
+    }
+
+    const { data: current, error: currentError } =
+      await supabase
+        .from("lesson_resources")
+        .select(
+          "id,lesson_id,course_id,course_part,resource_scope,file_path",
+        )
+        .eq("id", resourceId)
+        .maybeSingle();
+
+    if (currentError) {
+      return {
+        success: false,
+        message: currentError.message,
+      };
+    }
+
+    if (!current) {
+      return {
+        success: false,
+        message:
+          "المرفق غير موجود.",
+      };
+    }
+
+    const scope =
+      resourceScopeValue(
+        current.resource_scope,
+      );
+
+    const ownerFolder =
+      scope === "section"
+        ? `sections/${current.course_id}/${coursePartValue(current.course_part)}`
+        : `lessons/${current.lesson_id}`;
+
+    const path =
+      `resources/${ownerFolder}/${user.id}/` +
+      safeName(file.name);
+
+    const { error: uploadError } =
+      await supabase.storage
+        .from("lesson-resources")
+        .upload(path, file, {
+          upsert: false,
+          contentType:
+            file.type || undefined,
+        });
+
+    if (uploadError) {
+      return {
+        success: false,
+        message: uploadError.message,
+      };
+    }
+
+    const { error: updateError } =
+      await supabase
+        .from("lesson_resources")
+        .update({
+          resource_type: "file",
+          file_path: path,
+          file_url: null,
+          external_url: null,
+          updated_at:
+            new Date().toISOString(),
+        })
+        .eq("id", resourceId);
+
+    if (updateError) {
+      await supabase.storage
+        .from("lesson-resources")
+        .remove([path]);
+
+      return {
+        success: false,
+        message: updateError.message,
+      };
+    }
+
+    if (
+      current.file_path &&
+      current.file_path !== path
+    ) {
+      await supabase.storage
+        .from("lesson-resources")
+        .remove([current.file_path]);
+    }
+
+    revalidatePath(
+      "/admin/learning/lessons",
+    );
+
+    return {
+      success: true,
+      data: {
+        path,
+        name: file.name,
+        type: file.type,
+        size: file.size,
+      },
+      message:
+        "تم استبدال ملف المرفق.",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "تعذر استبدال ملف المرفق.",
     };
   }
 }

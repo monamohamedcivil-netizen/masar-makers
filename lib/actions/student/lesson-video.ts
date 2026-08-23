@@ -63,6 +63,14 @@ function getDisplayName(
   );
 }
 
+export type StudentLessonResource = {
+  id: string;
+  title: string;
+  type: string | null;
+  scope: "lesson" | "section";
+  downloadUrl: string;
+};
+
 export type StudentLessonPlayback = {
   lessonId: string;
   courseId: string;
@@ -73,6 +81,8 @@ export type StudentLessonPlayback = {
   initialPositionSeconds: number;
   initialProgressPercent: number;
   alreadyCompleted: boolean;
+  lessonResources: StudentLessonResource[];
+  sectionResources: StudentLessonResource[];
   watermark: {
     name: string;
     email: string;
@@ -395,6 +405,151 @@ const adminSupabase =
       };
     }
 
+    /*
+     * المرفقات لا تُرسل كرابط Storage عام لأن bucket خاص.
+     * ننشئ Signed URL مؤقتًا فقط بعد نجاح نفس فحص صلاحية الدرس.
+     */
+    const coursePart =
+      normalize(lesson.course_part) ||
+      "single";
+
+    const {
+      data: lessonResourceRows,
+      error: lessonResourcesError,
+    } = await adminSupabase
+      .from("lesson_resources")
+      .select(`
+        id,
+        title,
+        resource_type,
+        resource_scope,
+        file_path
+      `)
+      .eq("resource_scope", "lesson")
+      .eq("lesson_id", lesson.id)
+      .not("file_path", "is", null)
+      .order("created_at", {
+        ascending: true,
+      });
+
+    if (lessonResourcesError) {
+      return {
+        success: false,
+        message:
+          lessonResourcesError.message,
+      };
+    }
+
+    const {
+      data: sectionResourceRows,
+      error: sectionResourcesError,
+    } = await adminSupabase
+      .from("lesson_resources")
+      .select(`
+        id,
+        title,
+        resource_type,
+        resource_scope,
+        file_path
+      `)
+      .eq("resource_scope", "section")
+      .eq("course_id", lesson.course_id)
+      .eq("course_part", coursePart)
+      .not("file_path", "is", null)
+      .order("created_at", {
+        ascending: true,
+      });
+
+    if (sectionResourcesError) {
+      return {
+        success: false,
+        message:
+          sectionResourcesError.message,
+      };
+    }
+
+    async function signResources(
+      rows:
+        | typeof lessonResourceRows
+        | typeof sectionResourceRows,
+      scope: "lesson" | "section",
+    ): Promise<StudentLessonResource[]> {
+      const resources =
+        await Promise.all(
+          (rows ?? []).map(
+            async (resource) => {
+              const path =
+                typeof resource.file_path === "string"
+                  ? resource.file_path.trim()
+                  : "";
+
+              if (!path) {
+                return null;
+              }
+
+              const {
+                data: signed,
+                error: signedError,
+              } =
+                await adminSupabase.storage
+                  .from("lesson-resources")
+                  .createSignedUrl(
+                    path,
+                    10 * 60,
+                    {
+                      download: true,
+                    },
+                  );
+
+              if (
+                signedError ||
+                !signed?.signedUrl
+              ) {
+                console.error(
+                  "SIGN LESSON RESOURCE ERROR",
+                  signedError,
+                );
+                return null;
+              }
+
+              return {
+                id: resource.id,
+                title:
+                  resource.title ||
+                  "مرفق",
+                type:
+                  resource.resource_type ??
+                  null,
+                scope,
+                downloadUrl:
+                  signed.signedUrl,
+              } satisfies StudentLessonResource;
+            },
+          ),
+        );
+
+      return resources.filter(
+        (
+          resource,
+        ): resource is StudentLessonResource =>
+          Boolean(resource),
+      );
+    }
+
+    const [
+      lessonResources,
+      sectionResources,
+    ] = await Promise.all([
+      signResources(
+        lessonResourceRows,
+        "lesson",
+      ),
+      signResources(
+        sectionResourceRows,
+        "section",
+      ),
+    ]);
+
     const {
       data: progress,
       error: progressError,
@@ -483,6 +638,8 @@ const adminSupabase =
           Boolean(
             progress?.completed,
           ),
+        lessonResources,
+        sectionResources,
         watermark: {
           name:
             displayName,

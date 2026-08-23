@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { PlayCircle, Sparkles, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import BunnyVideoPlayer from "@/components/student/player/BunnyVideoPlayer";
 import JourneyTabs from "../components/JourneyTabs";
@@ -18,6 +19,19 @@ type Props = {
   initialLessonId?: string;
 };
 
+type Locale = "ar" | "en";
+
+const freeJourneyText = {
+  ar: {
+    discover: "اكتشف المحاضرات",
+    openFree: "افتح المحاضرات المجانية",
+  },
+  en: {
+    discover: "Explore Lectures",
+    openFree: "Open Free Lectures",
+  },
+} as const;
+
 const BUTTON =
   "inline-flex h-9 items-center justify-center gap-2 rounded-[10px] bg-[#07152E] px-4 text-[10px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#102747] disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -25,6 +39,36 @@ export default function FreeJourneysPanel({
   groups,
   initialLessonId,
 }: Props) {
+  const [locale, setLocale] = useState<Locale>("ar");
+
+  useEffect(() => {
+    const savedLocale = window.localStorage.getItem("masar-locale");
+
+    if (savedLocale === "ar" || savedLocale === "en") {
+      setLocale(savedLocale);
+    }
+
+    const handleLocaleChange = (event: Event) => {
+      const customEvent =
+        event as CustomEvent<{ locale?: Locale }>;
+
+      if (
+        customEvent.detail?.locale === "ar" ||
+        customEvent.detail?.locale === "en"
+      ) {
+        setLocale(customEvent.detail.locale);
+      }
+    };
+
+    window.addEventListener("masar:locale-change", handleLocaleChange);
+
+    return () => {
+      window.removeEventListener(
+        "masar:locale-change",
+        handleLocaleChange,
+      );
+    };
+  }, []);
   if (!groups.length) {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
@@ -82,6 +126,7 @@ export default function FreeJourneysPanel({
               key={path.id}
               path={path}
               initialLessonId={initialLessonId}
+              locale={locale}
             />
           ),
         };
@@ -93,9 +138,11 @@ export default function FreeJourneysPanel({
 function FreePathView({
   path,
   initialLessonId,
+  locale,
 }: {
   path: StudentFreeJourneyGroup;
   initialLessonId?: string;
+  locale: Locale;
 }) {
   const initialStation = initialLessonId
     ? path.stations.find((station) =>
@@ -128,6 +175,7 @@ function FreePathView({
           stations={path.stations}
           selectedStationId={selectedStation.id}
           onSelectStation={handleSelectStation}
+          locale={locale}
         />
 
         <StationFreeLessons
@@ -150,6 +198,7 @@ function FreePathView({
     <FullStationRoad
       path={path}
       onSelectStation={handleSelectStation}
+      locale={locale}
     />
   );
 }
@@ -157,9 +206,11 @@ function FreePathView({
 function FullStationRoad({
   path,
   onSelectStation,
+  locale,
 }: {
   path: StudentFreeJourneyGroup;
   onSelectStation: (stationId: string) => void;
+  locale: Locale;
 }) {
   return (
     <article className="overflow-hidden rounded-b-[24px] border-b border-[#C9D2DE] bg-white shadow-[0_22px_55px_rgba(7,21,46,0.14)]">
@@ -191,6 +242,7 @@ function FullStationRoad({
                 onClick={() =>
                   onSelectStation(station.id)
                 }
+                locale={locale}
               />
             ))}
           </div>
@@ -203,10 +255,12 @@ function CompactStationRoad({
   stations,
   selectedStationId,
   onSelectStation,
+  locale,
 }: {
   stations: StudentJourneyStationGroup[];
   selectedStationId: string;
   onSelectStation: (stationId: string) => void;
+  locale: Locale;
 }) {
   return (
     <div className="relative px-1.5 py-2 sm:px-3 sm:py-3">
@@ -231,6 +285,7 @@ function CompactStationRoad({
               onClick={() =>
                 onSelectStation(station.id)
               }
+              locale={locale}
             />
           ))}
         </div>
@@ -243,23 +298,23 @@ function StationButton({
   index,
   selected,
   onClick,
+  locale,
 }: {
   station: StudentJourneyStationGroup;
   index: number;
   selected: boolean;
   onClick: () => void;
+  locale: Locale;
 }) {
   const hasJourneys =
     station.journeys.length > 0;
 
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group relative z-10 flex min-w-0 flex-col items-center px-0.5 py-0.5 sm:px-1 sm:py-1"
-    >
+  const text = freeJourneyText[locale];
+
+  const content = (
+    <>
       <span
-        className={`relative flex h-[38px] w-[38px] sm:h-[52px] sm:w-[52px] items-center justify-center overflow-hidden rounded-full border-[2px] bg-white transition ${
+        className={`relative flex h-[38px] w-[38px] items-center justify-center overflow-hidden rounded-full border-[2px] bg-white transition sm:h-[52px] sm:w-[52px] ${
           selected
             ? "scale-110 border-[#F7B548] shadow-[0_6px_18px_rgba(247,181,72,0.28)]"
             : hasJourneys
@@ -298,10 +353,32 @@ function StationButton({
       </span>
 
       {!hasJourneys ? (
-        <span className="mt-0.5 max-w-full truncate px-0.5 text-[6.5px] font-bold leading-tight sm:text-[8px] text-slate-400">
-          لا توجد محاضرات
+        <span className="mt-0.5 max-w-full truncate px-0.5 text-[6.5px] font-black leading-tight text-[#C88712] sm:text-[8px]">
+          {text.discover}
         </span>
       ) : null}
+    </>
+  );
+
+  if (!hasJourneys && station.slug) {
+    return (
+      <Link
+        href={`/course/${station.slug}?journey=free`}
+        aria-label={`${text.openFree}: ${station.shortTitle}`}
+        className="group relative z-10 flex min-w-0 flex-col items-center px-0.5 py-0.5 transition hover:-translate-y-0.5 sm:px-1 sm:py-1"
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group relative z-10 flex min-w-0 flex-col items-center px-0.5 py-0.5 sm:px-1 sm:py-1"
+    >
+      {content}
     </button>
   );
 }

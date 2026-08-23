@@ -7,7 +7,7 @@ import {
 
 import type { Course } from "@/data/types";
 import { createClient } from "@/lib/supabase/server";
-
+import CourseStatsToggle from "@/components/course/CourseStatsToggle";
 type Locale = "ar" | "en";
 
 type CourseStatsProps = {
@@ -194,14 +194,15 @@ export default async function CourseStats({
   ];
 
   return (
+  <CourseStatsToggle locale={locale}>
     <section
       dir={isArabic ? "rtl" : "ltr"}
       className="
-        border-y border-[#E2E7EE]
+        border-b border-[#E2E7EE]
         bg-[#DCE7F2]
-        px-2 py-2
-        sm:px-4 sm:py-3
-        lg:px-6 lg:py-4
+        px-2 pb-2 pt-1.5
+        sm:px-4 sm:pb-3
+        lg:px-6 lg:pb-4
       "
     >
       <div
@@ -322,6 +323,7 @@ export default async function CourseStats({
           </div>
         </article>
       </div>
-    </section>
-  );
+      </section>
+  </CourseStatsToggle>
+);
 }

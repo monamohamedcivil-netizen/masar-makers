@@ -1,5 +1,5 @@
 import AdminPageHeader from "@/components/admin/layout/AdminPageHeader";
-import LessonContentManager from "@/components/admin/lessons/LessonContentManager";
+import LessonContentManager from "@/components/admin/learning/LessonContentManager";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -88,19 +88,23 @@ export default async function LessonsPage() {
       `)
       .order("display_order", { ascending: true }),
 
-    supabase
-      .from("lesson_resources")
-      .select(`
-        id,
-        lesson_id,
-        title,
-        resource_type,
-        file_url,
-        file_path,
-        external_url,
-        display_order,
-        is_active
-      `)
+   supabase
+  .from("lesson_resources")
+  .select(`
+    id,
+    lesson_id,
+    journey_id,
+    course_id,
+    course_part,
+    resource_scope,
+    title,
+    resource_type,
+    file_url,
+    file_path,
+    external_url,
+    display_order,
+    is_active
+  `)
       .order("display_order", { ascending: true }),
 
     supabase

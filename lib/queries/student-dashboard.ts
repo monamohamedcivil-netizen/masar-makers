@@ -26,6 +26,13 @@ export type StudentCourseCard = {
   actionTitle: string | null;
 };
 
+export type StudentDownloadResource = {
+  id: string;
+  title: string;
+  resourceType: string | null;
+  downloadUrl: string;
+};
+
 export type StudentStationLesson = {
   lessonId: string;
   courseId: string;
@@ -35,6 +42,7 @@ export type StudentStationLesson = {
   sortOrder: number;
   progressPercent: number;
   completed: boolean;
+  resources: StudentDownloadResource[];
 };
 
 export type StudentStationPart = {
@@ -43,6 +51,7 @@ export type StudentStationPart = {
   access: "active" | "pending" | "locked";
   enrollmentStatus: EnrollmentStatus | null;
   lessons: StudentStationLesson[];
+  resources: StudentDownloadResource[];
 };
 
 export type StudentPathStationProgress = {
@@ -97,11 +106,13 @@ export type StudentOneDayJourney = {
 
   lessonId: string | null;
   coursePart: "single" | "fundamentals" | "advanced";
+  resources: StudentDownloadResource[];
   href: string;
 };
 
 export type StudentJourneyStationGroup = {
   id: string;
+  slug: string;
   title: string;
   shortTitle: string;
   iconUrl: string | null;
@@ -1004,6 +1015,122 @@ pdfUrl:
     : ((stationLearningLessonsResult.data ?? []) as LessonRow[]);
 
   /*
+   * مرفقات شاشة الطالب.
+   * lesson  = تظهر فقط بجوار المحاضرة المرتبطة بها.
+   * section = تظهر مرة واحدة في هيدر Fundamentals / Advanced / Single.
+   * ننشئ Signed URL مؤقتًا لأن bucket المرفقات خاص.
+   */
+  type ResourceRow = {
+    id: string;
+    lesson_id: string | null;
+    course_id: string | null;
+    course_part: string | null;
+    resource_scope: string | null;
+    title: string | null;
+    resource_type: string | null;
+    file_path: string | null;
+  };
+
+  const stationLearningLessonIds =
+    stationLearningLessonRows.map((lesson) => lesson.id);
+
+  const lessonResourcesResult =
+    stationLearningLessonIds.length
+      ? await adminSupabase
+          .from("lesson_resources")
+          .select(
+            "id,lesson_id,course_id,course_part,resource_scope,title,resource_type,file_path",
+          )
+          .eq("is_active", true)
+          .eq("resource_scope", "lesson")
+          .in("lesson_id", stationLearningLessonIds)
+          .not("file_path", "is", null)
+          .order("display_order", { ascending: true })
+      : { data: [], error: null };
+
+  const sectionResourcesResult =
+    allPathCourseIds.length
+      ? await adminSupabase
+          .from("lesson_resources")
+          .select(
+            "id,lesson_id,course_id,course_part,resource_scope,title,resource_type,file_path",
+          )
+          .eq("is_active", true)
+          .eq("resource_scope", "section")
+          .in("course_id", allPathCourseIds)
+          .not("file_path", "is", null)
+          .order("display_order", { ascending: true })
+      : { data: [], error: null };
+
+  const resourceRows = [
+    ...((lessonResourcesResult.data ?? []) as ResourceRow[]),
+    ...((sectionResourcesResult.data ?? []) as ResourceRow[]),
+  ];
+
+  const signedResourceRows = await Promise.all(
+    resourceRows.map(async (row) => {
+      const filePath = row.file_path?.trim();
+      if (!filePath) return null;
+
+      const { data: signedData, error: signedError } =
+        await adminSupabase.storage
+          .from("lesson-resources")
+          .createSignedUrl(filePath, 10 * 60, {
+            download: true,
+          });
+
+      if (signedError || !signedData?.signedUrl) {
+        console.error(
+          "Failed to sign lesson resource:",
+          row.id,
+          signedError?.message,
+        );
+        return null;
+      }
+
+      return {
+        row,
+        resource: {
+          id: row.id,
+          title: row.title?.trim() || "مرفق",
+          resourceType: row.resource_type ?? null,
+          downloadUrl: signedData.signedUrl,
+        } satisfies StudentDownloadResource,
+      };
+    }),
+  );
+
+  const lessonResourcesMap =
+    new Map<string, StudentDownloadResource[]>();
+
+  const sectionResourcesMap =
+    new Map<string, StudentDownloadResource[]>();
+
+  for (const item of signedResourceRows) {
+    if (!item) continue;
+
+    const { row, resource } = item;
+
+    if (row.resource_scope === "lesson" && row.lesson_id) {
+      const current =
+        lessonResourcesMap.get(row.lesson_id) ?? [];
+      current.push(resource);
+      lessonResourcesMap.set(row.lesson_id, current);
+      continue;
+    }
+
+    if (row.resource_scope === "section" && row.course_id) {
+      const normalizedPart =
+        normalizeStatus(row.course_part) || "single";
+      const key = `${row.course_id}:${normalizedPart}`;
+      const current =
+        sectionResourcesMap.get(key) ?? [];
+      current.push(resource);
+      sectionResourcesMap.set(key, current);
+    }
+  }
+
+  /*
    * مصدر الحقيقة لنوع الرحلة هو:
    * journeys.journey_type + lesson_journeys.
    * لا نستنتج نوع المحاضرة من وجود اشتراك آخر على نفس الكورس.
@@ -1570,11 +1697,45 @@ pdfUrl:
               ? coursePartAccess(stationCourseIds, part)
               : { access: "locked" as const, enrollmentStatus: null };
 
+            const sectionResources = partLessons
+              .map(
+                (lesson) =>
+                  `${lesson.course_id}:${part}`,
+              )
+              .filter(
+                (key, index, keys) =>
+                  keys.indexOf(key) === index,
+              )
+              .flatMap(
+                (key) =>
+                  sectionResourcesMap.get(key) ?? [],
+              )
+              .filter(
+                (resource, index, resources) =>
+                  resources.findIndex(
+                    (candidate) =>
+                      candidate.id === resource.id,
+                  ) === index,
+              );
+
+            /*
+             * إذا كان القسم لا يحتوي محاضرات منشورة بعد، نسمح أيضًا
+             * بمرفقات section المرتبطة مباشرة بالكورس الممثل لهذا الجزء.
+             */
+            if (!sectionResources.length && partCourseId) {
+              sectionResources.push(
+                ...(sectionResourcesMap.get(
+                  `${partCourseId}:${part}`,
+                ) ?? []),
+              );
+            }
+
             return {
               part,
               courseId: partCourseId,
               access: accessState.access,
               enrollmentStatus: accessState.enrollmentStatus,
+              resources: sectionResources,
               lessons: partLessons.map((lesson) => {
                 const progress = stationLearningProgressMap.get(lesson.id);
                 const progressPercent = clampPercent(progress?.progress_percent);
@@ -1595,6 +1756,8 @@ pdfUrl:
                   progressPercent,
                   completed:
                     Boolean(progress?.completed) || progressPercent >= 100,
+                  resources:
+                    lessonResourcesMap.get(lesson.id) ?? [],
                 };
               }),
             };
@@ -1880,6 +2043,15 @@ for (const card of activeOneDayCards) {
         lesson.course_part,
       ),
 
+      /*
+       * رحلة اليوم الواحد تعرض مرفقات المحاضرة فقط.
+       * لا نضيف مرفقات section / المرفقات العامة هنا.
+       */
+      resources:
+        lessonResourcesMap.get(
+          lesson.id,
+        ) ?? [],
+
       href: "/dashboard",
     });
   }
@@ -1908,6 +2080,10 @@ const oneDayJourneyGroups: StudentOneDayJourneyGroup[] =
       const stations: StudentJourneyStationGroup[] =
         pathStations.map((station) => ({
           id: station.id,
+
+          slug:
+            station.slug?.trim() ||
+            station.id,
 
           title:
             station.title?.trim() ||
@@ -2140,6 +2316,11 @@ stationJourneys.push({
     lesson.course_part,
   ),
 
+  /*
+   * الرحلات المجانية لا تعرض أي مرفقات.
+   */
+  resources: [],
+
   href: "/dashboard",
 });
 
@@ -2168,6 +2349,10 @@ freeJourneysByStation.set(
       const stations: StudentJourneyStationGroup[] =
         pathStations.map((station) => ({
           id: station.id,
+
+          slug:
+            station.slug?.trim() ||
+            station.id,
 
           title:
             station.title?.trim() ||

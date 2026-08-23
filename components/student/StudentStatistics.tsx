@@ -1,6 +1,13 @@
-import Image from "next/image";
-import { Award, GraduationCap } from "lucide-react";
+"use client";
 
+import Image from "next/image";
+import { useState } from "react";
+import {
+  Award,
+  BarChart3,
+  ChevronDown,
+  GraduationCap,
+} from "lucide-react";
 import StatisticGroup from "@/components/student/StatisticGroup";
 import type { StudentStatisticsData } from "@/components/student/mockStatistics";
 
@@ -19,6 +26,9 @@ export default function StudentStatistics({
   progressPercent = 0,
   pointsToNextLevel = 0,
 }: StudentStatisticsProps) {
+  const [statisticsOpen, setStatisticsOpen] =
+    useState(false);
+
   const levelMeta = {
     Explorer: {
       label: "Explorer",
@@ -63,7 +73,7 @@ export default function StudentStatistics({
       text-white
 
       sm:gap-5
-      sm:px-6 sm:py-3
+      sm:px-6 sm:py-1
 
       lg:gap-8
       lg:px-8
@@ -156,34 +166,116 @@ export default function StudentStatistics({
   </div>
 </div>
 
-      {/* Statistics */}
-      <div
+     {/* One compact toggle for all statistics */}
+  
+   <div
   className="
     mx-auto
-    max-w-[1400px]
-    space-y-1
-    px-2
-    pt-1
-
-    sm:space-y-1.5
+    max-w-[1680px]
+    px-3
     sm:px-6
-    sm:pt-1.5
-
     lg:px-8
   "
+  dir="rtl"
 >
-        <StatisticGroup
-          title="إحصائيات رحلاتي التعليمية"
-          icon={GraduationCap}
-          items={data.learning}
-        />
+  <div
+    className="
+     flex
+items-center
+justify-start
+py-1.5
+    "
+  >
+    <button
+      type="button"
+      onClick={() =>
+        setStatisticsOpen(
+          (current) => !current,
+        )
+      }
+      aria-expanded={statisticsOpen}
+      className="
+        inline-flex
+        translate-y-[2px]
+        items-center
+        gap-2
+bg-transparent
+px-0
+py-0
+        text-[#07152E]
+        transition-colors
+        hover:text-[#D49319]
+      "
+    >
+      <BarChart3
+        size={18}
+        strokeWidth={2}
+        className="
+          shrink-0
+          text-[#D49319]
+          sm:h-[20px]
+          sm:w-[20px]
+        "
+      />
 
-        <StatisticGroup
-          title="إحصائيات الإنجاز"
-          icon={Award}
-          items={data.achievements}
-        />
+      <span
+        className="
+          text-[12px]
+font-black
+
+sm:text-[14px]
+        "
+      >
+        إحصائيات رحلاتي التعليمية
+      </span>
+
+      <ChevronDown
+        size={16}
+        strokeWidth={2}
+        className={[
+          "shrink-0 transition-transform duration-300",
+          statisticsOpen
+            ? "rotate-180"
+            : "rotate-0",
+        ].join(" ")}
+      />
+    </button>
+  </div>
+
+  <div
+    className={[
+      "grid transition-all duration-300 ease-in-out",
+      statisticsOpen
+        ? "mt-2 grid-rows-[1fr] opacity-100"
+        : "grid-rows-[0fr] opacity-0",
+    ].join(" ")}
+  >
+        <div
+          className={[
+            "grid transition-all duration-300 ease-in-out",
+            statisticsOpen
+              ? "mt-2 grid-rows-[1fr] opacity-100"
+              : "grid-rows-[0fr] opacity-0",
+          ].join(" ")}
+        >
+          <div className="overflow-hidden">
+            <div className="space-y-1 sm:space-y-1.5">
+              <StatisticGroup
+                title="إحصائيات رحلاتي التعليمية"
+                icon={GraduationCap}
+                items={data.learning}
+              />
+
+              <StatisticGroup
+                title="إحصائيات الإنجاز"
+                icon={Award}
+                items={data.achievements}
+              />
+            </div>
+          </div>
+        </div>
       </div>
+       </div>
     </section>
   );
 }

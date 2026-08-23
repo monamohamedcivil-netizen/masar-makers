@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   BookOpenCheck,
-  CheckCircle2,
+  Download,
   PlayCircle,
 } from "lucide-react";
 
@@ -204,9 +205,76 @@ function CompactStationRoad({
         }}
       >
         {stations.map((station) => {
+          const hasJourneys =
+            station.journeys.length > 0;
+
           const active =
+            hasJourneys &&
             station.id ===
-            selectedStationId;
+              selectedStationId;
+
+          const stationContent = (
+            <>
+              <div
+                className={`grid h-[38px] w-[38px] place-items-center overflow-hidden rounded-full border-[2px] bg-white transition sm:h-12 sm:w-12 ${
+                  !hasJourneys
+                    ? "border-[#AAB3C0]"
+                    : active
+                      ? "scale-110 border-[#F7B548] shadow-[0_6px_18px_rgba(247,181,72,0.28)]"
+                      : "border-[#D5DCE6] group-hover:border-[#F7B548]"
+                }`}
+              >
+                {station.iconUrl ? (
+                  <Image
+                    src={station.iconUrl}
+                    alt={station.shortTitle}
+                    width={48}
+                    height={48}
+                    className={`h-full w-full object-cover ${
+                      hasJourneys
+                        ? ""
+                        : "grayscale opacity-45"
+                    }`}
+                  />
+                ) : (
+                  <span
+                    className={`text-xs font-black ${
+                      hasJourneys
+                        ? "text-[#07152E]"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    {station.displayOrder}
+                  </span>
+                )}
+              </div>
+
+              <span
+                className={`mt-1 line-clamp-2 min-h-[18px] w-full px-0.5 text-center text-[7px] font-black leading-[1.25] sm:mt-1.5 sm:min-h-[26px] sm:px-1 sm:text-[10px] ${
+                  !hasJourneys
+                    ? "text-slate-400"
+                    : active
+                      ? "text-[#C88712]"
+                      : "text-[#556273]"
+                }`}
+              >
+                {station.shortTitle}
+              </span>
+            </>
+          );
+
+          if (!hasJourneys) {
+            return (
+              <Link
+                key={station.id}
+                href={`/course/${station.slug}?journey=one_day`}
+                title="اكتشف محاضرات اليوم الواحد"
+                className="group flex min-w-0 flex-1 flex-col items-center"
+              >
+                {stationContent}
+              </Link>
+            );
+          }
 
           return (
             <button
@@ -219,37 +287,7 @@ function CompactStationRoad({
               }
               className="group flex min-w-0 flex-1 flex-col items-center"
             >
-              <div
-                className={`grid h-[38px] w-[38px] place-items-center overflow-hidden rounded-full border-[2px] bg-white transition sm:h-12 sm:w-12 ${
-                  active
-                    ? "scale-110 border-[#F7B548] shadow-[0_6px_18px_rgba(247,181,72,0.28)]"
-                    : "border-[#D5DCE6] group-hover:border-[#F7B548]"
-                }`}
-              >
-                {station.iconUrl ? (
-                  <Image
-                    src={station.iconUrl}
-                    alt={station.shortTitle}
-                    width={48}
-                    height={48}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <span className="text-xs font-black text-[#07152E]">
-                    {station.displayOrder}
-                  </span>
-                )}
-              </div>
-
-              <span
-                className={`mt-1 max-w-full truncate px-0.5 text-[7px] font-black leading-tight sm:mt-1.5 sm:max-w-[110px] sm:text-[10px] ${
-                  active
-                    ? "text-[#C88712]"
-                    : "text-[#556273]"
-                }`}
-              >
-                {station.shortTitle}
-              </span>
+              {stationContent}
             </button>
           );
         })}
@@ -269,14 +307,10 @@ function StationButton({
   const hasJourneys =
     station.journeys.length > 0;
 
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group relative z-10 flex min-w-0 flex-col items-center px-0.5 py-0.5 sm:px-1 sm:py-1"
-    >
+  const content = (
+    <>
       <span
-        className={`relative flex h-[38px] w-[38px] sm:h-[52px] sm:w-[52px] items-center justify-center overflow-hidden rounded-full border-[2px] bg-white transition ${
+        className={`relative flex h-[38px] w-[38px] items-center justify-center overflow-hidden rounded-full border-[2px] bg-white transition sm:h-[52px] sm:w-[52px] ${
           hasJourneys
             ? "border-[#F7B548]/70"
             : "border-[#AAB3C0]"
@@ -291,34 +325,69 @@ function StationButton({
             className={`object-cover ${
               hasJourneys
                 ? ""
-                : "grayscale opacity-60"
+                : "grayscale opacity-45"
             }`}
           />
         ) : (
-          <span className="text-xs font-black text-[#07152E]">
+          <span
+            className={`text-xs font-black ${
+              hasJourneys
+                ? "text-[#07152E]"
+                : "text-slate-400"
+            }`}
+          >
             {index + 1}
           </span>
         )}
       </span>
 
-      <span className="mt-1 w-full truncate px-0.5 text-center text-[7px] font-black leading-tight text-[#334155] sm:mt-2 sm:text-[10px]">
+      <span
+        className={`mt-1 line-clamp-2 min-h-[18px] w-full px-0.5 text-center text-[7px] font-black leading-[1.25] sm:mt-2 sm:min-h-[26px] sm:px-1 sm:text-[10px] ${
+          hasJourneys
+            ? "text-[#334155]"
+            : "text-slate-400"
+        }`}
+      >
         {station.shortTitle}
       </span>
 
       <span
-        className={`mt-0.5 max-w-full truncate px-0.5 text-[6.5px] font-bold leading-tight sm:text-[8px] ${
+        className={`mt-0.5 line-clamp-2 min-h-[16px] w-full px-0.5 text-center text-[6.5px] font-bold leading-[1.2] sm:min-h-[20px] sm:text-[8px] ${
           hasJourneys
             ? "text-[#B87508]"
-            : "text-slate-400"
+            : "text-[#B87508]"
         }`}
       >
         {hasJourneys
           ? `${station.journeys.length} محاضرات`
-          : "لا توجد رحلات"}
+          : "اكتشف المحاضرات"}
       </span>
+    </>
+  );
+
+  if (!hasJourneys) {
+    return (
+      <Link
+        href={`/course/${station.slug}?tab=one-day`}
+        title="اكتشف محاضرات اليوم الواحد"
+        className="group relative z-10 flex min-w-0 flex-col items-center px-0.5 py-0.5 sm:px-1 sm:py-1"
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group relative z-10 flex min-w-0 flex-col items-center px-0.5 py-0.5 sm:px-1 sm:py-1"
+    >
+      {content}
     </button>
   );
 }
+
 function StationOneDayLessons({
   station,
 }: {
@@ -390,7 +459,7 @@ function OneDayLessonRow({
     journey.status === "completed";
 
   return (
-    <div className="grid grid-cols-[34px_minmax(0,1fr)_105px] items-center gap-3 px-4 py-3">
+    <div className="grid grid-cols-[34px_minmax(0,1fr)_auto_105px] items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4">
       <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#FFF4DF] text-[10px] font-black text-[#B87508]">
         {index + 1}
       </span>
@@ -421,6 +490,24 @@ function OneDayLessonRow({
           </div>
         </div>
       </div>
+
+      {journey.resources?.length ? (
+        <div className="flex items-center justify-end gap-1">
+          {journey.resources.map((resource) => (
+            <a
+              key={resource.id}
+              href={resource.downloadUrl}
+              title={`تحميل ${resource.title}`}
+              aria-label={`تحميل ${resource.title}`}
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#F7B548]/55 bg-[#FFF8EA] text-[#B87508] transition hover:border-[#F7B548] hover:bg-[#F7B548] hover:text-[#07152E]"
+            >
+              <Download size={14} />
+            </a>
+          ))}
+        </div>
+      ) : (
+        <span />
+      )}
 
       <button
   type="button"

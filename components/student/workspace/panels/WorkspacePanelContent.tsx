@@ -14,6 +14,7 @@ import {
   Clock3,
   Compass,
   FileUp,
+  Download,
   PlayCircle,
   Sparkles,
   Target,
@@ -231,39 +232,24 @@ function CareerPathProgressCard({
         </div>
       </header>
 
-      <div className="bg-[#F8FAFC] px-1.5 py-3 sm:px-4 sm:py-5">
-  <div
-    className="
-      relative mx-auto grid w-full grid-cols-5
-      items-start gap-0 px-0.5 pt-2
-      sm:gap-1 sm:px-4 sm:pt-3
-    "
-    dir="rtl"
-  >
-    {/* الطريق */}
-    <div
-      className="
-        absolute left-[9%] right-[9%]
-        top-[31px] h-[10px]
-        rounded-full border-y border-[#F7B548]
-        bg-[#07152E]
-        sm:left-[11%] sm:right-[11%]
-        sm:top-[42px] sm:h-[16px]
-      "
-    />
+      <div className="bg-[#F8FAFC] px-3 py-5 sm:px-4">
+          <div
+            className="relative mx-auto grid w-full grid-cols-5 items-start gap-1 px-2 pt-3 sm:px-4"
+            dir="rtl"
+          >
+            <div className="absolute left-[11%] right-[11%] top-[42px] h-[16px] rounded-full border-y border-[#F7B548] bg-[#07152E]" />
 
-    {path.stations.map((station, index) => (
-      <PathStation
-        key={station.stationId}
-        station={station}
-        index={index}
-        onOpen={() =>
-          setSelectedStationId(station.stationId)
-        }
-      />
-    ))}
-  </div>
-</div>
+            {path.stations.map((station, index) => (
+              <PathStation
+                key={station.stationId}
+                station={station}
+                index={index}
+                onOpen={() => setSelectedStationId(station.stationId)}
+              />
+            ))}
+          </div>
+
+      </div>
     </article>
   );
 }
@@ -294,18 +280,8 @@ function PathStation({
     <>
       <div className="relative z-10 flex flex-col items-center">
         <span
-className={`
-  relative flex
-  h-[38px] w-[38px]
-  sm:h-[52px] sm:w-[52px]
-  items-center justify-center
-  overflow-hidden rounded-full
-  border-[2px] bg-white
-  text-[9px] sm:text-xs
-  font-black
-  transition duration-300
-  ${statusClasses[station.status]}
-`}        >
+          className={`relative flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full border-[2px] bg-white text-xs font-black transition duration-300 ${statusClasses[station.status]}`}
+        >
           {station.iconUrl ? (
             <Image
               src={station.iconUrl}
@@ -329,31 +305,13 @@ className={`
           )}
         </span>
 
-<span
-  className="
-    mt-1.5
-    w-full
-    min-h-[22px]
-    px-[1px]
-    text-center
-    text-[7px]
-    leading-[1.15]
-    font-black
-    text-[#334155]
-    line-clamp-2
-    sm:mt-2
-    sm:min-h-0
-    sm:truncate
-    sm:text-[10px]
-  "
-  title={station.shortTitle}
->
-  {station.shortTitle}
-</span>
+        <span className="mt-2 w-full truncate text-center text-[9px] font-black text-[#334155] sm:text-[10px]">
+          {station.shortTitle}
+        </span>
 
-     <span
-  className={`mt-0.5 min-h-[16px] px-[1px] text-center text-[6.5px] leading-[1.15] font-bold sm:text-[8px] ${
-        station.status === "completed"
+        <span
+          className={`mt-0.5 min-h-4 text-center text-[8px] font-bold ${
+            station.status === "completed"
               ? "text-[#589638]"
               : station.status === "in_progress"
                 ? "text-[#B87508]"
@@ -378,20 +336,7 @@ className={`
         className="group relative z-10 flex min-w-0 flex-col items-center px-1 py-1 transition"
       >
         {content}
-        <span className="
-  mt-1.5
-  rounded-full
-  bg-slate-200
-  px-1.5 py-1
-  text-[6.5px]
-  leading-none
-  font-black
-  text-slate-600
-  transition
-  group-hover:bg-[#07152E]
-  group-hover:text-[#F7B548]
-  sm:mt-2 sm:px-3 sm:text-[9px]
-">
+        <span className="mt-2 rounded-full bg-slate-200 px-3 py-1 text-[9px] font-black text-slate-600 transition group-hover:bg-[#07152E] group-hover:text-[#F7B548]">
           استكشف الرحلة
         </span>
       </Link>
@@ -410,20 +355,7 @@ className={`
       className="group relative z-10 flex min-w-0 flex-col items-center px-1 py-1 transition"
     >
       {content}
-      <span className="
-  mt-1.5
-  rounded-full
-  bg-[#07152E]
-  px-1.5 py-1
-  text-[6.5px]
-  leading-none
-  font-black
-  text-[#F7B548]
-  transition
-  group-hover:bg-[#F7B548]
-  group-hover:text-[#07152E]
-  sm:mt-2 sm:px-3 sm:text-[9px]
-">
+      <span className="mt-2 rounded-full bg-[#07152E] px-3 py-1 text-[9px] font-black text-[#F7B548] transition group-hover:bg-[#F7B548] group-hover:text-[#07152E]">
         {station.status === "not_started" ? "ابدأ الرحلة" : "متابعة الرحلة"}
       </span>
     </button>
@@ -456,14 +388,61 @@ function CompactPathStations({
   onSelectStation: (stationId: string) => void;
 }) {
   return (
-    <div className="relative px-3 py-3">
-<div className="absolute left-[11%] right-[11%] top-[32px] h-[8px] bg-[#07152E]">       
-        <div className="absolute inset-x-0 top-1/2 h-[0.5px] -translate-y-1/2 bg-[#F7B548]" />
-      </div>
+    <div className="relative px-1.5 py-2 sm:px-3 sm:py-3">
+      <div
+        className="
+          relative
+          mx-auto
+          grid
+          w-full
+          items-start
+          gap-0
+          px-0
+          pt-0.5
 
-      <div className="relative z-10 flex items-start justify-between gap-2">
-        {path.stations.map((station) => {
+          sm:gap-1
+          sm:px-4
+          sm:pt-1
+        "
+        style={{
+          gridTemplateColumns: `repeat(${path.stations.length}, minmax(0, 1fr))`,
+        }}
+      >
+        {/* الطريق */}
+        <div
+          className="
+            absolute
+            left-[9%]
+            right-[9%]
+            top-[24px]
+            h-[6px]
+            bg-[#07152E]
+
+            sm:left-[11%]
+            sm:right-[11%]
+            sm:top-[32px]
+            sm:h-[8px]
+          "
+        >
+          <div
+            className="
+              absolute
+              inset-x-0
+              top-1/2
+              h-[0.5px]
+              -translate-y-1/2
+              bg-[#F7B548]
+            "
+          />
+        </div>
+
+        {path.stations.map((station, index) => {
+          const enrolled =
+            station.isEnrolled &&
+            station.status !== "pending";
+
           const active =
+            enrolled &&
             station.stationId === selectedStationId;
 
           return (
@@ -473,36 +452,106 @@ function CompactPathStations({
               onClick={() =>
                 onSelectStation(station.stationId)
               }
-              className="group flex min-w-0 flex-1 flex-col items-center"
+              title={station.shortTitle}
+              className="
+                group
+                relative
+                z-10
+                flex
+                min-w-0
+                flex-col
+                items-center
+                px-0.5
+                py-0.5
+
+                sm:px-1
+                sm:py-1
+              "
             >
-              <div
-                className={`grid h-12 w-12 place-items-center overflow-hidden rounded-full border-[2px] bg-white transition ${
-                  active
-                    ? "scale-110 border-[#F7B548] shadow-[0_6px_18px_rgba(247,181,72,0.28)]"
-                    : "border-[#D5DCE6] group-hover:border-[#F7B548]"
-                }`}
+              {/* أيقونة المحطة */}
+              <span
+                className={`
+                  relative
+                  flex
+                  h-[38px]
+                  w-[38px]
+                  shrink-0
+                  items-center
+                  justify-center
+                  overflow-hidden
+                  rounded-full
+                  border-[2px]
+                  bg-white
+                  transition
+
+                  sm:h-[52px]
+                  sm:w-[52px]
+
+                  ${
+                    !enrolled
+                      ? "border-[#AAB3C0]"
+                      : active
+                        ? "scale-110 border-[#F7B548] shadow-[0_6px_18px_rgba(247,181,72,0.28)]"
+                        : "border-[#D5DCE6] group-hover:border-[#F7B548]"
+                  }
+                `}
               >
                 {station.iconUrl ? (
                   <Image
                     src={station.iconUrl}
                     alt={station.shortTitle}
-                    width={48}
-                    height={48}
-                    className="h-full w-full object-cover"
+                    fill
+                    sizes="52px"
+                    className={`
+                      object-cover
+                      ${
+                        enrolled
+                          ? ""
+                          : "grayscale opacity-45"
+                      }
+                    `}
                   />
                 ) : (
-                  <span className="text-xs font-black text-[#07152E]">
-                    {station.displayOrder}
+                  <span
+                    className={`
+                      text-xs
+                      font-black
+
+                      ${
+                        enrolled
+                          ? "text-[#07152E]"
+                          : "text-slate-400"
+                      }
+                    `}
+                  >
+                    {index + 1}
                   </span>
                 )}
-              </div>
+              </span>
 
+              {/* اسم المحطة */}
               <span
-                className={`mt-1.5 max-w-[110px] truncate text-[10px] font-black ${
-                  active
-                    ? "text-[#C88712]"
-                    : "text-[#556273]"
-                }`}
+                className={`
+                  mt-1
+                  w-full
+                  px-0.5
+                  text-center
+                  text-[7px]
+                  font-black
+                  leading-[1.15]
+
+                  sm:mt-2
+                  sm:text-[10px]
+                  sm:leading-tight
+
+                  ${
+                    !enrolled
+                      ? "text-slate-400"
+                      : active
+                        ? "text-[#C88712]"
+                        : "text-[#556273]"
+                  }
+                `}
               >
                 {station.shortTitle}
               </span>
@@ -599,19 +648,41 @@ function StationLearningView({
                   {part.lessons.length} محاضرات
                 </p>
               </div>
-              {part.access === "active" ? (
-                <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-[10px] font-black text-emerald-200">
-                  متاح
-                </span>
-              ) : part.access === "pending" ? (
-                <span className="rounded-full bg-amber-400/15 px-3 py-1 text-[10px] font-black text-amber-200">
-                  طلبك قيد المراجعة
-                </span>
-              ) : (
-                <span className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-black text-white/70">
-                  غير مشترك
-                </span>
-              )}
+
+              <div className="flex items-center gap-2">
+                {part.access === "active" && part.resources.length ? (
+                  <div className="flex items-center gap-1.5">
+                    {part.resources.map((resource) => (
+                      <a
+                        key={resource.id}
+                        href={resource.downloadUrl}
+                        title={`تحميل ${resource.title}`}
+                        aria-label={`تحميل ${resource.title}`}
+                        className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#F7B548] px-2.5 text-[9px] font-black text-[#07152E] transition hover:bg-[#FFD078]"
+                      >
+                        <Download size={13} />
+                        <span className="hidden sm:inline">
+                          {resource.title}
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
+
+                {part.access === "active" ? (
+                  <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-[10px] font-black text-emerald-200">
+                    متاح
+                  </span>
+                ) : part.access === "pending" ? (
+                  <span className="rounded-full bg-amber-400/15 px-3 py-1 text-[10px] font-black text-amber-200">
+                    طلبك قيد المراجعة
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-black text-white/70">
+                    غير مشترك
+                  </span>
+                )}
+              </div>
             </header>
 
             {part.access === "active" ? (
@@ -620,7 +691,7 @@ function StationLearningView({
                   {part.lessons.map((lesson, index) => (
                     <div
                       key={lesson.lessonId}
-className="grid grid-cols-[34px_minmax(0,1fr)_105px] items-center gap-3 px-4 py-3"                    >
+className="grid grid-cols-[34px_minmax(0,1fr)_auto_105px] items-center gap-3 px-4 py-3"                    >
                       <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#FFF4DF] text-[10px] font-black text-[#B87508]">
                         {index + 1}
                       </span>
@@ -661,6 +732,24 @@ className="grid grid-cols-[34px_minmax(0,1fr)_105px] items-center gap-3 px-4 py-
     ) : null}
   </div>
 </div>
+
+                      {lesson.resources.length ? (
+                        <div className="flex items-center justify-end gap-1">
+                          {lesson.resources.map((resource) => (
+                            <a
+                              key={resource.id}
+                              href={resource.downloadUrl}
+                              title={`تحميل ${resource.title}`}
+                              aria-label={`تحميل ${resource.title}`}
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#F7B548]/55 bg-[#FFF8EA] text-[#B87508] transition hover:border-[#F7B548] hover:bg-[#F7B548] hover:text-[#07152E]"
+                            >
+                              <Download size={14} />
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <span />
+                      )}
 
                       <button
                         type="button"
