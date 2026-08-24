@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import {
+  ChevronDown,
+  ChevronUp,
   GripVertical,
   Pencil,
   Plus,
@@ -84,11 +86,13 @@ export default function CatalogManager({
   initialRows,
   stations = [],
   courses = [],
+  careerPaths = [],
 }: {
   kind: Kind;
   initialRows: Row[];
   stations?: Row[];
   courses?: Row[];
+  careerPaths?: Row[];
 }) {
   const router = useRouter();
 
@@ -97,6 +101,14 @@ export default function CatalogManager({
   const [editing, setEditing] = useState<Row | null>(null);
   const [dragged, setDragged] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const [openJourneyGroups, setOpenJourneyGroups] =
+    useState<Set<string>>(
+      () =>
+        new Set(
+          careerPaths.map((path) => path.id),
+        ),
+    );
 
   const labels = {
     paths: {
@@ -116,15 +128,156 @@ export default function CatalogManager({
     },
   }[kind];
 
-  const filtered = useMemo(
-    () =>
-      rows.filter((row) =>
-        `${row.title || ""} ${row.slug || ""}`
-          .toLowerCase()
-          .includes(query.toLowerCase()),
-      ),
-    [rows, query],
-  );
+  const filtered = useMemo(() => {
+    const normalizedQuery =
+      query.trim().toLowerCase();
+
+    return rows.filter((row) => {
+      const course =
+        kind === "journeys"
+          ? courses.find(
+              (item) =>
+                item.id === row.course_id,
+            )
+          : null;
+
+      const searchable = [
+        row.title,
+        row.slug,
+        row.description,
+        course?.title,
+        course?.career_path_title,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return (
+        !normalizedQuery ||
+        searchable.includes(normalizedQuery)
+      );
+    });
+  }, [rows, query, kind, courses]);
+
+  const journeyGroups = useMemo(() => {
+    if (kind !== "journeys") {
+      return [];
+    }
+
+    const groups = new Map<
+      string,
+      {
+        id: string;
+        title: string;
+        order: number;
+        rows: Row[];
+      }
+    >();
+
+    for (const row of filtered) {
+      const course = courses.find(
+        (item) =>
+          item.id === row.course_id,
+      );
+
+      const pathId =
+        course?.career_path_id ||
+        "unassigned";
+
+      const path = careerPaths.find(
+        (item) => item.id === pathId,
+      );
+
+      const title =
+        path?.title ||
+        course?.career_path_title ||
+        "بدون مسار";
+
+      const order = Number(
+        path?.display_order ??
+          course?.career_path_order ??
+          999,
+      );
+
+      const current = groups.get(pathId);
+
+      if (current) {
+        current.rows.push(row);
+      } else {
+        groups.set(pathId, {
+          id: pathId,
+          title,
+          order,
+          rows: [row],
+        });
+      }
+    }
+
+    const result = Array.from(
+      groups.values(),
+    );
+
+    for (const group of result) {
+      group.rows.sort((first, second) => {
+        const firstCourse = courses.find(
+          (item) =>
+            item.id === first.course_id,
+        );
+
+        const secondCourse = courses.find(
+          (item) =>
+            item.id === second.course_id,
+        );
+
+        const stationOrder =
+          Number(
+            firstCourse?.station_display_order ??
+              firstCourse?.display_order ??
+              999,
+          ) -
+          Number(
+            secondCourse?.station_display_order ??
+              secondCourse?.display_order ??
+              999,
+          );
+
+        if (stationOrder !== 0) {
+          return stationOrder;
+        }
+
+        return (
+          Number(first.display_order ?? 1) -
+          Number(second.display_order ?? 1)
+        );
+      });
+    }
+
+    return result.sort(
+      (first, second) =>
+        first.order - second.order,
+    );
+  }, [
+    kind,
+    filtered,
+    courses,
+    careerPaths,
+  ]);
+
+  function toggleJourneyGroup(
+    groupId: string,
+  ) {
+    setOpenJourneyGroups((current) => {
+      const next = new Set(current);
+
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+
+      return next;
+    });
+  }
 
   function open(row?: Row) {
     setEditing(
@@ -132,7 +285,10 @@ export default function CatalogManager({
         ? { ...row }
         : {
             ...empty[kind],
-            display_order: rows.length + 1,
+            display_order:
+              kind === "journeys"
+                ? 1
+                : rows.length + 1,
           },
     );
   }
@@ -251,122 +407,321 @@ export default function CatalogManager({
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[780px] text-right">
-            <thead className="bg-slate-50 text-sm text-slate-500">
-              <tr>
-                <th className="w-12 p-4" />
-                <th className="p-4">الاسم</th>
-                <th className="p-4">الرابط المختصر</th>
-                <th className="p-4">التصنيف</th>
-                <th className="p-4">الحالة</th>
-                <th className="p-4">الترتيب</th>
-                <th className="p-4">الإجراءات</th>
-              </tr>
-            </thead>
+      {kind === "journeys" ? (
+        <div className="space-y-4">
+          {journeyGroups.map((group) => {
+            const isOpen =
+              openJourneyGroups.has(group.id);
 
-            <tbody>
-              {filtered.map((row) => (
-                <tr
-                  key={row.id}
-                  draggable
-                  onDragStart={() => setDragged(row.id)}
-                  onDragEnd={() => setDragged(null)}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={() => drop(row.id)}
-                  className="border-t border-slate-100 transition hover:bg-slate-50/70"
+            return (
+              <section
+                key={group.id}
+                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    toggleJourneyGroup(group.id)
+                  }
+                  className="flex w-full items-center justify-between gap-4 bg-[#07152E] px-5 py-4 text-right text-white transition hover:bg-[#0B2147]"
                 >
-                  <td className="p-4 text-slate-400">
-                    <GripVertical className="h-5 w-5 cursor-grab active:cursor-grabbing" />
-                  </td>
+                  <div>
+                    <p className="text-[10px] font-black text-[#F7B548]">
+                      المسار المهني
+                    </p>
 
-                  <td className="p-4">
-                    <div className="font-black text-[#07152E]">
-                      {row.title}
-                    </div>
+                    <h3 className="mt-1 text-lg font-black">
+                      {group.title}
+                    </h3>
+                  </div>
 
-                    <div className="max-w-sm truncate text-xs text-slate-500">
-                      {row.description || "بدون وصف"}
-                    </div>
-                  </td>
-
-                  <td className="p-4 font-mono text-xs text-slate-500">
-                    {row.slug}
-                  </td>
-
-                  <td className="p-4 text-sm text-slate-600">
-                    {kind === "courses"
-                      ? stations.find(
-                          (station) => station.id === row.station_id,
-                        )?.title || row.journey_type
-                      : kind === "journeys"
-                        ? courses.find(
-                            (course) => course.id === row.course_id,
-                          )?.title || row.journey_type
-                        : "مسار مهني"}
-                  </td>
-
-                  <td className="p-4">
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-bold ${
-                        row.is_active !== false && row.status !== "archived"
-                          ? "bg-emerald-50 text-emerald-700"
-                          : "bg-slate-100 text-slate-500"
-                      }`}
-                    >
-                      {row.status ||
-                        (row.is_active !== false ? "نشط" : "غير نشط")}
+                  <div className="flex items-center gap-3">
+                    <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-white">
+                      {group.rows.length} رحلة
                     </span>
-                  </td>
 
-                  <td className="p-4">{row.display_order}</td>
+                    {isOpen ? (
+                      <ChevronUp className="h-5 w-5 text-[#F7B548]" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 text-[#F7B548]" />
+                    )}
+                  </div>
+                </button>
 
-                  <td className="p-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {kind === "courses" ? (
-                        <Link
-                          href={`/admin/learning/courses/${row.id}`}
-                          className="inline-flex items-center gap-2 rounded-lg bg-[#07152E] px-3 py-2 text-xs font-black text-white transition hover:bg-[#10274f]"
-                          title="إدارة الكورس"
-                        >
-                          <Settings className="h-4 w-4" />
-                          إدارة
-                        </Link>
-                      ) : (
+                {isOpen ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[920px] text-right">
+                      <thead className="bg-slate-50 text-xs font-black text-slate-500">
+                        <tr>
+                          <th className="p-4">
+                            المحطة / الكورس
+                          </th>
+                          <th className="p-4">
+                            الرحلة
+                          </th>
+                          <th className="p-4">
+                            الرابط المختصر
+                          </th>
+                          <th className="p-4">
+                            نوع الرحلة
+                          </th>
+                          <th className="p-4">
+                            الحالة
+                          </th>
+                          <th className="p-4">
+                            الإجراءات
+                          </th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {group.rows.map((row) => {
+                          const course =
+                            courses.find(
+                              (item) =>
+                                item.id ===
+                                row.course_id,
+                            );
+
+                          return (
+                            <tr
+                              key={row.id}
+                              className="border-t border-slate-100 transition hover:bg-slate-50/70"
+                            >
+                              <td className="p-4">
+                                <div className="font-black text-[#07152E]">
+                                  {course?.title ||
+                                    "كورس غير معروف"}
+                                </div>
+
+                                <div className="mt-1 text-[10px] font-bold text-[#B87908]">
+                                  المحطة{" "}
+                                  {course?.station_display_order ??
+                                    "—"}
+                                </div>
+                              </td>
+
+                              <td className="p-4">
+                                <div className="font-black text-[#07152E]">
+                                  {row.title}
+                                </div>
+
+                                <div className="mt-1 max-w-sm truncate text-xs text-slate-500">
+                                  {row.description ||
+                                    "بدون وصف"}
+                                </div>
+                              </td>
+
+                              <td className="p-4 font-mono text-xs text-slate-500">
+                                {row.slug}
+                              </td>
+
+                              <td className="p-4 text-sm font-bold text-slate-600">
+                                {getJourneyTypeLabel(
+                                  row.journey_type,
+                                )}
+                              </td>
+
+                              <td className="p-4">
+                                <span
+                                  className={`rounded-full px-3 py-1 text-xs font-bold ${
+                                    row.is_active !==
+                                      false &&
+                                    row.status !==
+                                      "archived"
+                                      ? "bg-emerald-50 text-emerald-700"
+                                      : "bg-slate-100 text-slate-500"
+                                  }`}
+                                >
+                                  {row.status ||
+                                    (row.is_active !==
+                                    false
+                                      ? "نشط"
+                                      : "غير نشط")}
+                                </span>
+                              </td>
+
+                              <td className="p-4">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      open(row)
+                                    }
+                                    className="rounded-lg border border-slate-200 p-2 text-blue-600 transition hover:bg-blue-50"
+                                    title="تعديل الرحلة"
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      remove(row)
+                                    }
+                                    disabled={pending}
+                                    className="rounded-lg border border-slate-200 p-2 text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                    title="حذف الرحلة"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+              </section>
+            );
+          })}
+
+          {journeyGroups.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-16 text-center text-slate-500 shadow-sm">
+              لا توجد رحلات مطابقة.
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[780px] text-right">
+              <thead className="bg-slate-50 text-sm text-slate-500">
+                <tr>
+                  <th className="w-12 p-4" />
+                  <th className="p-4">الاسم</th>
+                  <th className="p-4">الرابط المختصر</th>
+                  <th className="p-4">التصنيف</th>
+                  <th className="p-4">الحالة</th>
+                  <th className="p-4">الترتيب</th>
+                  <th className="p-4">الإجراءات</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {filtered.map((row) => (
+                  <tr
+                    key={row.id}
+                    draggable
+                    onDragStart={() =>
+                      setDragged(row.id)
+                    }
+                    onDragEnd={() =>
+                      setDragged(null)
+                    }
+                    onDragOver={(event) =>
+                      event.preventDefault()
+                    }
+                    onDrop={() =>
+                      drop(row.id)
+                    }
+                    className="border-t border-slate-100 transition hover:bg-slate-50/70"
+                  >
+                    <td className="p-4 text-slate-400">
+                      <GripVertical className="h-5 w-5 cursor-grab active:cursor-grabbing" />
+                    </td>
+
+                    <td className="p-4">
+                      <div className="font-black text-[#07152E]">
+                        {row.title}
+                      </div>
+
+                      <div className="max-w-sm truncate text-xs text-slate-500">
+                        {row.description ||
+                          "بدون وصف"}
+                      </div>
+                    </td>
+
+                    <td className="p-4 font-mono text-xs text-slate-500">
+                      {row.slug}
+                    </td>
+
+                    <td className="p-4 text-sm text-slate-600">
+                      {kind === "courses"
+                        ? stations.find(
+                            (station) =>
+                              station.id ===
+                              row.station_id,
+                          )?.title ||
+                          row.journey_type
+                        : "مسار مهني"}
+                    </td>
+
+                    <td className="p-4">
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-bold ${
+                          row.is_active !==
+                            false &&
+                          row.status !==
+                            "archived"
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {row.status ||
+                          (row.is_active !==
+                          false
+                            ? "نشط"
+                            : "غير نشط")}
+                      </span>
+                    </td>
+
+                    <td className="p-4">
+                      {row.display_order}
+                    </td>
+
+                    <td className="p-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {kind === "courses" ? (
+                          <Link
+                            href={`/admin/learning/courses/${row.id}`}
+                            className="inline-flex items-center gap-2 rounded-lg bg-[#07152E] px-3 py-2 text-xs font-black text-white transition hover:bg-[#10274f]"
+                            title="إدارة الكورس"
+                          >
+                            <Settings className="h-4 w-4" />
+                            إدارة
+                          </Link>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              open(row)
+                            }
+                            className="rounded-lg border border-slate-200 p-2 text-blue-600 transition hover:bg-blue-50"
+                            title={`تعديل ${labels.single}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        )}
+
                         <button
                           type="button"
-                          onClick={() => open(row)}
-                          className="rounded-lg border border-slate-200 p-2 text-blue-600 transition hover:bg-blue-50"
-                          title={`تعديل ${labels.single}`}
+                          onClick={() =>
+                            remove(row)
+                          }
+                          disabled={pending}
+                          className="rounded-lg border border-slate-200 p-2 text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          title={`حذف ${labels.single}`}
                         >
-                          <Pencil className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" />
                         </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => remove(row)}
-                        disabled={pending}
-                        className="rounded-lg border border-slate-200 p-2 text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                        title={`حذف ${labels.single}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {filtered.length === 0 && (
-          <div className="p-16 text-center text-slate-500">
-            لا توجد بيانات مطابقة.
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+
+          {filtered.length === 0 ? (
+            <div className="p-16 text-center text-slate-500">
+              لا توجد بيانات مطابقة.
+            </div>
+          ) : null}
+        </div>
+      )}
 
       {editing && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
@@ -669,6 +1024,10 @@ export default function CatalogManager({
                         label: "متاحة",
                       },
                       {
+                        value: "published",
+                        label: "منشورة",
+                      },
+                      {
                         value: "closed",
                         label: "مغلقة",
                       },
@@ -717,17 +1076,20 @@ export default function CatalogManager({
                 />
               </div>
 
-              <Field
-                label="الترتيب"
-                type="number"
-                value={editing.display_order}
-                set={(value) =>
-                  setEditing({
-                    ...editing,
-                    display_order: Number(value),
-                  })
-                }
-              />
+              {kind !== "journeys" ? (
+                <Field
+                  label="الترتيب"
+                  type="number"
+                  value={editing.display_order}
+                  set={(value) =>
+                    setEditing({
+                      ...editing,
+                      display_order:
+                        Number(value),
+                    })
+                  }
+                />
+              ) : null}
 
               <Toggle
                 label="نشط"
@@ -764,6 +1126,31 @@ export default function CatalogManager({
       )}
     </div>
   );
+}
+
+
+function getJourneyTypeLabel(
+  value: string | null | undefined,
+) {
+  const normalized =
+    value?.trim().toLowerCase() ?? "";
+
+  if (
+    normalized === "fundamental" ||
+    normalized === "fundamentals"
+  ) {
+    return "تأسيسية";
+  }
+
+  if (normalized === "advanced") {
+    return "متقدمة";
+  }
+
+  if (normalized === "integrated") {
+    return "متكاملة";
+  }
+
+  return value || "—";
 }
 
 function Field({

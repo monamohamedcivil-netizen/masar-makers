@@ -23,8 +23,37 @@ export async function getSurveysDashboard(){
   const {data:st}=sids.length?await a.from("course_stations").select("id,career_path_id").in("id",sids):{data:[]};
   const pids=[...new Set((st??[]).map(x=>x.career_path_id).filter(Boolean))];
   const {data:pd}=pids.length?await a.from("career_paths").select("id,title,title_ar").in("id",pids):{data:[]};
-  const cm=new Map((cd??[]).map(x=>[x.id,x])),sm=new Map((st??[]).map(x=>[x.id,x])),pm=new Map((pd??[]).map(x=>[x.id,x]));
-  const rows:SurveysDashboardRow[]=(sd??[]).map(s=>{const c=cm.get(s.course_id),stn=c?.station_id?sm.get(c.station_id):null,path=stn?.career_path_id?pm.get(stn.career_path_id):null;return{id:s.id,userId:s.user_id??null,studentName:s.student_name||"طالب بدون اسم",studentEmail:s.student_email||"",courseId:s.course_id,courseTitle:c?.title_ar||c?.title||"—",courseCode:c?.course_code||null,pathId:path?.id||null,pathTitle:path?.title_ar||path?.title||"بدون مسار",rating:Math.max(0,Math.min(5,Number(s.rating??0))),comment:s.comment??null,submittedAt:s.submitted_at??null,detailedSurveyCompleted:Boolean(s.detailed_survey_completed),showOnHome:Boolean(s.show_on_home),showOnCourse:Boolean(s.show_on_course),surveyUrl:c?.survey_enabled===false?null:(c?.survey_url?.trim()||null)}});
+  const userIds=[...new Set((sd??[]).map(x=>x.user_id).filter((x):x is string=>Boolean(x)))];
+  const {data:profiles,error:pe}=userIds.length
+    ?await a.from("profiles").select("id,full_name,email").in("id",userIds)
+    :{data:[],error:null};
+  if(pe)return{success:false,message:pe.message};
+
+  const cm=new Map((cd??[]).map(x=>[x.id,x])),sm=new Map((st??[]).map(x=>[x.id,x])),pm=new Map((pd??[]).map(x=>[x.id,x])),profileMap=new Map((profiles??[]).map(x=>[x.id,x]));
+
+  const rows:SurveysDashboardRow[]=(sd??[]).map(s=>{
+   const c=cm.get(s.course_id),stn=c?.station_id?sm.get(c.station_id):null,path=stn?.career_path_id?pm.get(stn.career_path_id):null,profile=s.user_id?profileMap.get(s.user_id):null;
+   return{
+    id:s.id,
+    userId:s.user_id??null,
+    // إذا أصبح للطالب حساب، فالاسم الحالي في profile هو المصدر الأحدث.
+    // الطالب المستورد الذي لم ينشئ حسابًا يحتفظ باسم Excel.
+    studentName:profile?.full_name?.trim()||s.student_name?.trim()||"طالب بدون اسم",
+    studentEmail:profile?.email?.trim()||s.student_email||"",
+    courseId:s.course_id,
+    courseTitle:c?.title_ar||c?.title||"—",
+    courseCode:c?.course_code||null,
+    pathId:path?.id||null,
+    pathTitle:path?.title_ar||path?.title||"بدون مسار",
+    rating:Math.max(0,Math.min(5,Number(s.rating??0))),
+    comment:s.comment??null,
+    submittedAt:s.submitted_at??null,
+    detailedSurveyCompleted:Boolean(s.detailed_survey_completed),
+    showOnHome:Boolean(s.show_on_home),
+    showOnCourse:Boolean(s.show_on_course),
+    surveyUrl:c?.survey_enabled===false?null:(c?.survey_url?.trim()||null)
+   }
+  });
   const pc=new Map<string,{id:string;title:string;count:number}>();rows.forEach(r=>{const id=r.pathId??"unassigned",o=pc.get(id);if(o)o.count++;else pc.set(id,{id,title:r.pathTitle,count:1})});
   const avg=rows.length?rows.reduce((n,r)=>n+r.rating,0)/rows.length:0;
   return{success:true,message:"تم تحميل الاستبيانات.",data:{rows,paths:[...pc.values()],statistics:{total:rows.length,average:Number(avg.toFixed(1)),detailedCompleted:rows.filter(r=>r.detailedSurveyCompleted).length,showOnHome:rows.filter(r=>r.showOnHome).length}} satisfies SurveysDashboardData};

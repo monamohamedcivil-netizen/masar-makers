@@ -79,23 +79,7 @@ minFontSize={16}
   </p>
 </div>
 
-{/* Issue Date */}
-<div
-  className="absolute"
-  style={{
-    right: "3.5%",
-    bottom: "3%",
-  }}
->
-  <p
-    className="font-black text-[#07152E]"
-    style={{
-      fontSize: "12px",
-    }}
-  >
-    {certificate.issueDate}
-  </p>
-</div>
+
 
 </div>
 </div>

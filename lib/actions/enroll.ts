@@ -17,6 +17,14 @@ export type EnrollmentStatusMap = Record<string, EnrollmentStatus>;
 
 export type CourseEnrollmentAccess = {
   statuses: EnrollmentStatusMap;
+
+  /*
+   * حالات الاشتراك حسب نوع الرحلة، مستقلة عن action_key.
+   * هذا مهم للطلاب المستوردين الذين قد لا يكون لديهم action_key
+   * مطابق للمفاتيح الجديدة في صفحة الكورس.
+   */
+  journeyStatuses: EnrollmentStatusMap;
+
   journeyTypes: string[];
   hasFundamental: boolean;
   hasAdvanced: boolean;
@@ -110,7 +118,63 @@ function normalizeJourneyType(value: string | null | undefined) {
     return "fundamental";
   }
 
+  if (
+    normalized === "career" ||
+    normalized === "career-path"
+  ) {
+    return "career_path";
+  }
+
+  if (
+    normalized === "one-day" ||
+    normalized === "one_day_journey" ||
+    normalized === "one_day_workshop" ||
+    normalized === "one-day-workshop"
+  ) {
+    return "workshop";
+  }
+
+  if (
+    normalized === "free_session" ||
+    normalized === "free-session" ||
+    normalized === "free_journey"
+  ) {
+    return "free";
+  }
+
   return normalized;
+}
+
+function getStatusPriority(status: EnrollmentStatus) {
+  const priority: Record<EnrollmentStatus, number> = {
+    completed: 70,
+    active: 60,
+    pending: 50,
+    suspended: 40,
+    expired: 30,
+    rejected: 20,
+    cancelled: 10,
+  };
+
+  return priority[status] ?? 0;
+}
+
+function setJourneyStatus(
+  target: EnrollmentStatusMap,
+  journeyType: string,
+  status: EnrollmentStatus,
+) {
+  if (!journeyType) return;
+
+  const current = target[journeyType];
+
+  if (
+    !current ||
+    getStatusPriority(status) >
+      getStatusPriority(current)
+  ) {
+    target[journeyType] = status;
+  }
 }
 
 function buildCourseEnrollmentAccess(
@@ -120,6 +184,10 @@ function buildCourseEnrollmentAccess(
     status: EnrollmentStatus;
   }>,
 ): CourseEnrollmentAccess {
+  /*
+   * action_key يظل المصدر الأدق للاشتراكات التي تم إنشاؤها
+   * من المنصة الحديثة.
+   */
   const statuses: EnrollmentStatusMap = Object.fromEntries(
     rows
       .filter(
@@ -134,23 +202,55 @@ function buildCourseEnrollmentAccess(
       .map((item) => [item.action_key.trim(), item.status]),
   );
 
+  /*
+   * fallback حسب journey_type للطلاب المستوردين/القدامى.
+   */
+  const journeyStatuses: EnrollmentStatusMap = {};
+
+  for (const row of rows) {
+    const normalizedType =
+      normalizeJourneyType(row.journey_type);
+
+    if (!normalizedType) continue;
+
+    setJourneyStatus(
+      journeyStatuses,
+      normalizedType,
+      row.status,
+    );
+  }
+
   const journeyTypes = Array.from(
     new Set(
       rows
         .filter((item) =>
           blockingEnrollmentStatuses.has(item.status),
         )
-        .map((item) => normalizeJourneyType(item.journey_type))
+        .map((item) =>
+          normalizeJourneyType(item.journey_type),
+        )
         .filter(Boolean),
     ),
   );
 
-  const hasFundamental = journeyTypes.includes("fundamental");
-  const hasAdvanced = journeyTypes.includes("advanced");
-  const hasIntegrated = journeyTypes.includes("integrated");
+  const hasFundamental =
+    journeyTypes.includes("fundamental");
+
+  const hasAdvanced =
+    journeyTypes.includes("advanced");
+
+  /*
+   * professional / career_path تعتبر اشتراك احتراف كامل
+   * في التسجيلات القديمة والمستوردة.
+   */
+  const hasIntegrated =
+    journeyTypes.includes("integrated") ||
+    journeyTypes.includes("professional") ||
+    journeyTypes.includes("career_path");
 
   return {
     statuses,
+    journeyStatuses,
     journeyTypes,
     hasFundamental,
     hasAdvanced,

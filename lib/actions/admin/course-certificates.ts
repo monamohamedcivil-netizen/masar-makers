@@ -63,6 +63,27 @@ type EnrollmentRow = {
   created_at: string | null;
 };
 
+type StudentProfileRow = {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+};
+
+function applyProfileToEnrollment(
+  row: EnrollmentRow,
+  profile: StudentProfileRow | undefined,
+): EnrollmentRow {
+  return {
+    ...row,
+    student_name:
+      profile?.full_name?.trim() ||
+      row.student_name,
+    student_email:
+      profile?.email?.trim() ||
+      row.student_email,
+  };
+}
+
 /**
  * يتحقق من تسجيل دخول المستخدم ومن امتلاكه صلاحية الإدارة.
  */
@@ -368,7 +389,57 @@ const courseLevel: "single" | "split" =
       };
     }
 
-   const rows = (data as EnrollmentRow[] | null) ?? [];
+   const rawRows = (data as EnrollmentRow[] | null) ?? [];
+
+const userIds = Array.from(
+  new Set(
+    rawRows
+      .map((row) => row.user_id)
+      .filter(
+        (id): id is string =>
+          typeof id === "string" &&
+          id.trim().length > 0,
+      ),
+  ),
+);
+
+const profilesByUserId = new Map<
+  string,
+  StudentProfileRow
+>();
+
+if (userIds.length > 0) {
+  const {
+    data: profileData,
+    error: profileError,
+  } = await supabase
+    .from("profiles")
+    .select("id,full_name,email")
+    .in("id", userIds);
+
+  if (profileError) {
+    return {
+      success: false,
+      message:
+        `تعذر تحميل بيانات الطلاب الحالية: ${profileError.message}`,
+    };
+  }
+
+  for (const profile of
+    (profileData ?? []) as StudentProfileRow[]) {
+    profilesByUserId.set(
+      profile.id,
+      profile,
+    );
+  }
+}
+
+const rows = rawRows.map((row) =>
+  applyProfileToEnrollment(
+    row,
+    profilesByUserId.get(row.user_id),
+  ),
+);
 
 const enrollmentIds = rows.map((row) => row.id);
 
@@ -622,6 +693,38 @@ const certificateType = input.certificateType;
     }
     const enrollment = enrollmentData as IssueEnrollmentRow;
 
+    const {
+      data: linkedProfileData,
+      error: linkedProfileError,
+    } = await supabase
+      .from("profiles")
+      .select("id,full_name,email")
+      .eq("id", enrollment.user_id)
+      .maybeSingle();
+
+    if (linkedProfileError) {
+      return {
+        success: false,
+        message:
+          `تعذر تحميل بيانات الطالب الحالية: ${linkedProfileError.message}`,
+      };
+    }
+
+    const linkedProfile =
+      (linkedProfileData as StudentProfileRow | null) ??
+      null;
+
+    const resolvedStudentName =
+      linkedProfile?.full_name?.trim() ||
+      enrollment.student_name?.trim() ||
+      enrollment.student_email?.split("@")[0] ||
+      "Student";
+
+    const resolvedStudentEmail =
+      linkedProfile?.email?.trim() ||
+      enrollment.student_email?.trim() ||
+      "";
+
     if (enrollment.status !== "active") {
       return {
         success: false,
@@ -688,9 +791,7 @@ if (
 
     const studentName =
       enrollment.student_name_en?.trim() ||
-      enrollment.student_name?.trim() ||
-      enrollment.student_email?.split("@")[0] ||
-      "Student";
+      resolvedStudentName;
 
     const courseTitle =
       settings.display_title?.trim() ||
@@ -801,7 +902,7 @@ if (
  * رقم الطالب الثابت في المنصة.
  */
 const normalizedEmail =
-  enrollment.student_email?.trim().toLowerCase() ?? "";
+  resolvedStudentEmail.toLowerCase();
 
 if (!normalizedEmail) {
   return {
@@ -899,14 +1000,14 @@ const verificationCode = crypto.randomUUID();
   certificate_number: certificateNumber,
 
   student_name:
-    enrollment.student_name?.trim() ?? "",
+    resolvedStudentName,
 
   student_name_en:
     enrollment.student_name_en?.trim() ??
-    enrollment.student_name?.trim() ??
-    "",
+    resolvedStudentName,
+
 student_email:
-  enrollment.student_email?.trim() ?? "",
+  resolvedStudentEmail,
   course_title:
     enrollment.course_title?.trim() ?? "",
 
@@ -996,11 +1097,10 @@ try {
   await sendCertificateEmail({
 
     studentName:
-      enrollment.student_name ??
-      "Student",
+      resolvedStudentName,
 
     email:
-      enrollment.student_email ?? "",
+      resolvedStudentEmail,
 
     certificateId:
       certificate.id,
@@ -1119,6 +1219,39 @@ if (!enrollment) {
     message: "تعذر العثور على بيانات الاشتراك.",
   };
 }
+
+    const {
+      data: linkedProfileData,
+      error: linkedProfileError,
+    } = await supabase
+      .from("profiles")
+      .select("id,full_name,email")
+      .eq("id", enrollment.user_id)
+      .maybeSingle();
+
+    if (linkedProfileError) {
+      return {
+        success: false,
+        message:
+          `تعذر تحميل بيانات الطالب الحالية: ${linkedProfileError.message}`,
+      };
+    }
+
+    const linkedProfile =
+      (linkedProfileData as StudentProfileRow | null) ??
+      null;
+
+    const resolvedStudentName =
+      linkedProfile?.full_name?.trim() ||
+      enrollment.student_name?.trim() ||
+      enrollment.student_email?.split("@")[0] ||
+      "Student";
+
+    const resolvedStudentEmail =
+      linkedProfile?.email?.trim() ||
+      enrollment.student_email?.trim() ||
+      "";
+
     const { data: currentCertificate, error: certificateError } =
   await supabase
     .from("certificates")
@@ -1139,6 +1272,8 @@ if (certificateError || !currentCertificate) {
     const { error: updateCertificateError } = await supabase
       .from("certificates")
       .update({
+        student_name: resolvedStudentName,
+        student_email: resolvedStudentEmail,
         issued_at: issuedAt,
         issue_date: issuedAt,
         is_new: true,
@@ -1188,11 +1323,11 @@ if (certificateError || !currentCertificate) {
 
     let emailWarning: string | undefined;
 
-    if (enrollment.student_email?.trim()) {
+    if (resolvedStudentEmail) {
       try {
         await sendCertificateEmail({
-          studentName: enrollment.student_name?.trim() || "Student",
-          email: enrollment.student_email.trim(),
+          studentName: resolvedStudentName,
+          email: resolvedStudentEmail,
           certificateId: currentCertificate.id,
           courseTitle,
         });

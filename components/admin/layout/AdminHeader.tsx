@@ -1,10 +1,11 @@
 "use client";
 
-import { Bell, LogOut, Menu, Search } from "lucide-react";
+import { LogOut, Menu, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
+import AdminNotificationCenter from "@/components/admin/layout/AdminNotificationCenter";
 
 interface AdminHeaderProps {
   adminName: string;
@@ -55,14 +56,7 @@ export default function AdminHeader({
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <button
-            type="button"
-            aria-label="الإشعارات"
-            className="relative rounded-xl border border-slate-200 p-2.5 text-slate-600 transition hover:bg-slate-100"
-          >
-            <Bell className="h-5 w-5" />
-            <span className="absolute left-2 top-2 h-2 w-2 rounded-full bg-red-500" />
-          </button>
+          <AdminNotificationCenter />
 
           <button
             type="button"

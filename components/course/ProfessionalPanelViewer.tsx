@@ -26,6 +26,103 @@ type ProfessionalPanelViewerProps = {
   value: ProfessionalPanelDraft;
 };
 
+function pickFirstJourneyStatus(
+  enrollmentAccess: CourseEnrollmentAccess | undefined,
+  journeyTypes: string[],
+) {
+  if (!enrollmentAccess) {
+    return null;
+  }
+
+  for (const journeyType of journeyTypes) {
+    const status =
+      enrollmentAccess.journeyStatuses?.[
+        journeyType
+      ];
+
+    if (status) {
+      return status;
+    }
+  }
+
+  return null;
+}
+
+function resolveEnrollmentStatus({
+  actionKey,
+  panelComponent,
+  journey,
+  enrollmentStatuses,
+  enrollmentAccess,
+}: {
+  actionKey: string;
+  panelComponent: string;
+  journey?: ProfessionalJourneyColumn;
+  enrollmentStatuses?: EnrollmentStatusMap;
+  enrollmentAccess?: CourseEnrollmentAccess;
+}) {
+  const exactStatus =
+    enrollmentStatuses?.[actionKey];
+
+  if (exactStatus) {
+    return exactStatus;
+  }
+
+  if (panelComponent === "professional") {
+    if (journey === "fundamental") {
+      return pickFirstJourneyStatus(
+        enrollmentAccess,
+        [
+          "fundamental",
+          "integrated",
+          "professional",
+          "career_path",
+        ],
+      );
+    }
+
+    if (journey === "advanced") {
+      return pickFirstJourneyStatus(
+        enrollmentAccess,
+        [
+          "advanced",
+          "integrated",
+          "professional",
+          "career_path",
+        ],
+      );
+    }
+
+    return pickFirstJourneyStatus(
+      enrollmentAccess,
+      [
+        "integrated",
+        "professional",
+        "career_path",
+      ],
+    );
+  }
+
+  if (panelComponent === "workshop") {
+    return pickFirstJourneyStatus(
+      enrollmentAccess,
+      ["workshop", "one_day"],
+    );
+  }
+
+  if (panelComponent === "free") {
+    return pickFirstJourneyStatus(
+      enrollmentAccess,
+      ["free"],
+    );
+  }
+
+  return pickFirstJourneyStatus(
+    enrollmentAccess,
+    [panelComponent],
+  );
+}
+
 export default function ProfessionalPanelViewer({
   stationId,
   courseId,
@@ -112,9 +209,12 @@ export default function ProfessionalPanelViewer({
             }
             actionKey={`${panelComponent}:screen`}
             actionTitle={value.screenTitle}
-            enrollmentStatus={
-              enrollmentStatuses?.[`${panelComponent}:screen`] ?? null
-            }
+            enrollmentStatus={resolveEnrollmentStatus({
+              actionKey: `${panelComponent}:screen`,
+              panelComponent,
+              enrollmentStatuses,
+              enrollmentAccess,
+            })}
             className="w-[132px] shrink-0 sm:w-[155px]"
           />
         )}
@@ -189,6 +289,7 @@ export default function ProfessionalPanelViewer({
                 enrollmentStatuses={
                   enrollmentStatuses
                 }
+                enrollmentAccess={enrollmentAccess}
                 journey="fundamental"
                 title={value.columnOneTitle}
                 action={value.columnOneAction}
@@ -204,6 +305,7 @@ export default function ProfessionalPanelViewer({
                 enrollmentStatuses={
                   enrollmentStatuses
                 }
+                enrollmentAccess={enrollmentAccess}
                 journey="advanced"
                 title={value.columnTwoTitle}
                 action={value.columnTwoAction}
@@ -223,7 +325,8 @@ export default function ProfessionalPanelViewer({
               enrollmentStatuses={
                 enrollmentStatuses
               }
-              journey="fundamental"
+              enrollmentAccess={enrollmentAccess}
+                journey="fundamental"
               title={value.columnOneTitle}
               action={value.columnOneAction}
               showAction={showFundamental}
@@ -238,7 +341,8 @@ export default function ProfessionalPanelViewer({
               enrollmentStatuses={
                 enrollmentStatuses
               }
-              journey="advanced"
+              enrollmentAccess={enrollmentAccess}
+                journey="advanced"
               title={value.columnTwoTitle}
               action={value.columnTwoAction}
               showAction={showAdvanced}
@@ -256,7 +360,8 @@ export default function ProfessionalPanelViewer({
             enrollmentStatuses={
               enrollmentStatuses
             }
-            journey="fundamental"
+            enrollmentAccess={enrollmentAccess}
+                journey="fundamental"
             title={value.columnOneTitle}
             action={value.columnOneAction}
             showAction={showFundamental}
@@ -274,6 +379,7 @@ type ViewerColumnProps = {
   courseId: string;
   panelComponent?: string;
   enrollmentStatuses?: EnrollmentStatusMap;
+  enrollmentAccess?: CourseEnrollmentAccess;
   journey: ProfessionalJourneyColumn;
   title: string;
   action: ProfessionalActionConfig;
@@ -288,6 +394,7 @@ function ViewerColumn({
   courseId,
   panelComponent = "professional",
   enrollmentStatuses,
+  enrollmentAccess,
   journey,
   title,
   action,
@@ -319,11 +426,13 @@ function ViewerColumn({
               journeyType={resolveJourneyType(panelComponent, journey)}
               actionKey={`${panelComponent}:column:${journey}`}
               actionTitle={title}
-              enrollmentStatus={
-                enrollmentStatuses?.[
-                  `${panelComponent}:column:${journey}`
-                ] ?? null
-              }
+              enrollmentStatus={resolveEnrollmentStatus({
+                actionKey: `${panelComponent}:column:${journey}`,
+                panelComponent,
+                journey,
+                enrollmentStatuses,
+                enrollmentAccess,
+              })}
               className="w-full sm:w-[150px]"
             />
           )}
@@ -357,6 +466,7 @@ function ViewerColumn({
             courseId={courseId}
             panelComponent={panelComponent}
             enrollmentStatuses={enrollmentStatuses}
+            enrollmentAccess={enrollmentAccess}
             block={block}
           />
         ))}
@@ -370,12 +480,14 @@ function ViewerBlock({
   courseId,
   panelComponent,
   enrollmentStatuses,
+  enrollmentAccess,
   block,
 }: {
   stationId: string;
   courseId: string;
   panelComponent: string;
   enrollmentStatuses?: EnrollmentStatusMap;
+  enrollmentAccess?: CourseEnrollmentAccess;
   block: ProfessionalContentBlock;
 }) {
   const [isImageOpen, setIsImageOpen] = useState(false);
@@ -574,11 +686,13 @@ function ViewerBlock({
                 journeyType={resolveJourneyType(panelComponent, block.journey)}
                 actionKey={`${panelComponent}:item:${item.id}`}
                 actionTitle={item.title}
-                enrollmentStatus={
-                  enrollmentStatuses?.[
-                    `${panelComponent}:item:${item.id}`
-                  ] ?? null
-                }
+                enrollmentStatus={resolveEnrollmentStatus({
+                  actionKey: `${panelComponent}:item:${item.id}`,
+                  panelComponent,
+                  journey: block.journey,
+                  enrollmentStatuses,
+                  enrollmentAccess,
+                })}
                 itemTitle={item.title}
                 className="w-full sm:w-[120px]"
               />

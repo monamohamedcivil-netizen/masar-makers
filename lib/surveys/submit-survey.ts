@@ -67,14 +67,47 @@ export async function submitSurvey({
 
   const submittedAt = new Date().toISOString();
 
+  /*
+   * نحفظ بيانات الطالب الحالية مع التقييم.
+   * student_surveys جدول denormalized، لذلك user_id وحده لا يكفي
+   * لعرض الاسم لاحقًا إذا كانت student_name فارغة أو قديمة.
+   */
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name,email")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const studentName =
+    profile?.full_name?.trim() ||
+    (typeof user.user_metadata?.full_name === "string"
+      ? user.user_metadata.full_name.trim()
+      : "") ||
+    (typeof user.user_metadata?.name === "string"
+      ? user.user_metadata.name.trim()
+      : "") ||
+    null;
+
+  const studentEmail =
+    profile?.email?.trim().toLowerCase() ||
+    user.email?.trim().toLowerCase() ||
+    null;
+
   const { data, error } = await supabase
     .from("student_surveys")
     .upsert(
       {
         user_id: user.id,
+        student_name: studentName,
+        student_email: studentEmail,
         course_id: normalizedCourseId,
         rating: normalizedRating,
         comment: normalizedComment || null,
+
+        // التقييم الأول أصبح مكتملًا فعليًا بمجرد الإرسال.
+        general_survey_completed: true,
+        general_survey_completed_at: submittedAt,
+
         submitted_at: submittedAt,
         updated_at: submittedAt,
       },

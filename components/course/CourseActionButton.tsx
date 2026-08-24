@@ -228,7 +228,7 @@ export default function CourseActionButton({
           onClick={() =>
             router.push(redirectTo)
           }
-          className="h-9 w-full rounded-full bg-[#07152E] px-4 text-[10px] font-black text-[#F7B548] shadow-[0_6px_16px_rgba(7,21,46,0.12)] transition hover:bg-[#F7B548] hover:text-[#07152E]"
+          className="h-9 w-full rounded-full border border-[#F7B548] bg-[#17345F] px-4 text-[10px] font-black text-white shadow-[0_6px_16px_rgba(7,21,46,0.18)] transition hover:bg-[#F7B548] hover:text-[#07152E]"
         >
           {mode === "free"
             ? label || "شاهد الآن"
@@ -253,7 +253,7 @@ export default function CourseActionButton({
     return (
       <button
         type="button"
-        className="h-9 w-full rounded-full bg-[#07152E] px-4 text-[10px] font-black text-[#F7B548] shadow-[0_6px_16px_rgba(7,21,46,0.12)] transition hover:bg-[#F7B548] hover:text-[#07152E]"
+        className="h-9 w-full rounded-full border border-[#F7B548] bg-[#17345F] px-4 text-[10px] font-black text-white shadow-[0_6px_16px_rgba(7,21,46,0.18)] transition hover:bg-[#F7B548] hover:text-[#07152E]"
       >
         ابدأ الرحلة
       </button>
