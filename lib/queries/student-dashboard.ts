@@ -255,6 +255,23 @@ type EnrollmentRow = {
   journey_type: string | null;
   action_key: string | null;
   action_title: string | null;
+
+  /*
+   * progress_percent = التقدم النهائي المخزن على enrollment.
+   * imported_progress_percent = خط الأساس التاريخي القادم من الاستيراد.
+   *
+   * لا نعتمد على progress_percent وحده لحساب صفحة الطالب؛
+   * التقدم النهائي في الواجهة = MAX(
+   *   التقدم الحقيقي من lesson_progress,
+   *   التقدم المستورد,
+   *   الملخص المخزن
+   * ).
+   */
+  source: string | null;
+  progress_percent: number | string | null;
+  imported_progress_percent: number | string | null;
+  split_progress: unknown;
+  imported_split_progress: unknown;
 };
 
 type CourseRow = {
@@ -370,6 +387,16 @@ function clampPercent(value: number | string | null | undefined) {
   }
 
   return Math.max(0, Math.min(100, numericValue));
+}
+
+function getEnrollmentImportedProgress(
+  enrollment: EnrollmentRow | null | undefined,
+) {
+  if (!enrollment) return 0;
+
+  return clampPercent(
+    enrollment.imported_progress_percent,
+  );
 }
 
 function parseTimestamp(value: string | null | undefined) {
@@ -581,6 +608,7 @@ function calculateCourseProgress(
   courseLessons: LessonRow[],
   lessonProgressMap: Map<string, LessonProgressRow>,
   storedProgress: StoredCourseProgressRow | undefined,
+  importedBaselinePercent = 0,
 ): CalculatedCourseProgress {
   const totalLessons = courseLessons.length;
 
@@ -589,7 +617,11 @@ function calculateCourseProgress(
    * as a fallback so existing dashboard data does not disappear.
    */
   if (totalLessons === 0) {
-    const progressPercent = clampPercent(storedProgress?.progress_percent);
+    const progressPercent = Math.max(
+      clampPercent(storedProgress?.progress_percent),
+      clampPercent(importedBaselinePercent),
+    );
+
     const completedLessons = Math.max(
       0,
       Number(storedProgress?.completed_lessons ?? 0),
@@ -650,25 +682,91 @@ function calculateCourseProgress(
     }
   }
 
-  const progressPercent = Math.round(
-    accumulatedProgress / totalLessons,
+  /*
+   * التقدم الفعلي الناتج من مشاهدة المحاضرات.
+   */
+  const lessonBasedProgressPercent = clampPercent(
+    Math.round(accumulatedProgress / totalLessons),
   );
 
+  /*
+   * student_course_progress قد يحتوي على تقدم تاريخي
+   * لطالب مستورد من النظام السابق.
+   *
+   * هذا التقدم يمثل Baseline لا يجوز أن تنخفض عنه
+   * نسبة الطالب بمجرد فتح محاضرة على المنصة الجديدة.
+   *
+   * لذلك:
+   * - إذا كان التقدم التاريخي أعلى → نحافظ عليه.
+   * - إذا أصبح تقدم المحاضرات أعلى → نستخدم تقدم المحاضرات.
+   */
+  const storedProgressPercent = clampPercent(
+    storedProgress?.progress_percent,
+  );
+
+  const importedProgressPercent = clampPercent(
+    importedBaselinePercent,
+  );
+
+  /*
+   * القاعدة النهائية الموحدة:
+   *
+   * 1) Lesson progress = التقدم الحقيقي الجديد.
+   * 2) Imported progress = التاريخ السابق للطالب.
+   * 3) Stored summary = ملخص قاعدة البيانات بعد الـ trigger.
+   *
+   * لا يسمح لأي نشاط جديد أن يخفض التقدم التاريخي.
+   */
+  const progressPercent = Math.max(
+    lessonBasedProgressPercent,
+    importedProgressPercent,
+    storedProgressPercent,
+  );
+
+  /*
+   * إذا كانت النسبة النهائية 100% فالكورس مكتمل،
+   * حتى لو لم توجد lesson_progress تاريخية لكل المحاضرات.
+   *
+   * وهذا مهم خصوصًا للطلاب المستوردين الذين أكملوا
+   * الكورس قبل تشغيل نظام تتبع المحاضرات الحالي.
+   */
   const status: StudentCourseCard["status"] =
-    completedLessons >= totalLessons
+    progressPercent >= 100
       ? "completed"
       : progressPercent > 0
         ? "in_progress"
         : "not_started";
 
+  /*
+   * completedLessons المعروضة لا يجب أن تعيد طالبًا
+   * مستوردًا مكتملًا إلى 0 محاضرات مكتملة.
+   */
+  const finalCompletedLessons =
+    progressPercent >= 100
+      ? Math.max(
+          completedLessons,
+          totalLessons,
+          Number(storedProgress?.completed_lessons ?? 0),
+        )
+      : Math.max(
+          completedLessons,
+          Number(storedProgress?.completed_lessons ?? 0),
+        );
+
   return {
-    progressPercent: clampPercent(progressPercent),
-    completedLessons,
+    progressPercent,
+    completedLessons: finalCompletedLessons,
     totalLessons,
     status,
-    lastLessonId,
+    lastLessonId:
+      lastLessonId ??
+      storedProgress?.current_lesson_id ??
+      null,
     lastLessonTitle,
-    lastActivityAt,
+    lastActivityAt:
+      lastActivityAt ??
+      storedProgress?.last_activity_at ??
+      null,
   };
 }
 
@@ -721,7 +819,7 @@ if (userId !== user.id) {
       .maybeSingle(),
     supabase
       .from("enrollments")
-      .select("id,course_id,status,journey_type,action_key,action_title")
+      .select("id,course_id,status,journey_type,action_key,action_title,source,progress_percent,imported_progress_percent,split_progress,imported_split_progress")
       .eq("user_id", userId)
       .order("created_at", { ascending: false }),
     supabase
@@ -1283,12 +1381,33 @@ pdfUrl:
     courseRows.map((course) => [course.id, course]),
   );
 
-  const storedProgressMap = new Map(
-    storedProgressRows.map((progress) => [
+  /*
+   * قد يوجد أكثر من Enrollment لنفس الكورس
+   * (احتراف / يوم واحد / مجاني).
+   * الـ View قد يعيد أكثر من صف لنفس course_id،
+   * لذلك نحفظ أعلى ملخص فقط بدل الاعتماد على ترتيب النتائج.
+   */
+  const storedProgressMap = new Map<
+    string,
+    StoredCourseProgressRow
+  >();
+
+  for (const progress of storedProgressRows) {
+    const existing = storedProgressMap.get(
       progress.course_id,
-      progress,
-    ]),
-  );
+    );
+
+    if (
+      !existing ||
+      clampPercent(progress.progress_percent) >
+        clampPercent(existing.progress_percent)
+    ) {
+      storedProgressMap.set(
+        progress.course_id,
+        progress,
+      );
+    }
+  }
 
   const lessonProgressMap = new Map(
     lessonProgressRows.map((progress) => [
@@ -1339,6 +1458,7 @@ pdfUrl:
         lessonsByCourse.get(course.id) ?? [],
         lessonProgressMap,
         storedProgressMap.get(course.id),
+        getEnrollmentImportedProgress(enrollment),
       );
 
       const station = course.station_id
@@ -1772,22 +1892,63 @@ pdfUrl:
             return clampPercent(progress?.progress_percent);
           });
 
-          const stationProgressPercent = stationProgressValues.length
-            ? Math.round(
-                stationProgressValues.reduce((sum, value) => sum + value, 0) /
-                  stationProgressValues.length,
-              )
-            : enrolledCard?.progressPercent ?? 0;
+                /*
+           * تقدم المحطة الناتج من المحاضرات الحالية.
+           */
+          const lessonBasedStationProgressPercent =
+            stationProgressValues.length
+              ? Math.round(
+                  stationProgressValues.reduce(
+                    (sum, value) => sum + value,
+                    0,
+                  ) / stationProgressValues.length,
+                )
+              : 0;
 
-          const stationCompletedLessons = stationLessons.length
-            ? stationLessons.filter((lesson) => {
-                const progress = stationLearningProgressMap.get(lesson.id);
-                return (
-                  Boolean(progress?.completed) ||
-                  clampPercent(progress?.progress_percent) >= 100
+          /*
+           * enrolledCard.progressPercent يحتوي بالفعل على
+           * الـ Baseline التاريخي + تقدم المحاضرات.
+           *
+           * لذلك لا نسمح لحساب المحاضرات داخل المحطة
+           * أن يخفض تقدم الطالب المستورد.
+           */
+          const stationProgressPercent = Math.max(
+            clampPercent(
+              lessonBasedStationProgressPercent,
+            ),
+            clampPercent(
+              enrolledCard?.progressPercent,
+            ),
+          );
+
+                    const lessonBasedCompletedLessons =
+            stationLessons.length
+              ? stationLessons.filter((lesson) => {
+                  const progress =
+                    stationLearningProgressMap.get(
+                      lesson.id,
+                    );
+
+                  return (
+                    Boolean(progress?.completed) ||
+                    clampPercent(
+                      progress?.progress_percent,
+                    ) >= 100
+                  );
+                }).length
+              : 0;
+
+          const stationCompletedLessons =
+            stationProgressPercent >= 100
+              ? Math.max(
+                  lessonBasedCompletedLessons,
+                  stationLessons.length,
+                  enrolledCard?.completedLessons ?? 0,
+                )
+              : Math.max(
+                  lessonBasedCompletedLessons,
+                  enrolledCard?.completedLessons ?? 0,
                 );
-              }).length
-            : enrolledCard?.completedLessons ?? 0;
 
           const stationTotalLessons =
             stationLessons.length || enrolledCard?.totalLessons || 0;

@@ -29,11 +29,12 @@ export default function StudentJourneyDashboard({
   initialLessonId,
 }: Props) {
   /*
-   * إحصائيات رحلة الاحتراف تعتمد على careerPaths فقط.
-   * كل learningPart متاح يمثل رحلة تعليمية مستقلة:
-   * - integrated في كورس split = Fundamentals + Advanced = رحلتان
-   * - single = رحلة واحدة
-   * الرحلات المجانية واليوم الواحد لا تدخل هنا.
+   * إحصائيات موحدة:
+   * نعد نفس "الرحلات التعليمية" التي تظهر فعليًا للطالب.
+   * - رحلة الاحتراف المقسمة: كل learningPart متاح = رحلة مستقلة.
+   * - اليوم الواحد/المجاني: كل journey = رحلة مستقلة.
+   * - التقدم الرسمي لكل رحلة احترافية يستخدم station.progressPercent
+   *   كحد أدنى حتى يحافظ على imported/final baseline القادم من الخادم.
    */
   const professionalJourneyParts =
     data.careerPaths.flatMap((path) =>
@@ -41,37 +42,28 @@ export default function StudentJourneyDashboard({
         station.learningParts
           .filter((part) => part.access !== "locked")
           .map((part) => {
-            const progressValues =
-              part.lessons.map(
-                (lesson) =>
-                  lesson.progressPercent,
-              );
-
-            const progressPercent =
-              progressValues.length > 0
-                ? Math.round(
-                    progressValues.reduce(
-                      (sum, value) =>
-                        sum + value,
-                      0,
-                    ) /
-                      progressValues.length,
-                  )
-                : station.progressPercent;
-
-            const completed =
+            const lessonProgress =
               part.lessons.length > 0
-                ? part.lessons.every(
-                    (lesson) =>
-                      lesson.completed ||
-                      lesson.progressPercent >= 100,
+                ? Math.round(
+                    part.lessons.reduce(
+                      (sum, lesson) =>
+                        sum + lesson.progressPercent,
+                      0,
+                    ) / part.lessons.length,
                   )
-                : station.status === "completed";
+                : 0;
+
+            const progressPercent = Math.max(
+              lessonProgress,
+              station.progressPercent,
+            );
 
             return {
               access: part.access,
               progressPercent,
-              completed,
+              completed:
+                progressPercent >= 100 ||
+                station.status === "completed",
             };
           }),
       ),
@@ -99,113 +91,87 @@ export default function StudentJourneyDashboard({
         !part.completed,
     ).length;
 
-  const oneDayCount = data.oneDayJourneyGroups.reduce(
-  (total, path) =>
-    total +
-    path.stations.reduce(
-      (stationTotal, station) =>
-        stationTotal + station.journeys.length,
-      0,
-    ),
-  0,
-);
+  const oneDayJourneys =
+    data.oneDayJourneyGroups.flatMap(
+      (path) =>
+        path.stations.flatMap(
+          (station) => station.journeys,
+        ),
+    );
 
-const freeCount = data.freeJourneyGroups.reduce(
-  (total, path) =>
-    total +
-    path.stations.reduce(
-      (stationTotal, station) =>
-        stationTotal + station.journeys.length,
-      0,
-    ),
-  0,
-);
+  const freeJourneys =
+    data.freeJourneyGroups.flatMap(
+      (path) =>
+        path.stations.flatMap(
+          (station) => station.journeys,
+        ),
+    );
 
-const oneDayJourneys =
-  data.oneDayJourneyGroups.flatMap(
-    (path) =>
-      path.stations.flatMap(
-        (station) =>
-          station.journeys,
-      ),
-  );
+  const oneDayCount = oneDayJourneys.length;
+  const freeCount = freeJourneys.length;
 
-const freeJourneys =
-  data.freeJourneyGroups.flatMap(
-    (path) =>
-      path.stations.flatMap(
-        (station) =>
-          station.journeys,
-      ),
-  );
+  const oneDayActiveCount =
+    oneDayJourneys.filter(
+      (journey) =>
+        journey.status !== "completed",
+    ).length;
 
-const oneDayActiveCount =
-  oneDayJourneys.filter(
-    (journey) =>
-      journey.status !== "completed",
-  ).length;
+  const oneDayCompletedCount =
+    oneDayJourneys.filter(
+      (journey) =>
+        journey.status === "completed",
+    ).length;
 
-const oneDayCompletedCount =
-  oneDayJourneys.filter(
-    (journey) =>
-      journey.status === "completed",
-  ).length;
+  const freeActiveCount =
+    freeJourneys.filter(
+      (journey) =>
+        journey.status !== "completed",
+    ).length;
 
-const freeActiveCount =
-  freeJourneys.filter(
-    (journey) =>
-      journey.status !== "completed",
-  ).length;
+  const freeCompletedCount =
+    freeJourneys.filter(
+      (journey) =>
+        journey.status === "completed",
+    ).length;
 
-const freeCompletedCount =
-  freeJourneys.filter(
-    (journey) =>
-      journey.status === "completed",
-  ).length;
+  const activeJourneys =
+    professionalActiveCount +
+    oneDayActiveCount +
+    freeActiveCount;
 
-const activeJourneys =
-  professionalActiveCount +
-  oneDayActiveCount +
-  freeActiveCount;
+  const completedJourneys =
+    professionalCompletedCount +
+    oneDayCompletedCount +
+    freeCompletedCount;
 
-const completedJourneys =
-  professionalCompletedCount +
-  oneDayCompletedCount +
-  freeCompletedCount;
+  const pendingJourneys =
+    professionalPendingCount;
 
-const pendingJourneys =
-  professionalPendingCount;
-
-const allProgressValues = [
-  ...professionalJourneyParts
-    .filter(
-      (part) => part.access === "active",
-    )
-    .map(
-      (part) =>
-        part.progressPercent,
-    ),
-  ...oneDayJourneys.map(
-    (journey) =>
-      journey.progressPercent,
-  ),
-  ...freeJourneys.map(
-    (journey) =>
-      journey.progressPercent,
-  ),
-];
-
-const averageJourneyProgress =
-  allProgressValues.length > 0
-    ? Math.round(
-        allProgressValues.reduce(
-          (sum, value) =>
-            sum + value,
-          0,
-        ) /
-          allProgressValues.length,
+  const allProgressValues = [
+    ...professionalJourneyParts
+      .filter(
+        (part) => part.access === "active",
       )
-    : 0;
+      .map(
+        (part) => part.progressPercent,
+      ),
+    ...oneDayJourneys.map(
+      (journey) => journey.progressPercent,
+    ),
+    ...freeJourneys.map(
+      (journey) => journey.progressPercent,
+    ),
+  ];
+
+  const averageJourneyProgress =
+    allProgressValues.length > 0
+      ? Math.round(
+          allProgressValues.reduce(
+            (sum, value) => sum + value,
+            0,
+          ) / allProgressValues.length,
+        )
+      : 0;
 
   const statistics: StudentStatisticsData = {
     learning: [

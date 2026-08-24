@@ -625,8 +625,8 @@ const importedProgress =
     await admin
       .from("enrollments")
       .select(
-        "id,progress_percent,split_progress",
-      )
+  "id,progress_percent,split_progress,imported_progress_percent,imported_split_progress",
+)
       .eq("course_id", course.id)
       .eq("journey_type", row.journeyType)
       .ilike("student_email", email)
@@ -677,15 +677,31 @@ const importedProgress =
     if (
       importedProgress.hasImportedProgress
     ) {
-      updatePayload.progress_percent =
-        importedProgress.progressPercent;
+      /*
+ * عند إعادة الاستيراد بواسطة الإدارة
+ * نحدّث الـBaseline التاريخية نفسها.
+ *
+ * ولا نسمح بإعادة الاستيراد أن تخفض
+ * التقدم الحالي الذي وصل له الطالب.
+ */
+updatePayload.imported_progress_percent =
+  importedProgress.progressPercent;
 
-      if (
-        importedProgress.splitProgress
-      ) {
-        updatePayload.split_progress =
-          importedProgress.splitProgress;
-      }
+updatePayload.progress_percent =
+  Math.max(
+    Number(existing.progress_percent ?? 0),
+    importedProgress.progressPercent,
+  );
+
+if (
+  importedProgress.splitProgress
+) {
+  updatePayload.imported_split_progress =
+    importedProgress.splitProgress;
+
+  updatePayload.split_progress =
+    importedProgress.splitProgress;
+}
     }
 
     const { data, error } = await admin
@@ -708,11 +724,26 @@ const importedProgress =
       ...payload,
 
       progress_percent:
-        importedProgress.progressPercent,
+  importedProgress.progressPercent,
 
-      split_progress:
-        importedProgress.splitProgress ??
-        {},
+split_progress:
+  importedProgress.splitProgress ??
+  {},
+
+/*
+ * نسخة تاريخية ثابتة من تقدم الطالب
+ * قبل استخدام منصة Masar Makers.
+ *
+ * لا يتم استبدالها عند مشاهدة المحاضرات.
+ */
+imported_progress_percent:
+  importedProgress.hasImportedProgress
+    ? importedProgress.progressPercent
+    : null,
+
+imported_split_progress:
+  importedProgress.splitProgress ??
+  null,
 
       created_at: now,
     })
@@ -2636,18 +2667,30 @@ export async function updateImportedStudentJourneyProgress(
       );
 
     updatePayload = {
-      split_progress:
-        existingSplit,
-      progress_percent:
-        summaryProgress,
-      updated_at: now,
-    };
+  split_progress:
+    existingSplit,
+
+  imported_split_progress:
+    existingSplit,
+
+  progress_percent:
+    summaryProgress,
+
+  imported_progress_percent:
+    summaryProgress,
+
+  updated_at: now,
+};
   } else {
     updatePayload = {
-      progress_percent:
-        numericProgress,
-      updated_at: now,
-    };
+  progress_percent:
+    numericProgress,
+
+  imported_progress_percent:
+    numericProgress,
+
+  updated_at: now,
+};
   }
 
   const {

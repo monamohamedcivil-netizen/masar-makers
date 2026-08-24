@@ -16,6 +16,10 @@ const journeyLabels: Record<string, string> = {
   career_path: "رحلة احتراف",
   career: "رحلة احتراف",
   professional: "رحلة احتراف",
+  integrated: "رحلة احتراف متكاملة",
+  fundamental: "أساسيات",
+  fundamentals: "أساسيات",
+  advanced: "متقدم",
   workshop: "رحلة يوم واحد",
   one_day: "رحلة يوم واحد",
   one_day_journey: "رحلة يوم واحد",
@@ -59,7 +63,9 @@ function getStatusClass(status: string) {
   }
 
   if (
-    ["active", "approved", "enrolled", "confirmed"].includes(status)
+    ["active", "approved", "enrolled", "confirmed"].includes(
+      status,
+    )
   ) {
     return "bg-sky-100 text-sky-700";
   }
@@ -75,14 +81,45 @@ function getStatusClass(status: string) {
   return "bg-slate-100 text-slate-600";
 }
 
+function getEnrollmentSourceLabel(
+  source: StudentJourneyRow["enrollmentSource"],
+) {
+  if (source === "reward") {
+    return "مكافأة";
+  }
+
+  if (source === "free") {
+    return "مجاني";
+  }
+
+  return "مدفوع";
+}
+
+function getEnrollmentSourceClass(
+  source: StudentJourneyRow["enrollmentSource"],
+) {
+  if (source === "reward") {
+    return "bg-[#FFF1C7] text-[#B8790B]";
+  }
+
+  if (source === "free") {
+    return "bg-emerald-100 text-emerald-700";
+  }
+
+  return "bg-sky-100 text-sky-700";
+}
+
 export default function StudentJourneysPanel({
   userId,
 }: StudentJourneysPanelProps) {
   const [result, setResult] =
     useState<StudentJourneysResult | null>(null);
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -91,14 +128,20 @@ export default function StudentJourneysPanel({
       setIsLoading(true);
       setError("");
 
-      const response = await getStudentJourneys(userId);
+      const response =
+        await getStudentJourneys(
+          userId,
+        );
 
       if (cancelled) {
         return;
       }
 
       if (!response.success) {
-        setError(response.message || "تعذر تحميل رحلات الطالب.");
+        setError(
+          response.message ||
+            "تعذر تحميل رحلات الطالب.",
+        );
       }
 
       setResult(response);
@@ -112,10 +155,11 @@ export default function StudentJourneysPanel({
     };
   }, [userId]);
 
-  const journeys = useMemo<StudentJourneyRow[]>(
-    () => result?.journeys ?? [],
-    [result],
-  );
+  const journeys =
+    useMemo<StudentJourneyRow[]>(
+      () => result?.journeys ?? [],
+      [result],
+    );
 
   if (isLoading) {
     return (
@@ -133,23 +177,69 @@ export default function StudentJourneysPanel({
     );
   }
 
-  const statistics = result?.statistics ?? {
-    total: 0,
-    paid: 0,
-    reward: 0,
-    active: 0,
-    completed: 0,
-    pending: 0,
-  };
+  const statistics =
+    result?.statistics ?? {
+      total: 0,
+      paid: 0,
+      reward: 0,
+      active: 0,
+      completed: 0,
+      pending: 0,
+      professional: 0,
+      oneDay: 0,
+      free: 0,
+      averageProgress: 0,
+    };
 
   return (
-    <div dir="rtl" className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-3">
+    <div
+      dir="rtl"
+      className="space-y-5"
+    >
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="إجمالي الرحلات"
           value={statistics.total}
         />
 
+        <StatCard
+          label="رحلات الاحتراف"
+          value={statistics.professional}
+        />
+
+        <StatCard
+          label="رحلات اليوم الواحد"
+          value={statistics.oneDay}
+        />
+
+        <StatCard
+          label="الرحلات المجانية"
+          value={statistics.free}
+        />
+
+        <StatCard
+          label="الرحلات النشطة"
+          value={statistics.active}
+        />
+
+        <StatCard
+          label="متوسط التقدم"
+          value={`${statistics.averageProgress}%`}
+        />
+
+        <StatCard
+          label="الرحلات المكتملة"
+          value={statistics.completed}
+        />
+
+        <StatCard
+          label="بانتظار الاعتماد"
+          value={statistics.pending}
+          highlighted
+        />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
         <StatCard
           label="اشتراكات مدفوعة"
           value={statistics.paid}
@@ -169,105 +259,153 @@ export default function StudentJourneysPanel({
       ) : (
         <div className="overflow-hidden rounded-2xl border border-slate-200">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px] text-right">
+            <table className="w-full min-w-[1500px] text-right">
               <thead className="bg-slate-50">
                 <tr>
-                  <TableHead>الكورس</TableHead>
-                  <TableHead>المحطة</TableHead>
-                  <TableHead>نوع الرحلة</TableHead>
-                  <TableHead>نوع الاشتراك</TableHead>
-                  <TableHead>الحالة</TableHead>
-                  <TableHead>التقدم</TableHead>
-                  <TableHead>تاريخ الاشتراك</TableHead>
-                  <TableHead>آخر تحديث</TableHead>
+                  <TableHead>
+                    الكورس
+                  </TableHead>
+
+                  <TableHead>
+                    المحطة
+                  </TableHead>
+
+                  <TableHead>
+                    نوع الرحلة
+                  </TableHead>
+
+                  <TableHead>
+                    نوع الاشتراك
+                  </TableHead>
+
+                  <TableHead>
+                    الحالة
+                  </TableHead>
+
+                  <TableHead>
+                    التقدم الحقيقي
+                  </TableHead>
+
+                  <TableHead>
+                    التقدم المستورد
+                  </TableHead>
+
+                  <TableHead>
+                    التقدم النهائي
+                  </TableHead>
+
+                  <TableHead>
+                    تاريخ الاشتراك
+                  </TableHead>
+
+                  <TableHead>
+                    آخر تحديث
+                  </TableHead>
                 </tr>
               </thead>
 
               <tbody>
-                {journeys.map((journey) => (
-                  <tr
-                    key={journey.id}
-                    className={`border-t border-slate-100 ${
-                      journey.enrollmentSource === "reward"
-                        ? "bg-[#FFFDF5]"
-                        : "bg-white"
-                    }`}
-                  >
-                    <TableCell>
-                      <div>
-                        <p className="font-black text-[#07152E]">
-                          {journey.courseTitle}
-                        </p>
-
-                        {journey.courseCode ? (
-                          <p className="mt-1 text-[10px] font-black text-[#C88712]">
-                            {journey.courseCode}
+                {journeys.map(
+                  (journey) => (
+                    <tr
+                      key={journey.id}
+                      className={`border-t border-slate-100 ${
+                        journey.enrollmentSource ===
+                        "reward"
+                          ? "bg-[#FFFDF5]"
+                          : "bg-white"
+                      }`}
+                    >
+                      <TableCell>
+                        <div>
+                          <p className="font-black text-[#07152E]">
+                            {
+                              journey.courseTitle
+                            }
                           </p>
-                        ) : null}
-                      </div>
-                    </TableCell>
 
-                    <TableCell>
-                      {journey.stationTitle ?? "—"}
-                    </TableCell>
-
-                    <TableCell>
-                      {journeyLabels[
-                        journey.journeyType.toLowerCase()
-                      ] ?? journey.journeyType}
-                    </TableCell>
-
-                    <TableCell>
-                      <span
-                        className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${
-                          journey.enrollmentSource === "reward"
-                            ? "bg-[#FFF1C7] text-[#B8790B]"
-                            : "bg-sky-100 text-sky-700"
-                        }`}
-                      >
-                        {journey.enrollmentSource === "reward"
-                          ? "مكافأة"
-                          : "مدفوع"}
-                      </span>
-                    </TableCell>
-
-                    <TableCell>
-                      <span
-                        className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${getStatusClass(
-                          journey.status,
-                        )}`}
-                      >
-                        {statusLabels[journey.status] ??
-                          journey.status}
-                      </span>
-                    </TableCell>
-
-                    <TableCell>
-                      <div className="min-w-[150px]">
-                        <div className="mb-1 flex items-center justify-between text-[10px] font-black text-slate-500">
-                          <span>{journey.progressPercent}%</span>
+                          {journey.courseCode ? (
+                            <p className="mt-1 text-[10px] font-black text-[#C88712]">
+                              {
+                                journey.courseCode
+                              }
+                            </p>
+                          ) : null}
                         </div>
+                      </TableCell>
 
-                        <div className="h-2 overflow-hidden rounded-full bg-slate-200">
-                          <div
-                            className="h-full rounded-full bg-[#F7B548]"
-                            style={{
-                              width: `${journey.progressPercent}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </TableCell>
+                      <TableCell>
+                        {journey.stationTitle ??
+                          "—"}
+                      </TableCell>
 
-                    <TableCell>
-                      {formatDate(journey.enrolledAt)}
-                    </TableCell>
+                      <TableCell>
+                        {journeyLabels[
+                          journey.journeyType.toLowerCase()
+                        ] ??
+                          journey.journeyType}
+                      </TableCell>
 
-                    <TableCell>
-                      {formatDate(journey.updatedAt)}
-                    </TableCell>
-                  </tr>
-                ))}
+                      <TableCell>
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${getEnrollmentSourceClass(
+                            journey.enrollmentSource,
+                          )}`}
+                        >
+                          {getEnrollmentSourceLabel(
+                            journey.enrollmentSource,
+                          )}
+                        </span>
+                      </TableCell>
+
+                      <TableCell>
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${getStatusClass(
+                            journey.status,
+                          )}`}
+                        >
+                          {statusLabels[
+                            journey.status
+                          ] ??
+                            journey.status}
+                        </span>
+                      </TableCell>
+
+                      <ProgressCell
+                        value={
+                          journey.realProgressPercent
+                        }
+                        tone="real"
+                      />
+
+                      <ProgressCell
+                        value={
+                          journey.importedProgressPercent
+                        }
+                        tone="imported"
+                      />
+
+                      <ProgressCell
+                        value={
+                          journey.progressPercent
+                        }
+                        tone="final"
+                      />
+
+                      <TableCell>
+                        {formatDate(
+                          journey.enrolledAt,
+                        )}
+                      </TableCell>
+
+                      <TableCell>
+                        {formatDate(
+                          journey.updatedAt,
+                        )}
+                      </TableCell>
+                    </tr>
+                  ),
+                )}
               </tbody>
             </table>
           </div>
@@ -283,7 +421,7 @@ function StatCard({
   highlighted = false,
 }: {
   label: string;
-  value: number;
+  value: number | string;
   highlighted?: boolean;
 }) {
   return (
@@ -302,6 +440,62 @@ function StatCard({
         {label}
       </p>
     </div>
+  );
+}
+
+function ProgressCell({
+  value,
+  tone,
+}: {
+  value: number;
+  tone:
+    | "real"
+    | "imported"
+    | "final";
+}) {
+  const safeValue = Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round(
+        Number(value ?? 0),
+      ),
+    ),
+  );
+
+  const barClass =
+    tone === "final"
+      ? "bg-[#F7B548]"
+      : tone === "imported"
+        ? "bg-violet-500"
+        : "bg-sky-500";
+
+  const labelClass =
+    tone === "final"
+      ? "text-[#B8790B]"
+      : tone === "imported"
+        ? "text-violet-700"
+        : "text-sky-700";
+
+  return (
+    <TableCell>
+      <div className="min-w-[135px]">
+        <div
+          className={`mb-1 text-center text-xs font-black ${labelClass}`}
+        >
+          {safeValue}%
+        </div>
+
+        <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+          <div
+            className={`h-full rounded-full ${barClass}`}
+            style={{
+              width: `${safeValue}%`,
+            }}
+          />
+        </div>
+      </div>
+    </TableCell>
   );
 }
 

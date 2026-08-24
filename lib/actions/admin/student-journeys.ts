@@ -16,7 +16,19 @@ export interface StudentJourneyRow {
   journeyType: string;
   enrollmentSource: StudentJourneySource;
   status: string;
+
+  /* التقدم الناتج من مشاهدة المحاضرات على المنصة */
+  realProgressPercent: number;
+
+  /* التقدم التاريخي المحفوظ من الاستيراد */
+  importedProgressPercent: number;
+
+  /*
+   * التقدم النهائي المستخدم في النظام:
+   * MAX(realProgressPercent, importedProgressPercent)
+   */
   progressPercent: number;
+
   enrolledAt: string;
   updatedAt: string | null;
 }
@@ -32,6 +44,10 @@ export interface StudentJourneysResult {
     active: number;
     completed: number;
     pending: number;
+    professional: number;
+    oneDay: number;
+    free: number;
+    averageProgress: number;
   };
 }
 
@@ -42,6 +58,12 @@ type EnrollmentRow = {
   enrollment_source: string | null;
   action_key: string | null;
   status: string | null;
+
+  progress_percent: number | string | null;
+  imported_progress_percent: number | string | null;
+  split_progress: unknown;
+  imported_split_progress: unknown;
+
   created_at: string;
   updated_at: string | null;
 };
@@ -134,6 +156,103 @@ function normalizeProgress(
     0,
     Math.min(100, Math.round(parsed)),
   );
+}
+
+function parseProgressObject(
+  value: unknown,
+): Record<string, number> {
+  if (!value) return {};
+
+  let raw: unknown = value;
+
+  if (typeof value === "string") {
+    try {
+      raw = JSON.parse(value);
+    } catch {
+      return {};
+    }
+  }
+
+  if (
+    typeof raw !== "object" ||
+    raw === null ||
+    Array.isArray(raw)
+  ) {
+    return {};
+  }
+
+  const result: Record<string, number> = {};
+
+  for (const [key, item] of Object.entries(
+    raw as Record<string, unknown>,
+  )) {
+    result[key.trim().toLowerCase()] =
+      normalizeProgress(
+        typeof item === "number" ||
+          typeof item === "string"
+          ? item
+          : 0,
+      );
+  }
+
+  return result;
+}
+
+function getImportedPartProgress(
+  enrollment: EnrollmentRow,
+  part: CoursePart,
+) {
+  if (part === "single") {
+    return normalizeProgress(
+      enrollment.imported_progress_percent,
+    );
+  }
+
+  const split = parseProgressObject(
+    enrollment.imported_split_progress,
+  );
+
+  const key =
+    part === "fundamentals"
+      ? "fundamentals"
+      : "advanced";
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      split,
+      key,
+    )
+  ) {
+    return normalizeProgress(
+      split[key],
+    );
+  }
+
+  return normalizeProgress(
+    enrollment.imported_progress_percent,
+  );
+}
+
+function buildProgressValues(
+  realProgressPercent: number,
+  importedProgressPercent: number,
+) {
+  const real = normalizeProgress(
+    realProgressPercent,
+  );
+
+  const imported = normalizeProgress(
+    importedProgressPercent,
+  );
+
+  return {
+    realProgressPercent: real,
+    importedProgressPercent: imported,
+    progressPercent: Math.max(
+      real,
+      imported,
+    ),
+  };
 }
 
 function normalizeStatus(
@@ -289,6 +408,10 @@ export async function getStudentJourneys(
     active: 0,
     completed: 0,
     pending: 0,
+    professional: 0,
+    oneDay: 0,
+    free: 0,
+    averageProgress: 0,
   };
 
   if (!userId?.trim()) {
@@ -308,7 +431,7 @@ export async function getStudentJourneys(
   } = await supabase
     .from("enrollments")
     .select(
-      "id,course_id,journey_type,enrollment_source,action_key,status,created_at,updated_at",
+      "id,course_id,journey_type,enrollment_source,action_key,status,progress_percent,imported_progress_percent,split_progress,imported_split_progress,created_at,updated_at",
     )
     .eq("user_id", userId)
     .order("created_at", {
@@ -622,11 +745,98 @@ export async function getStudentJourneys(
           normalizeStatus(
             enrollment.status,
           ),
-        progressPercent:
+        ...buildProgressValues(
           calculatePartProgress(
             freeJourneyLessons,
             lessonProgressMap,
           ),
+          normalizeProgress(
+            enrollment.imported_progress_percent,
+          ),
+        ),
+        enrolledAt:
+          enrollment.created_at,
+        updatedAt:
+          enrollment.updated_at,
+      });
+
+      continue;
+    }
+
+    /*
+     * رحلة اليوم الواحد الجديدة مرتبطة بمحاضرة محددة:
+     * workshop:lesson:LESSON_ID
+     *
+     * مهم جدًا: لا نحسب تقدم رحلة اليوم الواحد من تقدم الكورس كله
+     * أو من رحلة الاحتراف الموجودة على نفس الكورس.
+     * كل Workshop له تقدمه المستقل من lesson_progress للمحاضرة المطلوبة فقط.
+     */
+    const normalizedJourneyType =
+      normalizeStatus(originalJourneyType);
+
+    const isOneDayEnrollment =
+      [
+        "workshop",
+        "one_day",
+        "one-day",
+        "one_day_journey",
+        "one_day_workshop",
+        "one-day-workshop",
+      ].includes(normalizedJourneyType);
+
+    if (isOneDayEnrollment) {
+      const requestedLessonId =
+        enrollment.action_key?.startsWith(
+          "workshop:lesson:",
+        )
+          ? enrollment.action_key.slice(
+              "workshop:lesson:".length,
+            )
+          : null;
+
+      /*
+       * التسجيلات الجديدة يجب أن تكون مرتبطة بمحاضرة واحدة.
+       * نحتفظ بدعم التسجيلات القديمة كـ fallback فقط.
+       */
+      const oneDayJourneyLessons =
+        requestedLessonId
+          ? courseLessons.filter(
+              (lesson) =>
+                lesson.id === requestedLessonId,
+            )
+          : courseLessons;
+
+      journeys.push({
+        id: enrollment.id,
+        courseId:
+          enrollment.course_id,
+        courseTitle:
+          baseCourseTitle,
+        courseCode:
+          course?.course_code?.trim() ||
+          null,
+        stationTitle:
+          getStationTitle(station),
+        journeyType:
+          originalJourneyType,
+        enrollmentSource:
+          normalizeSource(
+            enrollment.enrollment_source,
+            enrollment.journey_type,
+          ),
+        status:
+          normalizeStatus(
+            enrollment.status,
+          ),
+        ...buildProgressValues(
+          calculatePartProgress(
+            oneDayJourneyLessons,
+            lessonProgressMap,
+          ),
+          normalizeProgress(
+            enrollment.imported_progress_percent,
+          ),
+        ),
         enrolledAt:
           enrollment.created_at,
         updatedAt:
@@ -679,11 +889,16 @@ export async function getStudentJourneys(
             normalizeStatus(
               enrollment.status,
             ),
-          progressPercent:
+          ...buildProgressValues(
             calculatePartProgress(
               fundamentalsLessons,
               lessonProgressMap,
             ),
+            getImportedPartProgress(
+              enrollment,
+              "fundamentals",
+            ),
+          ),
           enrolledAt:
             enrollment.created_at,
           updatedAt:
@@ -726,11 +941,16 @@ export async function getStudentJourneys(
             normalizeStatus(
               enrollment.status,
             ),
-          progressPercent:
+          ...buildProgressValues(
             calculatePartProgress(
               advancedLessons,
               lessonProgressMap,
             ),
+            getImportedPartProgress(
+              enrollment,
+              "advanced",
+            ),
+          ),
           enrolledAt:
             enrollment.created_at,
           updatedAt:
@@ -770,11 +990,16 @@ export async function getStudentJourneys(
         normalizeStatus(
           enrollment.status,
         ),
-      progressPercent:
+      ...buildProgressValues(
         calculatePartProgress(
           singleLessons,
           lessonProgressMap,
         ),
+        getImportedPartProgress(
+          enrollment,
+          "single",
+        ),
+      ),
       enrolledAt:
         enrollment.created_at,
       updatedAt:
@@ -793,6 +1018,34 @@ export async function getStudentJourneys(
     (result, journey) => {
       result.total += 1;
 
+      const journeyKind = normalizeStatus(
+        journey.journeyType,
+      );
+
+      if (
+        [
+          "workshop",
+          "one_day",
+          "one-day",
+          "one_day_journey",
+          "one_day_workshop",
+          "one-day-workshop",
+        ].includes(journeyKind)
+      ) {
+        result.oneDay += 1;
+      } else if (
+        [
+          "free",
+          "free_session",
+          "free-session",
+          "free_journey",
+        ].includes(journeyKind)
+      ) {
+        result.free += 1;
+      } else {
+        result.professional += 1;
+      }
+
       if (
         journey.enrollmentSource ===
         "reward"
@@ -805,28 +1058,37 @@ export async function getStudentJourneys(
         result.paid += 1;
       }
 
+      const isCompleted =
+        journey.status === "completed" ||
+        journey.progressPercent >= 100;
+
+      const isPending =
+        journey.status === "pending";
+
+      const isActiveStatus = [
+        "active",
+        "approved",
+        "enrolled",
+        "confirmed",
+      ].includes(journey.status);
+
+      /*
+       * الرحلة المكتملة لا تُحسب مرة ثانية كرحلة نشطة.
+       * هذا يجعل الإحصائيات متطابقة مع صفحة الطالب:
+       * active = فعالة وغير مكتملة.
+       */
       if (
-        [
-          "active",
-          "approved",
-          "enrolled",
-          "confirmed",
-        ].includes(journey.status)
+        isActiveStatus &&
+        !isCompleted
       ) {
         result.active += 1;
       }
 
-      if (
-        journey.status ===
-          "completed" ||
-        journey.progressPercent >= 100
-      ) {
+      if (isCompleted) {
         result.completed += 1;
       }
 
-      if (
-        journey.status === "pending"
-      ) {
+      if (isPending) {
         result.pending += 1;
       }
 
@@ -834,6 +1096,25 @@ export async function getStudentJourneys(
     },
     { ...emptyStatistics },
   );
+
+  /*
+   * متوسط التقدم الرسمي يعتمد فقط على progressPercent النهائي،
+   * ويستبعد الرحلات المعلقة لأنها لم تُفعّل بعد.
+   */
+  const progressJourneys = journeys.filter(
+    (journey) => journey.status !== "pending",
+  );
+
+  statistics.averageProgress =
+    progressJourneys.length > 0
+      ? Math.round(
+          progressJourneys.reduce(
+            (sum, journey) =>
+              sum + journey.progressPercent,
+            0,
+          ) / progressJourneys.length,
+        )
+      : 0;
 
   return {
     success: true,
