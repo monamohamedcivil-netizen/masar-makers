@@ -184,6 +184,7 @@ const enrollmentAccess = pageData
   ? await getCourseEnrollmentAccess(slug)
   : {
       statuses: {},
+      journeyStatuses: {},
       journeyTypes: [],
       hasFundamental: false,
       hasAdvanced: false,
