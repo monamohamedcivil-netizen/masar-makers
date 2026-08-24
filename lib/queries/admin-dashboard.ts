@@ -12,9 +12,6 @@ import {
 import {
   getSurveysDashboard,
 } from "@/lib/actions/admin/surveys-dashboard";
-import {
-  getEnrollmentRequests,
-} from "@/lib/actions/admin/enrollments";
 
 export interface AdminDashboardStats {
   students: number;
@@ -65,15 +62,22 @@ async function requireAdmin() {
 
 async function countRows(
   table: string,
+  filters: Array<[string, string]> = [],
 ): Promise<number> {
   const admin = createAdminClient();
 
-  const { count, error } = await admin
+  let query = admin
     .from(table)
     .select("id", {
       count: "exact",
       head: true,
     });
+
+  for (const [column, value] of filters) {
+    query = query.eq(column, value);
+  }
+
+  const { count, error } = await query;
 
   if (error) {
     console.error(
@@ -93,62 +97,63 @@ Promise<AdminDashboardStats> {
   const [
     students,
     courses,
-    enrollments,
+
+    /*
+     * الاشتراكات تُقرأ مباشرة من enrollments.
+     * هذا يشمل:
+     * - الطلاب المستوردين admin_import
+     * - الطلاب الذين اشتركوا من المنصة platform
+     *
+     * ولا يشترط وجود "طلب اشتراك" سابق.
+     */
+    activeEnrollments,
+
+    /*
+     * طلبات الاشتراك هي فقط السجلات المعلقة.
+     */
+    pendingRequests,
+
+    rejectedRequests,
+    suspendedRequests,
+
     certificatesResult,
     projectsResult,
     surveysResult,
   ] = await Promise.all([
-    /*
-     * student_registry هو سجل الهوية الموحد:
-     * يشمل المسجلين والمستوردين بدون تكرار البريد.
-     */
     countRows("student_registry"),
     countRows("courses"),
-    getEnrollmentRequests(),
+
+    countRows(
+      "enrollments",
+      [["status", "active"]],
+    ),
+
+    countRows(
+      "enrollments",
+      [["status", "pending"]],
+    ),
+
+    countRows(
+      "enrollments",
+      [["status", "rejected"]],
+    ),
+
+    countRows(
+      "enrollments",
+      [["status", "suspended"]],
+    ),
+
     getCertificatesDashboard(),
     getProjectsDashboard(),
     getSurveysDashboard(),
   ]);
 
-  const normalizedStatus = (
-    value: string,
-  ) => value.trim().toLowerCase();
-
-  const pendingRequests =
-    enrollments.filter(
-      (item) =>
-        normalizedStatus(item.status) ===
-        "pending",
-    ).length;
-
+  /*
+   * في النظام الحالي قبول الطلب يحوله إلى active،
+   * لذلك عدد المقبولة/النشطة هو نفس عدد الاشتراكات الفعلية النشطة.
+   */
   const approvedRequests =
-    enrollments.filter((item) =>
-      [
-        "active",
-        "approved",
-        "enrolled",
-        "confirmed",
-      ].includes(
-        normalizedStatus(item.status),
-      ),
-    ).length;
-
-  const rejectedRequests =
-    enrollments.filter(
-      (item) =>
-        normalizedStatus(item.status) ===
-        "rejected",
-    ).length;
-
-  const suspendedRequests =
-    enrollments.filter(
-      (item) =>
-        normalizedStatus(item.status) ===
-        "suspended",
-    ).length;
-
-  const activeEnrollments =
-    approvedRequests;
+    activeEnrollments;
 
   const pendingCertificates =
     certificatesResult.success &&

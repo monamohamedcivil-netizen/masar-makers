@@ -53,6 +53,8 @@ export interface AdminActionResult {
 type EnrollmentRow = {
   id: string;
   user_id: string;
+  student_name: string | null;
+  student_email: string | null;
   course_id: string;
   journey_type: string | null;
   action_key: string | null;
@@ -113,22 +115,62 @@ async function requireAdmin() {
   return { supabase };
 }
 
-function getStudentName(profile: Record<string, unknown> | undefined) {
-  if (!profile) return "طالب غير معروف";
+function getStudentName(
+  profile: Record<string, unknown> | undefined,
+  enrollment: EnrollmentRow,
+) {
+  const profileName =
+    profile?.full_name ??
+    profile?.name ??
+    profile?.display_name ??
+    profile?.username;
 
-  return String(
-    profile.full_name ??
-      profile.name ??
-      profile.display_name ??
-      profile.username ??
-      "طالب غير معروف",
-  );
+  if (
+    typeof profileName === "string" &&
+    profileName.trim()
+  ) {
+    return profileName.trim();
+  }
+
+  const importedName =
+    enrollment.student_name?.trim();
+
+  if (importedName) {
+    return importedName;
+  }
+
+  const importedEmail =
+    enrollment.student_email?.trim();
+
+  if (importedEmail) {
+    return (
+      importedEmail.split("@")[0] ||
+      importedEmail
+    );
+  }
+
+  return "طالب غير معروف";
 }
 
-function getStudentEmail(profile: Record<string, unknown> | undefined) {
-  if (!profile) return "غير متوفر";
+function getStudentEmail(
+  profile: Record<string, unknown> | undefined,
+  enrollment: EnrollmentRow,
+) {
+  const profileEmail =
+    profile?.email ??
+    profile?.user_email;
 
-  return String(profile.email ?? profile.user_email ?? "غير متوفر");
+  if (
+    typeof profileEmail === "string" &&
+    profileEmail.trim()
+  ) {
+    return profileEmail.trim();
+  }
+
+  return (
+    enrollment.student_email?.trim() ||
+    "غير متوفر"
+  );
 }
 
 function getStudentPhone(profile: Record<string, unknown> | undefined) {
@@ -229,7 +271,7 @@ export async function getEnrollmentRequests(): Promise<
   const { data, error } = await supabase
     .from("enrollments")
     .select(
-      "id,user_id,course_id,journey_type,action_key,action_title,enrollment_source,reward_source,status,created_at,updated_at",
+      "id,user_id,student_name,student_email,course_id,journey_type,action_key,action_title,enrollment_source,reward_source,status,created_at,updated_at",
     )
     .order("created_at", { ascending: false });
 
@@ -337,8 +379,14 @@ export async function getEnrollmentRequests(): Promise<
       updatedAt: enrollment.updated_at,
 
       student: {
-        name: getStudentName(profile),
-        email: getStudentEmail(profile),
+        name: getStudentName(
+          profile,
+          enrollment,
+        ),
+        email: getStudentEmail(
+          profile,
+          enrollment,
+        ),
         phone: getStudentPhone(profile),
       },
 
