@@ -305,6 +305,23 @@ const roadStations = {
   ],
 };
 
+const mobileRoadStations = {
+  road: [
+    { left: 86, top: 47 },
+    { left: 87, top: 52.5 },
+    { left: 86, top: 58 },
+    { left: 82, top: 63.5 },
+    { left: 76, top: 68.5 },
+  ],
+  traffic: [
+    { left: 14, top: 47 },
+    { left: 13, top: 52.5 },
+    { left: 14, top: 58 },
+    { left: 18, top: 63.5 },
+    { left: 24, top: 68.5 },
+  ],
+};
+
 const AUTO_ROTATE_MS = 8000;
 const MANUAL_PAUSE_MS = 12000;
 
@@ -341,22 +358,26 @@ function courseMatchesDbCourse(course: Course, dbCourse: DbCourse) {
   );
 }
 
-function getYoutubeEmbedUrl(videoId: string) {
+function getYoutubeEmbedUrl(
+  videoId: string,
+  mobile = false,
+) {
   const params = new URLSearchParams({
+    // Desktop: يبدأ تلقائيًا صامتًا.
+    // Mobile: نسمح بالمحاولة أيضًا، لكن إذا منع المتصفح
+    // يستطيع المستخدم الضغط مباشرة على YouTube player.
     autoplay: "1",
     mute: "1",
     playsinline: "1",
 
-    // نخفي واجهة YouTube الأصلية
-    controls: "0",
-    disablekb: "1",
-    fs: "0",
+    // على الموبايل نُظهر controls الأصلية لضمان إمكانية التشغيل.
+    controls: mobile ? "1" : "0",
+    disablekb: mobile ? "0" : "1",
+    fs: "1",
 
     rel: "0",
     modestbranding: "1",
     iv_load_policy: "3",
-
-    // مهم للتحكم من أزرارنا
     enablejsapi: "1",
     vq: "hd1080",
   });
@@ -620,7 +641,7 @@ export default function MasarLanding() {
       dir={locale === "ar" ? "rtl" : "ltr"}
       className="min-h-screen overflow-x-hidden bg-[#07152E] text-white"
     >
-      <header className="relative z-50 border-b border-white/10 bg-[#07152E]/95">
+      <header className="relative z-50 hidden border-b border-white/10 bg-[#07152E]/95 md:block">
         <div className="mx-auto flex min-h-[80px] max-w-[1500px] items-center justify-between gap-3 px-4 sm:px-7 lg:px-10">
           <Link
             href="/"
@@ -691,12 +712,13 @@ export default function MasarLanding() {
       <section
         className="
           relative mx-auto
-          min-h-[820px] w-full max-w-[2000px]
+          min-h-[1180px] w-full max-w-[2000px]
           overflow-hidden bg-[#07152E]
           bg-[url('/images/landing/learning-roads-bg.png')]
           bg-[length:100%_100%]
           bg-center bg-no-repeat
-          sm:min-h-[700px]
+          sm:min-h-[1050px]
+          md:min-h-[700px]
           lg:min-h-[680px]
           xl:min-h-[680px]
         "
@@ -716,20 +738,126 @@ export default function MasarLanding() {
           </p>
         </div>
 
-        <div className="absolute left-[3%] top-[12%] z-20 text-center text-[#F7B548] sm:left-[7%] lg:left-[13%]">
+        <div className="absolute left-[3%] top-[12%] z-20 hidden text-center text-[#F7B548] md:block md:left-[7%] lg:left-[13%]">
           <p className="text-[13px] font-black sm:text-lg lg:text-3xl">
             {tracks[1].title[locale]}
           </p>
           <div className="mx-auto mt-2 h-0.5 w-[clamp(55px,7vw,120px)] bg-[#F7B548]" />
         </div>
 
-        <div className="absolute right-[3%] top-[12%] z-20 text-center text-[#F7B548] sm:right-[7%] lg:right-[10%]">
+        <div className="absolute right-[3%] top-[12%] z-20 hidden text-center text-[#F7B548] md:block md:right-[7%] lg:right-[10%]">
           <p className="text-[13px] font-black sm:text-lg lg:text-3xl">
             {tracks[0].title[locale]}
           </p>
           <div className="mx-auto mt-2 h-0.5 w-[clamp(55px,7vw,120px)] bg-[#F7B548]" />
         </div>
 
+
+        {/* Mobile path titles */}
+        <div className="absolute left-[4%] top-[41.5%] z-20 text-center text-[#F7B548] md:hidden">
+          <p className="text-[17px] font-black">
+            {tracks[1].title[locale]}
+          </p>
+          <div className="mx-auto mt-1.5 h-0.5 w-20 bg-[#F7B548]" />
+        </div>
+
+        <div className="absolute right-[4%] top-[41.5%] z-20 text-center text-[#F7B548] md:hidden">
+          <p className="text-[17px] font-black">
+            {tracks[0].title[locale]}
+          </p>
+          <div className="mx-auto mt-1.5 h-0.5 w-24 bg-[#F7B548]" />
+        </div>
+
+        {/* Mobile stations */}
+        <div className="md:hidden">
+          {tracks[1].courses.map((item, courseIndex) => {
+            const visualIndex =
+              tracks[1].courses.length - 1 - courseIndex;
+
+            const pos = mobileRoadStations.traffic[visualIndex];
+
+            const active =
+              selected?.trackIndex === 1 &&
+              selected?.courseIndex === courseIndex;
+
+            return (
+              <StationPin
+                key={`mobile-traffic-${item.title}`}
+                course={item}
+                active={active}
+                left={pos.left}
+                top={pos.top}
+                onSelect={() => selectCourseManually(1, courseIndex)}
+                onHoverStart={() => {
+                  setHoverPaused(true);
+                  selectCourse(1, courseIndex);
+                }}
+                onHoverEnd={() => setHoverPaused(false)}
+                labelSide="outside-left"
+              />
+            );
+          })}
+
+          {tracks[0].courses.map((item, courseIndex) => {
+            const visualIndex =
+              tracks[0].courses.length - 1 - courseIndex;
+
+            const pos = mobileRoadStations.road[visualIndex];
+
+            const active =
+              selected?.trackIndex === 0 &&
+              selected?.courseIndex === courseIndex;
+
+            return (
+              <StationPin
+                key={`mobile-road-${item.title}`}
+                course={item}
+                active={active}
+                left={pos.left}
+                top={pos.top}
+                onSelect={() => selectCourseManually(0, courseIndex)}
+                onHoverStart={() => {
+                  setHoverPaused(true);
+                  selectCourse(0, courseIndex);
+                }}
+                onHoverEnd={() => setHoverPaused(false)}
+                labelSide="outside-right"
+              />
+            );
+          })}
+        </div>
+
+        {/* Mobile centered brand + CTAs between the two paths */}
+        <div className="absolute left-1/2 top-[48%] z-30 flex -translate-x-1/2 flex-col items-center gap-2.5 md:hidden">
+          <Image
+            src="/images/logo/masar-makers-mark.png"
+            alt="Masar Makers"
+            width={72}
+            height={72}
+            className="h-[62px] w-auto object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,.45)]"
+          />
+
+          <Link
+            href="/home"
+            className="inline-flex min-h-10 w-[155px] items-center justify-center gap-2 rounded-xl bg-[#F7B548] px-4 text-[13px] font-black text-[#07152E] shadow-lg"
+          >
+            {text.explore}
+            <ArrowIcon className="h-4 w-4" />
+          </Link>
+
+          <a
+            href="https://wa.me/201031885659?text=السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار."
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-10 w-[155px] items-center justify-center gap-2 rounded-xl border border-[#25D366]/70 bg-[#0B502B]/85 px-4 text-[13px] font-black text-white shadow-lg"
+          >
+            <FaWhatsapp className="h-5 w-5" />
+            {text.contact}
+          </a>
+        </div>
+
+        {/* Desktop stations */}
+        <div className="hidden md:block">
         {tracks[1].courses.map((item, courseIndex) => {
           const visualIndex =
             tracks[1].courses.length - 1 - courseIndex;
@@ -786,6 +914,8 @@ export default function MasarLanding() {
           );
         })}
 
+
+        </div>
         
 
         <PromoShowcase
@@ -815,7 +945,7 @@ export default function MasarLanding() {
           }
         />
 
-        <div className="absolute left-1/2 top-[65%] z-20 -translate-x-1/2 text-center">
+        <div className="absolute left-1/2 top-[73%] z-20 -translate-x-1/2 text-center md:top-[65%]">
           <div
             className="
               relative whitespace-nowrap
@@ -847,7 +977,7 @@ export default function MasarLanding() {
 
         <div
           className="
-            absolute inset-x-[4%] bottom-[2%] z-20
+            absolute inset-x-[3%] top-[78%] z-20 md:inset-x-[4%] md:top-auto md:bottom-[2%]
             grid grid-cols-3
             gap-2 sm:gap-4 lg:gap-20
           "
@@ -905,6 +1035,24 @@ function PromoShowcase({
   const [showControls, setShowControls] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia(
+      "(max-width: 767px), (hover: none), (pointer: coarse)",
+    );
+
+    const syncMobile = () => {
+      setIsMobile(media.matches);
+    };
+
+    syncMobile();
+    media.addEventListener?.("change", syncMobile);
+
+    return () => {
+      media.removeEventListener?.("change", syncMobile);
+    };
+  }, []);
 
   const sendYoutubeCommand = (
     func: string,
@@ -1010,27 +1158,28 @@ function PromoShowcase({
   return (
     <div
       className="
-        absolute left-1/2 top-[15%] z-30
-        h-[31%] min-h-[190px]
-        w-[58%] max-w-[820px]
+        absolute left-1/2 top-[10%] z-30
+        h-[270px] min-h-0
+        w-[calc(100%-16px)] max-w-none
         -translate-x-1/2
         overflow-hidden
+        md:top-[15%]
+        md:h-[31%] md:min-h-[190px]
+        md:w-[48%] md:max-w-[820px]
         rounded-[18px]
         border border-[#F7B548]/85
         bg-[#07152E]/96
         shadow-[0_18px_55px_rgba(0,0,0,.40),0_0_26px_rgba(247,181,72,.12)]
         backdrop-blur-md
-        sm:w-[52%]
-        md:w-[48%]
-        lg:w-[36%]
+        lg:w-[38%]
       "
     >
       {course ? (
         <div
-          className={`grid h-full min-h-0 ${
+          className={`grid h-full min-h-0 grid-cols-1 grid-rows-[62px_minmax(0,1fr)] md:grid-rows-1 ${
             locale === "ar"
-              ? "grid-cols-[32%_68%]"
-              : "grid-cols-[68%_32%]"
+              ? "md:grid-cols-[32%_68%]"
+              : "md:grid-cols-[68%_32%]"
           }`}
         >
           {/* Course info column */}
@@ -1038,9 +1187,13 @@ function PromoShowcase({
             className={`
               flex min-w-0 flex-col justify-center gap-2
               bg-[linear-gradient(180deg,rgba(7,21,46,.98),rgba(12,30,57,.96))]
-              px-3 py-3 text-white
-              sm:px-4
-              ${locale === "ar" ? "order-1 text-right" : "order-2 text-left"}
+              px-3 py-2 text-white
+              sm:px-4 md:py-3
+              order-1 ${
+                locale === "ar"
+                  ? "text-right md:order-1"
+                  : "text-left md:order-2"
+              }
             `}
           >
             <div className="flex items-center gap-2">
@@ -1064,7 +1217,7 @@ function PromoShowcase({
               </div>
             </div>
 
-            <p className="line-clamp-3 text-[8px] font-semibold leading-4 text-slate-200 sm:text-[10px] lg:mt-3 lg:text-[12px] lg:leading-6">
+            <p className="hidden line-clamp-3 text-[8px] font-semibold leading-4 text-slate-200 md:block sm:text-[10px] lg:mt-3 lg:text-[12px] lg:leading-6">
               {course.description[locale]}
             </p>
 {slides.length > 0 && (
@@ -1091,7 +1244,7 @@ function PromoShowcase({
           })}
         </div>
       )}
-            <div className="mt-auto flex items-center gap-2 text-[8px] font-bold text-slate-400 sm:text-[10px]">
+            <div className="mt-auto hidden items-center gap-2 text-[8px] font-bold text-slate-400 md:flex sm:text-[10px]">
               <span
                 className={`h-2 w-2 rounded-full ${
                   autoPaused
@@ -1114,11 +1267,19 @@ function PromoShowcase({
           {/* Full video column */}
           <div
   ref={videoContainerRef}
-  onMouseEnter={() => setShowControls(true)}
-  onMouseLeave={() => setShowControls(false)}
-  onClick={() => setShowControls(true)}
+  onMouseEnter={() => {
+    if (!isMobile) setShowControls(true);
+  }}
+  onMouseLeave={() => {
+    if (!isMobile) setShowControls(false);
+  }}
+  onClick={() => {
+    if (!isMobile) setShowControls(true);
+  }}
   className={`group relative min-h-0 overflow-hidden bg-black fullscreen:flex fullscreen:items-center fullscreen:justify-center ${
-    locale === "ar" ? "order-2" : "order-1"
+    locale === "ar"
+      ? "order-2 md:order-2"
+      : "order-2 md:order-1"
   }`}
 >
             {youtubeVideoId ? (
@@ -1126,12 +1287,27 @@ function PromoShowcase({
                 <iframe
                   ref={iframeRef}
                   key={youtubeVideoId}
-                  src={getYoutubeEmbedUrl(youtubeVideoId)}
+                  src={getYoutubeEmbedUrl(
+                    youtubeVideoId,
+                    isMobile,
+                  )}
                   title={`${course.title} promo`}
-                  className="pointer-events-none h-full w-full border-0 object-contain fullscreen:h-auto fullscreen:max-h-screen fullscreen:aspect-video"
+                  className={`h-full w-full border-0 object-contain fullscreen:h-auto fullscreen:max-h-screen fullscreen:aspect-video ${
+                    isMobile
+                      ? "pointer-events-auto"
+                      : "pointer-events-none"
+                  }`}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
                 />
+                {isMobile && (
+                  <div className="pointer-events-none absolute left-2 top-2 z-10 rounded-full bg-black/55 px-2.5 py-1 text-[9px] font-bold text-white backdrop-blur-sm">
+                    {locale === "ar"
+                      ? "اضغط على الفيديو للتشغيل"
+                      : "Tap video to play"}
+                  </div>
+                )}
+
                 <div
                   className={`
                     absolute inset-x-0 bottom-0 z-20
@@ -1140,7 +1316,7 @@ function PromoShowcase({
                     px-3 pb-3 pt-8
                     transition-all duration-300
                     ${
-                      showControls
+                      !isMobile && showControls
                         ? "translate-y-0 opacity-100"
                         : "pointer-events-none translate-y-2 opacity-0"
                     }
@@ -1323,11 +1499,11 @@ function LearningModeCard({
     <article
       className={`
         relative mt-6
-        min-h-[100px]
+        min-h-[150px]
         rounded-[18px] border
         px-2 pb-3 pt-8 text-center
         backdrop-blur-md
-        sm:min-h-[100px]
+        sm:min-h-[120px]
         sm:rounded-[24px]
         sm:px-4 sm:pb-0 sm:pt-8
         ${cardClasses}
@@ -1425,7 +1601,7 @@ function StationPin({
       <span
         className={`
           relative block
-          h-[46px] w-[38px]
+          h-[54px] w-[45px]
           transition duration-200
           sm:h-[64px] sm:w-[52px]
           lg:h-[74px] lg:w-[62px]
@@ -1465,7 +1641,7 @@ function StationPin({
           absolute top-[50%]
           -translate-y-1/2
           whitespace-nowrap
-          text-[8px] font-black
+          text-[10px] font-black
           drop-shadow-[0_2px_6px_rgba(0,0,0,.9)]
           sm:text-xs
           lg:text-[20px]
