@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -13,7 +14,10 @@ import {
   CalendarDays,
   Play,
   Rocket,
-  X,
+  Pause,
+Volume2,
+VolumeX,
+Maximize2,
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 
@@ -56,6 +60,13 @@ type PromoRow = {
   is_active: boolean;
 };
 
+type PromoSlide = {
+  trackIndex: number;
+  courseIndex: number;
+  course: Course;
+  youtubeVideoId: string;
+};
+
 const tracks: Track[] = [
   {
     title: {
@@ -77,7 +88,7 @@ const tracks: Track[] = [
         },
       },
       {
-        title: "CSD",
+        title: "Civil Site Design",
         aliases: ["csd", "civil site design"],
         icon: "/images/courses/icons/csd.png",
         note: {
@@ -279,23 +290,23 @@ const modes = [
 
 const roadStations = {
   road: [
-    { left: 84, top: 30 },
-    { left: 83, top: 38.5 },
-    { left: 84.2, top: 46 },
-    { left: 80, top: 53 },
-    { left: 72, top: 57 },
+    { left: 85, top: 28 },
+    { left: 82, top: 37 },
+    { left: 83, top: 49 },
+    { left: 70, top: 55 },
+    { left: 60, top: 58 },
   ],
   traffic: [
-    { left: 17, top: 30 },
-    { left: 17.5, top: 38.5 },
-    { left: 16.2, top: 46 },
-    { left: 20.2, top: 53 },
-    { left: 28, top: 57 },
+    { left: 15, top: 28 },
+    { left: 19, top: 37 },
+    { left: 19, top: 50 },
+    { left: 29, top: 55 },
+    { left: 40, top: 58 },
   ],
 };
 
-const POPUP_TOP_PERCENT = 15;
-const POPUP_HEIGHT_PERCENT = 48;
+const AUTO_ROTATE_MS = 8000;
+const MANUAL_PAUSE_MS = 12000;
 
 function normalizeValue(value: string | null | undefined) {
   return (value ?? "")
@@ -335,9 +346,19 @@ function getYoutubeEmbedUrl(videoId: string) {
     autoplay: "1",
     mute: "1",
     playsinline: "1",
+
+    // نخفي واجهة YouTube الأصلية
+    controls: "0",
+    disablekb: "1",
+    fs: "0",
+
     rel: "0",
     modestbranding: "1",
+    iv_load_policy: "3",
+
+    // مهم للتحكم من أزرارنا
     enablejsapi: "1",
+    vq: "hd1080",
   });
 
   return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`;
@@ -445,25 +466,129 @@ export default function MasarLanding() {
     ? tracks[selected.trackIndex].courses[selected.courseIndex]
     : null;
 
+  const promoSlides = useMemo<PromoSlide[]>(() => {
+    const displayOrder = [
+      ...tracks[0].courses
+        .map((course, courseIndex) => ({
+          trackIndex: 0,
+          courseIndex,
+          course,
+        }))
+        .reverse(),
+      ...tracks[1].courses
+        .map((course, courseIndex) => ({
+          trackIndex: 1,
+          courseIndex,
+          course,
+        }))
+        .reverse(),
+    ];
+
+    return displayOrder.flatMap((item) => {
+      const matchedDbCourse = dbCourses.find((dbCourse) =>
+        courseMatchesDbCourse(item.course, dbCourse),
+      );
+
+      if (!matchedDbCourse) return [];
+
+      const promo = promos.find(
+        (row) =>
+          row.course_id === matchedDbCourse.id &&
+          row.is_active &&
+          row.video_source === "youtube" &&
+          row.youtube_video_id,
+      );
+
+      if (!promo?.youtube_video_id) return [];
+
+      return [
+        {
+          ...item,
+          youtubeVideoId: promo.youtube_video_id,
+        },
+      ];
+    });
+  }, [dbCourses, promos]);
+
   const selectedPromo = useMemo(() => {
-    if (!selectedCourse) return null;
-
-    const matchedDbCourse = dbCourses.find((dbCourse) =>
-      courseMatchesDbCourse(selectedCourse, dbCourse),
-    );
-
-    if (!matchedDbCourse) return null;
+    if (!selected) return null;
 
     return (
-      promos.find(
-        (promo) =>
-          promo.course_id === matchedDbCourse.id &&
-          promo.is_active &&
-          promo.video_source === "youtube" &&
-          promo.youtube_video_id,
+      promoSlides.find(
+        (slide) =>
+          slide.trackIndex === selected.trackIndex &&
+          slide.courseIndex === selected.courseIndex,
       ) ?? null
     );
-  }, [selectedCourse, dbCourses, promos]);
+  }, [promoSlides, selected]);
+
+  const [hoverPaused, setHoverPaused] = useState(false);
+  const [manualPaused, setManualPaused] = useState(false);
+  const [fullscreenPaused, setFullscreenPaused] = useState(false);
+
+  useEffect(() => {
+    if (promoSlides.length === 0) return;
+
+    const selectedStillExists =
+      selected &&
+      promoSlides.some(
+        (slide) =>
+          slide.trackIndex === selected.trackIndex &&
+          slide.courseIndex === selected.courseIndex,
+      );
+
+    if (!selectedStillExists) {
+      setSelected({
+        trackIndex: promoSlides[0].trackIndex,
+        courseIndex: promoSlides[0].courseIndex,
+      });
+    }
+  }, [promoSlides, selected]);
+
+  useEffect(() => {
+    if (
+      promoSlides.length <= 1 ||
+      hoverPaused ||
+      manualPaused ||
+      fullscreenPaused
+    ) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setSelected((current) => {
+        if (!current) {
+          return {
+            trackIndex: promoSlides[0].trackIndex,
+            courseIndex: promoSlides[0].courseIndex,
+          };
+        }
+
+        const currentIndex = promoSlides.findIndex(
+          (slide) =>
+            slide.trackIndex === current.trackIndex &&
+            slide.courseIndex === current.courseIndex,
+        );
+
+        const nextIndex =
+          currentIndex < 0
+            ? 0
+            : (currentIndex + 1) % promoSlides.length;
+
+        return {
+          trackIndex: promoSlides[nextIndex].trackIndex,
+          courseIndex: promoSlides[nextIndex].courseIndex,
+        };
+      });
+    }, AUTO_ROTATE_MS);
+
+    return () => window.clearInterval(timer);
+  }, [
+    promoSlides,
+    hoverPaused,
+    manualPaused,
+    fullscreenPaused,
+  ]);
 
   const selectCourse = (
     trackIndex: number,
@@ -475,16 +600,28 @@ export default function MasarLanding() {
     });
   };
 
+  const selectCourseManually = (
+    trackIndex: number,
+    courseIndex: number,
+  ) => {
+    selectCourse(trackIndex, courseIndex);
+    setManualPaused(true);
+
+    window.setTimeout(() => {
+      setManualPaused(false);
+    }, MANUAL_PAUSE_MS);
+  };
+
   const ArrowIcon =
     locale === "ar" ? ArrowLeft : ArrowRight;
 
-  return (
+ return (
     <main
       dir={locale === "ar" ? "rtl" : "ltr"}
       className="min-h-screen overflow-x-hidden bg-[#07152E] text-white"
     >
       <header className="relative z-50 border-b border-white/10 bg-[#07152E]/95">
-        <div className="mx-auto flex min-h-[90px] max-w-[1500px] items-center justify-between gap-3 px-4 sm:px-7 lg:px-10">
+        <div className="mx-auto flex min-h-[80px] max-w-[1500px] items-center justify-between gap-3 px-4 sm:px-7 lg:px-10">
           <Link
             href="/"
             className="flex shrink-0 items-center gap-3"
@@ -493,14 +630,14 @@ export default function MasarLanding() {
             <Image
               src="/images/logo/masar-makers-mark.png"
               alt="Masar Makers"
-              width={78}
-              height={58}
+              width={75}
+              height={50}
               priority
-              className="h-[54px] w-auto object-contain sm:h-[78px]"
+              className="h-[50px] w-auto object-contain sm:h-[75px]"
             />
 
             <div className="hidden md:block">
-              <p className="text-[28px] font-black leading-none lg:text-[34px]">
+              <p className="text-[24px] font-black leading-none lg:text-[28px]">
                 {locale === "ar" ? (
                   <>
                     صناع{" "}
@@ -518,7 +655,7 @@ export default function MasarLanding() {
                 )}
               </p>
 
-              <p className="mt-1 text-[14px] font-bold tracking-[.18em] text-[#F7B548] lg:text-[16px]">
+              <p className="mt-1 text-[12px] font-bold tracking-[.18em] text-[#F7B548] lg:text-[14px]">
                 Masar{" "}
                 <span className="text-white">
                   Makers
@@ -530,19 +667,19 @@ export default function MasarLanding() {
           <div className="flex gap-2 sm:gap-4">
             <Link
               href="/home"
-              className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-[#F7B548] px-3 text-[12px] font-black text-[#07152E] shadow-lg transition hover:-translate-y-0.5 sm:px-6 sm:text-[18px]"
+              className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-[#F7B548] px-3 text-[12px] font-black text-[#07152E] shadow-lg transition hover:-translate-y-0.5 sm:px-3 sm:text-[14px]"
             >
               {text.explore}
-              <ArrowIcon className="h-5 w-5" />
+              <ArrowIcon className="h-4 w-4" />
             </Link>
 
             <a
               href="https://wa.me/201031885659?text=السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار."
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-[#25D366]/60 bg-[#0B502B]/60 px-3 text-[11px] font-black text-white transition hover:bg-[#25D366] sm:px-5 sm:text-[18px]"
+              className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-[#25D366]/60 bg-[#0B502B]/60 px-3 text-[11px] font-black text-white transition hover:bg-[#25D366] sm:px-3 sm:text-[14px]"
             >
-              <FaWhatsapp className="h-6 w-6 sm:h-7 sm:w-7" />
+              <FaWhatsapp className="h-6 w-6 sm:h-5 sm:w-5" />
               <span className="hidden sm:inline">
                 {text.contact}
               </span>
@@ -554,40 +691,40 @@ export default function MasarLanding() {
       <section
         className="
           relative mx-auto
-          min-h-[960px] w-full max-w-[2000px]
+          min-h-[820px] w-full max-w-[2000px]
           overflow-hidden bg-[#07152E]
           bg-[url('/images/landing/learning-roads-bg.png')]
           bg-[length:100%_100%]
           bg-center bg-no-repeat
-          sm:min-h-[800px]
-          lg:min-h-[850px]
-          xl:min-h-[950px]
+          sm:min-h-[700px]
+          lg:min-h-[680px]
+          xl:min-h-[680px]
         "
       >
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#07152E]/58 via-[#07152E]/5 to-[#07152E]/30" />
 
-        <div className="relative z-20 mx-auto max-w-[1450px] px-2 pt-7 text-center sm:px-4 sm:pt-5 lg:pt-6">
-          <h1 className="mx-auto whitespace-nowrap text-[clamp(18px,4vw,50px)] font-black leading-[1.2]">
+        <div className="relative z-20 mx-auto max-w-[1450px] px-2 pt-4 text-center sm:px-4 sm:pt-3 lg:pt-3">
+          <h1 className="mx-auto whitespace-nowrap text-[clamp(18px,3.2vw,42px)] font-black leading-[1.1]">
             <span>{text.heroBefore}</span>{" "}
             <span className="text-[#F7B548]">
               {text.heroAfter}
             </span>
           </h1>
 
-          <p className="mx-auto mt-3 max-w-3xl text-[10px] font-semibold leading-5 text-slate-200 sm:text-[14px] md:text-[18px] lg:text-[20px]">
+          <p className="mx-auto mt-2 max-w-3xl text-[10px] font-semibold leading-5 text-slate-200 sm:text-[13px] md:text-[15px] lg:text-[16px]">
             {text.heroSubtitle}
           </p>
         </div>
 
-        <div className="absolute left-[3%] top-[20%] z-20 text-center text-[#F7B548] sm:left-[7%] lg:left-[13%]">
-          <p className="text-[13px] font-black sm:text-xl lg:text-3xl">
+        <div className="absolute left-[3%] top-[12%] z-20 text-center text-[#F7B548] sm:left-[7%] lg:left-[13%]">
+          <p className="text-[13px] font-black sm:text-lg lg:text-3xl">
             {tracks[1].title[locale]}
           </p>
           <div className="mx-auto mt-2 h-0.5 w-[clamp(55px,7vw,120px)] bg-[#F7B548]" />
         </div>
 
-        <div className="absolute right-[3%] top-[20%] z-20 text-center text-[#F7B548] sm:right-[7%] lg:right-[10%]">
-          <p className="text-[13px] font-black sm:text-xl lg:text-3xl">
+        <div className="absolute right-[3%] top-[12%] z-20 text-center text-[#F7B548] sm:right-[7%] lg:right-[10%]">
+          <p className="text-[13px] font-black sm:text-lg lg:text-3xl">
             {tracks[0].title[locale]}
           </p>
           <div className="mx-auto mt-2 h-0.5 w-[clamp(55px,7vw,120px)] bg-[#F7B548]" />
@@ -610,7 +747,12 @@ export default function MasarLanding() {
               active={active}
               left={pos.left}
               top={pos.top}
-              onSelect={() => selectCourse(1, courseIndex)}
+              onSelect={() => selectCourseManually(1, courseIndex)}
+              onHoverStart={() => {
+                setHoverPaused(true);
+                selectCourse(1, courseIndex);
+              }}
+              onHoverEnd={() => setHoverPaused(false)}
               labelSide="outside-left"
             />
           );
@@ -633,37 +775,55 @@ export default function MasarLanding() {
               active={active}
               left={pos.left}
               top={pos.top}
-              onSelect={() => selectCourse(0, courseIndex)}
+              onSelect={() => selectCourseManually(0, courseIndex)}
+              onHoverStart={() => {
+                setHoverPaused(true);
+                selectCourse(0, courseIndex);
+              }}
+              onHoverEnd={() => setHoverPaused(false)}
               labelSide="outside-right"
             />
           );
         })}
 
-        {selected && selectedCourse && (
-          <CourseScreen
-            key={`${selected.trackIndex}-${selected.courseIndex}-${selectedPromo?.youtube_video_id ?? "no-video"}`}
-            locale={locale}
-            selected={selected}
-            course={selectedCourse}
-            trackTitle={
-              tracks[selected.trackIndex].title[locale]
-            }
-            youtubeVideoId={
-              selectedPromo?.youtube_video_id ?? null
-            }
-            onClose={() => setSelected(null)}
-          />
-        )}
+        
 
-        <div className="absolute left-1/2 top-[61%] z-20 -translate-x-1/2 text-center">
+        <PromoShowcase
+          locale={locale}
+          selected={selected}
+          course={selectedCourse}
+          trackTitle={
+            selected
+              ? tracks[selected.trackIndex].title[locale]
+              : ""
+          }
+          youtubeVideoId={
+            selectedPromo?.youtubeVideoId ?? null
+          }
+          slides={promoSlides}
+          autoPaused={
+            hoverPaused ||
+            manualPaused ||
+            fullscreenPaused
+          }
+          onFullscreenChange={setFullscreenPaused}
+          onSelectSlide={(slide) =>
+            selectCourseManually(
+              slide.trackIndex,
+              slide.courseIndex,
+            )
+          }
+        />
+
+        <div className="absolute left-1/2 top-[65%] z-20 -translate-x-1/2 text-center">
           <div
             className="
               relative whitespace-nowrap
               px-8 py-4
-              text-[14px] font-black
-              text-white
-              sm:text-2xl
-              lg:text-[42px]
+              text-[18px] font-black
+              text-[#FFF7E7]
+              sm:text-[28px]
+              lg:text-[36px]
               [text-shadow:0_3px_5px_rgba(0,0,0,.95),0_0_16px_rgba(0,0,0,.8),0_0_28px_rgba(247,181,72,.35)]
             "
           >
@@ -674,7 +834,7 @@ export default function MasarLanding() {
                 h-[80px] w-[360px]
                 -translate-x-1/2 -translate-y-1/2
                 rounded-full
-                bg-[radial-gradient(ellipse,rgba(247,181,72,.42)_0%,rgba(247,181,72,.20)_40%,rgba(247,181,72,.06)_68%,transparent_78%)]
+                bg-[radial-gradient(ellipse,rgba(247,181,72,.62)_0%,rgba(247,181,72,.28)_42%,rgba(247,181,72,.08)_70%,transparent_82%)]
                 blur-[7px]
                 sm:w-[520px]
                 lg:h-[100px] lg:w-[680px]
@@ -687,9 +847,9 @@ export default function MasarLanding() {
 
         <div
           className="
-            absolute inset-x-[4%] bottom-[3%] z-20
+            absolute inset-x-[4%] bottom-[2%] z-20
             grid grid-cols-3
-            gap-2 sm:gap-5 lg:gap-40
+            gap-2 sm:gap-4 lg:gap-20
           "
         >
           {modes.map((mode) => (
@@ -702,8 +862,8 @@ export default function MasarLanding() {
         </div>
       </section>
 
-      <section className="border-t border-white/10 bg-[#061329] px-4 py-6 text-center sm:py-7">
-        <p className="text-[12px] font-black sm:text-2xl lg:text-3xl">
+      <section className="border-t border-white/10 bg-[#061329] px-4 py-3 text-center sm:py-4">
+        <p className="text-[11px] font-black sm:text-lg lg:text-xl">
           {text.finalLine}
         </p>
 
@@ -717,157 +877,400 @@ export default function MasarLanding() {
   );
 }
 
-function CourseScreen({
+function PromoShowcase({
   locale,
   selected,
   course,
   trackTitle,
   youtubeVideoId,
-  onClose,
+  slides,
+  autoPaused,
+  onFullscreenChange,
+  onSelectSlide,
 }: {
   locale: Locale;
-  selected: NonNullable<SelectedCourse>;
-  course: Course;
+  selected: SelectedCourse;
+  course: Course | null;
   trackTitle: string;
   youtubeVideoId: string | null;
-  onClose: () => void;
+  slides: PromoSlide[];
+  autoPaused: boolean;
+  onFullscreenChange: (fullscreen: boolean) => void;
+  onSelectSlide: (slide: PromoSlide) => void;
 }) {
   const text = pageText[locale];
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const videoContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const stationPositions =
-    selected.trackIndex === 0
-      ? roadStations.road
-      : roadStations.traffic;
+  const [showControls, setShowControls] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isMuted, setIsMuted] = useState(true);
 
-  const visualIndex =
-    tracks[selected.trackIndex].courses.length -
-    1 -
-    selected.courseIndex;
+  const sendYoutubeCommand = (
+    func: string,
+    args: unknown[] = [],
+  ) => {
+    iframeRef.current?.contentWindow?.postMessage(
+      JSON.stringify({
+        event: "command",
+        func,
+        args,
+      }),
+      "*",
+    );
+  };
 
-  const stationTop =
-    stationPositions[visualIndex].top;
+  const togglePlay = () => {
+    if (isPlaying) {
+      sendYoutubeCommand("pauseVideo");
+      setIsPlaying(false);
+    } else {
+      sendYoutubeCommand("playVideo");
+      setIsPlaying(true);
+    }
+  };
 
-  const arrowTop = Math.max(
-    7,
-    Math.min(
-      93,
-      ((stationTop - POPUP_TOP_PERCENT) /
-        POPUP_HEIGHT_PERCENT) *
-        100,
-    ),
-  );
+  const toggleMute = () => {
+    if (isMuted) {
+      sendYoutubeCommand("unMute");
+      sendYoutubeCommand("setVolume", [100]);
+      setIsMuted(false);
+    } else {
+      sendYoutubeCommand("mute");
+      setIsMuted(true);
+    }
+  };
 
-  const pointsLeft =
-    selected.trackIndex === 1;
+  const openFullscreen = async () => {
+    const element = videoContainerRef.current;
+
+    if (!element) return;
+
+    try {
+      // المستخدم ضغط بنفسه: نثبت الإعلان الحالي ونشغل الصوت
+      onFullscreenChange(true);
+
+      sendYoutubeCommand("unMute");
+      sendYoutubeCommand("setVolume", [100]);
+      sendYoutubeCommand("setPlaybackQuality", ["hd1080"]);
+
+      setIsMuted(false);
+
+      if (element.requestFullscreen) {
+        await element.requestFullscreen();
+      }
+
+      // بعد تغير حجم المشغل نطلب جودة أعلى مرة أخرى
+      window.setTimeout(() => {
+        sendYoutubeCommand("setPlaybackQuality", ["hd1080"]);
+      }, 700);
+    } catch (error) {
+      onFullscreenChange(false);
+      console.error("Fullscreen error:", error);
+    }
+  };
+
+  useEffect(() => {
+    setIsPlaying(true);
+    setIsMuted(true);
+    setShowControls(false);
+  }, [youtubeVideoId]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFullscreen =
+        document.fullscreenElement === videoContainerRef.current;
+
+      onFullscreenChange(isFullscreen);
+
+      if (isFullscreen) {
+        sendYoutubeCommand("unMute");
+        sendYoutubeCommand("setVolume", [100]);
+        setIsMuted(false);
+
+        window.setTimeout(() => {
+          sendYoutubeCommand("setPlaybackQuality", ["hd1080"]);
+        }, 900);
+      }
+    };
+
+    document.addEventListener(
+      "fullscreenchange",
+      handleFullscreenChange,
+    );
+
+    return () => {
+      document.removeEventListener(
+        "fullscreenchange",
+        handleFullscreenChange,
+      );
+    };
+  }, [onFullscreenChange]);
 
   return (
     <div
       className="
         absolute left-1/2 top-[15%] z-30
-        h-[48%] min-h-[280px]
-        w-[86%] max-w-[700px]
+        h-[31%] min-h-[190px]
+        w-[58%] max-w-[820px]
         -translate-x-1/2
-        overflow-visible
-        rounded-[20px]
-        border border-[#F7B548]/55
-        bg-white/96
-        p-2 text-[#07152E]
-        shadow-[0_22px_70px_rgba(0,0,0,.42)]
-        backdrop-blur-xl
-        sm:w-[70%]
-        md:w-[56%]
-        lg:w-[41.5%]
-        lg:rounded-[28px]
+        overflow-hidden
+        rounded-[18px]
+        border border-[#F7B548]/85
+        bg-[#07152E]/96
+        shadow-[0_18px_55px_rgba(0,0,0,.40),0_0_26px_rgba(247,181,72,.12)]
+        backdrop-blur-md
+        sm:w-[52%]
+        md:w-[48%]
+        lg:w-[36%]
       "
     >
-      <span
-        className="absolute z-[-1] h-0 w-0 transition-[top] duration-200"
-        style={{
-          top: `${arrowTop}%`,
-          transform: "translateY(-50%)",
-          ...(pointsLeft
-            ? {
-                left: "-28px",
-                borderTop: "18px solid transparent",
-                borderBottom: "18px solid transparent",
-                borderRight:
-                  "29px solid rgba(255,255,255,.96)",
-              }
-            : {
-                right: "-28px",
-                borderTop: "18px solid transparent",
-                borderBottom: "18px solid transparent",
-                borderLeft:
-                  "29px solid rgba(255,255,255,.96)",
-              }),
-        }}
-        aria-hidden="true"
-      />
-
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute left-3 top-3 z-30 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-slate-600 shadow-sm transition hover:bg-white"
-        aria-label={text.closeDetails}
-      >
-        <X className="h-4 w-4" />
-      </button>
-
-      <div className="flex h-full min-h-0 flex-col gap-3">
+      {course ? (
         <div
-          className={`flex shrink-0 items-center gap-3 px-9 py-0 ${
-            locale === "ar" ? "text-right" : "text-left"
+          className={`grid h-full min-h-0 ${
+            locale === "ar"
+              ? "grid-cols-[32%_68%]"
+              : "grid-cols-[68%_32%]"
           }`}
         >
-          <div className="relative h-11 w-11 shrink-0 rounded-xl bg-slate-50 sm:h-15 sm:w-15">
-            <Image
-              src={course.icon}
-              alt={course.title}
-              fill
-              sizes="48px"
-              className="object-contain p-1"
-            />
-          </div>
+          {/* Course info column */}
+          <div
+            className={`
+              flex min-w-0 flex-col justify-center gap-2
+              bg-[linear-gradient(180deg,rgba(7,21,46,.98),rgba(12,30,57,.96))]
+              px-3 py-3 text-white
+              sm:px-4
+              ${locale === "ar" ? "order-1 text-right" : "order-2 text-left"}
+            `}
+          >
+            <div className="flex items-center gap-2">
+              <div className="relative h-9 w-9 shrink-0 rounded-lg bg-white sm:h-11 sm:w-11">
+                <Image
+                  src={course.icon}
+                  alt={course.title}
+                  fill
+                  sizes="44px"
+                  className="object-contain p-1"
+                />
+              </div>
 
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              <p className="shrink-0 text-[9px] font-black text-[#B87908] sm:text-[10px] lg:text-[11px]">
-                {trackTitle}
-              </p>
-
-              <h2 className="min-w-0 break-words text-[clamp(14px,1.4vw,24px)] font-black leading-[1.1]">
-                {course.title}
-              </h2>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[8px] font-black text-[#F7B548] sm:text-[10px]">
+                  {trackTitle}
+                </p>
+                <h2 className="break-words text-[12px] font-black leading-tight sm:text-[16px] lg:text-[20px]">
+                  {course.title}
+                </h2>
+              </div>
             </div>
 
-            <p className="mt-1 line-clamp-2 text-[9px] font-semibold leading-4 text-slate-600 sm:text-[11px] lg:text-[12px]">
+            <p className="line-clamp-3 text-[8px] font-semibold leading-4 text-slate-200 sm:text-[10px] lg:mt-3 lg:text-[12px] lg:leading-6">
               {course.description[locale]}
+            </p>
+{slides.length > 0 && (
+       <div className="flex items-center justify-center gap-1.5 rounded-full bg-white/10 px-3 py-1">
+          {slides.map((slide) => {
+            const active =
+              selected?.trackIndex === slide.trackIndex &&
+              selected?.courseIndex === slide.courseIndex;
+
+            return (
+              <button
+                key={`${slide.trackIndex}-${slide.courseIndex}`}
+                type="button"
+                onClick={() => onSelectSlide(slide)}
+                aria-label={slide.course.title}
+                title={slide.course.title}
+                className={`h-1.5 rounded-full transition-all ${
+                  active
+                    ? "w-5 bg-[#F7B548]"
+                    : "w-1.5 bg-white/50 hover:bg-white/85"
+                }`}
+              />
+            );
+          })}
+        </div>
+      )}
+            <div className="mt-auto flex items-center gap-2 text-[8px] font-bold text-slate-400 sm:text-[10px]">
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  autoPaused
+                    ? "bg-[#F7B548]"
+                    : "animate-pulse bg-emerald-400"
+                }`}
+              />
+              <span>
+                {autoPaused
+                  ? locale === "ar"
+                    ? "تم تثبيت المحطة مؤقتًا"
+                    : "Station paused"
+                  : locale === "ar"
+                    ? "الإعلانات تتغير تلقائيًا"
+                    : "Promos rotate automatically"}
+              </span>
+            </div>
+          </div>
+
+          {/* Full video column */}
+          <div
+  ref={videoContainerRef}
+  onMouseEnter={() => setShowControls(true)}
+  onMouseLeave={() => setShowControls(false)}
+  onClick={() => setShowControls(true)}
+  className={`group relative min-h-0 overflow-hidden bg-black fullscreen:flex fullscreen:items-center fullscreen:justify-center ${
+    locale === "ar" ? "order-2" : "order-1"
+  }`}
+>
+            {youtubeVideoId ? (
+              <>
+                <iframe
+                  ref={iframeRef}
+                  key={youtubeVideoId}
+                  src={getYoutubeEmbedUrl(youtubeVideoId)}
+                  title={`${course.title} promo`}
+                  className="pointer-events-none h-full w-full border-0 object-contain fullscreen:h-auto fullscreen:max-h-screen fullscreen:aspect-video"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+                <div
+                  className={`
+                    absolute inset-x-0 bottom-0 z-20
+                    flex items-center justify-between
+                    bg-gradient-to-t from-black/85 via-black/45 to-transparent
+                    px-3 pb-3 pt-8
+                    transition-all duration-300
+                    ${
+                      showControls
+                        ? "translate-y-0 opacity-100"
+                        : "pointer-events-none translate-y-2 opacity-0"
+                    }
+                  `}
+                >
+  <div className="flex items-center gap-2">
+    {/* تشغيل / إيقاف */}
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        togglePlay();
+      }}
+      className="
+        flex h-9 w-9 items-center justify-center
+        rounded-full
+        border border-white/20
+        bg-black/55 text-white
+        backdrop-blur-md
+        transition
+        hover:border-[#F7B548]
+        hover:bg-[#F7B548]
+        hover:text-[#07152E]
+      "
+      aria-label={
+        isPlaying
+          ? locale === "ar"
+            ? "إيقاف الفيديو"
+            : "Pause video"
+          : locale === "ar"
+            ? "تشغيل الفيديو"
+            : "Play video"
+      }
+    >
+      {isPlaying ? (
+        <Pause className="h-4 w-4" />
+      ) : (
+        <Play className="h-4 w-4 fill-current" />
+      )}
+    </button>
+
+    {/* الصوت */}
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        toggleMute();
+      }}
+      className="
+        flex h-9 w-9 items-center justify-center
+        rounded-full
+        border border-white/20
+        bg-black/55 text-white
+        backdrop-blur-md
+        transition
+        hover:border-[#F7B548]
+        hover:bg-[#F7B548]
+        hover:text-[#07152E]
+      "
+      aria-label={
+        isMuted
+          ? locale === "ar"
+            ? "تشغيل الصوت"
+            : "Enable sound"
+          : locale === "ar"
+            ? "كتم الصوت"
+            : "Mute sound"
+      }
+    >
+      {isMuted ? (
+        <VolumeX className="h-4 w-4" />
+      ) : (
+        <Volume2 className="h-4 w-4" />
+      )}
+    </button>
+  </div>
+
+  {/* تكبير */}
+  <button
+    type="button"
+    onClick={(event) => {
+      event.stopPropagation();
+      void openFullscreen();
+    }}
+    className="
+      flex h-9 w-9 items-center justify-center
+      rounded-full
+      border border-white/20
+      bg-black/55 text-white
+      backdrop-blur-md
+      transition
+      hover:border-[#F7B548]
+      hover:bg-[#F7B548]
+      hover:text-[#07152E]
+    "
+    aria-label={
+      locale === "ar"
+        ? "تكبير الفيديو"
+        : "Fullscreen"
+    }
+  >
+    <Maximize2 className="h-4 w-4" />
+  </button>
+</div>
+              </>
+            ) : (
+              <div className="flex h-full items-center justify-center p-4 text-center text-white">
+                <div>
+                  <Play className="mx-auto h-8 w-8 text-[#F7B548]" />
+                  <p className="mt-2 text-[9px] font-bold sm:text-xs">
+                    {text.videoUnavailable}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        
+      ) : (
+        <div className="flex h-full items-center justify-center p-5 text-center text-white">
+          <div>
+            <Play className="mx-auto h-9 w-9 text-[#F7B548]" />
+            <p className="mt-3 text-xs font-bold">
+              {text.videoUnavailable}
             </p>
           </div>
         </div>
+      )}
 
-        <div className="relative min-h-0 flex-1 overflow-hidden rounded-[18px] bg-black">
-          {youtubeVideoId ? (
-            <iframe
-              key={youtubeVideoId}
-              src={getYoutubeEmbedUrl(youtubeVideoId)}
-              title={`${course.title} promo`}
-              className="h-full w-full border-0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center p-5 text-center text-white">
-              <div>
-                <Play className="mx-auto h-10 w-10 text-[#F7B548]" />
-                <p className="mt-3 text-xs font-bold sm:text-sm">
-                  {text.videoUnavailable}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      
     </div>
   );
 }
@@ -920,13 +1323,13 @@ function LearningModeCard({
     <article
       className={`
         relative mt-6
-        min-h-[140px]
+        min-h-[100px]
         rounded-[18px] border
         px-2 pb-3 pt-8 text-center
         backdrop-blur-md
-        sm:min-h-[180px]
+        sm:min-h-[100px]
         sm:rounded-[24px]
-        sm:px-5 sm:pb-5 sm:pt-11
+        sm:px-4 sm:pb-0 sm:pt-8
         ${cardClasses}
       `}
     >
@@ -937,25 +1340,25 @@ function LearningModeCard({
           -translate-x-1/2 -translate-y-1/2
           items-center justify-center
           rounded-full border-[3px]
-          sm:h-[68px] sm:w-[68px]
+          sm:h-[58px] sm:w-[58px]
           ${iconClasses}
         `}
       >
         {isProfessional && (
-          <CalendarDays className="h-5 w-5 sm:h-8 sm:w-8" />
+          <CalendarDays className="h-5 w-5 sm:h-7 sm:w-7" />
         )}
 
         {isOneDay && (
-          <Rocket className="h-5 w-5 sm:h-8 sm:w-8" />
+          <Rocket className="h-5 w-5 sm:h-7 sm:w-7" />
         )}
 
         {!isProfessional && !isOneDay && (
-          <Play className="h-5 w-5 fill-current sm:h-8 sm:w-8" />
+          <Play className="h-5 w-5 fill-current sm:h-7 sm:w-7" />
         )}
       </div>
 
       <h3
-        className={`text-[16px] font-black leading-tight sm:text-xl ${
+        className={`text-[16px] font-black leading-tight sm:text-lg ${
           isProfessional
             ? "text-[#FFE29A]"
             : isOneDay
@@ -976,7 +1379,7 @@ function LearningModeCard({
         }`}
       />
 
-      <p className="mx-auto mt-3 max-w-sm text-[8px] font-semibold leading-4 text-white/95 sm:mt-6 sm:text-[14px] sm:leading-8 lg:text-[18px]">
+      <p className="mx-auto mt-3 max-w-sm text-[8px] font-semibold leading-4 text-white/95 sm:mt-3 sm:text-[12px] sm:leading-4 lg:text-[14px]">
         {description}
       </p>
     </article>
@@ -989,6 +1392,8 @@ function StationPin({
   left,
   top,
   onSelect,
+  onHoverStart,
+  onHoverEnd,
   labelSide,
 }: {
   course: Course;
@@ -996,6 +1401,8 @@ function StationPin({
   left: number;
   top: number;
   onSelect: () => void;
+  onHoverStart: () => void;
+  onHoverEnd: () => void;
   labelSide:
     | "outside-left"
     | "outside-right";
@@ -1003,8 +1410,10 @@ function StationPin({
   return (
     <button
       type="button"
-      onMouseEnter={onSelect}
-      onFocus={onSelect}
+      onMouseEnter={onHoverStart}
+      onMouseLeave={onHoverEnd}
+      onFocus={onHoverStart}
+      onBlur={onHoverEnd}
       onClick={onSelect}
       className="group absolute z-20 -translate-x-1/2 -translate-y-1/2 focus:outline-none"
       style={{
@@ -1019,7 +1428,7 @@ function StationPin({
           h-[46px] w-[38px]
           transition duration-200
           sm:h-[64px] sm:w-[52px]
-          lg:h-[70px] lg:w-[60px]
+          lg:h-[74px] lg:w-[62px]
           ${
             active
               ? "scale-110 drop-shadow-[0_0_12px_rgba(247,181,72,.9)]"
@@ -1053,17 +1462,17 @@ function StationPin({
 
       <span
         className={`
-          absolute top-[42%]
+          absolute top-[50%]
           -translate-y-1/2
           whitespace-nowrap
           text-[8px] font-black
           drop-shadow-[0_2px_6px_rgba(0,0,0,.9)]
           sm:text-xs
-          lg:text-[18px]
+          lg:text-[20px]
           ${
             labelSide === "outside-left"
-              ? "right-[calc(100%+7px)]"
-              : "left-[calc(100%+7px)]"
+              ? "right-[calc(100%+10px)]"
+              : "left-[calc(100%+10px)]"
           }
           ${active ? "text-[#F7B548]" : "text-white"}
         `}
