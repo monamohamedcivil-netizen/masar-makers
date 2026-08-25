@@ -756,7 +756,7 @@ export default function MasarLanding() {
             </span>
           </h1>
 
-          <p className="mx-auto mt-3 max-w-3xl px-4 text-[11px] font-semibold leading-5 text-slate-200 sm:text-[13px] md:mt-2 md:px-0 md:text-[15px] lg:text-[16px]">
+          <p className="mx-auto mt-3 max-w-3xl px-4 text-[14px] font-semibold leading-5 text-slate-200 sm:text-[13px] md:mt-2 md:px-0 md:text-[15px] lg:text-[16px]">
             {text.heroSubtitle}
           </p>
         </div>
@@ -851,7 +851,7 @@ export default function MasarLanding() {
         </div>
 
         {/* Mobile centered brand + CTAs between the two paths */}
-        <div className="absolute left-1/2 top-[37%] z-30 flex -translate-x-1/2 flex-col items-center gap-2.5 md:hidden">
+        <div className="absolute left-1/2 top-[39.5%] z-30 flex -translate-x-1/2 flex-col items-center gap-2.5 md:hidden">
           <div className="flex items-center justify-center gap-0 px-2 py-0">
             <Image
               src="/images/logo/masar-makers-mark.png"
