@@ -60,6 +60,19 @@ type PromoRow = {
   is_active: boolean;
 };
 
+type PublicLandingPromoRow = {
+  course_id: string;
+  title: string | null;
+  title_ar: string | null;
+  title_en: string | null;
+  slug: string | null;
+  course_code: string | null;
+  video_source: string | null;
+  youtube_url: string | null;
+  youtube_video_id: string | null;
+  is_active: boolean;
+};
+
 type PromoSlide = {
   trackIndex: number;
   courseIndex: number;
@@ -307,18 +320,18 @@ const roadStations = {
 
 const mobileRoadStations = {
   road: [
-    { left: 86, top: 47 },
-    { left: 87, top: 52.5 },
-    { left: 86, top: 58 },
-    { left: 82, top: 63.5 },
-    { left: 76, top: 68.5 },
+    { left: 84, top: 41 },
+    { left: 84, top: 47 },
+    { left: 80, top: 53 },
+    { left: 70, top: 58 },
+    { left: 60, top: 60.5 },
   ],
   traffic: [
-    { left: 14, top: 47 },
-    { left: 13, top: 52.5 },
-    { left: 14, top: 58 },
-    { left: 18, top: 63.5 },
-    { left: 24, top: 68.5 },
+    { left: 17, top: 41 },
+    { left: 16, top: 47 },
+    { left: 19, top: 53 },
+    { left: 29, top: 58 },
+    { left: 40, top: 60.5 },
   ],
 };
 
@@ -371,8 +384,8 @@ function getYoutubeEmbedUrl(
     playsinline: "1",
 
     // على الموبايل نُظهر controls الأصلية لضمان إمكانية التشغيل.
-    controls: mobile ? "1" : "0",
-    disablekb: mobile ? "0" : "1",
+    controls: "0",
+    disablekb: "1",
     fs: "1",
 
     rel: "0",
@@ -443,35 +456,45 @@ export default function MasarLanding() {
     const loadPromos = async () => {
       const supabase = createClient();
 
-      const [
-        { data: coursesData, error: coursesError },
-        { data: promosData, error: promosError },
-      ] = await Promise.all([
-        supabase
-          .from("courses")
-          .select("id,title,title_ar,title_en,slug,course_code")
-          .eq("is_active", true),
-        supabase
-          .from("landing_course_promos")
-          .select(
-            "course_id,video_source,youtube_url,youtube_video_id,is_active",
-          )
-          .eq("is_active", true)
-          .eq("video_source", "youtube"),
-      ]);
+      const { data, error } = await supabase.rpc(
+        "get_public_landing_promos",
+      );
 
-      if (coursesError) {
-        console.error("Landing courses load error:", coursesError);
+      if (error) {
+        console.error("Landing promos load error:", error);
+
+        if (!cancelled) {
+          setDbCourses([]);
+          setPromos([]);
+        }
+
+        return;
       }
 
-      if (promosError) {
-        console.error("Landing promos load error:", promosError);
-      }
+      if (cancelled) return;
 
-      if (!cancelled) {
-        setDbCourses((coursesData ?? []) as DbCourse[]);
-        setPromos((promosData ?? []) as PromoRow[]);
-      }
+      const rows = (data ?? []) as PublicLandingPromoRow[];
+
+      setDbCourses(
+        rows.map((row) => ({
+          id: row.course_id,
+          title: row.title,
+          title_ar: row.title_ar,
+          title_en: row.title_en,
+          slug: row.slug,
+          course_code: row.course_code,
+        })),
+      );
+
+      setPromos(
+        rows.map((row) => ({
+          course_id: row.course_id,
+          video_source: row.video_source,
+          youtube_url: row.youtube_url,
+          youtube_video_id: row.youtube_video_id,
+          is_active: row.is_active,
+        })),
+      );
     };
 
     void loadPromos();
@@ -712,7 +735,7 @@ export default function MasarLanding() {
       <section
         className="
           relative mx-auto
-          min-h-[1180px] w-full max-w-[2000px]
+          min-h-[1150px] w-full max-w-[2000px]
           overflow-hidden bg-[#07152E]
           bg-[url('/images/landing/learning-roads-bg.png')]
           bg-[length:100%_100%]
@@ -726,14 +749,14 @@ export default function MasarLanding() {
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#07152E]/58 via-[#07152E]/5 to-[#07152E]/30" />
 
         <div className="relative z-20 mx-auto max-w-[1450px] px-2 pt-4 text-center sm:px-4 sm:pt-3 lg:pt-3">
-          <h1 className="mx-auto whitespace-nowrap text-[clamp(18px,3.2vw,42px)] font-black leading-[1.1]">
+          <h1 className="mx-auto whitespace-nowrap text-[clamp(21px,5.6vw,25px)] font-black leading-[1.1] md:text-[clamp(24px,3.2vw,42px)]">
             <span>{text.heroBefore}</span>{" "}
             <span className="text-[#F7B548]">
               {text.heroAfter}
             </span>
           </h1>
 
-          <p className="mx-auto mt-2 max-w-3xl text-[10px] font-semibold leading-5 text-slate-200 sm:text-[13px] md:text-[15px] lg:text-[16px]">
+          <p className="mx-auto mt-3 max-w-3xl px-4 text-[11px] font-semibold leading-5 text-slate-200 sm:text-[13px] md:mt-2 md:px-0 md:text-[15px] lg:text-[16px]">
             {text.heroSubtitle}
           </p>
         </div>
@@ -754,14 +777,14 @@ export default function MasarLanding() {
 
 
         {/* Mobile path titles */}
-        <div className="absolute left-[4%] top-[41.5%] z-20 text-center text-[#F7B548] md:hidden">
+        <div className="absolute left-[12%] top-[34.5%] z-20 text-center text-[#F7B548] md:hidden">
           <p className="text-[17px] font-black">
             {tracks[1].title[locale]}
           </p>
           <div className="mx-auto mt-1.5 h-0.5 w-20 bg-[#F7B548]" />
         </div>
 
-        <div className="absolute right-[4%] top-[41.5%] z-20 text-center text-[#F7B548] md:hidden">
+        <div className="absolute right-[6%] top-[34.5%] z-20 text-center text-[#F7B548] md:hidden">
           <p className="text-[17px] font-black">
             {tracks[0].title[locale]}
           </p>
@@ -828,14 +851,25 @@ export default function MasarLanding() {
         </div>
 
         {/* Mobile centered brand + CTAs between the two paths */}
-        <div className="absolute left-1/2 top-[48%] z-30 flex -translate-x-1/2 flex-col items-center gap-2.5 md:hidden">
-          <Image
-            src="/images/logo/masar-makers-mark.png"
-            alt="Masar Makers"
-            width={72}
-            height={72}
-            className="h-[62px] w-auto object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,.45)]"
-          />
+        <div className="absolute left-1/2 top-[37%] z-30 flex -translate-x-1/2 flex-col items-center gap-2.5 md:hidden">
+          <div className="flex items-center justify-center gap-0 px-2 py-0">
+            <Image
+              src="/images/logo/masar-makers-mark.png"
+              alt="Masar Makers"
+              width={72}
+              height={72}
+              className="h-[70px] w-auto object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,.45)]"
+            />
+
+            <div className="text-right">
+              <p className="whitespace-nowrap text-[20px] font-black leading-none text-white">
+                صناع <span className="text-[#F7B548]">المسار</span>
+              </p>
+              <p className="mt-1 whitespace-nowrap text-[11px] font-bold tracking-[.12em] text-[#F7B548]">
+                Masar <span className="text-white">Makers</span>
+              </p>
+            </div>
+          </div>
 
           <Link
             href="/home"
@@ -1090,30 +1124,35 @@ function PromoShowcase({
   };
 
   const openFullscreen = async () => {
-    const element = videoContainerRef.current;
+    const container = videoContainerRef.current;
+    const iframe = iframeRef.current;
 
-    if (!element) return;
+    if (!container || !iframe) return;
 
     try {
-      // المستخدم ضغط بنفسه: نثبت الإعلان الحالي ونشغل الصوت
       onFullscreenChange(true);
 
+      sendYoutubeCommand("playVideo");
       sendYoutubeCommand("unMute");
       sendYoutubeCommand("setVolume", [100]);
       sendYoutubeCommand("setPlaybackQuality", ["hd1080"]);
 
+      setIsPlaying(true);
       setIsMuted(false);
 
-      if (element.requestFullscreen) {
-        await element.requestFullscreen();
+      if (container.requestFullscreen) {
+        await container.requestFullscreen();
+      } else if (iframe.requestFullscreen) {
+        await iframe.requestFullscreen();
       }
 
-      // بعد تغير حجم المشغل نطلب جودة أعلى مرة أخرى
       window.setTimeout(() => {
+        sendYoutubeCommand("playVideo");
+        sendYoutubeCommand("unMute");
+        sendYoutubeCommand("setVolume", [100]);
         sendYoutubeCommand("setPlaybackQuality", ["hd1080"]);
-      }, 700);
+      }, 500);
     } catch (error) {
-      onFullscreenChange(false);
       console.error("Fullscreen error:", error);
     }
   };
@@ -1126,19 +1165,25 @@ function PromoShowcase({
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      const isFullscreen =
-        document.fullscreenElement === videoContainerRef.current;
+      const fullscreenElement = document.fullscreenElement;
 
-      onFullscreenChange(isFullscreen);
+      const isOurVideoFullscreen =
+        fullscreenElement === videoContainerRef.current ||
+        fullscreenElement === iframeRef.current;
 
-      if (isFullscreen) {
+      onFullscreenChange(isOurVideoFullscreen);
+
+      if (isOurVideoFullscreen) {
+        sendYoutubeCommand("playVideo");
         sendYoutubeCommand("unMute");
         sendYoutubeCommand("setVolume", [100]);
+
+        setIsPlaying(true);
         setIsMuted(false);
 
         window.setTimeout(() => {
           sendYoutubeCommand("setPlaybackQuality", ["hd1080"]);
-        }, 900);
+        }, 700);
       }
     };
 
@@ -1158,19 +1203,19 @@ function PromoShowcase({
   return (
     <div
       className="
-        absolute left-1/2 top-[10%] z-30
-        h-[270px] min-h-0
-        w-[calc(100%-16px)] max-w-none
+        absolute left-1/2 top-[9%] z-30
+        h-[255px] min-h-0
+        w-full max-w-none
         -translate-x-1/2
         overflow-hidden
+        bg-[#07152E]/96
         md:top-[15%]
         md:h-[31%] md:min-h-[190px]
         md:w-[48%] md:max-w-[820px]
-        rounded-[18px]
-        border border-[#F7B548]/85
-        bg-[#07152E]/96
-        shadow-[0_18px_55px_rgba(0,0,0,.40),0_0_26px_rgba(247,181,72,.12)]
-        backdrop-blur-md
+        md:rounded-[18px]
+        md:border md:border-[#F7B548]/85
+        md:shadow-[0_18px_55px_rgba(0,0,0,.40),0_0_26px_rgba(247,181,72,.12)]
+        md:backdrop-blur-md
         lg:w-[38%]
       "
     >
@@ -1292,31 +1337,19 @@ function PromoShowcase({
                     isMobile,
                   )}
                   title={`${course.title} promo`}
-                  className={`h-full w-full border-0 object-contain fullscreen:h-auto fullscreen:max-h-screen fullscreen:aspect-video ${
-                    isMobile
-                      ? "pointer-events-auto"
-                      : "pointer-events-none"
-                  }`}
+                  className="pointer-events-none h-full w-full border-0 bg-black"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
                 />
-                {isMobile && (
-                  <div className="pointer-events-none absolute left-2 top-2 z-10 rounded-full bg-black/55 px-2.5 py-1 text-[9px] font-bold text-white backdrop-blur-sm">
-                    {locale === "ar"
-                      ? "اضغط على الفيديو للتشغيل"
-                      : "Tap video to play"}
-                  </div>
-                )}
-
                 <div
                   className={`
                     absolute inset-x-0 bottom-0 z-20
                     flex items-center justify-between
                     bg-gradient-to-t from-black/85 via-black/45 to-transparent
-                    px-3 pb-3 pt-8
+                    px-2 pb-2 pt-7 md:px-3 md:pb-3 md:pt-8
                     transition-all duration-300
                     ${
-                      !isMobile && showControls
+                      isMobile || showControls
                         ? "translate-y-0 opacity-100"
                         : "pointer-events-none translate-y-2 opacity-0"
                     }
@@ -1601,7 +1634,7 @@ function StationPin({
       <span
         className={`
           relative block
-          h-[54px] w-[45px]
+          h-[60px] w-[50px]
           transition duration-200
           sm:h-[64px] sm:w-[52px]
           lg:h-[74px] lg:w-[62px]
@@ -1638,17 +1671,19 @@ function StationPin({
 
       <span
         className={`
-          absolute top-[50%]
+          absolute top-[80%]
           -translate-y-1/2
-          whitespace-nowrap
-          text-[10px] font-black
+          max-w-[118px]
+          whitespace-normal
+          text-[13px] font-black leading-[1.05]
           drop-shadow-[0_2px_6px_rgba(0,0,0,.9)]
-          sm:text-xs
+          sm:max-w-[145px] sm:text-sm
+          md:max-w-none md:whitespace-nowrap
           lg:text-[20px]
           ${
             labelSide === "outside-left"
-              ? "right-[calc(100%+10px)]"
-              : "left-[calc(100%+10px)]"
+              ? "right-[calc(100%+5px)] text-right md:left-auto md:right-[calc(100%+10px)] md:text-right"
+              : "left-[calc(100%+5px)] text-left md:right-auto md:left-[calc(100%+10px)] md:text-left"
           }
           ${active ? "text-[#F7B548]" : "text-white"}
         `}
