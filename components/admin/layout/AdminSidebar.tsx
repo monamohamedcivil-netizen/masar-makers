@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   Star,
   Users,
+  Video,
   X,
 } from "lucide-react";
 
@@ -52,45 +53,45 @@ const navigationGroups: NavigationGroup[] = [
     ],
   },
   {
-  title: "إدارة الطلاب",
-  items: [
-    {
-      title: "طلبات الاشتراك",
-      href: "/admin/students/enrollment-requests",
-      icon: ClipboardList,
-    },
-    {
-      title: "بيانات الطلاب",
-      href: "/admin/students",
-      icon: Users,
-    },
-    {
-      title: "الطلاب النشطون",
-      href: "/admin/students/active",
-      icon: GraduationCap,
-    },
-    {
-      title: "الطلاب الموقوفون",
-      href: "/admin/students/suspended",
-      icon: ShieldCheck,
-    },
-    {
-      title: "الشهادات",
-      href: "/admin/students/certificates",
-      icon: Award,
-    },
-    {
-      title: "المشاريع",
-      href: "/admin/students/projects",
-      icon: FileImage,
-    },
-    {
-      title: "الاستبيانات",
-      href: "/admin/students/surveys",
-      icon: Star,
-    },
-  ],
-},
+    title: "إدارة الطلاب",
+    items: [
+      {
+        title: "طلبات الاشتراك",
+        href: "/admin/students/enrollment-requests",
+        icon: ClipboardList,
+      },
+      {
+        title: "بيانات الطلاب",
+        href: "/admin/students",
+        icon: Users,
+      },
+      {
+        title: "الطلاب النشطون",
+        href: "/admin/students/active",
+        icon: GraduationCap,
+      },
+      {
+        title: "الطلاب الموقوفون",
+        href: "/admin/students/suspended",
+        icon: ShieldCheck,
+      },
+      {
+        title: "الشهادات",
+        href: "/admin/students/certificates",
+        icon: Award,
+      },
+      {
+        title: "المشاريع",
+        href: "/admin/students/projects",
+        icon: FileImage,
+      },
+      {
+        title: "الاستبيانات",
+        href: "/admin/students/surveys",
+        icon: Star,
+      },
+    ],
+  },
   {
     title: "المحتوى التعليمي",
     items: [
@@ -114,16 +115,21 @@ const navigationGroups: NavigationGroup[] = [
         href: "/admin/learning/lessons",
         icon: BookOpen,
       },
+      {
+        title: "إعلانات صفحة البداية",
+        href: "/admin/content/landing-promos",
+        icon: Video,
+      },
     ],
   },
   {
     title: "الإدارة",
     items: [
       {
-  title: "استيراد البيانات",
-  href: "/admin/student-import",
-  icon: Database,
-},
+        title: "استيراد البيانات",
+        href: "/admin/student-import",
+        icon: Database,
+      },
       {
         title: "المدفوعات",
         href: "/admin/finance/payments",
@@ -135,10 +141,10 @@ const navigationGroups: NavigationGroup[] = [
         icon: Megaphone,
       },
       {
-  title: "السحب الشهري",
-  href: "/admin/content/monthly-draw",
-  icon: Gift,
-},
+        title: "السحب الشهري",
+        href: "/admin/content/monthly-draw",
+        icon: Gift,
+      },
       {
         title: "التقارير",
         href: "/admin/reports",

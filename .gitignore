@@ -45,3 +45,6 @@ supabase/.temp/
 
 # Zip Files
 *.zip
+
+# Landing Page promotional videos
+public/videos/promos/*.mp4

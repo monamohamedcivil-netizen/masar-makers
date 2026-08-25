@@ -110,7 +110,7 @@ export default function Navbar({ activeItem }: NavbarProps) {
 
   const links = useMemo(
     () => [
-      { id: "home" as const, href: "/", label: text.home, protected: false },
+      { id: "home" as const, href: "/home", label: text.home, protected: false },
       { id: "about" as const, href: "/about", label: text.about, protected: false },
       { id: "career-paths" as const, href: "/career-path/road-design", label: text.careerPaths, protected: true },
       { id: "journeys" as const, href: "/dashboard", label: text.journeys, protected: true },
@@ -165,7 +165,7 @@ export default function Navbar({ activeItem }: NavbarProps) {
     >
       <div className="mx-auto flex h-full max-w-[1480px] items-center justify-between px-4 sm:px-6 lg:px-10">
         <div className="flex shrink-0 items-center gap-5 xl:gap-10">
-          <Link href="/" aria-label={text.homeAria} className="flex items-center">
+          <Link href="/home" aria-label={text.homeAria} className="flex items-center">
             <h1 className="whitespace-nowrap text-[22px] font-black tracking-tight sm:text-[25px]">
               {locale === "ar" ? (
                 <>
