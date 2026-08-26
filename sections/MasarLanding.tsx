@@ -1216,7 +1216,7 @@ function PromoShowcase({
         md:border md:border-[#F7B548]/85
         md:shadow-[0_18px_55px_rgba(0,0,0,.40),0_0_26px_rgba(247,181,72,.12)]
         md:backdrop-blur-md
-        lg:w-[38%]
+        lg:w-[51%]
       "
     >
       {course ? (

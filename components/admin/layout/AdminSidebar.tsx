@@ -273,7 +273,7 @@ export default function AdminSidebar({
 
         <div className="border-t border-white/10 p-4">
           <Link
-            href="/"
+            href="/home"
             onClick={onClose}
             className="flex items-center justify-center gap-2 rounded-xl border border-white/15 px-4 py-3 text-sm font-semibold text-white/80 transition hover:border-[#F7B548]/50 hover:bg-white/10 hover:text-white"
           >

@@ -643,7 +643,16 @@ function StationLearningView({
           >
             <header className="flex items-center justify-between gap-3 bg-[#07152E] px-4 py-3 text-white">
               <div>
-                <h4 className="font-black">{partTitle[part.part]}</h4>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-black">{partTitle[part.part]}</h4>
+
+                  {part.access === "active" ? (
+                    <span className="rounded-full bg-[#F7B548] px-2.5 py-0.5 text-[10px] font-black text-[#07152E]">
+                      {Math.round(part.progressPercent)}%
+                    </span>
+                  ) : null}
+                </div>
+
                 <p className="mt-1 text-[10px] font-bold text-white/65">
                   {part.lessons.length} محاضرات
                 </p>

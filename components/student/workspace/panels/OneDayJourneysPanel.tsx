@@ -260,6 +260,12 @@ function CompactStationRoad({
               >
                 {station.shortTitle}
               </span>
+
+              {!hasJourneys ? (
+                <span className="mt-0.5 max-w-full truncate px-0.5 text-[6.5px] font-black leading-tight text-[#B87508] sm:text-[8px]">
+                  اكتشف المحاضرات
+                </span>
+              ) : null}
             </>
           );
 
@@ -368,7 +374,7 @@ function StationButton({
   if (!hasJourneys) {
     return (
       <Link
-        href={`/course/${station.slug}?tab=one-day`}
+        href={`/course/${station.slug}?journey=one_day`}
         title="اكتشف محاضرات اليوم الواحد"
         className="group relative z-10 flex min-w-0 flex-col items-center px-0.5 py-0.5 sm:px-1 sm:py-1"
       >

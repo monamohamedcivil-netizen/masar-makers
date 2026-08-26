@@ -50,6 +50,7 @@ export type StudentStationPart = {
   courseId: string;
   access: "active" | "pending" | "locked";
   enrollmentStatus: EnrollmentStatus | null;
+  progressPercent: number;
   lessons: StudentStationLesson[];
   resources: StudentDownloadResource[];
 };
@@ -397,6 +398,70 @@ function getEnrollmentImportedProgress(
   return clampPercent(
     enrollment.imported_progress_percent,
   );
+}
+
+function parseProgressObject(
+  value: unknown,
+): Record<string, number> {
+  if (!value) return {};
+
+  let raw: unknown = value;
+
+  if (typeof value === "string") {
+    try {
+      raw = JSON.parse(value);
+    } catch {
+      return {};
+    }
+  }
+
+  if (
+    typeof raw !== "object" ||
+    raw === null ||
+    Array.isArray(raw)
+  ) {
+    return {};
+  }
+
+  const result: Record<string, number> = {};
+
+  for (const [key, item] of Object.entries(
+    raw as Record<string, unknown>,
+  )) {
+    result[key.trim().toLowerCase()] = clampPercent(
+      typeof item === "number" || typeof item === "string"
+        ? item
+        : 0,
+    );
+  }
+
+  return result;
+}
+
+function getEnrollmentImportedPartProgress(
+  enrollment: EnrollmentRow | null | undefined,
+  part: "single" | "fundamentals" | "advanced",
+) {
+  if (!enrollment) return 0;
+
+  if (part === "single") {
+    return getEnrollmentImportedProgress(enrollment);
+  }
+
+  const split = parseProgressObject(
+    enrollment.imported_split_progress,
+  );
+
+  const key =
+    part === "fundamentals"
+      ? "fundamentals"
+      : "advanced";
+
+  if (Object.prototype.hasOwnProperty.call(split, key)) {
+    return clampPercent(split[key]);
+  }
+
+  return getEnrollmentImportedProgress(enrollment);
 }
 
 function parseTimestamp(value: string | null | undefined) {
@@ -1693,6 +1758,54 @@ pdfUrl:
     };
   };
 
+
+  const getActiveProfessionalEnrollmentForPart = (
+    courseIds: string[],
+    part: "single" | "fundamentals" | "advanced",
+  ): EnrollmentRow | null => {
+    const enrollments = courseIds.flatMap(
+      (courseId) => enrollmentRowsByCourse.get(courseId) ?? [],
+    );
+
+    for (const enrollment of enrollments) {
+      const status = normalizeStatus(enrollment.status);
+      const journeyType = normalizeStatus(enrollment.journey_type);
+
+      if (getJourneyKind(journeyType) !== "professional") {
+        continue;
+      }
+
+      if (
+        !activeEnrollmentStatusSet.has(status) &&
+        status !== ""
+      ) {
+        continue;
+      }
+
+      const grantsAll =
+        journeyType === "integrated" ||
+        journeyType === "professional" ||
+        journeyType === "career_path" ||
+        journeyType === "";
+
+      const grantsPart =
+        part === "single"
+          ? true
+          : grantsAll ||
+            (part === "fundamentals" &&
+              (journeyType === "fundamental" ||
+                journeyType === "fundamentals")) ||
+            (part === "advanced" &&
+              journeyType === "advanced");
+
+      if (grantsPart) {
+        return enrollment;
+      }
+    }
+
+    return null;
+  };
+
   const careerPaths: StudentCareerPathProgress[] = careerPathRows
     .map((path) => {
       const pathStations = stationRows
@@ -1850,108 +1963,151 @@ pdfUrl:
               );
             }
 
+            const partLessonRows = partLessons.map((lesson) => {
+              const progress = stationLearningProgressMap.get(lesson.id);
+              const progressPercent = clampPercent(
+                progress?.progress_percent,
+              );
+
+              return {
+                lessonId: lesson.id,
+                courseId: lesson.course_id,
+                title:
+                  lesson.title_ar?.trim() ||
+                  lesson.title.trim() ||
+                  "محاضرة",
+                coursePart: normalizeCoursePart(lesson.course_part),
+                durationSeconds: Math.max(
+                  0,
+                  Number(lesson.video_duration_seconds ?? 0),
+                ),
+                sortOrder: Number(lesson.sort_order ?? 0),
+                progressPercent,
+                completed:
+                  Boolean(progress?.completed) ||
+                  progressPercent >= 100,
+                resources:
+                  lessonResourcesMap.get(lesson.id) ?? [],
+              };
+            });
+
+            const realPartProgressPercent = partLessonRows.length
+              ? Math.round(
+                  partLessonRows.reduce(
+                    (sum, lesson) => sum + lesson.progressPercent,
+                    0,
+                  ) / partLessonRows.length,
+                )
+              : 0;
+
+            const partEnrollment =
+              accessState.access === "active"
+                ? getActiveProfessionalEnrollmentForPart(
+                    stationCourseIds,
+                    part,
+                  )
+                : null;
+
+            const importedPartProgressPercent =
+              getEnrollmentImportedPartProgress(
+                partEnrollment,
+                part,
+              );
+
+            const partProgressPercent =
+              accessState.access === "active"
+                ? Math.max(
+                    clampPercent(realPartProgressPercent),
+                    clampPercent(importedPartProgressPercent),
+                  )
+                : 0;
+
             return {
               part,
               courseId: partCourseId,
               access: accessState.access,
               enrollmentStatus: accessState.enrollmentStatus,
+              progressPercent: partProgressPercent,
               resources: sectionResources,
-              lessons: partLessons.map((lesson) => {
-                const progress = stationLearningProgressMap.get(lesson.id);
-                const progressPercent = clampPercent(progress?.progress_percent);
-
-                return {
-                  lessonId: lesson.id,
-                  courseId: lesson.course_id,
-                  title:
-                    lesson.title_ar?.trim() ||
-                    lesson.title.trim() ||
-                    "محاضرة",
-                  coursePart: normalizeCoursePart(lesson.course_part),
-                  durationSeconds: Math.max(
-                    0,
-                    Number(lesson.video_duration_seconds ?? 0),
-                  ),
-                  sortOrder: Number(lesson.sort_order ?? 0),
-                  progressPercent,
-                  completed:
-                    Boolean(progress?.completed) || progressPercent >= 100,
-                  resources:
-                    lessonResourcesMap.get(lesson.id) ?? [],
-                };
-              }),
+              lessons: partLessonRows,
             };
           });
 
           /*
-           * تقدم المحطة يُحسب من محاضرات رحلة الاحتراف المرتبطة فعليًا
-           * بهذه المحطة، وليس من سجل course summary قديم.
+           * تقدم محطة الاحتراف يجب أن يعتمد فقط على الأجزاء التي يملك
+           * الطالب صلاحية احترافية فعالة عليها.
+           *
+           * مثال مهم: مشاهدة Workshop من Fundamentals لا يجب أن تغيّر
+           * تقدم محطة الاحتراف لطالب مشترك في Advanced فقط.
            */
-          const stationProgressValues = stationLessons.map((lesson) => {
-            const progress = stationLearningProgressMap.get(lesson.id);
-            return clampPercent(progress?.progress_percent);
-          });
+          const activeProfessionalParts = learningParts.filter(
+            (part) => part.access === "active",
+          );
 
-                /*
-           * تقدم المحطة الناتج من المحاضرات الحالية.
-           */
+          const accessibleProfessionalLessons =
+            activeProfessionalParts.flatMap((part) => part.lessons);
+
           const lessonBasedStationProgressPercent =
-            stationProgressValues.length
+            accessibleProfessionalLessons.length
               ? Math.round(
-                  stationProgressValues.reduce(
-                    (sum, value) => sum + value,
+                  accessibleProfessionalLessons.reduce(
+                    (sum, lesson) => sum + lesson.progressPercent,
                     0,
-                  ) / stationProgressValues.length,
+                  ) / accessibleProfessionalLessons.length,
                 )
               : 0;
 
           /*
-           * enrolledCard.progressPercent يحتوي بالفعل على
-           * الـ Baseline التاريخي + تقدم المحاضرات.
-           *
-           * لذلك لا نسمح لحساب المحاضرات داخل المحطة
-           * أن يخفض تقدم الطالب المستورد.
+           * للطلاب المستوردين نحافظ على الـ baseline التاريخي الخاص
+           * بنفس اشتراك الاحتراف، ولا نستخدم student_course_progress
+           * العام لأنه قد يجمع نشاط One-Day / Free على نفس course_id.
            */
+          const enrolledEnrollment = enrolledCard
+            ? enrollmentRows.find(
+                (enrollment) =>
+                  enrollment.id === enrolledCard.enrollmentId,
+              ) ?? null
+            : null;
+
+          const normalizedProfessionalJourneyType =
+            normalizeStatus(enrolledEnrollment?.journey_type);
+
+          const stationImportedBaseline =
+            normalizedProfessionalJourneyType === "advanced"
+              ? getEnrollmentImportedPartProgress(
+                  enrolledEnrollment,
+                  "advanced",
+                )
+              : normalizedProfessionalJourneyType === "fundamental" ||
+                  normalizedProfessionalJourneyType === "fundamentals"
+                ? getEnrollmentImportedPartProgress(
+                    enrolledEnrollment,
+                    "fundamentals",
+                  )
+                : getEnrollmentImportedProgress(
+                    enrolledEnrollment,
+                  );
+
           const stationProgressPercent = Math.max(
-            clampPercent(
-              lessonBasedStationProgressPercent,
-            ),
-            clampPercent(
-              enrolledCard?.progressPercent,
-            ),
+            clampPercent(lessonBasedStationProgressPercent),
+            clampPercent(stationImportedBaseline),
           );
 
-                    const lessonBasedCompletedLessons =
-            stationLessons.length
-              ? stationLessons.filter((lesson) => {
-                  const progress =
-                    stationLearningProgressMap.get(
-                      lesson.id,
-                    );
-
-                  return (
-                    Boolean(progress?.completed) ||
-                    clampPercent(
-                      progress?.progress_percent,
-                    ) >= 100
-                  );
-                }).length
-              : 0;
+          const lessonBasedCompletedLessons =
+            accessibleProfessionalLessons.filter(
+              (lesson) => lesson.completed,
+            ).length;
 
           const stationCompletedLessons =
             stationProgressPercent >= 100
               ? Math.max(
                   lessonBasedCompletedLessons,
-                  stationLessons.length,
-                  enrolledCard?.completedLessons ?? 0,
+                  accessibleProfessionalLessons.length,
                 )
-              : Math.max(
-                  lessonBasedCompletedLessons,
-                  enrolledCard?.completedLessons ?? 0,
-                );
+              : lessonBasedCompletedLessons;
 
           const stationTotalLessons =
-            stationLessons.length || enrolledCard?.totalLessons || 0;
+            accessibleProfessionalLessons.length;
 
           stationStatus =
             !isEnrolled
@@ -2225,7 +2381,6 @@ for (const card of activeOneDayCards) {
 
 const oneDayJourneyGroups: StudentOneDayJourneyGroup[] =
   careerPathRows
-    .filter((path) => oneDayPathIds.has(path.id))
     .map((path) => {
       const pathStations = stationRows
         .filter(
@@ -2494,7 +2649,6 @@ freeJourneysByStation.set(
 
   const freeJourneyGroups: StudentFreeJourneyGroup[] =
   careerPathRows
-    .filter((path) => freePathIds.has(path.id))
     .map((path) => {
       const pathStations = stationRows
         .filter(
