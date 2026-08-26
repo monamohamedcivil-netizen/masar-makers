@@ -742,8 +742,8 @@ export default function MasarLanding() {
           bg-center bg-no-repeat
           sm:min-h-[1050px]
           md:min-h-[700px]
-          lg:min-h-[680px]
-          xl:min-h-[680px]
+          lg:min-h-[900px]
+          xl:min-h-[950px]
         "
       >
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#07152E]/58 via-[#07152E]/5 to-[#07152E]/30" />
@@ -979,15 +979,15 @@ export default function MasarLanding() {
           }
         />
 
-        <div className="absolute left-1/2 top-[73%] z-20 -translate-x-1/2 text-center md:top-[65%]">
+        <div className="absolute left-1/2 top-[70%] z-20 -translate-x-1/2 text-center md:top-[65%]">
           <div
             className="
               relative whitespace-nowrap
               px-8 py-4
-              text-[18px] font-black
+              text-[30px] font-black
               text-[#FFF7E7]
-              sm:text-[28px]
-              lg:text-[36px]
+              sm:text-[30px]
+              lg:text-[40px]
               [text-shadow:0_3px_5px_rgba(0,0,0,.95),0_0_16px_rgba(0,0,0,.8),0_0_28px_rgba(247,181,72,.35)]
             "
           >
@@ -1011,7 +1011,7 @@ export default function MasarLanding() {
 
         <div
           className="
-            absolute inset-x-[3%] top-[78%] z-20 md:inset-x-[4%] md:top-auto md:bottom-[2%]
+            absolute inset-x-[3%] top-[78%] z-20 md:inset-x-[4%] md:top-auto md:bottom-[10%]
             grid grid-cols-3
             gap-2 sm:gap-4 lg:gap-20
           "
