@@ -225,12 +225,12 @@ export default function AboutPage() {
                   <DirectionArrow size={15} />
                 </Link>
 
-                <Link
-                  href="/"
-                  className="inline-flex h-11 items-center rounded-xl border border-white/25 bg-white/[0.04] px-5 text-[14px] font-black text-white transition hover:border-[#F7B548] hover:text-[#F7B548]"
-                >
-                  {text.journeyCenter}
-                </Link>
+               <Link
+  href="/home"
+  className="inline-flex h-11 items-center rounded-xl border border-white/25 bg-white/[0.04] px-5 text-[14px] font-black text-white transition hover:border-[#F7B548] hover:text-[#F7B548]"
+>
+  {text.journeyCenter}
+</Link>
               </div>
             </div>
 

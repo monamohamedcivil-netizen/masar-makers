@@ -140,26 +140,53 @@ function getInitialLetters(
   name: string,
   locale: Locale,
 ) {
-  const source =
-    initials?.trim() ||
-    name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part[0] ?? "")
-      .join("");
+  const cleanName = name?.trim() ?? "";
 
-  const letters = Array.from(
-    source.replace(/\s+/g, ""),
+  /*
+   * نأخذ الحروف من الاسم نفسه دائمًا حتى نحافظ
+   * على ترتيب الاسم الصحيح:
+   *
+   * ناصر علي     => ن ع
+   * Nasser Ali   => N A
+   */
+
+  if (cleanName) {
+    const nameParts = cleanName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2);
+
+    const letters = nameParts
+      .map((part) => part[0] ?? "")
+      .filter(Boolean);
+
+    const hasArabic = /[\u0600-\u06FF]/.test(
+      cleanName,
+    );
+
+    if (hasArabic) {
+      return letters;
+    }
+
+    return letters.map((letter) =>
+      letter.toUpperCase(),
+    );
+  }
+
+  /*
+   * fallback فقط إذا لم يوجد اسم.
+   */
+  const fallbackLetters = Array.from(
+    (initials ?? "").replace(/\s+/g, ""),
   )
     .filter(Boolean)
     .slice(0, 2);
 
   return locale === "en"
-    ? letters.map((letter) =>
+    ? fallbackLetters.map((letter) =>
         letter.toUpperCase(),
       )
-    : letters;
+    : fallbackLetters;
 }
 
 export default function TestimonialsFromDB() {
@@ -524,9 +551,13 @@ export default function TestimonialsFromDB() {
 
                   <div className="relative z-10 mt-2.5 flex items-center gap-2.5 border-t border-[#E9EDF3] pt-2.5">
                     <div
-                      dir="ltr"
-                      className="flex h-9 min-w-9 shrink-0 items-center justify-center gap-1 rounded-xl bg-[#07152E] px-2 text-[10px] font-black text-[#F7B548] shadow-md sm:h-10 sm:min-w-10 sm:text-[11px]"
-                    >
+  dir={
+    /[\u0600-\u06FF]/.test(testimonial.name)
+      ? "rtl"
+      : "ltr"
+  }
+  className="flex h-9 min-w-9 shrink-0 items-center justify-center gap-1 rounded-xl bg-[#07152E] px-2 text-[10px] font-black text-[#F7B548] shadow-md sm:h-10 sm:min-w-10 sm:text-[11px]"
+>
                       {getInitialLetters(
                         testimonial.initials,
                         testimonial.name,
