@@ -1,4 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/server";
+import {
+  buildSharedJourneys,
+  calculateSharedJourneyStatistics,
+} from "@/lib/dashboard/student-journey-calculator";
 
 export type MasarLevel =
   | "Explorer"
@@ -95,6 +99,10 @@ type EnrollmentRow = {
   journey_type: string | null;
   action_key: string | null;
   status: string | null;
+  progress_percent: number | string | null;
+  imported_progress_percent: number | string | null;
+  split_progress: Record<string, unknown> | null;
+  imported_split_progress: Record<string, unknown> | null;
   courses:
     | {
         id: string;
@@ -123,17 +131,7 @@ type ProgressRow = {
   status?: string | null;
 };
 
-type ImportedEnrollmentRow =
-  EnrollmentRow & {
-    progress_percent:
-      | number
-      | string
-      | null;
-
-    split_progress:
-      | Record<string, unknown>
-      | null;
-  };
+type ImportedEnrollmentRow = EnrollmentRow;
 
 const LEVELS = [
   {
@@ -206,88 +204,119 @@ function isViewedProgress(progress: ProgressRow | undefined) {
   );
 }
 
-const getImportedPartProgress = (
-  enrollment:
-    ImportedEnrollmentRow,
-  part:
-    | "single"
-    | "fundamentals"
-    | "advanced",
+const readProgressObject = (
+  value: Record<string, unknown> | null | undefined,
+) =>
+  value &&
+  typeof value === "object" &&
+  !Array.isArray(value)
+    ? value
+    : {};
+
+const getEnrollmentPartProgress = (
+  enrollment: EnrollmentRow,
+  part: "single" | "fundamentals" | "advanced",
+  courseProgress?: ProgressRow,
 ): ProgressRow => {
-  const baseProgress =
-    Math.max(
-      0,
-      Math.min(
-        100,
-        Number(
-          enrollment.progress_percent ??
-            0,
-        ),
-      ),
-    );
+  const enrollmentProgress = Math.max(
+    0,
+    Math.min(
+      100,
+      Number(enrollment.progress_percent ?? 0) || 0,
+    ),
+  );
+
+  const importedProgress = Math.max(
+    0,
+    Math.min(
+      100,
+      Number(enrollment.imported_progress_percent ?? 0) || 0,
+    ),
+  );
+
+  const storedCourseProgress = Math.max(
+    0,
+    Math.min(
+      100,
+      Number(courseProgress?.progress_percent ?? 0) || 0,
+    ),
+  );
 
   if (part === "single") {
+    const value = Math.max(
+      enrollmentProgress,
+      importedProgress,
+      storedCourseProgress,
+    );
+
     return {
-      course_id:
-        enrollment.course_id,
-      progress_percent:
-        baseProgress,
-      status:
-        baseProgress >= 100
-          ? "completed"
-          : null,
+      course_id: enrollment.course_id,
+      progress_percent: value,
+      status: value >= 100 ? "completed" : null,
     };
   }
 
-  const split =
-    enrollment.split_progress &&
-    typeof enrollment.split_progress ===
-      "object" &&
-    !Array.isArray(
-      enrollment.split_progress,
-    )
-      ? enrollment.split_progress
-      : {};
+  const split = readProgressObject(
+    enrollment.split_progress,
+  );
 
-  const raw =
-    split[part] ??
-    (
-      part ===
-      "fundamentals"
-        ? split[
-            "fundamental"
-          ]
-        : undefined
-    );
+  const importedSplit = readProgressObject(
+    enrollment.imported_split_progress,
+  );
+
+  const keys =
+    part === "fundamentals"
+      ? ["fundamentals", "fundamental"]
+      : ["advanced"];
+
+  const values: number[] = [];
+
+  for (const key of keys) {
+    const currentValue = split[key];
+    const importedValue = importedSplit[key];
+
+    if (
+      typeof currentValue === "number" ||
+      typeof currentValue === "string"
+    ) {
+      values.push(
+        Math.max(
+          0,
+          Math.min(100, Number(currentValue) || 0),
+        ),
+      );
+    }
+
+    if (
+      typeof importedValue === "number" ||
+      typeof importedValue === "string"
+    ) {
+      values.push(
+        Math.max(
+          0,
+          Math.min(100, Number(importedValue) || 0),
+        ),
+      );
+    }
+  }
 
   /*
-   * دعم السجلات القديمة:
-   * إذا لم يتم فصل progress بعد، نستخدم progress_percent
-   * القديم كبداية لكلا الجزأين.
+   * إذا كان لدينا تقدم مفصول للجزء، فهو المصدر الأدق.
+   * لا نستخدم student_course_progress العام للكورس هنا،
+   * لأنه قد يخلط Fundamentals و Advanced معًا.
    */
   const value =
-    raw === undefined ||
-    raw === null
-      ? baseProgress
+    values.length > 0
+      ? Math.max(...values)
       : Math.max(
-          0,
-          Math.min(
-            100,
-            Number(raw),
-          ),
+          enrollmentProgress,
+          importedProgress,
         );
 
   return {
-    course_id:
-      enrollment.course_id,
-    progress_percent:
-      Number.isFinite(value)
-        ? value
-        : baseProgress,
-    status:
-      Number(value) >= 100
-        ? "completed"
-        : null,
+    course_id: enrollment.course_id,
+    progress_percent: value,
+    status: value >= 100 ? "completed" : null,
   };
 };
 
@@ -411,6 +440,10 @@ export async function getMasarPassport(
       journey_type,
       action_key,
       status,
+      progress_percent,
+      imported_progress_percent,
+      split_progress,
+      imported_split_progress,
       courses (
   id,
   slug,
@@ -510,6 +543,100 @@ if (stationIds.length > 0) {
       progress,
     ]),
   );
+
+  /*
+   * نفس مصدر الحقيقة المستخدم في صفحة الطالب ولوحة الإدارة.
+   * هذا المصدر هو المسؤول عن عدد الرحلات الاحترافية والمكتملة.
+   */
+  let sharedJourneyStatistics = {
+    total: 0,
+    paid: 0,
+    reward: 0,
+    active: 0,
+    completed: 0,
+    pending: 0,
+    professional: 0,
+    oneDay: 0,
+    free: 0,
+    averageProgress: 0,
+  };
+
+  if (enrolledCourseIds.length > 0) {
+    const { data: sharedLessonsData } = await supabase
+      .from("lessons")
+      .select("id,course_id,course_part")
+      .in("course_id", enrolledCourseIds)
+      .eq("status", "published");
+
+    const sharedLessons =
+      sharedLessonsData ?? [];
+
+    const sharedLessonIds =
+      sharedLessons.map((lesson) => lesson.id);
+
+    let sharedLessonProgress:
+      {
+        lesson_id: string;
+        completed: boolean | null;
+        progress_percent:
+          | number
+          | string
+          | null;
+      }[] = [];
+
+    if (sharedLessonIds.length > 0) {
+      const {
+        data: sharedLessonProgressData,
+      } = await supabase
+        .from("lesson_progress")
+        .select(
+          "lesson_id,completed,progress_percent",
+        )
+        .eq("user_id", userId)
+        .in("lesson_id", sharedLessonIds);
+
+      sharedLessonProgress =
+        sharedLessonProgressData ?? [];
+    }
+
+    const sharedJourneys =
+      buildSharedJourneys({
+        enrollments:
+          approvedEnrollments as any,
+        courses: approvedEnrollments
+          .map((enrollment) => {
+            const course =
+              Array.isArray(
+                enrollment.courses,
+              )
+                ? enrollment.courses[0]
+                : enrollment.courses;
+
+            return course
+              ? {
+                  id: course.id,
+                  title: course.title,
+                  title_ar:
+                    course.title_ar,
+                  course_code:
+                    course.course_code,
+                  station_id:
+                    course.station_id,
+                }
+              : null;
+          })
+          .filter(Boolean) as any,
+        lessons:
+          sharedLessons as any,
+        lessonProgress:
+          sharedLessonProgress as any,
+      });
+
+    sharedJourneyStatistics =
+      calculateSharedJourneyStatistics(
+        sharedJourneys,
+      );
+  }
 /*
  * تقدم الرحلات المجانية مرتبط بالمحاضرة نفسها:
  * action_key = free:lesson:LESSON_ID
@@ -633,6 +760,27 @@ if (freeLessonIds.length > 0) {
 
       const progress = progressByCourseId.get(enrollment.course_id);
 
+      const singleProgress =
+        getEnrollmentPartProgress(
+          enrollment,
+          "single",
+          progress,
+        );
+
+      const fundamentalsProgress =
+        getEnrollmentPartProgress(
+          enrollment,
+          "fundamentals",
+          progress,
+        );
+
+      const advancedProgress =
+        getEnrollmentPartProgress(
+          enrollment,
+          "advanced",
+          progress,
+        );
+
       if (isOneDay) {
         oneDayEnrollments += 1;
       }
@@ -690,7 +838,7 @@ if (freeLessonIds.length > 0) {
       if (courseLevel === "single") {
         professionalEnrollments += 1;
 
-        if (isCompletedProgress(progress)) {
+        if (isCompletedProgress(singleProgress)) {
           professionalCompletions += 1;
         }
 
@@ -709,8 +857,12 @@ if (freeLessonIds.length > 0) {
       if (isIntegrated) {
         professionalEnrollments += 2;
 
-        if (isCompletedProgress(progress)) {
-          professionalCompletions += 2;
+        if (isCompletedProgress(fundamentalsProgress)) {
+          professionalCompletions += 1;
+        }
+
+        if (isCompletedProgress(advancedProgress)) {
+          professionalCompletions += 1;
         }
 
         rewardItems.push(
@@ -738,7 +890,7 @@ if (freeLessonIds.length > 0) {
       if (isFundamentals) {
         professionalEnrollments += 1;
 
-        if (isCompletedProgress(progress)) {
+        if (isCompletedProgress(fundamentalsProgress)) {
           professionalCompletions += 1;
         }
 
@@ -757,7 +909,7 @@ if (freeLessonIds.length > 0) {
       if (isAdvanced) {
         professionalEnrollments += 1;
 
-        if (isCompletedProgress(progress)) {
+        if (isCompletedProgress(advancedProgress)) {
           professionalCompletions += 1;
         }
 
@@ -789,6 +941,19 @@ if (freeLessonIds.length > 0) {
       });
     },
   );
+  /*
+   * توحيد عدد رحلات الاحتراف والإكمال مع المصدر المشترك.
+   * rewardItems يبقى مسؤولًا عن عرض مكافآت الكورسات فقط.
+   */
+  professionalEnrollments =
+    sharedJourneyStatistics.professional;
+
+  professionalCompletions =
+    sharedJourneyStatistics.completed;
+
+  oneDayEnrollments =
+    sharedJourneyStatistics.oneDay;
+
   const rewardCourses = rewardItems.length;
 
   const rewardProfileResult = await supabase
@@ -848,10 +1013,16 @@ if (freeLessonIds.length > 0) {
     null;
 
   const surveysResult = await supabase
-    .from("student_surveys")
-    .select("id,submitted_at")
-    .eq("user_id", userId)
-    .not("submitted_at", "is", null);
+  .from("student_surveys")
+  .select(
+    "id,submitted_at,detailed_survey_completed",
+  )
+  .eq("user_id", userId)
+  .not("submitted_at", "is", null)
+  .eq(
+    "detailed_survey_completed",
+    true,
+  );
 
   if (surveysResult.error) {
     console.error(
@@ -1242,7 +1413,9 @@ export async function getMasarPassportForRegistry(
         action_key,
         status,
         progress_percent,
+        imported_progress_percent,
         split_progress,
+        imported_split_progress,
         courses (
           id,
           slug,
@@ -1427,21 +1600,24 @@ export async function getMasarPassportForRegistry(
         );
 
       const singleProgress =
-        getImportedPartProgress(
+        getEnrollmentPartProgress(
           enrollment,
           "single",
+          progress,
         );
 
       const fundamentalsProgress =
-        getImportedPartProgress(
+        getEnrollmentPartProgress(
           enrollment,
           "fundamentals",
+          progress,
         );
 
       const advancedProgress =
-        getImportedPartProgress(
+        getEnrollmentPartProgress(
           enrollment,
           "advanced",
+          progress,
         );
 
       if (isOneDay) {
@@ -1740,8 +1916,12 @@ export async function getMasarPassportForRegistry(
         "student_surveys",
       )
       .select(
-        "id,submitted_at",
-      )
+        "id,submitted_at,detailed_survey_completed",
+)
+.eq(
+  "detailed_survey_completed",
+  true,
+)
       .ilike(
         "student_email",
         studentEmail,

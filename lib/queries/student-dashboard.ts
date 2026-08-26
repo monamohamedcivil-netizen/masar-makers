@@ -4,6 +4,10 @@ import {
 } from "@/lib/supabase/server";
 import { getMasarPassport } from "@/lib/dashboard/masar-passport";
 import type { EnrollmentStatus } from "@/lib/actions/enroll";
+import {
+  buildSharedJourneys,
+  calculateSharedJourneyStatistics,
+} from "@/lib/dashboard/student-journey-calculator";
 
 export type StudentCourseCard = {
   enrollmentId: string;
@@ -189,6 +193,7 @@ export type StudentSurvey = {
   submittedAt: string | null;
   showOnHome: boolean;
   showOnCourse: boolean;
+  detailedSurveyCompleted: boolean;
   surveyUrl: string | null;
 };
 
@@ -208,11 +213,13 @@ export type StudentDashboardData = {
   ReturnType<typeof getMasarPassport>
 >;
   summary: {
-    active: number;
-    completed: number;
-    pending: number;
-    averageProgress: number;
-  };
+  active: number;
+  completed: number;
+  pending: number;
+  averageProgress: number;
+  surveysCompleted: number;
+  surveysRemaining: number;
+};
 };
 
 
@@ -226,6 +233,7 @@ type StudentSurveyRow = {
   submitted_at: string | null;
   show_on_home: boolean | null;
   show_on_course: boolean | null;
+  detailed_survey_completed: boolean | null;
  courses:
   | {
       survey_url?: string | null;
@@ -256,6 +264,7 @@ type EnrollmentRow = {
   journey_type: string | null;
   action_key: string | null;
   action_title: string | null;
+  enrollment_source?: string | null;
 
   /*
    * progress_percent = التقدم النهائي المخزن على enrollment.
@@ -607,11 +616,13 @@ referralCount: 0,
   completionPoints: 0,
 },
     summary: {
-      active: 0,
-      completed: 0,
-      pending: 0,
-      averageProgress: 0,
-    },
+  active: 0,
+  completed: 0,
+  pending: 0,
+  averageProgress: 0,
+  surveysCompleted: 0,
+  surveysRemaining: 0,
+},
   };
 }
 
@@ -884,7 +895,7 @@ if (userId !== user.id) {
       .maybeSingle(),
     supabase
       .from("enrollments")
-      .select("id,course_id,status,journey_type,action_key,action_title,source,progress_percent,imported_progress_percent,split_progress,imported_split_progress")
+      .select("id,course_id,status,journey_type,action_key,action_title,enrollment_source,source,progress_percent,imported_progress_percent,split_progress,imported_split_progress")
       .eq("user_id", userId)
       .order("created_at", { ascending: false }),
     supabase
@@ -902,6 +913,7 @@ if (userId !== user.id) {
     user_id,
     course_id,
     survey_template_id,
+    detailed_survey_completed,
     rating,
     comment,
     submitted_at,
@@ -1001,6 +1013,9 @@ pdfUrl:
       0,
       Math.min(5, Number(survey.rating ?? 0)),
     ),
+    detailedSurveyCompleted: Boolean(
+  survey.detailed_survey_completed,
+),
     comment: survey.comment,
     submittedAt: survey.submitted_at,
     showOnHome: Boolean(survey.show_on_home),
@@ -2982,6 +2997,78 @@ freeJourneysByStation.set(
     (emptySection) =>
       nextStepSectionMap.get(emptySection.kind) ?? emptySection,
   );
+/*
+ * إحصائيات الاستبيانات الموحدة.
+ *
+ * نفس تعريف SurveysPanel:
+ * الاستبيان مكتمل فقط عندما:
+ * submitted_at موجود
+ * AND detailed_survey_completed = true
+ */
+
+/*
+ * إحصائيات الاستبيانات:
+ * المؤهل = محطة احتراف مشترك بها الطالب
+ * وليست Pending.
+ *
+ * المكتمل = يوجد لها استبيان:
+ * submitted_at موجود
+ * AND detailed_survey_completed = true.
+ */
+
+const eligibleSurveyCourseIds = new Set(
+  careerPaths.flatMap((path) =>
+    path.stations
+      .filter(
+        (station) =>
+          station.isEnrolled &&
+          station.status !== "pending" &&
+          Boolean(station.courseId),
+      )
+      .map(
+        (station) => station.courseId,
+      ),
+  ),
+);
+
+const completedSurveyCourseIds = new Set(
+  surveys
+    .filter(
+      (survey) =>
+        Boolean(survey.submittedAt) &&
+        survey.detailedSurveyCompleted,
+    )
+    .map(
+      (survey) => survey.courseId,
+    ),
+);
+
+const surveysCompleted = [
+  ...eligibleSurveyCourseIds,
+].filter((courseId) =>
+  completedSurveyCourseIds.has(courseId),
+).length;
+
+const surveysRemaining = Math.max(
+  0,
+  eligibleSurveyCourseIds.size -
+    surveysCompleted,
+);
+  /*
+   * الإحصائيات الرسمية للطالب تأتي من نفس الـ Shared Calculator
+   * المستخدم في لوحة الإدارة وMasar Passport.
+   */
+  const sharedJourneys = buildSharedJourneys({
+    enrollments: enrollmentRows,
+    courses: courseRows,
+    lessons: lessonRows,
+    lessonProgress: lessonProgressRows,
+  });
+
+  const sharedStatistics =
+    calculateSharedJourneyStatistics(
+      sharedJourneys,
+    );
 
   return {
     studentName,
@@ -2997,10 +3084,13 @@ freeJourneysByStation.set(
     surveys,
     passport,
     summary: {
-      active: activeCourses.length,
-      completed: completedCourses.length,
-      pending: pendingCourses.length,
-      averageProgress,
-    },
+  active: sharedStatistics.active,
+  completed: sharedStatistics.completed,
+  pending: sharedStatistics.pending,
+  averageProgress:
+    sharedStatistics.averageProgress,
+  surveysCompleted,
+  surveysRemaining,
+},
   };
 }

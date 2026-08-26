@@ -134,44 +134,26 @@ export default function StudentJourneyDashboard({
         journey.status === "completed",
     ).length;
 
-  const activeJourneys =
-    professionalActiveCount +
-    oneDayActiveCount +
-    freeActiveCount;
+  /*
+ * الإحصائيات الرسمية للرحلات تأتي من Shared Journey Calculator
+ * نفسه المستخدم في لوحة الإدارة وMasar Passport.
+ *
+ * لا نعيد حساب Active / Completed / Pending داخل الواجهة
+ * حتى لا تختلف صفحة الطالب عن لوحة الإدارة أو نظام النقاط.
+ */
+const activeJourneys = data.summary.active;
 
-  const completedJourneys =
-    professionalCompletedCount +
-    oneDayCompletedCount +
-    freeCompletedCount;
+const completedJourneys = data.summary.completed;
 
-  const pendingJourneys =
-    professionalPendingCount;
+const pendingJourneys = data.summary.pending;
 
-  const allProgressValues = [
-    ...professionalJourneyParts
-      .filter(
-        (part) => part.access === "active",
-      )
-      .map(
-        (part) => part.progressPercent,
-      ),
-    ...oneDayJourneys.map(
-      (journey) => journey.progressPercent,
-    ),
-    ...freeJourneys.map(
-      (journey) => journey.progressPercent,
-    ),
-  ];
-
-  const averageJourneyProgress =
-    allProgressValues.length > 0
-      ? Math.round(
-          allProgressValues.reduce(
-            (sum, value) => sum + value,
-            0,
-          ) / allProgressValues.length,
-        )
-      : 0;
+  /*
+ * متوسط التقدم العام يشمل جميع أنواع الرحلات:
+ * Professional + One Day + Free
+ * ويأتي من نفس Shared Calculator المستخدم في النظام.
+ */
+const averageJourneyProgress =
+  data.summary.averageProgress;
 
   const statistics: StudentStatisticsData = {
     learning: [
@@ -207,16 +189,19 @@ export default function StudentJourneyDashboard({
             : "ابدأ أول رحلة مجانية",
       },
       {
-        id: "surveys",
-        label: "الاستبيانات",
-        icon: ClipboardList,
-        splitValue: {
-          primaryValue: 0,
-          primaryLabel: "مكتمل",
-          secondaryValue: 0,
-          secondaryLabel: "متبقي",
-        },
-      },
+  id: "surveys",
+  label: "الاستبيانات",
+  icon: ClipboardList,
+  splitValue: {
+    primaryValue:
+      data.summary.surveysCompleted,
+    primaryLabel: "مكتمل",
+
+    secondaryValue:
+      data.summary.surveysRemaining,
+    secondaryLabel: "متبقي",
+  },
+},
     ],
     achievements: [
       {

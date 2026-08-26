@@ -2,6 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import {
+  buildSharedJourneys,
+  calculateSharedJourneyStatistics,
+} from "@/lib/dashboard/student-journey-calculator";
 
 export type StudentJourneySource = "paid" | "reward" | "free";
 
@@ -1008,113 +1012,20 @@ export async function getStudentJourneys(
   }
 
   /*
-   * الإحصائيات تحسب الرحلات التعليمية الناتجة،
-   * وليس عدد صفوف enrollments الخام.
-   *
-   * لذلك Integrated المقسم إلى Fundamentals + Advanced
-   * يحسب رحلتين.
+   * مصدر الإحصائيات الرسمي المشترك بين:
+   * صفحة الطالب + لوحة الإدارة + Masar Passport.
    */
-  const statistics = journeys.reduce(
-    (result, journey) => {
-      result.total += 1;
+  const sharedJourneys = buildSharedJourneys({
+    enrollments,
+    courses,
+    lessons,
+    lessonProgress: lessonProgressRows,
+  });
 
-      const journeyKind = normalizeStatus(
-        journey.journeyType,
-      );
-
-      if (
-        [
-          "workshop",
-          "one_day",
-          "one-day",
-          "one_day_journey",
-          "one_day_workshop",
-          "one-day-workshop",
-        ].includes(journeyKind)
-      ) {
-        result.oneDay += 1;
-      } else if (
-        [
-          "free",
-          "free_session",
-          "free-session",
-          "free_journey",
-        ].includes(journeyKind)
-      ) {
-        result.free += 1;
-      } else {
-        result.professional += 1;
-      }
-
-      if (
-        journey.enrollmentSource ===
-        "reward"
-      ) {
-        result.reward += 1;
-      } else if (
-        journey.enrollmentSource ===
-        "paid"
-      ) {
-        result.paid += 1;
-      }
-
-      const isCompleted =
-        journey.status === "completed" ||
-        journey.progressPercent >= 100;
-
-      const isPending =
-        journey.status === "pending";
-
-      const isActiveStatus = [
-        "active",
-        "approved",
-        "enrolled",
-        "confirmed",
-      ].includes(journey.status);
-
-      /*
-       * الرحلة المكتملة لا تُحسب مرة ثانية كرحلة نشطة.
-       * هذا يجعل الإحصائيات متطابقة مع صفحة الطالب:
-       * active = فعالة وغير مكتملة.
-       */
-      if (
-        isActiveStatus &&
-        !isCompleted
-      ) {
-        result.active += 1;
-      }
-
-      if (isCompleted) {
-        result.completed += 1;
-      }
-
-      if (isPending) {
-        result.pending += 1;
-      }
-
-      return result;
-    },
-    { ...emptyStatistics },
-  );
-
-  /*
-   * متوسط التقدم الرسمي يعتمد فقط على progressPercent النهائي،
-   * ويستبعد الرحلات المعلقة لأنها لم تُفعّل بعد.
-   */
-  const progressJourneys = journeys.filter(
-    (journey) => journey.status !== "pending",
-  );
-
-  statistics.averageProgress =
-    progressJourneys.length > 0
-      ? Math.round(
-          progressJourneys.reduce(
-            (sum, journey) =>
-              sum + journey.progressPercent,
-            0,
-          ) / progressJourneys.length,
-        )
-      : 0;
+  const statistics =
+    calculateSharedJourneyStatistics(
+      sharedJourneys,
+    );
 
   return {
     success: true,
