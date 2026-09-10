@@ -776,58 +776,65 @@ export default function BunnyVideoPlayer({
   ]);
 
   const watermarkText =
-    useMemo(() => {
-      if (!playback) {
-        return null;
-      }
+  useMemo(() => {
+    if (!playback) {
+      return null;
+    }
 
-      return (
-        <div className={isProtectedFullscreen ? "space-y-0.5" : "space-y-0"}>
-          <p
-            className={
-              isProtectedFullscreen
-                ? "text-[20px] font-black leading-8"
-                : "text-[9px] font-black leading-3"
-            }
-          >
-            {
-              playback
-                .watermark
-                .name
-            }
-          </p>
+    return (
+      <div
+        className={
+          isProtectedFullscreen
+            ? "space-y-0 md:space-y-0.5"
+            : "space-y-0"
+        }
+      >
+        <p
+          className={
+            isProtectedFullscreen
+              ? "text-[9px] font-black leading-3 md:text-[20px] md:leading-8"
+              : "text-[7px] font-black leading-3 md:text-[9px]"
+          }
+        >
+          {
+            playback
+              .watermark
+              .name
+          }
+        </p>
 
-          <p
-            className={
-              isProtectedFullscreen
-                ? "text-[20px] leading-6"
-                : "text-[8px] leading-3"
-            }
-          >
-            {
-              playback
-                .watermark
-                .email
-            }
-          </p>
+        <p
+          className={
+            isProtectedFullscreen
+              ? "text-[7px] leading-3 md:text-[20px] md:leading-6"
+              : "text-[6px] leading-3 md:text-[8px]"
+          }
+        >
+          {
+            playback
+              .watermark
+              .email
+          }
+        </p>
 
-          <p
-            className={
-              isProtectedFullscreen
-                ? "text-[20px] leading-6"
-                : "text-[8px] leading-3"
-            }
-          >
-            Masar Makers •{" "}
-            {
-              playback
-                .watermark
-                .sessionCode
-            }
-          </p>
-        </div>
-      );
-    }, [playback, isProtectedFullscreen]);
+        <p
+          className={
+            isProtectedFullscreen
+              ? "text-[7px] leading-3 md:text-[20px] md:leading-6"
+              : "text-[6px] leading-3 md:text-[8px]"
+          }
+        >
+          Masar Makers •{" "}
+          {
+            playback
+              .watermark
+              .sessionCode
+          }
+        </p>
+      </div>
+    );
+  }, [playback, isProtectedFullscreen]);
+           
 
   if (loading) {
     return (
@@ -913,21 +920,17 @@ export default function BunnyVideoPlayer({
             ].join(" ")}
           />
 
-          {/* متحرك: Watermark خاص بالطالب — يتحرك داخل الفيديو فقط */}
-          <div
-            aria-hidden="true"
-            className={`pointer-events-none absolute z-20 select-none rounded-md bg-black/15 text-white/40 shadow-sm backdrop-blur-[1px] transition-all duration-700 ${
-              isProtectedFullscreen
-                ? "max-w-[44%] px-2 py-1 sm:max-w-[42%] sm:px-3 sm:py-2"
-                : "max-w-[34%] px-2 py-1"
-            } ${
-              (isProtectedFullscreen
-                ? FULLSCREEN_WATERMARK_POSITIONS
-                : WATERMARK_POSITIONS)[watermarkIndex]
-            }`}
-          >
-            {watermarkText}
-          </div>
+         {/* متحرك: Watermark خاص بالطالب */}
+<div
+  aria-hidden="true"
+  className={`pointer-events-none absolute z-20 select-none rounded-md bg-black/15 text-white/40 shadow-sm backdrop-blur-[1px] transition-all duration-700 ${
+    isProtectedFullscreen
+      ? "max-w-[30%] px-1.5 py-1 md:max-w-[42%] md:px-3 md:py-2"
+      : "max-w-[28%] px-1.5 py-0.5 md:max-w-[34%] md:px-2 md:py-1"
+  } ${WATERMARK_POSITIONS[watermarkIndex]}`}
+>
+  {watermarkText}
+</div>
 
           {/*
            * هذا الزر يغطي زر Full Screen الداخلي في Bunny.

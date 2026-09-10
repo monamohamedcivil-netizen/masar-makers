@@ -994,7 +994,7 @@ pdfUrl:
     ? []
     : ((surveysResult.data ?? []) as StudentSurveyRow[]);
 
-  const surveys: StudentSurvey[] = surveyRows.map((survey) => {
+  let surveys: StudentSurvey[] = surveyRows.map((survey) => {
   const course = Array.isArray(survey.courses)
     ? survey.courses[0]
     : survey.courses;
@@ -1643,13 +1643,27 @@ pdfUrl:
    * لا يجوز أن تجعل رحلة مجانية أو رحلة يوم واحد المحطة تبدو كمحطة
    * احترافية مشترك بها.
    */
+  const blockedProfessionalEnrollmentStatusSet = new Set([
+    "rejected",
+    "suspended",
+    "expired",
+    "cancelled",
+  ]);
+
   const professionalCardsByCourseId = new Map(
     cards
-      .filter(
-        (card) =>
-          getJourneyKind(card.journeyType) ===
-          "professional",
-      )
+      .filter((card) => {
+        if (
+          getJourneyKind(card.journeyType) !==
+          "professional"
+        ) {
+          return false;
+        }
+
+        return !blockedProfessionalEnrollmentStatusSet.has(
+          normalizeStatus(card.enrollmentStatus),
+        );
+      })
       .map((card) => [
         card.courseId,
         card,
@@ -3029,6 +3043,15 @@ const eligibleSurveyCourseIds = new Set(
         (station) => station.courseId,
       ),
   ),
+);
+
+/*
+ * لا نعرض استبيانًا محفوظًا في صفحة الطالب إذا لم يعد هناك
+ * اشتراك احترافي فعّال يؤهل هذا الكورس للاستبيان.
+ * هذا يعالج أيضًا البيانات التي ربما أُنشئت قبل إغلاق الثغرة.
+ */
+surveys = surveys.filter((survey) =>
+  eligibleSurveyCourseIds.has(survey.courseId),
 );
 
 const completedSurveyCourseIds = new Set(

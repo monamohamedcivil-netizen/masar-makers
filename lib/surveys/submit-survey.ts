@@ -65,6 +65,57 @@ export async function submitSurvey({
     return { success: false, error: "يجب تسجيل الدخول أولًا." };
   }
 
+  /*
+   * لا يسمح بإنشاء/تحديث الاستبيان إلا إذا كان للطالب
+   * اشتراك فعّال في نفس الكورس.
+   *
+   * نستخدم نفس مجموعة الحالات الفعالة المعتمدة في المنصة،
+   * ولا نحصرها في "approved" فقط حتى لا نكسر الاشتراكات
+   * القديمة أو التي انتقلت إلى active/completed.
+   */
+  const { data: enrollmentRows, error: enrollmentError } =
+    await supabase
+      .from("enrollments")
+      .select("id,status,journey_type")
+      .eq("user_id", user.id)
+      .eq("course_id", normalizedCourseId);
+
+  if (enrollmentError) {
+    console.error(
+      "Failed to validate survey enrollment:",
+      enrollmentError.message,
+    );
+
+    return {
+      success: false,
+      error: "تعذر التحقق من حالة الاشتراك.",
+    };
+  }
+
+  const activeEnrollmentStatuses = new Set([
+    "approved",
+    "active",
+    "enrolled",
+    "confirmed",
+    "completed",
+  ]);
+
+  const hasActiveEnrollment = (enrollmentRows ?? []).some(
+    (enrollment) =>
+      activeEnrollmentStatuses.has(
+        String(enrollment.status ?? "")
+          .trim()
+          .toLowerCase(),
+      ),
+  );
+
+  if (!hasActiveEnrollment) {
+    return {
+      success: false,
+      error: "لا يمكن إرسال التقييم قبل تفعيل الاشتراك في هذه الرحلة.",
+    };
+  }
+
   const submittedAt = new Date().toISOString();
 
   /*

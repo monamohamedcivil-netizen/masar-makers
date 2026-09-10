@@ -714,7 +714,7 @@ export default function MasarLanding() {
               className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-[#F7B548] px-3 text-[12px] font-black text-[#07152E] shadow-lg transition hover:-translate-y-0.5 sm:px-3 sm:text-[14px]"
             >
               {text.explore}
-              <ArrowIcon className="h-4 w-4" />
+              <ArrowIcon className="h-3.5 w-3.5" />
             </Link>
 
             <a
@@ -851,21 +851,22 @@ export default function MasarLanding() {
         </div>
 
         {/* Mobile centered brand + CTAs between the two paths */}
-        <div className="absolute left-1/2 top-[39.5%] z-30 flex -translate-x-1/2 flex-col items-center gap-2.5 md:hidden">
-          <div className="flex items-center justify-center gap-0 px-2 py-0">
+        <div className="absolute left-1/2 top-[39.5%] z-30 flex -translate-x-1/2 flex-col items-center gap-1.5 md:hidden">
+          <div className="flex items-center justify-center gap-0 px-0 py-0">
             <Image
-              src="/images/logo/masar-makers-mark.png"
-              alt="Masar Makers"
-              width={72}
-              height={72}
-              className="h-[70px] w-auto object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,.45)]"
-            />
+  src="/images/logo/masar-makers-mark.png"
+  alt="Masar Makers"
+  width={140}
+  height={140}
+  sizes="70px"
+  className="-mr-1 h-[80px] w-auto object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,.45)]"
+/>
 
             <div className="text-right">
-              <p className="whitespace-nowrap text-[20px] font-black leading-none text-white">
+              <p className="whitespace-nowrap text-[28px] font-black leading-none text-white">
                 صناع <span className="text-[#F7B548]">المسار</span>
               </p>
-              <p className="mt-1 whitespace-nowrap text-[11px] font-bold tracking-[.12em] text-[#F7B548]">
+              <p className="mt-1 whitespace-nowrap text-[14.5px] font-bold tracking-[.12em] text-[#F7B548]">
                 Masar <span className="text-white">Makers</span>
               </p>
             </div>
@@ -873,19 +874,19 @@ export default function MasarLanding() {
 
           <Link
             href="/home"
-            className="inline-flex min-h-10 w-[155px] items-center justify-center gap-2 rounded-xl bg-[#F7B548] px-4 text-[13px] font-black text-[#07152E] shadow-lg"
+            className="inline-flex min-h-8 w-[110px] items-center justify-center gap-1.5 rounded-lg bg-[#F7B548] px-3 text-[12px] font-black text-[#07152E] shadow-md"
           >
             {text.explore}
-            <ArrowIcon className="h-4 w-4" />
+            <ArrowIcon className="h-3 w-3" />
           </Link>
 
           <a
             href="https://wa.me/201031885659?text=السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار."
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex min-h-10 w-[155px] items-center justify-center gap-2 rounded-xl border border-[#25D366]/70 bg-[#0B502B]/85 px-4 text-[13px] font-black text-white shadow-lg"
+            className="inline-flex min-h-8 w-[110px] items-center justify-center gap-1.5 rounded-lg border border-[#25D366]/70 bg-[#0B502B]/85 px-3 text-[12px] font-black text-white shadow-md"
           >
-            <FaWhatsapp className="h-5 w-5" />
+            <FaWhatsapp className="h-4 w-4" />
             {text.contact}
           </a>
         </div>
@@ -1221,7 +1222,7 @@ function PromoShowcase({
     >
       {course ? (
         <div
-          className={`grid h-full min-h-0 grid-cols-1 grid-rows-[62px_minmax(0,1fr)] md:grid-rows-1 ${
+          className={`grid h-full min-h-0 grid-cols-1 grid-rows-[58px_minmax(0,1fr)_20px] md:grid-rows-1 ${
             locale === "ar"
               ? "md:grid-cols-[32%_68%]"
               : "md:grid-cols-[68%_32%]"
@@ -1266,7 +1267,7 @@ function PromoShowcase({
               {course.description[locale]}
             </p>
 {slides.length > 0 && (
-       <div className="flex items-center justify-center gap-1.5 rounded-full bg-white/10 px-3 py-1">
+       <div className="hidden items-center justify-center gap-1.5 rounded-full bg-white/10 px-3 py-1 md:flex">
           {slides.map((slide) => {
             const active =
               selected?.trackIndex === slide.trackIndex &&
@@ -1465,9 +1466,35 @@ function PromoShowcase({
                 </div>
               </div>
             )}
+
           </div>
+
+          {slides.length > 0 && (
+            <div className="order-3 flex h-[20px] w-full items-center justify-center gap-1.5 bg-[#061329]/95 px-3 md:hidden">
+              {slides.map((slide) => {
+                const active =
+                  selected?.trackIndex === slide.trackIndex &&
+                  selected?.courseIndex === slide.courseIndex;
+
+                return (
+                  <button
+                    key={`mobile-${slide.trackIndex}-${slide.courseIndex}`}
+                    type="button"
+                    onClick={() => onSelectSlide(slide)}
+                    aria-label={slide.course.title}
+                    title={slide.course.title}
+                    className={`h-1.5 rounded-full transition-all ${
+                      active
+                        ? "w-5 bg-[#F7B548]"
+                        : "w-1.5 bg-white/50"
+                    }`}
+                  />
+                );
+              })}
+            </div>
+          )}
         </div>
-        
+
       ) : (
         <div className="flex h-full items-center justify-center p-5 text-center text-white">
           <div>

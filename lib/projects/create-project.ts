@@ -17,8 +17,11 @@ import {
 
 type EnrollmentRow = {
   id: string;
+  user_id: string;
   course_id: string;
   course_title: string | null;
+  status: string | null;
+  journey_type: string | null;
 };
 
 function getSafeExtension(file: File) {
@@ -210,6 +213,64 @@ console.log(
 
   const enrollmentRow =
     enrollment as EnrollmentRow;
+
+  /*
+   * نحافظ على جلب الـ Enrollment بالـ id أولًا كما في النسخة الحالية،
+   * ثم نتحقق من الصلاحية بعد الجلب.
+   *
+   * لا نعيد شرط status = "approved" القديم لأنه أصبح أضيق من
+   * حالات الاشتراك الفعالة المستخدمة حاليًا في المنصة.
+   */
+  const normalizedEnrollmentStatus = String(
+    enrollmentRow.status ?? "",
+  )
+    .trim()
+    .toLowerCase();
+
+  const activeEnrollmentStatuses = new Set([
+    "approved",
+    "active",
+    "enrolled",
+    "confirmed",
+    "completed",
+  ]);
+
+  const normalizedJourneyType = String(
+    enrollmentRow.journey_type ?? "",
+  )
+    .trim()
+    .toLowerCase();
+
+  const nonProfessionalJourneyTypes = new Set([
+    "workshop",
+    "one_day",
+    "one-day",
+    "one_day_workshop",
+    "one-day-workshop",
+    "free",
+    "free_session",
+    "free-session",
+    "free_journey",
+    "free-journey",
+  ]);
+
+  const hasValidEnrollment =
+    enrollmentRow.user_id === user.id &&
+    enrollmentRow.course_id === courseId &&
+    activeEnrollmentStatuses.has(
+      normalizedEnrollmentStatus,
+    ) &&
+    !nonProfessionalJourneyTypes.has(
+      normalizedJourneyType,
+    );
+
+  if (!hasValidEnrollment) {
+    return {
+      success: false,
+      message:
+        "لا يوجد اشتراك مقبول يطابق الكورس المحدد.",
+    };
+  }
 
   const {
   data: profile,

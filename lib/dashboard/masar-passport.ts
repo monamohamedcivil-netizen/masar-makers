@@ -95,6 +95,7 @@ referralCount: number;
 }
 
 type EnrollmentRow = {
+  id: string;
   course_id: string;
   journey_type: string | null;
   action_key: string | null;
@@ -436,6 +437,7 @@ export async function getMasarPassport(
   const enrollmentResult = await supabase
     .from("enrollments")
     .select(`
+      id,
       course_id,
       journey_type,
       action_key,
@@ -470,6 +472,30 @@ export async function getMasarPassport(
   const approvedEnrollments = enrollments.filter(
     (enrollment) =>
       isApprovedEnrollment(enrollment.status),
+  );
+
+  const approvedProfessionalEnrollments =
+    approvedEnrollments.filter((enrollment) => {
+      const journeyType = normalize(
+        enrollment.journey_type,
+      );
+
+      return (
+        !ONE_DAY_TYPES.has(journeyType) &&
+        !FREE_TYPES.has(journeyType)
+      );
+    });
+
+  const approvedProfessionalEnrollmentIds = new Set(
+    approvedProfessionalEnrollments.map(
+      (enrollment) => enrollment.id,
+    ),
+  );
+
+  const approvedProfessionalCourseIds = new Set(
+    approvedProfessionalEnrollments.map(
+      (enrollment) => enrollment.course_id,
+    ),
   );
 const stationIds = [
   ...new Set(
@@ -1015,7 +1041,7 @@ if (freeLessonIds.length > 0) {
   const surveysResult = await supabase
   .from("student_surveys")
   .select(
-    "id,submitted_at,detailed_survey_completed",
+    "id,course_id,submitted_at,detailed_survey_completed",
   )
   .eq("user_id", userId)
   .not("submitted_at", "is", null)
@@ -1031,13 +1057,22 @@ if (freeLessonIds.length > 0) {
     );
   }
 
+  /*
+   * لا تُحتسب نقاط الاستبيان إلا لكورس لديه اشتراك احترافي فعّال.
+   * بذلك لا تستمر نقاط استبيان أُنشئ لطلب مرفوض قبل إغلاق الثغرة.
+   */
   const surveys =
-    surveysResult.data ?? [];
+    (surveysResult.data ?? []).filter((survey) =>
+      approvedProfessionalCourseIds.has(
+        String(survey.course_id ?? ""),
+      ),
+    );
 
   const projectsResult = await supabase
     .from("student_projects")
     .select(`
       id,
+      enrollment_id,
       show_on_home,
       show_on_course
     `)
@@ -1051,8 +1086,16 @@ if (freeLessonIds.length > 0) {
     );
   }
 
+  /*
+   * المشروع مرتبط مباشرة بـ enrollment_id، لذلك نستخدمه كمصدر الحقيقة:
+   * المشروع لا يمنح نقاطًا إلا إذا كان اشتراك الاحتراف المرتبط به فعّالًا.
+   */
   const projects =
-    projectsResult.data ?? [];
+    (projectsResult.data ?? []).filter((project) =>
+      approvedProfessionalEnrollmentIds.has(
+        String(project.enrollment_id ?? ""),
+      ),
+    );
 
 const bonusPointsResult = await supabase
   .from("student_bonus_points")
