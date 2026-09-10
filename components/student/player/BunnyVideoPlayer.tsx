@@ -790,12 +790,12 @@ export default function BunnyVideoPlayer({
         }
       >
         <p
-          className={
-            isProtectedFullscreen
-              ? "text-[9px] font-black leading-3 md:text-[20px] md:leading-8"
-              : "text-[7px] font-black leading-3 md:text-[9px]"
-          }
-        >
+  className={
+    isProtectedFullscreen
+      ? "text-[7px] font-black leading-[9px] md:text-[20px] md:leading-8"
+      : "text-[6px] font-black leading-[8px] md:text-[9px]"
+  }
+>
           {
             playback
               .watermark
@@ -804,11 +804,11 @@ export default function BunnyVideoPlayer({
         </p>
 
         <p
-          className={
-            isProtectedFullscreen
-              ? "text-[7px] leading-3 md:text-[20px] md:leading-6"
-              : "text-[6px] leading-3 md:text-[8px]"
-          }
+        className={
+  isProtectedFullscreen
+    ? "text-[5.5px] leading-[8px] md:text-[20px] md:leading-6"
+    : "text-[5px] leading-[7px] md:text-[8px]"
+}
         >
           {
             playback
@@ -923,11 +923,11 @@ export default function BunnyVideoPlayer({
          {/* متحرك: Watermark خاص بالطالب */}
 <div
   aria-hidden="true"
-  className={`pointer-events-none absolute z-20 select-none rounded-md bg-black/15 text-white/40 shadow-sm backdrop-blur-[1px] transition-all duration-700 ${
-    isProtectedFullscreen
-      ? "max-w-[30%] px-1.5 py-1 md:max-w-[42%] md:px-3 md:py-2"
-      : "max-w-[28%] px-1.5 py-0.5 md:max-w-[34%] md:px-2 md:py-1"
-  } ${WATERMARK_POSITIONS[watermarkIndex]}`}
+ className={`pointer-events-none absolute z-20 select-none rounded bg-black/10 text-white/30 shadow-sm transition-all duration-700 ${
+  isProtectedFullscreen
+    ? "max-w-[24%] px-1 py-0.5 md:max-w-[42%] md:px-3 md:py-2"
+    : "max-w-[24%] px-1 py-0.5 md:max-w-[34%] md:px-2 md:py-1"
+} ${WATERMARK_POSITIONS[watermarkIndex]}`}
 >
   {watermarkText}
 </div>

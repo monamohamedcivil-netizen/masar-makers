@@ -859,14 +859,14 @@ export default function MasarLanding() {
   width={140}
   height={140}
   sizes="70px"
-  className="-mr-1 h-[80px] w-auto object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,.45)]"
+  className="-mr-1 h-[64px] w-auto object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,.45)]"
 />
 
             <div className="text-right">
-              <p className="whitespace-nowrap text-[28px] font-black leading-none text-white">
+              <p className="whitespace-nowrap text-[20px] font-black leading-none text-white">
                 صناع <span className="text-[#F7B548]">المسار</span>
               </p>
-              <p className="mt-1 whitespace-nowrap text-[14.5px] font-bold tracking-[.12em] text-[#F7B548]">
+              <p className="mt-1 whitespace-nowrap text-[11px] font-bold tracking-[.12em] text-[#F7B548]">
                 Masar <span className="text-white">Makers</span>
               </p>
             </div>
@@ -874,7 +874,7 @@ export default function MasarLanding() {
 
           <Link
             href="/home"
-            className="inline-flex min-h-8 w-[110px] items-center justify-center gap-1.5 rounded-lg bg-[#F7B548] px-3 text-[12px] font-black text-[#07152E] shadow-md"
+            className="inline-flex min-h-8 w-[115px] items-center justify-center gap-1 rounded-lg bg-[#F7B548] px-3 text-[12px] font-black text-[#07152E] shadow-md"
           >
             {text.explore}
             <ArrowIcon className="h-3 w-3" />
@@ -884,7 +884,7 @@ export default function MasarLanding() {
             href="https://wa.me/201031885659?text=السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار."
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex min-h-8 w-[110px] items-center justify-center gap-1.5 rounded-lg border border-[#25D366]/70 bg-[#0B502B]/85 px-3 text-[12px] font-black text-white shadow-md"
+            className="inline-flex min-h-8 w-[115px] items-center justify-center gap-1.5 rounded-lg border border-[#25D366]/70 bg-[#0B502B]/85 px-3 text-[12px] font-black text-white shadow-md"
           >
             <FaWhatsapp className="h-4 w-4" />
             {text.contact}
