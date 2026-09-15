@@ -16,6 +16,7 @@ import {
   House,
   LayoutDashboard,
   Megaphone,
+  MessageCircle,
   Route,
   Settings,
   ShieldCheck,
@@ -130,6 +131,11 @@ const navigationGroups: NavigationGroup[] = [
         href: "/admin/student-import",
         icon: Database,
       },
+      {
+  title: "WhatsApp Sales",
+  href: "/admin/whatsapp-sales",
+  icon: MessageCircle,
+},
       {
         title: "المدفوعات",
         href: "/admin/finance/payments",
