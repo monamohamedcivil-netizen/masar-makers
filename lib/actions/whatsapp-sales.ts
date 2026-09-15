@@ -111,11 +111,15 @@ export async function updateBotSettings(
             "greeting_text",
           ),
 
-        human_mode_hours:
+        human_mode_hour:
           number(
             formData,
-            "human_mode_hours",
-            24,
+            "human_mode_hour",
+            number(
+              formData,
+              "human_mode_hours",
+              24,
+            ),
           ),
 
         unknown_message_behavior:
@@ -1383,6 +1387,18 @@ export async function returnCustomerToBot(
           ),
 
         mode: "bot",
+
+        current_menu_key:
+          "main_menu",
+
+        current_course_id:
+          null,
+
+        current_variant_id:
+          null,
+
+        current_track:
+          null,
 
         human_mode_until:
           null,

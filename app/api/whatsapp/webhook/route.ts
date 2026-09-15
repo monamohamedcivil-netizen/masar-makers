@@ -9,13 +9,27 @@ export const dynamic = "force-dynamic";
    Environment
 ========================================================= */
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const SUPABASE_SECRET = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
-const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN ?? "";
-const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID ?? "";
-const WHATSAPP_GRAPH_VERSION = process.env.WHATSAPP_GRAPH_VERSION ?? "";
-const WHATSAPP_VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN ?? "";
-const META_APP_SECRET = process.env.META_APP_SECRET ?? "";
+const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").trim();
+const SUPABASE_SECRET = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? "").trim();
+const WHATSAPP_ACCESS_TOKEN = (process.env.WHATSAPP_ACCESS_TOKEN ?? "").trim();
+const WHATSAPP_PHONE_NUMBER_ID = (process.env.WHATSAPP_PHONE_NUMBER_ID ?? "").trim();
+const WHATSAPP_GRAPH_VERSION_RAW = (
+  process.env.WHATSAPP_GRAPH_VERSION ?? ""
+).trim();
+const WHATSAPP_VERIFY_TOKEN = (process.env.WHATSAPP_VERIFY_TOKEN ?? "").trim();
+const META_APP_SECRET = (process.env.META_APP_SECRET ?? "").trim();
+
+function normalizeGraphVersion(value: string) {
+  const match = value.match(/v?\d+\.\d+/i);
+  if (!match) return "";
+  return match[0].toLowerCase().startsWith("v")
+    ? match[0]
+    : `v${match[0]}`;
+}
+
+const WHATSAPP_GRAPH_VERSION = normalizeGraphVersion(
+  WHATSAPP_GRAPH_VERSION_RAW,
+);
 
 function getSupabase(): SupabaseClient {
   if (!SUPABASE_URL || !SUPABASE_SECRET) {
@@ -120,10 +134,20 @@ function isActiveOffer(price: AnyRow) {
 
 function getHumanHours(settings: AnyRow | null) {
   const value = Number(
-    settings?.human_mode_hours ?? settings?.human_support_hours ?? 24,
+    settings?.human_mode_hour ??
+      settings?.human_mode_hours ??
+      settings?.human_support_hours ??
+      24,
   );
 
   return Number.isFinite(value) && value > 0 ? value : 24;
+}
+
+function getUnknownMessageBehavior(settings: AnyRow | null) {
+  return (
+    cleanText(settings?.unknown_message_behavior).toLowerCase() ||
+    "main_menu"
+  );
 }
 
 function botIsEnabled(settings: AnyRow | null) {
@@ -144,7 +168,7 @@ async function sendWhatsApp(payload: AnyRow) {
     !WHATSAPP_GRAPH_VERSION
   ) {
     throw new Error(
-      "Missing WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID or WHATSAPP_GRAPH_VERSION.",
+      "Missing or invalid WhatsApp environment configuration: WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID or WHATSAPP_GRAPH_VERSION.",
     );
   }
 
@@ -171,6 +195,14 @@ async function sendWhatsApp(payload: AnyRow) {
       `WhatsApp API error ${response.status}: ${JSON.stringify(data)}`,
     );
   }
+
+  console.log(
+    "WhatsApp send success:",
+    JSON.stringify({
+      contacts: data?.contacts ?? null,
+      messages: data?.messages ?? null,
+    }),
+  );
 
   return data;
 }
@@ -541,6 +573,8 @@ async function sendMainMenu(
     current_menu_key: "main_menu",
     current_course_id: null,
     current_variant_id: null,
+    current_track: null,
+    human_mode_until: null,
   });
 
   const latest = await getSession(supabase, to);
@@ -851,6 +885,7 @@ async function enterHumanMode(
 
   await patchSession(supabase, to, {
     mode: "human",
+    current_menu_key: "human_support",
     human_mode_until: until,
   });
 }
@@ -1038,6 +1073,22 @@ function getIncomingMessages(body: AnyRow) {
   return output;
 }
 
+function getStatusUpdates(body: AnyRow) {
+  const output: AnyRow[] = [];
+
+  for (const entry of body?.entry ?? []) {
+    for (const change of entry?.changes ?? []) {
+      if (change?.field !== "messages") continue;
+
+      for (const status of change?.value?.statuses ?? []) {
+        output.push(status);
+      }
+    }
+  }
+
+  return output;
+}
+
 function getReplyId(message: AnyRow) {
   if (message?.type !== "interactive") return "";
 
@@ -1069,6 +1120,10 @@ async function handleIncomingMessage(
 
     await patchSession(supabase, phone, {
       mode: "bot",
+      current_menu_key: "main_menu",
+      current_course_id: null,
+      current_variant_id: null,
+      current_track: null,
       human_mode_until: null,
     });
     session = await getSession(supabase, phone);
@@ -1095,16 +1150,26 @@ async function handleIncomingMessage(
     session = await getSession(supabase, phone);
   }
 
-  const welcome = cleanText(settings?.welcome_message);
-  const fallback = cleanText(settings?.fallback_message);
+  const greeting = cleanText(settings?.greeting_text);
 
-  if (isNewConversation && welcome) {
-    await sendText(phone, welcome);
-  } else if (!isNewConversation && fallback) {
-    await sendText(phone, fallback);
+  if (isNewConversation && greeting) {
+    await sendText(phone, greeting);
   }
 
-  // Requirement: any free text / image / voice / unknown input returns main menu.
+  // Default agreed behavior: any free text / image / voice / unknown
+  // input returns the main menu. The DB setting can optionally switch
+  // this to human support or silence later without code changes.
+  const unknownBehavior = getUnknownMessageBehavior(settings);
+
+  if (unknownBehavior === "human_support") {
+    await enterHumanMode(supabase, phone, settings, "human_support");
+    return;
+  }
+
+  if (unknownBehavior === "silent") {
+    return;
+  }
+
   await sendMainMenu(supabase, phone, session);
 }
 
@@ -1120,16 +1185,17 @@ function verifyMetaSignature(rawBody: string, signature: string | null) {
 
   const expected = createHmac("sha256", META_APP_SECRET)
     .update(rawBody)
-    .digest("hex");
+    .digest();
 
-  const received = signature.slice("sha256=".length);
+  const receivedHex = signature.slice("sha256=".length);
+
+  if (!/^[a-f0-9]{64}$/i.test(receivedHex)) return false;
+
+  const received = Buffer.from(receivedHex, "hex");
 
   if (expected.length !== received.length) return false;
 
-  return timingSafeEqual(
-    Buffer.from(expected, "utf8"),
-    Buffer.from(received, "utf8"),
-  );
+  return timingSafeEqual(expected, received);
 }
 
 /* =========================================================
@@ -1182,13 +1248,26 @@ export async function POST(request: NextRequest) {
 
     const body = JSON.parse(rawBody || "{}");
 
+    const messages = getIncomingMessages(body);
+    const statuses = getStatusUpdates(body);
+
     console.log(
       "WhatsApp webhook received:",
-      JSON.stringify(body, null, 2),
+      JSON.stringify({
+        incoming_messages: messages.map((message) => ({
+          id: message?.id ?? null,
+          from: message?.from ?? null,
+          type: message?.type ?? null,
+        })),
+        statuses: statuses.map((status) => ({
+          id: status?.id ?? null,
+          status: status?.status ?? null,
+          errors: status?.errors ?? null,
+        })),
+      }),
     );
 
-    // Status callbacks contain no incoming customer message. Acknowledge only.
-    const messages = getIncomingMessages(body);
+    // Delivery/read/failed callbacks contain no incoming customer message.
     if (!messages.length) {
       return NextResponse.json({ received: true });
     }
