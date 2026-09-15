@@ -171,11 +171,6 @@ async function sendWhatsApp(payload: AnyRow) {
       `WhatsApp API error ${response.status}: ${JSON.stringify(data)}`,
     );
   }
-  
-console.log(
-  "WhatsApp send success:",
-  JSON.stringify(data),
-);
 
   return data;
 }
