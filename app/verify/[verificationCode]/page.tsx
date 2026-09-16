@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import CertificateRenderer from "@/components/certificates/CertificateRenderer";
+import { CertificateResponsivePreview } from "@/components/certificates/CertificatePublicClient";
 import { getCertificateByVerificationCode } from "@/lib/certificates/get-certificate";
 import { createAdminClient } from "@/lib/supabase/server";
 
@@ -9,12 +9,23 @@ type Props = {
   params: Promise<{
     verificationCode: string;
   }>;
+  searchParams: Promise<{
+    lang?: string;
+  }>;
 };
 
 export default async function VerifyCertificatePage({
   params,
+  searchParams,
 }: Props) {
   const { verificationCode } = await params;
+  const { lang: requestedLang } =
+    await searchParams;
+
+  const lang =
+    requestedLang === "en" ? "en" : "ar";
+
+  const isArabic = lang === "ar";
 
   const certificate =
     await getCertificateByVerificationCode(
@@ -25,10 +36,6 @@ export default async function VerifyCertificatePage({
     notFound();
   }
 
-  /*
-   * نقرأ الحالة فقط لتحديد ما إذا كانت الشهادة
-   * ما زالت سارية أم تم إلغاؤها.
-   */
   const supabase = createAdminClient();
 
   const { data: statusRow } = await supabase
@@ -42,12 +49,36 @@ export default async function VerifyCertificatePage({
 
   return (
     <main
-      dir="rtl"
+      dir={isArabic ? "rtl" : "ltr"}
       className="min-h-screen bg-slate-100 px-4 py-6 sm:px-6 sm:py-10"
     >
       <div className="mx-auto w-full max-w-6xl">
+        <div className="mb-3 flex justify-end">
+          <div className="inline-flex overflow-hidden rounded-lg border border-slate-200 bg-white text-xs font-black shadow-sm">
+            <Link
+              href={`?lang=ar`}
+              className={`px-3 py-2 transition ${
+                isArabic
+                  ? "bg-[#07152E] text-white"
+                  : "text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              عربي
+            </Link>
 
-        {/* أول الصفحة: رسالة التحقق + زر المنصة */}
+            <Link
+              href={`?lang=en`}
+              className={`px-3 py-2 transition ${
+                !isArabic
+                  ? "bg-[#07152E] text-white"
+                  : "text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              English
+            </Link>
+          </div>
+        </div>
+
         <section
           className={`mb-6 rounded-3xl border p-6 text-center shadow-sm sm:p-8 ${
             verified
@@ -63,36 +94,51 @@ export default async function VerifyCertificatePage({
             }`}
           >
             {verified
-              ? "✅ شهادة موثقة من Masar Makers"
-              : "❌ هذه الشهادة غير سارية"}
+              ? isArabic
+                ? "✅ شهادة موثقة من Masar Makers"
+                : "✅ Verified Certificate from Masar Makers"
+              : isArabic
+                ? "❌ هذه الشهادة غير سارية"
+                : "❌ This Certificate Is Not Valid"}
           </h1>
 
           <p className="mx-auto mt-3 max-w-3xl text-sm font-bold leading-7 text-slate-600 sm:text-base">
             {verified
-              ? "تم التحقق من صحة هذه الشهادة وإصدارها من منصة Masar Makers للتعلم المهني الهندسي."
-              : "تم العثور على الشهادة، ولكن حالتها الحالية ليست صادرة أو تم إلغاؤها."}
+              ? isArabic
+                ? "تم التحقق من صحة هذه الشهادة وإصدارها من منصة Masar Makers للتعلم المهني الهندسي."
+                : "This certificate has been verified and was issued by Masar Makers for professional engineering learning."
+              : isArabic
+                ? "تم العثور على الشهادة، ولكن حالتها الحالية ليست صادرة أو تم إلغاؤها."
+                : "The certificate was found, but it is no longer issued or has been revoked."}
           </p>
 
           <Link
             href="/"
             className="mt-5 inline-flex min-h-12 items-center justify-center rounded-xl bg-[#F7B548] px-6 py-3 text-sm font-black text-[#07152E] shadow-sm transition hover:brightness-95 sm:text-base"
           >
-            استكشف رحلات منصة Masar Makers
+            {isArabic
+              ? "استكشف رحلات منصة Masar Makers"
+              : "Explore Masar Makers Journeys"}
           </Link>
         </section>
 
-        {/* الشهادة نفسها */}
-        <section className="overflow-hidden rounded-2xl bg-white shadow-2xl">
-          <CertificateRenderer
-            certificate={certificate}
+        <section className="overflow-hidden rounded-2xl">
+          <CertificateResponsivePreview
+            certificateId={certificate.id}
+            verificationCode={
+              certificate.verificationCode
+            }
           />
         </section>
 
-        {/* بيانات التحقق */}
         <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
           <div className="grid gap-4 md:grid-cols-2">
             <Info
-              title="اسم المتدرب"
+              title={
+                isArabic
+                  ? "اسم المتدرب"
+                  : "Student Name"
+              }
               value={
                 certificate.studentNameEn ||
                 certificate.studentName
@@ -100,37 +146,64 @@ export default async function VerifyCertificatePage({
             />
 
             <Info
-              title="الكورس"
+              title={
+                isArabic
+                  ? "الكورس"
+                  : "Course"
+              }
               value={
-                certificate.courseTitleEn ||
-                certificate.courseTitle
+                isArabic
+                  ? certificate.courseTitle ||
+                    certificate.courseTitleEn
+                  : certificate.courseTitleEn ||
+                    certificate.courseTitle
               }
             />
 
             <Info
-              title="نوع الشهادة"
+              title={
+                isArabic
+                  ? "نوع الشهادة"
+                  : "Certificate Type"
+              }
               value={
                 certificate.certificateType ===
                 "fundamental"
-                  ? "Fundamentals"
-                  : "Advanced"
+                  ? isArabic
+                    ? "الأساسيات"
+                    : "Fundamentals"
+                  : isArabic
+                    ? "المتقدم"
+                    : "Advanced"
               }
             />
 
             <Info
-              title="رقم الشهادة"
+              title={
+                isArabic
+                  ? "رقم الشهادة"
+                  : "Certificate Number"
+              }
               value={
                 certificate.certificateNumber
               }
             />
 
             <Info
-              title="تاريخ الإصدار"
+              title={
+                isArabic
+                  ? "تاريخ الإصدار"
+                  : "Issue Date"
+              }
               value={certificate.issueDate}
             />
 
             <Info
-              title="كود التحقق"
+              title={
+                isArabic
+                  ? "كود التحقق"
+                  : "Verification Code"
+              }
               value={
                 certificate.verificationCode
               }

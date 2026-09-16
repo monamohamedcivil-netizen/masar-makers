@@ -1,7 +1,10 @@
 import { notFound } from "next/navigation";
 
 import CertificateRenderer from "@/components/certificates/CertificateRenderer";
-import { getCertificate } from "@/lib/certificates/get-certificate";
+import {
+  getCertificate,
+  getCertificateByVerificationCode,
+} from "@/lib/certificates/get-certificate";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +15,7 @@ type PrintCertificatePageProps = {
 
   searchParams: Promise<{
     embed?: string;
+    verify?: string;
   }>;
 };
 
@@ -20,11 +24,18 @@ export default async function PrintCertificatePage({
   searchParams,
 }: PrintCertificatePageProps) {
   const { certificateId } = await params;
-  const { embed } = await searchParams;
+  const { embed, verify } = await searchParams;
 
-  const certificate = await getCertificate(certificateId);
+  const certificate = verify
+    ? await getCertificateByVerificationCode(
+        verify,
+      )
+    : await getCertificate(certificateId);
 
-  if (!certificate) {
+  if (
+    !certificate ||
+    certificate.id !== certificateId
+  ) {
     notFound();
   }
 

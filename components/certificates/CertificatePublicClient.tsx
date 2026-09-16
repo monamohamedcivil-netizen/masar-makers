@@ -18,11 +18,13 @@ const CERTIFICATE_HEIGHT = 794;
 type CertificateClientProps = {
   certificateId: string;
   certificateNumber: string;
+  lang?: "ar" | "en";
 };
 
 export function CertificateDownloadButton({
   certificateId,
   certificateNumber,
+  lang = "ar",
 }: CertificateClientProps) {
   const [downloading, setDownloading] =
     useState(false);
@@ -78,16 +80,22 @@ export function CertificateDownloadButton({
       )}
 
       {downloading
-        ? "Preparing PDF..."
-        : "Download PDF"}
+        ? lang === "ar"
+          ? "جاري تجهيز PDF..."
+          : "Preparing PDF..."
+        : lang === "ar"
+          ? "تحميل PDF"
+          : "Download PDF"}
     </button>
   );
 }
 
 export function CertificateResponsivePreview({
   certificateId,
+  verificationCode,
 }: {
   certificateId: string;
+  verificationCode?: string;
 }) {
   const containerRef =
     useRef<HTMLDivElement | null>(null);
@@ -145,9 +153,17 @@ export function CertificateResponsivePreview({
       }}
     >
       <iframe
-        src={`/certificates/${encodeURIComponent(
-          certificateId,
-        )}/print`}
+        src={
+          verificationCode
+            ? `/certificates/${encodeURIComponent(
+                certificateId,
+              )}/print?verify=${encodeURIComponent(
+                verificationCode,
+              )}`
+            : `/certificates/${encodeURIComponent(
+                certificateId,
+              )}/print`
+        }
         data-public-certificate-id={certificateId}
         title="Certificate Preview"
         className="absolute left-1/2 top-0 border-0 bg-white"
