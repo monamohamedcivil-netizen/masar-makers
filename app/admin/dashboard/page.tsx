@@ -6,6 +6,7 @@ import {
   ClipboardList,
   FileImage,
   GraduationCap,
+  Headphones,
   ShieldAlert,
   Star,
   UserRoundX,
@@ -14,11 +15,40 @@ import {
 
 import AdminPageHeader from "@/components/admin/layout/AdminPageHeader";
 import { getAdminDashboardStats } from "@/lib/queries/admin-dashboard";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const stats = await getAdminDashboardStats();
+  const supabase = await createClient();
+
+  const { data: humanSessions } =
+    await supabase
+      .from("whatsapp_bot_sessions")
+      .select("human_mode_until")
+      .eq("mode", "human");
+
+  const now = Date.now();
+
+  const whatsappSupportRequests =
+    (humanSessions ?? []).filter(
+      (session) => {
+        if (!session.human_mode_until) {
+          return true;
+        }
+
+        const until =
+          new Date(
+            session.human_mode_until,
+          ).getTime();
+
+        return (
+          Number.isFinite(until) &&
+          until > now
+        );
+      },
+    ).length;
 
   return (
     <div className="space-y-8">
@@ -77,7 +107,16 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <AttentionCard
+            href="/admin/whatsapp-sales"
+            title="خدمة عملاء WhatsApp"
+            value={whatsappSupportRequests}
+            subtitle="محادثات محولة وتحتاج ردك"
+            icon={Headphones}
+            tone="red"
+          />
+
           <AttentionCard
             href="/admin/students/enrollment-requests"
             title="طلبات اشتراك"
@@ -239,7 +278,8 @@ function AttentionCard({
     | "amber"
     | "blue"
     | "emerald"
-    | "gold";
+    | "gold"
+    | "red";
 }) {
   const tones = {
     amber:
@@ -250,6 +290,8 @@ function AttentionCard({
       "border-emerald-200 bg-emerald-50 text-emerald-700",
     gold:
       "border-[#F7B548]/40 bg-[#FFF8E8] text-[#9A6711]",
+    red:
+      "border-red-200 bg-red-50 text-red-700",
   };
 
   return (

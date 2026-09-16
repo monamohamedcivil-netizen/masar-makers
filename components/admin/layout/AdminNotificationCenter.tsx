@@ -7,6 +7,7 @@ import {
   Check,
   ClipboardList,
   FileImage,
+  Headphones,
   Star,
 } from "lucide-react";
 import {
@@ -57,6 +58,13 @@ function getIcon(type: string) {
 
   if (type === "admin_survey_submitted") {
     return Star;
+  }
+
+  if (
+    type ===
+    "admin_whatsapp_human_support"
+  ) {
+    return Headphones;
   }
 
   return Bell;
@@ -227,6 +235,17 @@ export default function AdminNotificationCenter() {
         "focus",
         refresh,
       );
+    };
+  }, [loadNotifications]);
+
+  useEffect(() => {
+    const timer =
+      window.setInterval(() => {
+        void loadNotifications();
+      }, 20_000);
+
+    return () => {
+      window.clearInterval(timer);
     };
   }, [loadNotifications]);
 

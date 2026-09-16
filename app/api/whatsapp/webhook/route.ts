@@ -833,9 +833,9 @@ async function showAllCourses(
     string
   > = {
     "Road Design":
-      "رحلات مسار تصميم الطرق",
+      "🛣️ مسار تصميم الطرق",
     "Traffic Engineering":
-      "رحلات مسار هندسة المرور",
+      "🚦 مسار هندسة المرور",
   };
 
   const grouped = new Map<
@@ -1459,11 +1459,119 @@ async function sendCourseUrl(
   );
 }
 
+
+async function notifyAdminsOfHumanSupport(
+  supabase: SupabaseClient,
+  phone: string,
+  reason:
+    | "human_support"
+    | "other_currency"
+    | "subscribe",
+) {
+  try {
+    const {
+      data: admins,
+      error: adminsError,
+    } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("role", "admin");
+
+    if (adminsError) {
+      throw adminsError;
+    }
+
+    if (!admins?.length) {
+      console.warn(
+        "No admin profiles found for WhatsApp support notification.",
+      );
+      return;
+    }
+
+    const reasonText =
+      reason === "other_currency"
+        ? "يحتاج مساعدة بعملة أخرى"
+        : reason === "subscribe"
+          ? "يرغب في الاشتراك"
+          : "طلب التحدث مع خدمة العملاء";
+
+    const {
+      data: notification,
+      error: notificationError,
+    } = await supabase
+      .from("notifications")
+      .insert({
+        title:
+          "طلب خدمة عملاء من WhatsApp",
+        body:
+          `العميل ${phone} ${reasonText}.`,
+        type:
+          "admin_whatsapp_human_support",
+        action_url:
+          "/admin/whatsapp-sales",
+      })
+      .select("id")
+      .single();
+
+    if (
+      notificationError ||
+      !notification
+    ) {
+      throw (
+        notificationError ??
+        new Error(
+          "Could not create WhatsApp admin notification.",
+        )
+      );
+    }
+
+    const recipients =
+      admins.map((admin) => ({
+        notification_id:
+          notification.id,
+        user_id:
+          admin.id,
+        is_read:
+          false,
+        read_at:
+          null,
+      }));
+
+    const {
+      error: recipientsError,
+    } = await supabase
+      .from(
+        "notification_recipients",
+      )
+      .insert(recipients);
+
+    if (recipientsError) {
+      throw recipientsError;
+    }
+
+    console.log(
+      `WhatsApp admin notification created for ${phone}.`,
+    );
+  } catch (error) {
+    // Never block Human Mode because an internal
+    // dashboard notification failed.
+    console.error(
+      "Could not create WhatsApp admin notification:",
+      error,
+    );
+  }
+}
+
 async function enterHumanMode(
   supabase: SupabaseClient,
   to: string,
   settings: AnyRow | null,
   answerKey = "human_support",
+  reason:
+    | "human_support"
+    | "other_currency"
+    | "subscribe" =
+      "human_support",
 ) {
   const hours = getHumanHours(settings);
   const until = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
@@ -1481,6 +1589,12 @@ async function enterHumanMode(
     current_menu_key: "human_support",
     human_mode_until: until,
   });
+
+  await notifyAdminsOfHumanSupport(
+    supabase,
+    to,
+    reason,
+  );
 }
 
 /* =========================================================
@@ -1777,6 +1891,7 @@ async function handleMenuItem(
         to,
         settings,
         "human_support",
+        "subscribe",
       );
       return;
     }
@@ -1798,6 +1913,10 @@ async function handleMenuItem(
         to,
         settings,
         answerKey,
+        answerKey ===
+          "other_currency"
+          ? "other_currency"
+          : "human_support",
       );
 
       return;
@@ -2014,6 +2133,7 @@ async function handleIncomingMessage(
       supabase,
       phone,
       settings,
+      "human_support",
       "human_support",
     );
     return;
