@@ -1,5 +1,9 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+
+import CertificateRenderer from "@/components/certificates/CertificateRenderer";
+import { getCertificateByVerificationCode } from "@/lib/certificates/get-certificate";
+import { createAdminClient } from "@/lib/supabase/server";
 
 type Props = {
   params: Promise<{
@@ -12,118 +16,128 @@ export default async function VerifyCertificatePage({
 }: Props) {
   const { verificationCode } = await params;
 
-  const supabase = await createClient();
-
-  const { data: certificate } = await supabase
-    .from("certificates")
-    .select(`
-  certificate_number,
-  student_name,
-  student_name_en,
-  course_title,
-  course_title_en,
-  certificate_type,
-  issue_date,
-  status,
-  verification_code
-`)
-    .eq("verification_code", verificationCode)
-    .maybeSingle();
+  const certificate =
+    await getCertificateByVerificationCode(
+      verificationCode,
+    );
 
   if (!certificate) {
     notFound();
   }
 
-  const verified = certificate.status === "issued";
+  /*
+   * نقرأ الحالة فقط لتحديد ما إذا كانت الشهادة
+   * ما زالت سارية أم تم إلغاؤها.
+   */
+  const supabase = createAdminClient();
+
+  const { data: statusRow } = await supabase
+    .from("certificates")
+    .select("status")
+    .eq("id", certificate.id)
+    .maybeSingle();
+
+  const verified =
+    statusRow?.status === "issued";
 
   return (
-    <main className="min-h-screen bg-slate-100 flex items-center justify-center p-8">
+    <main
+      dir="rtl"
+      className="min-h-screen bg-slate-100 px-4 py-6 sm:px-6 sm:py-10"
+    >
+      <div className="mx-auto w-full max-w-6xl">
 
-      <div className="w-full max-w-3xl rounded-3xl bg-white shadow-2xl overflow-hidden">
-
-        <div className="bg-[#07152E] px-10 py-8 text-center">
-
-          <h1 className="text-4xl font-black text-white">
-            Masar Makers
-          </h1>
-
-          <p className="mt-3 text-slate-300">
-            Certificate Verification
-          </p>
-
-        </div>
-
-        <div className="p-10">
-
-          <div
-            className={`mb-8 rounded-xl p-5 text-center ${
+        {/* أول الصفحة: رسالة التحقق + زر المنصة */}
+        <section
+          className={`mb-6 rounded-3xl border p-6 text-center shadow-sm sm:p-8 ${
+            verified
+              ? "border-emerald-200 bg-emerald-50"
+              : "border-red-200 bg-red-50"
+          }`}
+        >
+          <h1
+            className={`text-2xl font-black sm:text-3xl ${
               verified
-                ? "bg-emerald-50 border border-emerald-200"
-                : "bg-red-50 border border-red-200"
+                ? "text-emerald-700"
+                : "text-red-700"
             }`}
           >
-            <h2
-              className={`text-3xl font-black ${
-                verified
-                  ? "text-emerald-700"
-                  : "text-red-700"
-              }`}
-            >
-              {verified
-                ? "✅ Certificate Verified"
-                : "❌ Certificate Revoked"}
-            </h2>
+            {verified
+              ? "✅ شهادة موثقة من Masar Makers"
+              : "❌ هذه الشهادة غير سارية"}
+          </h1>
 
-            <p className="mt-2 text-slate-600">
-              {verified
-                ? "This certificate has been successfully verified."
-                : "This certificate is no longer valid."}
-            </p>
+          <p className="mx-auto mt-3 max-w-3xl text-sm font-bold leading-7 text-slate-600 sm:text-base">
+            {verified
+              ? "تم التحقق من صحة هذه الشهادة وإصدارها من منصة Masar Makers للتعلم المهني الهندسي."
+              : "تم العثور على الشهادة، ولكن حالتها الحالية ليست صادرة أو تم إلغاؤها."}
+          </p>
 
+          <Link
+            href="/"
+            className="mt-5 inline-flex min-h-12 items-center justify-center rounded-xl bg-[#F7B548] px-6 py-3 text-sm font-black text-[#07152E] shadow-sm transition hover:brightness-95 sm:text-base"
+          >
+            استكشف رحلات منصة Masar Makers
+          </Link>
+        </section>
+
+        {/* الشهادة نفسها */}
+        <section className="overflow-hidden rounded-2xl bg-white shadow-2xl">
+          <CertificateRenderer
+            certificate={certificate}
+          />
+        </section>
+
+        {/* بيانات التحقق */}
+        <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Info
+              title="اسم المتدرب"
+              value={
+                certificate.studentNameEn ||
+                certificate.studentName
+              }
+            />
+
+            <Info
+              title="الكورس"
+              value={
+                certificate.courseTitleEn ||
+                certificate.courseTitle
+              }
+            />
+
+            <Info
+              title="نوع الشهادة"
+              value={
+                certificate.certificateType ===
+                "fundamental"
+                  ? "Fundamentals"
+                  : "Advanced"
+              }
+            />
+
+            <Info
+              title="رقم الشهادة"
+              value={
+                certificate.certificateNumber
+              }
+            />
+
+            <Info
+              title="تاريخ الإصدار"
+              value={certificate.issueDate}
+            />
+
+            <Info
+              title="كود التحقق"
+              value={
+                certificate.verificationCode
+              }
+            />
           </div>
-
-          <Info
-            title="Student Name"
-            value={
-              certificate.student_name_en ||
-              certificate.student_name
-            }
-          />
-
-          <Info
-            title="Course"
-            value={
-              certificate.course_title_en ||
-              certificate.course_title
-            }
-          />
-<Info
-  title="Certificate Type"
-  value={
-    certificate.certificate_type === "fundamental"
-      ? "Fundamentals"
-      : "Advanced"
-  }
-/>
-          <Info
-            title="Certificate Number"
-            value={certificate.certificate_number}
-          />
-
-          <Info
-            title="Issue Date"
-            value={certificate.issue_date}
-          />
-
-          <Info
-            title="Verification Code"
-            value={certificate.verification_code}
-          />
-
-        </div>
-
+        </section>
       </div>
-
     </main>
   );
 }
@@ -136,16 +150,14 @@ function Info({
   value: string | null;
 }) {
   return (
-    <div className="mb-5 rounded-xl border border-slate-200 p-5">
-
-      <div className="text-sm font-bold text-slate-500">
+    <div className="rounded-xl border border-slate-200 p-4 sm:p-5">
+      <div className="text-xs font-black text-slate-500">
         {title}
       </div>
 
-      <div className="mt-2 text-lg font-black text-[#07152E] break-all">
+      <div className="mt-2 break-all text-base font-black text-[#07152E] sm:text-lg">
         {value ?? "-"}
       </div>
-
     </div>
   );
 }

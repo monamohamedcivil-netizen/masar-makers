@@ -3,9 +3,10 @@ import { getCertificate } from "@/lib/certificates/get-certificate";
 import { markCertificateAsViewed } from "@/lib/actions/student/certificates";
 import { createClient } from "@/lib/supabase/server";
 
-import CertificateRenderer
-
-from "@/components/certificates/CertificateRenderer";
+import {
+  CertificateDownloadButton,
+  CertificateResponsivePreview,
+} from "@/components/certificates/CertificatePublicClient";
 type Props = {
   params: Promise<{
     certificateId: string;
@@ -68,12 +69,12 @@ export default async function CertificatePage({
     This certificate was issued by Masar Makers.
   </p>
 
-  <a
-    href={`/api/certificates/${certificateId}/pdf`}
-    className="mt-5 inline-flex items-center justify-center rounded-xl bg-[#07152E] px-6 py-3 text-sm font-black text-white transition hover:bg-[#0D2347]"
-  >
-    Download PDF
-  </a>
+  <CertificateDownloadButton
+    certificateId={certificateId}
+    certificateNumber={
+      certificate.certificateNumber
+    }
+  />
 
   <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
     <Info
@@ -96,9 +97,9 @@ export default async function CertificatePage({
       </div>
 
       <div className="mx-auto max-w-6xl px-4">
-        <CertificateRenderer
-certificate={certificate}
-/>
+        <CertificateResponsivePreview
+          certificateId={certificateId}
+        />
       </div>
     </main>
   );

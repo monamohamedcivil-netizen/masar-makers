@@ -1,5 +1,3 @@
-import Image from "next/image";
-
 import type { CertificateViewModel } from "@/lib/certificates";
 
 import AutoFitText from "./AutoFitText";
@@ -20,12 +18,11 @@ export default function CertificateRenderer({
         id="certificate-pdf-content"
         className="relative mx-auto aspect-[1.414/1] w-full max-w-[1400px] overflow-hidden bg-white"
       >
-        <Image
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           src={template}
           alt=""
-          fill
-          priority
-          className="object-contain"
+          className="absolute inset-0 h-full w-full object-contain"
         />
 
    {/* Student Name */}

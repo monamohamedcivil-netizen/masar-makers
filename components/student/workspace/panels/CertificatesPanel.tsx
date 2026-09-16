@@ -338,10 +338,26 @@ const [openedCertificates, setOpenedCertificates] =
 
       <button
         type="button"
-        onClick={async () => {
+        onClick={async (event) => {
           try {
+            const article =
+              event.currentTarget.closest(
+                "article",
+              );
+
+            const iframe =
+              article?.querySelector<HTMLIFrameElement>(
+                `iframe[data-certificate-id="${certificate.id}"]`,
+              );
+
+            if (!iframe) {
+              throw new Error(
+                "تعذر العثور على معاينة الشهادة.",
+              );
+            }
+
             await downloadCertificateAsPdf(
-              certificate.id,
+              iframe,
               certificate.certificateNumber,
             );
           } catch (error) {
@@ -399,10 +415,26 @@ const [openedCertificates, setOpenedCertificates] =
               <div className="flex shrink-0 items-center gap-2">
                 <button
   type="button"
-  onClick={async () => {
+  onClick={async (event) => {
     try {
+      const dialog =
+        event.currentTarget.closest(
+          '[role="dialog"]',
+        );
+
+      const iframe =
+        dialog?.querySelector<HTMLIFrameElement>(
+          `iframe[data-certificate-id="${selectedCertificate.id}"]`,
+        );
+
+      if (!iframe) {
+        throw new Error(
+          "تعذر العثور على معاينة الشهادة.",
+        );
+      }
+
       await downloadCertificateAsPdf(
-        selectedCertificate.id,
+        iframe,
         selectedCertificate.certificateNumber,
       );
     } catch (error) {

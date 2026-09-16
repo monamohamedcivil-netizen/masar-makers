@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 import type { CertificateViewModel } from "./types";
 
@@ -62,7 +62,7 @@ export async function getCertificate(
     "http://localhost:3000";
 
   const verificationUrl =
-    `${appUrl}/certificates/verify/${data.verification_code}`;
+    `${appUrl}/verify/${data.verification_code}`;
 
   /*
    * الاسم النهائي الذي سيظهر على الشهادة.
@@ -92,6 +92,118 @@ export async function getCertificate(
      * لذلك نرسل إليها الاسم الإنجليزي النهائي
      * بدل student_name العربي.
      */
+    studentName:
+      certificateStudentName,
+
+    studentNameEn:
+      data.student_name_en?.trim() ||
+      certificateStudentName,
+
+    courseTitle:
+      data.course_title,
+
+    courseTitleEn:
+      data.course_title_en,
+
+    courseSlug:
+      data.courses?.slug ??
+      "default",
+
+    certificateType:
+      data.certificate_type,
+
+    issueDate:
+      formatCertificateDate(
+        data.issue_date ??
+        data.issued_at,
+      ),
+
+    verificationCode:
+      data.verification_code,
+
+    pdfUrl:
+      data.pdf_url,
+
+    previewUrl:
+      data.preview_url,
+
+    templateImage:
+      `/certificates/templates/${courseCode}/${certificateFileCode}.png`,
+
+    verificationUrl,
+
+    qrValue:
+      verificationUrl,
+
+    metadata:
+      data.metadata ?? {},
+  };
+}
+
+/**
+ * يستخدم فقط في صفحة التحقق العامة من الشهادة.
+ *
+ * نقرأ الشهادة من السيرفر باستخدام Service Role حتى يستطيع
+ * أي شخص فتح رابط الـ QR بدون تسجيل دخول، مع البحث بكود
+ * التحقق المحدد فقط.
+ */
+export async function getCertificateByVerificationCode(
+  verificationCode: string,
+): Promise<CertificateViewModel | null> {
+  const normalizedCode =
+    verificationCode?.trim();
+
+  if (!normalizedCode) {
+    return null;
+  }
+
+  const supabase = createAdminClient();
+
+  const { data, error } = await supabase
+    .from("certificates")
+    .select(`
+      *,
+      courses(
+        slug,
+        course_code
+      )
+    `)
+    .eq("verification_code", normalizedCode)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  const courseCode =
+    data.courses?.course_code?.trim().toLowerCase() ||
+    data.courses?.slug?.trim().toLowerCase() ||
+    "default";
+
+  const certificateFileCode =
+    getCertificateFileCode(
+      data.certificate_type,
+    );
+
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "http://localhost:3000";
+
+  const verificationUrl =
+    `${appUrl}/verify/${data.verification_code}`;
+
+  const certificateStudentName =
+    data.student_name_on_certificate?.trim() ||
+    data.student_name_en?.trim() ||
+    data.student_name?.trim() ||
+    "Student";
+
+  return {
+    id: data.id,
+
+    certificateNumber:
+      data.certificate_number,
+
     studentName:
       certificateStudentName,
 

@@ -2,12 +2,15 @@ import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
 
 export async function downloadCertificateAsPdf(
-  certificateId: string,
+  certificateSource: string | HTMLIFrameElement,
   certificateNumber: string,
 ) {
-  const iframe = document.querySelector<HTMLIFrameElement>(
-    `iframe[data-certificate-id="${certificateId}"]`,
-  );
+  const iframe =
+    typeof certificateSource === "string"
+      ? document.querySelector<HTMLIFrameElement>(
+          `iframe[data-certificate-id="${certificateSource}"]`,
+        )
+      : certificateSource;
 
   if (!iframe) {
     throw new Error("تعذر العثور على معاينة الشهادة.");
@@ -101,12 +104,4 @@ export async function downloadCertificateAsPdf(
     `Masar-Makers-Certificate-${certificateNumber}.pdf`,
   );
 
-  // بعد بدء تحميل الـ PDF نعيد تحميل الصفحة مع الاحتفاظ
-  // بتاب "الشهادات" مفتوحًا، حتى يتم تحميل iframe جديد
-  // قبل تنزيل شهادة أخرى.
-  window.setTimeout(() => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("panel", "certificates");
-    window.location.assign(url.toString());
-  }, 700);
 }
