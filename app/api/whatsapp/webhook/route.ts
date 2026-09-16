@@ -331,6 +331,100 @@ async function sendList({
   });
 }
 
+
+async function sendSectionedList({
+  to,
+  body,
+  header,
+  footer,
+  buttonText,
+  sections,
+}: {
+  to: string;
+  body: string;
+  header?: string | null;
+  footer?: string | null;
+  buttonText?: string | null;
+  sections: Array<{
+    title: string;
+    rows: Array<{
+      id: string;
+      title: string;
+      description?: string | null;
+    }>;
+  }>;
+}) {
+  let remaining = 10;
+
+  const limitedSections = sections
+    .map((section) => {
+      if (remaining <= 0) return null;
+
+      const rows = section.rows.slice(0, remaining);
+      remaining -= rows.length;
+
+      if (!rows.length) return null;
+
+      return {
+        title: cut(section.title, 24),
+        rows: rows.map((row) => ({
+          id: row.id,
+          title: cut(row.title, 24),
+          ...(cleanText(row.description)
+            ? { description: cut(row.description, 72) }
+            : {}),
+        })),
+      };
+    })
+    .filter(
+      (
+        section,
+      ): section is {
+        title: string;
+        rows: Array<{
+          id: string;
+          title: string;
+          description?: string;
+        }>;
+      } => Boolean(section),
+    );
+
+  if (!limitedSections.length) {
+    await sendText(to, "لا توجد خيارات متاحة حاليًا.");
+    return;
+  }
+
+  await sendWhatsApp({
+    to,
+    type: "interactive",
+    interactive: {
+      type: "list",
+      ...(cleanText(header)
+        ? {
+            header: {
+              type: "text",
+              text: cut(header, 60),
+            },
+          }
+        : {}),
+      body: {
+        text: cut(body || "اختر من القائمة التالية:", 1024),
+      },
+      ...(cleanText(footer)
+        ? {
+            footer: {
+              text: cut(footer, 60),
+            },
+          }
+        : {}),
+      action: {
+        button: cut(buttonText || "عرض الكورسات", 20),
+        sections: limitedSections,
+      },
+    },
+  });
+}
+
 /* =========================================================
    Database helpers
 ========================================================= */
@@ -493,8 +587,11 @@ async function sendMenu(
   menu: AnyRow,
   session?: SessionRow | null,
   extraValues: Record<string, string> = {},
+  bodyPrefix = "",
+  bodyOverride = "",
 ) {
   const items = await getMenuItems(supabase, menu.id);
+
   if (!items.length) {
     await sendText(to, "لا توجد خيارات متاحة حاليًا.");
     return;
@@ -506,13 +603,26 @@ async function sendMenu(
     ...extraValues,
   };
 
-  const body = renderTemplate(
+  const defaultBody = renderTemplate(
     cleanText(menu.body_text) || "اختر من الخيارات التالية:",
     values,
   );
 
-  const header = renderTemplate(cleanText(menu.header_text), values);
-  const footer = renderTemplate(cleanText(menu.footer_text), values);
+  const body =
+    cleanText(bodyOverride) ||
+    [cleanText(bodyPrefix), defaultBody]
+      .filter(Boolean)
+      .join("\n\n");
+
+  const header = renderTemplate(
+    cleanText(menu.header_text),
+    values,
+  );
+
+  const footer = renderTemplate(
+    cleanText(menu.footer_text),
+    values,
+  );
 
   if (menu.interaction_type === "buttons") {
     await sendButtons({
@@ -531,7 +641,9 @@ async function sendMenu(
       body,
       header,
       footer,
-      buttonText: menu.open_button_text || "عرض الخيارات",
+      buttonText:
+        menu.open_button_text ||
+        "عرض الخيارات",
       rows: items.slice(0, 10).map((item) => ({
         id: `menuitem:${item.id}`,
         title: item.label,
@@ -552,21 +664,38 @@ async function sendMenuByKey(
   menuKey: string,
   session?: SessionRow | null,
   extraValues: Record<string, string> = {},
+  bodyPrefix = "",
+  bodyOverride = "",
 ) {
-  const menu = await getMenuByKey(supabase, menuKey);
+  const menu = await getMenuByKey(
+    supabase,
+    menuKey,
+  );
 
   if (!menu) {
-    await sendText(to, "القائمة غير متاحة حاليًا.");
+    await sendText(
+      to,
+      "القائمة غير متاحة حاليًا.",
+    );
     return;
   }
 
-  await sendMenu(supabase, to, menu, session, extraValues);
+  await sendMenu(
+    supabase,
+    to,
+    menu,
+    session,
+    extraValues,
+    bodyPrefix,
+    bodyOverride,
+  );
 }
 
 async function sendMainMenu(
   supabase: SupabaseClient,
   to: string,
   session?: SessionRow | null,
+  greetingText = "",
 ) {
   await patchSession(supabase, to, {
     mode: "bot",
@@ -577,8 +706,19 @@ async function sendMainMenu(
     human_mode_until: null,
   });
 
-  const latest = await getSession(supabase, to);
-  await sendMenuByKey(supabase, to, "main_menu", latest ?? session);
+  const latest = await getSession(
+    supabase,
+    to,
+  );
+
+  await sendMenuByKey(
+    supabase,
+    to,
+    "main_menu",
+    latest ?? session,
+    {},
+    greetingText,
+  );
 }
 
 async function showTrackCourses(
@@ -642,16 +782,218 @@ async function showTrackCourses(
   }
 }
 
+async function showAllCourses(
+  supabase: SupabaseClient,
+  to: string,
+) {
+  const { data, error } = await supabase
+    .from("whatsapp_courses")
+    .select("*")
+    .eq("is_active", true)
+    .eq("whatsapp_visible", true)
+    .order("sort_order", {
+      ascending: true,
+    });
+
+  if (error) throw error;
+
+  const courses = (data ?? []) as AnyRow[];
+
+  await patchSession(supabase, to, {
+    mode: "bot",
+    current_track: null,
+    current_course_id: null,
+    current_variant_id: null,
+    current_menu_key:
+      "dynamic_all_courses",
+  });
+
+  if (!courses.length) {
+    await sendText(
+      to,
+      "لا توجد كورسات متاحة حاليًا.",
+    );
+
+    await sendMainMenu(
+      supabase,
+      to,
+      await getSession(supabase, to),
+    );
+
+    return;
+  }
+
+  const preferredTracks = [
+    "Road Design",
+    "Traffic Engineering",
+  ];
+
+  const trackTitles: Record<
+    string,
+    string
+  > = {
+    "Road Design":
+      "رحلات مسار تصميم الطرق",
+    "Traffic Engineering":
+      "رحلات مسار هندسة المرور",
+  };
+
+  const grouped = new Map<
+    string,
+    AnyRow[]
+  >();
+
+  for (const course of courses) {
+    const track =
+      cleanText(course.track) ||
+      "Other";
+
+    const group =
+      grouped.get(track) ?? [];
+
+    group.push(course);
+    grouped.set(track, group);
+  }
+
+  for (const group of grouped.values()) {
+    group.sort(
+      (a, b) =>
+        Number(a.sort_order ?? 0) -
+        Number(b.sort_order ?? 0),
+    );
+  }
+
+  const trackOrder = [
+    ...preferredTracks.filter((track) =>
+      grouped.has(track),
+    ),
+    ...Array.from(grouped.keys())
+      .filter(
+        (track) =>
+          !preferredTracks.includes(
+            track,
+          ),
+      )
+      .sort((a, b) =>
+        a.localeCompare(b),
+      ),
+  ];
+
+  const sections = trackOrder.map(
+    (track) => ({
+      title:
+        trackTitles[track] || track,
+      rows: (
+        grouped.get(track) ?? []
+      ).map((course) => ({
+        id: `course:${course.id}`,
+        title:
+          course.whatsapp_label ||
+          course.title,
+        description:
+          course.short_description,
+      })),
+    }),
+  );
+
+  type CourseSection =
+    (typeof sections)[number];
+
+  const pages: CourseSection[][] = [];
+  let currentPage: CourseSection[] = [];
+  let usedRows = 0;
+
+  for (const section of sections) {
+    let remainingRows = [
+      ...section.rows,
+    ];
+
+    let continued = false;
+
+    while (remainingRows.length) {
+      const room =
+        10 - usedRows;
+
+      if (room === 0) {
+        pages.push(currentPage);
+        currentPage = [];
+        usedRows = 0;
+        continue;
+      }
+
+      const take =
+        remainingRows.slice(0, room);
+
+      remainingRows =
+        remainingRows.slice(room);
+
+      currentPage.push({
+        title: continued
+          ? `${section.title} - تابع`
+          : section.title,
+        rows: take,
+      });
+
+      usedRows += take.length;
+      continued = true;
+
+      if (usedRows === 10) {
+        pages.push(currentPage);
+        currentPage = [];
+        usedRows = 0;
+      }
+    }
+  }
+
+  if (currentPage.length) {
+    pages.push(currentPage);
+  }
+
+  for (
+    let index = 0;
+    index < pages.length;
+    index += 1
+  ) {
+    const suffix =
+      pages.length > 1
+        ? ` (${index + 1}/${pages.length})`
+        : "";
+
+    await sendSectionedList({
+      to,
+      header:
+        "رحلات Masar Makers",
+      body:
+        `اختر الكورس الذي تريد استكشافه${suffix}:`,
+      buttonText:
+        "عرض الكورسات",
+      sections: pages[index],
+    });
+  }
+}
+
 async function openCourse(
   supabase: SupabaseClient,
   to: string,
   courseId: string,
 ) {
-  const course = await getCourse(supabase, courseId);
+  const course = await getCourse(
+    supabase,
+    courseId,
+  );
 
   if (!course) {
-    await sendText(to, "هذا الكورس غير متاح حاليًا.");
-    await sendMainMenu(supabase, to, await getSession(supabase, to));
+    await sendText(
+      to,
+      "هذا الكورس غير متاح حاليًا.",
+    );
+
+    await sendMainMenu(
+      supabase,
+      to,
+      await getSession(supabase, to),
+    );
+
     return;
   }
 
@@ -659,15 +1001,97 @@ async function openCourse(
     mode: "bot",
     current_course_id: course.id,
     current_variant_id: null,
-    current_track: course.track ?? null,
-    current_menu_key: "course_actions",
+    current_track:
+      course.track ?? null,
+    current_menu_key:
+      "course_actions",
   });
 
-  const session = await getSession(supabase, to);
-  await sendMenuByKey(supabase, to, "course_actions", session, {
-    course: course.whatsapp_label || course.title,
-    track: course.track ?? "",
-  });
+  const session = await getSession(
+    supabase,
+    to,
+  );
+
+  const summary = [
+    `📘 *${
+      course.whatsapp_label ||
+      course.title
+    }*`,
+    cleanText(
+      course.short_description,
+    ),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  await sendMenuByKey(
+    supabase,
+    to,
+    "course_actions",
+    session,
+    {
+      course:
+        course.whatsapp_label ||
+        course.title,
+      track:
+        course.track ?? "",
+    },
+    summary,
+  );
+}
+
+async function sendCourseActionsWithContent(
+  supabase: SupabaseClient,
+  to: string,
+  session: SessionRow,
+  course: AnyRow,
+  content: string,
+) {
+  const chunks = splitLongText(
+    content,
+    980,
+  );
+
+  if (!chunks.length) {
+    await openCourse(
+      supabase,
+      to,
+      course.id,
+    );
+    return;
+  }
+
+  for (
+    let index = 0;
+    index < chunks.length - 1;
+    index += 1
+  ) {
+    await sendText(
+      to,
+      chunks[index],
+    );
+  }
+
+  const latest = await getSession(
+    supabase,
+    to,
+  );
+
+  await sendMenuByKey(
+    supabase,
+    to,
+    "course_actions",
+    latest ?? session,
+    {
+      course:
+        course.whatsapp_label ||
+        course.title,
+      track:
+        course.track ?? "",
+    },
+    "",
+    chunks[chunks.length - 1],
+  );
 }
 
 async function showCourseDetails(
@@ -676,34 +1100,73 @@ async function showCourseDetails(
   session: SessionRow,
 ) {
   if (!session.current_course_id) {
-    await sendMainMenu(supabase, to, session);
+    await sendMainMenu(
+      supabase,
+      to,
+      session,
+    );
     return;
   }
 
-  const course = await getCourse(supabase, session.current_course_id);
+  const course = await getCourse(
+    supabase,
+    session.current_course_id,
+  );
+
   if (!course) {
-    await sendMainMenu(supabase, to, session);
+    await sendMainMenu(
+      supabase,
+      to,
+      session,
+    );
     return;
   }
 
-  let message = `📘 *${course.whatsapp_label || course.title}*`;
+  let message =
+    `📘 *${
+      course.whatsapp_label ||
+      course.title
+    }*`;
 
-  const parentIntro = cleanText(course.details) || cleanText(course.short_description);
-  if (parentIntro) message += `\n\n${parentIntro}`;
+  const parentIntro =
+    cleanText(course.details) ||
+    cleanText(
+      course.short_description,
+    );
+
+  if (parentIntro) {
+    message +=
+      `\n\n${parentIntro}`;
+  }
 
   if (course.has_variants) {
-    const variants = await getActiveVariants(supabase, course.id);
+    const variants =
+      await getActiveVariants(
+        supabase,
+        course.id,
+      );
 
     for (const variant of variants) {
-      const details = cleanText(variant.details) || cleanText(variant.short_description);
+      const details =
+        cleanText(variant.details) ||
+        cleanText(
+          variant.short_description,
+        );
+
       if (!details) continue;
 
-      message += `\n\n━━━━━━━━━━━━\n*${variant.title}*\n${details}`;
+      message +=
+        `\n\n━━━━━━━━━━━━\n*${variant.title}*\n${details}`;
     }
   }
 
-  await sendText(to, message);
-  await openCourse(supabase, to, course.id);
+  await sendCourseActionsWithContent(
+    supabase,
+    to,
+    session,
+    course,
+    message,
+  );
 }
 
 async function showCoursePrice(
@@ -713,55 +1176,119 @@ async function showCoursePrice(
   currencyCode: string,
 ) {
   if (!session.current_course_id) {
-    await sendMainMenu(supabase, to, session);
+    await sendMainMenu(
+      supabase,
+      to,
+      session,
+    );
     return;
   }
 
-  const course = await getCourse(supabase, session.current_course_id);
+  const course = await getCourse(
+    supabase,
+    session.current_course_id,
+  );
+
   if (!course) {
-    await sendMainMenu(supabase, to, session);
+    await sendMainMenu(
+      supabase,
+      to,
+      session,
+    );
     return;
   }
 
-  const currency = currencyCode.toUpperCase();
-  let message = `💰 *أسعار ${course.whatsapp_label || course.title}*`;
+  const currency =
+    currencyCode.toUpperCase();
+
+  let message =
+    `💰 *أسعار ${
+      course.whatsapp_label ||
+      course.title
+    }*`;
 
   if (course.has_variants) {
-    const variants = await getActiveVariants(supabase, course.id);
+    const variants =
+      await getActiveVariants(
+        supabase,
+        course.id,
+      );
 
     for (const variant of variants) {
-      const { data, error } = await supabase
-        .from("whatsapp_course_prices")
-        .select("*")
-        .eq("course_id", course.id)
-        .eq("variant_id", variant.id)
-        .eq("currency_code", currency)
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true })
-        .limit(1)
-        .maybeSingle();
+      const { data, error } =
+        await supabase
+          .from(
+            "whatsapp_course_prices",
+          )
+          .select("*")
+          .eq(
+            "course_id",
+            course.id,
+          )
+          .eq(
+            "variant_id",
+            variant.id,
+          )
+          .eq(
+            "currency_code",
+            currency,
+          )
+          .eq(
+            "is_active",
+            true,
+          )
+          .order("sort_order", {
+            ascending: true,
+          })
+          .limit(1)
+          .maybeSingle();
 
       if (error) throw error;
       if (!data) continue;
 
-      message += `\n\n${formatPriceBlock(variant.title, data as AnyRow)}`;
+      message +=
+        `\n\n${formatPriceBlock(
+          variant.title,
+          data as AnyRow,
+        )}`;
     }
   } else {
-    const { data, error } = await supabase
-      .from("whatsapp_course_prices")
-      .select("*")
-      .eq("course_id", course.id)
-      .is("variant_id", null)
-      .eq("currency_code", currency)
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+    const { data, error } =
+      await supabase
+        .from(
+          "whatsapp_course_prices",
+        )
+        .select("*")
+        .eq(
+          "course_id",
+          course.id,
+        )
+        .is(
+          "variant_id",
+          null,
+        )
+        .eq(
+          "currency_code",
+          currency,
+        )
+        .eq(
+          "is_active",
+          true,
+        )
+        .order("sort_order", {
+          ascending: true,
+        })
+        .limit(1)
+        .maybeSingle();
 
     if (error) throw error;
 
     if (data) {
-      message += `\n\n${formatPriceBlock(course.title, data as AnyRow)}`;
+      message +=
+        `\n\n${formatPriceBlock(
+          course.title,
+          data as AnyRow,
+        )}`;
     }
   }
 
@@ -770,14 +1297,27 @@ async function showCoursePrice(
       to,
       "هذا السعر غير متاح بهذه العملة حاليًا. يمكنك اختيار عملة أخرى أو التواصل مع خدمة العملاء.",
     );
-    await sendMenuByKey(supabase, to, "currency_menu", session, {
-      course: course.title,
-    });
+
+    await sendMenuByKey(
+      supabase,
+      to,
+      "currency_menu",
+      session,
+      {
+        course: course.title,
+      },
+    );
+
     return;
   }
 
-  await sendText(to, message);
-  await openCourse(supabase, to, course.id);
+  await sendCourseActionsWithContent(
+    supabase,
+    to,
+    session,
+    course,
+    message,
+  );
 }
 
 function formatPriceBlock(title: string, price: AnyRow) {
@@ -824,46 +1364,99 @@ async function sendCourseUrl(
   item: AnyRow,
 ) {
   if (!session.current_course_id) {
-    await sendMainMenu(supabase, to, session);
+    await sendMainMenu(
+      supabase,
+      to,
+      session,
+    );
     return;
   }
 
-  const course = await getCourse(supabase, session.current_course_id);
+  const course = await getCourse(
+    supabase,
+    session.current_course_id,
+  );
+
   if (!course) {
-    await sendMainMenu(supabase, to, session);
+    await sendMainMenu(
+      supabase,
+      to,
+      session,
+    );
     return;
   }
 
-  const actionValue = cleanText(item.action_value);
-  let url = cleanText(item.url);
+  const actionValue =
+    cleanText(item.action_value);
 
-  if (!url && isHttpUrl(actionValue)) {
+  let url =
+    cleanText(item.url);
+
+  if (
+    !url &&
+    isHttpUrl(actionValue)
+  ) {
     url = actionValue;
   }
 
-  if (!url && actionValue === "intro_video") {
-    url = cleanText(course.intro_video_url);
+  if (
+    !url &&
+    actionValue === "intro_video"
+  ) {
+    url = cleanText(
+      course.intro_video_url,
+    );
   }
 
-  if (!url && actionValue === "course_url") {
-    url = cleanText(course.course_url);
+  if (
+    !url &&
+    actionValue === "course_url"
+  ) {
+    url = cleanText(
+      course.course_url,
+    );
   }
 
-  if (!url && course.has_variants) {
-    const variants = await getActiveVariants(supabase, course.id);
-    const field = actionValue === "course_url" ? "course_url" : "intro_video_url";
-    const first = variants.find((variant) => cleanText(variant[field]));
-    if (first) url = cleanText(first[field]);
+  if (
+    !url &&
+    course.has_variants
+  ) {
+    const variants =
+      await getActiveVariants(
+        supabase,
+        course.id,
+      );
+
+    const field =
+      actionValue === "course_url"
+        ? "course_url"
+        : "intro_video_url";
+
+    const first =
+      variants.find((variant) =>
+        cleanText(
+          variant[field],
+        ),
+      );
+
+    if (first) {
+      url = cleanText(
+        first[field],
+      );
+    }
   }
 
-  if (!url) {
-    await sendText(to, "الرابط غير متاح حاليًا.");
-  } else {
-    const label = cleanText(item.label) || "الرابط";
-    await sendText(to, `${label}\n${url}`);
-  }
+  const content = url
+    ? `${cleanText(item.label) || "الرابط"}\n${url}`
+    : "الرابط غير متاح حاليًا.";
 
-  await openCourse(supabase, to, course.id);
+  await sendCourseActionsWithContent(
+    supabase,
+    to,
+    session,
+    course,
+    content,
+  );
 }
 
 async function enterHumanMode(
@@ -900,131 +1493,332 @@ async function handleMenuItem(
   itemId: string,
   settings: AnyRow | null,
 ) {
-  const item = await getMenuItem(supabase, itemId);
+  const item = await getMenuItem(
+    supabase,
+    itemId,
+  );
+
   if (!item) {
-    await sendMainMenu(supabase, to, await getSession(supabase, to));
+    await sendMainMenu(
+      supabase,
+      to,
+      await getSession(
+        supabase,
+        to,
+      ),
+    );
     return;
   }
 
-  let session = await getSession(supabase, to);
+  let session = await getSession(
+    supabase,
+    to,
+  );
+
   if (!session) {
-    await patchSession(supabase, to, { mode: "bot" });
-    session = await getSession(supabase, to);
+    await patchSession(
+      supabase,
+      to,
+      { mode: "bot" },
+    );
+
+    session = await getSession(
+      supabase,
+      to,
+    );
   }
 
   switch (item.action_type) {
     case "open_menu": {
+      if (
+        cleanText(item.item_key) ===
+        "main_courses"
+      ) {
+        await showAllCourses(
+          supabase,
+          to,
+        );
+        return;
+      }
+
       if (!item.target_menu_id) {
-        await sendMainMenu(supabase, to, session);
+        await sendMainMenu(
+          supabase,
+          to,
+          session,
+        );
         return;
       }
 
-      const target = await getMenuById(supabase, item.target_menu_id);
+      const target =
+        await getMenuById(
+          supabase,
+          item.target_menu_id,
+        );
+
       if (!target) {
-        await sendMainMenu(supabase, to, session);
+        await sendMainMenu(
+          supabase,
+          to,
+          session,
+        );
         return;
       }
 
-      await sendMenu(supabase, to, target, session);
+      await sendMenu(
+        supabase,
+        to,
+        target,
+        session,
+      );
+
       return;
     }
 
     case "open_track": {
-      const value = cleanText(item.action_value);
-      const track = value === "current" ? cleanText(session?.current_track) : value;
+      const value =
+        cleanText(
+          item.action_value,
+        );
 
-      if (!track) {
-        await sendMenuByKey(supabase, to, "tracks_menu", session);
+      if (
+        value === "all" ||
+        cleanText(item.item_key) ===
+          "course_back"
+      ) {
+        await showAllCourses(
+          supabase,
+          to,
+        );
         return;
       }
 
-      await showTrackCourses(supabase, to, track);
+      const track =
+        value === "current"
+          ? cleanText(
+              session?.current_track,
+            )
+          : value;
+
+      if (!track) {
+        await showAllCourses(
+          supabase,
+          to,
+        );
+        return;
+      }
+
+      await showTrackCourses(
+        supabase,
+        to,
+        track,
+      );
+
       return;
     }
 
     case "show_answer": {
-      let answer: AnyRow | null = null;
+      let answer:
+        AnyRow | null = null;
 
       if (item.answer_id) {
-        answer = await getAnswerById(supabase, item.answer_id);
-      } else if (cleanText(item.action_value)) {
-        answer = await getAnswerByKey(supabase, cleanText(item.action_value));
+        answer =
+          await getAnswerById(
+            supabase,
+            item.answer_id,
+          );
+      } else if (
+        cleanText(
+          item.action_value,
+        )
+      ) {
+        answer =
+          await getAnswerByKey(
+            supabase,
+            cleanText(
+              item.action_value,
+            ),
+          );
       }
 
-      if (answer?.message_text) {
-        await sendText(to, answer.message_text);
-      } else {
-        await sendText(to, "المعلومة غير متاحة حاليًا.");
+      const answerText =
+        cleanText(
+          answer?.message_text,
+        ) ||
+        "المعلومة غير متاحة حاليًا.";
+
+      const chunks =
+        splitLongText(
+          answerText,
+          980,
+        );
+
+      for (
+        let index = 0;
+        index < chunks.length - 1;
+        index += 1
+      ) {
+        await sendText(
+          to,
+          chunks[index],
+        );
       }
 
-      await sendMainMenu(supabase, to, await getSession(supabase, to));
+      await sendMainMenu(
+        supabase,
+        to,
+        await getSession(
+          supabase,
+          to,
+        ),
+        chunks[
+          chunks.length - 1
+        ] || answerText,
+      );
+
       return;
     }
 
     case "open_course": {
-      const courseId = item.course_id || cleanText(item.action_value);
+      const courseId =
+        item.course_id ||
+        cleanText(
+          item.action_value,
+        );
+
       if (!courseId) {
-        await sendMainMenu(supabase, to, session);
+        await sendMainMenu(
+          supabase,
+          to,
+          session,
+        );
         return;
       }
 
-      await openCourse(supabase, to, courseId);
+      await openCourse(
+        supabase,
+        to,
+        courseId,
+      );
+
       return;
     }
 
     case "show_details": {
       if (!session) {
-        await sendMainMenu(supabase, to, session);
+        await sendMainMenu(
+          supabase,
+          to,
+          session,
+        );
         return;
       }
-      await showCourseDetails(supabase, to, session);
+
+      await showCourseDetails(
+        supabase,
+        to,
+        session,
+      );
+
       return;
     }
 
     case "show_price": {
-      const currency = cleanText(item.action_value);
-      if (!session || !currency) {
-        await sendMainMenu(supabase, to, session);
+      const currency =
+        cleanText(
+          item.action_value,
+        );
+
+      if (
+        !session ||
+        !currency
+      ) {
+        await sendMainMenu(
+          supabase,
+          to,
+          session,
+        );
         return;
       }
 
-      await showCoursePrice(supabase, to, session, currency);
+      await showCoursePrice(
+        supabase,
+        to,
+        session,
+        currency,
+      );
+
       return;
     }
 
     case "open_url": {
       if (!session) {
-        await sendMainMenu(supabase, to, session);
+        await sendMainMenu(
+          supabase,
+          to,
+          session,
+        );
         return;
       }
 
-      await sendCourseUrl(supabase, to, session, item);
+      await sendCourseUrl(
+        supabase,
+        to,
+        session,
+        item,
+      );
+
       return;
     }
 
     case "subscribe": {
-      await enterHumanMode(supabase, to, settings, "human_support");
+      await enterHumanMode(
+        supabase,
+        to,
+        settings,
+        "human_support",
+      );
       return;
     }
 
     case "human_support": {
       const answerKey =
-        cleanText(item.item_key).includes("other") ||
-        cleanText(item.action_value).toLowerCase() === "other"
+        cleanText(
+          item.item_key,
+        ).includes("other") ||
+        cleanText(
+          item.action_value,
+        ).toLowerCase() ===
+          "other"
           ? "other_currency"
           : "human_support";
 
-      await enterHumanMode(supabase, to, settings, answerKey);
+      await enterHumanMode(
+        supabase,
+        to,
+        settings,
+        answerKey,
+      );
+
       return;
     }
 
     case "main_menu": {
-      await sendMainMenu(supabase, to, session);
+      await sendMainMenu(
+        supabase,
+        to,
+        session,
+      );
+
       return;
     }
 
     default: {
-      await sendMainMenu(supabase, to, session);
+      await sendMainMenu(
+        supabase,
+        to,
+        session,
+      );
     }
   }
 }
@@ -1103,74 +1897,141 @@ async function handleIncomingMessage(
   message: AnyRow,
   settings: AnyRow | null,
 ) {
-  const phone = cleanText(message?.from);
+  const phone =
+    cleanText(message?.from);
+
   if (!phone) return;
 
-  let session = await getSession(supabase, phone);
+  let session =
+    await getSession(
+      supabase,
+      phone,
+    );
 
-  if (session?.mode === "human") {
-    const until = session.human_mode_until
-      ? new Date(session.human_mode_until).getTime()
-      : 0;
+  if (
+    session?.mode === "human"
+  ) {
+    const until =
+      session.human_mode_until
+        ? new Date(
+            session.human_mode_until,
+          ).getTime()
+        : 0;
 
-    if (!until || until > Date.now()) {
-      console.log(`Human mode active for ${phone}; bot stays silent.`);
+    if (
+      !until ||
+      until > Date.now()
+    ) {
+      console.log(
+        `Human mode active for ${phone}; bot stays silent.`,
+      );
       return;
     }
 
-    await patchSession(supabase, phone, {
-      mode: "bot",
-      current_menu_key: "main_menu",
-      current_course_id: null,
-      current_variant_id: null,
-      current_track: null,
-      human_mode_until: null,
-    });
-    session = await getSession(supabase, phone);
+    await patchSession(
+      supabase,
+      phone,
+      {
+        mode: "bot",
+        current_menu_key:
+          "main_menu",
+        current_course_id:
+          null,
+        current_variant_id:
+          null,
+        current_track:
+          null,
+        human_mode_until:
+          null,
+      },
+    );
+
+    session =
+      await getSession(
+        supabase,
+        phone,
+      );
   }
 
   if (!botIsEnabled(settings)) {
-    console.log("WhatsApp bot is disabled; no automatic reply sent.");
+    console.log(
+      "WhatsApp bot is disabled; no automatic reply sent.",
+    );
     return;
   }
 
-  const replyId = getReplyId(message);
+  const replyId =
+    getReplyId(message);
+
   if (replyId) {
-    await handleReplyId(supabase, phone, replyId, settings);
+    await handleReplyId(
+      supabase,
+      phone,
+      replyId,
+      settings,
+    );
     return;
   }
 
-  const isNewConversation = !session;
+  const isNewConversation =
+    !session;
 
   if (!session) {
-    await patchSession(supabase, phone, {
-      mode: "bot",
-      current_menu_key: "main_menu",
-    });
-    session = await getSession(supabase, phone);
+    await patchSession(
+      supabase,
+      phone,
+      {
+        mode: "bot",
+        current_menu_key:
+          "main_menu",
+      },
+    );
+
+    session =
+      await getSession(
+        supabase,
+        phone,
+      );
   }
 
-  const greeting = cleanText(settings?.greeting_text);
+  const greeting =
+    isNewConversation
+      ? cleanText(
+          settings?.greeting_text,
+        )
+      : "";
 
-  if (isNewConversation && greeting) {
-    await sendText(phone, greeting);
-  }
+  const unknownBehavior =
+    getUnknownMessageBehavior(
+      settings,
+    );
 
-  // Default agreed behavior: any free text / image / voice / unknown
-  // input returns the main menu. The DB setting can optionally switch
-  // this to human support or silence later without code changes.
-  const unknownBehavior = getUnknownMessageBehavior(settings);
-
-  if (unknownBehavior === "human_support") {
-    await enterHumanMode(supabase, phone, settings, "human_support");
+  if (
+    unknownBehavior ===
+    "human_support"
+  ) {
+    await enterHumanMode(
+      supabase,
+      phone,
+      settings,
+      "human_support",
+    );
     return;
   }
 
-  if (unknownBehavior === "silent") {
+  if (
+    unknownBehavior ===
+    "silent"
+  ) {
     return;
   }
 
-  await sendMainMenu(supabase, phone, session);
+  await sendMainMenu(
+    supabase,
+    phone,
+    session,
+    greeting,
+  );
 }
 
 /* =========================================================
