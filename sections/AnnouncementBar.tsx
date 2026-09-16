@@ -119,13 +119,18 @@ export default function AnnouncementBar() {
       try {
         const supabase = createClient();
 
-        const { data, error } = await supabase
-          .from("platform_announcements")
-          .select(
-            "id,type,title,title_en,description,description_en,button_text,button_text_en,href,is_active,display_order,starts_at,ends_at"
-          )
-          .order("display_order", { ascending: true })
-          .order("created_at", { ascending: false });
+        const now = new Date().toISOString();
+
+const { data, error } = await supabase
+  .from("platform_announcements")
+  .select(
+    "id,type,title,title_en,description,description_en,button_text,button_text_en,href,is_active,display_order,starts_at,ends_at"
+  )
+  .eq("is_active", true)
+  .or(`starts_at.is.null,starts_at.lte.${now}`)
+  .or(`ends_at.is.null,ends_at.gt.${now}`)
+  .order("display_order", { ascending: true })
+  .order("created_at", { ascending: false });
 
         if (cancelled) return;
 
