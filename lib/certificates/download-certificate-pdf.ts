@@ -98,6 +98,15 @@ export async function downloadCertificateAsPdf(
   );
 
   pdf.save(
-  `Masar-Makers-Certificate-${certificateNumber}.pdf`,
-);
+    `Masar-Makers-Certificate-${certificateNumber}.pdf`,
+  );
+
+  // بعد بدء تحميل الـ PDF نعيد تحميل الصفحة مع الاحتفاظ
+  // بتاب "الشهادات" مفتوحًا، حتى يتم تحميل iframe جديد
+  // قبل تنزيل شهادة أخرى.
+  window.setTimeout(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("panel", "certificates");
+    window.location.assign(url.toString());
+  }, 700);
 }

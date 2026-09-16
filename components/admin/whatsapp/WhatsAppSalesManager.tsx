@@ -154,10 +154,16 @@ type WhatsAppBotSettings = {
   id?: string | number | null;
   bot_enabled?: boolean | null;
   is_enabled?: boolean | null;
+
+  greeting_text?: string | null;
+  unknown_message_behavior?: string | null;
+  human_mode_hours?: number | null;
+
+  // Legacy fallbacks kept only so older data does not break the page.
   welcome_message?: string | null;
   fallback_message?: string | null;
-  human_mode_hours?: number | null;
   human_support_hours?: number | null;
+
   updated_at?: string | null;
   [key: string]: unknown;
 };
@@ -268,6 +274,27 @@ function getHumanHours(settings: WhatsAppBotSettings | null) {
     24;
 
   return Number(value) || 24;
+}
+
+function getUnknownMessageBehavior(
+  settings: WhatsAppBotSettings | null,
+) {
+  const value =
+    String(
+      settings?.unknown_message_behavior ??
+        "main_menu",
+    )
+      .trim()
+      .toLowerCase();
+
+  if (
+    value === "human_support" ||
+    value === "silent"
+  ) {
+    return value;
+  }
+
+  return "main_menu";
 }
 
 function formatDate(value?: string | null) {
@@ -1609,8 +1636,8 @@ function MenuItemRow({
             <input type="hidden" name="id" value={item.id} />
             <input
               type="hidden"
-              name="is_active"
-              value={item.is_active ? "false" : "true"}
+              name="current_active"
+              value={item.is_active ? "true" : "false"}
             />
             <ActionSubmitButton
               pendingText="..."
@@ -1960,9 +1987,26 @@ function SettingsTab({
   settings,
   botSettings,
 }: Props & { selectedTrack: AdminTrack }) {
-  const effectiveSettings = settings ?? botSettings ?? null;
-  const botEnabled = getBotEnabled(effectiveSettings);
-  const humanHours = getHumanHours(effectiveSettings);
+  const effectiveSettings =
+    settings ?? botSettings ?? null;
+
+  const botEnabled =
+    getBotEnabled(effectiveSettings);
+
+  const humanHours =
+    getHumanHours(effectiveSettings);
+
+  const unknownBehavior =
+    getUnknownMessageBehavior(
+      effectiveSettings,
+    );
+
+  const unknownBehaviorLabel =
+    unknownBehavior === "human_support"
+      ? "تحويل لخدمة العملاء"
+      : unknownBehavior === "silent"
+        ? "بدون رد"
+        : "القائمة الرئيسية";
 
   return (
     <div className="space-y-3">
@@ -1971,12 +2015,15 @@ function SettingsTab({
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#07152E] text-[#F7B548]">
             <Bot className="h-4 w-4" />
           </span>
+
           <div>
             <h3 className="text-sm font-black text-[#07152E]">
               إعدادات البوت العامة
             </h3>
+
             <p className="mt-1 text-[10px] font-bold leading-5 text-slate-400">
-              أي رسالة حرة أو غير معروفة تعيد العميل إلى القائمة الرئيسية. وعند التحويل لخدمة العملاء يصمت البوت تمامًا.
+              رسالة الترحيب تُدمج مع القائمة الرئيسية.
+              ويمكنك تحديد سلوك أي رسالة حرة أو غير معروفة.
             </p>
           </div>
         </div>
@@ -1987,23 +2034,47 @@ function SettingsTab({
           className="grid gap-3 md:grid-cols-2"
         >
           {effectiveSettings?.id != null && (
-            <input type="hidden" name="id" value={String(effectiveSettings.id)} />
+            <input
+              type="hidden"
+              name="id"
+              value={String(
+                effectiveSettings.id,
+              )}
+            />
           )}
 
           <TextAreaField
             title="رسالة الترحيب"
-            name="welcome_message"
-            defaultValue={effectiveSettings?.welcome_message ?? ""}
+            name="greeting_text"
+            defaultValue={
+              String(
+                effectiveSettings?.greeting_text ??
+                  effectiveSettings?.welcome_message ??
+                  "",
+              )
+            }
             placeholder="أهلًا بك في Masar Makers..."
             className="md:col-span-2"
           />
 
-          <TextAreaField
-            title="رسالة الرسائل الحرة / غير المعروفة"
-            name="fallback_message"
-            defaultValue={effectiveSettings?.fallback_message ?? ""}
-            placeholder="اختر من القائمة التالية..."
-            className="md:col-span-2"
+          <SelectField
+            title="سلوك الرسالة الحرة / غير المعروفة"
+            name="unknown_message_behavior"
+            defaultValue={unknownBehavior}
+            options={[
+              [
+                "main_menu",
+                "إظهار القائمة الرئيسية",
+              ],
+              [
+                "human_support",
+                "تحويل لخدمة العملاء",
+              ],
+              [
+                "silent",
+                "عدم إرسال رد",
+              ],
+            ]}
           />
 
           <Field
@@ -2011,7 +2082,9 @@ function SettingsTab({
             name="human_mode_hours"
             type="number"
             min="1"
-            defaultValue={String(humanHours)}
+            defaultValue={String(
+              humanHours,
+            )}
             required
           />
 
@@ -2038,20 +2111,28 @@ function SettingsTab({
         <StatusCard
           icon={Bot}
           title="حالة البوت"
-          value={botEnabled ? "يعمل" : "متوقف"}
+          value={
+            botEnabled
+              ? "يعمل"
+              : "متوقف"
+          }
           active={botEnabled}
         />
+
         <StatusCard
           icon={Headphones}
           title="Human Mode"
           value={`${humanHours} ساعة`}
           active
         />
+
         <StatusCard
           icon={MessageCircleMore}
           title="الرسائل الحرة"
-          value="القائمة الرئيسية"
-          active
+          value={unknownBehaviorLabel}
+          active={
+            unknownBehavior !== "silent"
+          }
         />
       </section>
     </div>
