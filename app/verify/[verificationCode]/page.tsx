@@ -146,19 +146,16 @@ export default async function VerifyCertificatePage({
             />
 
             <Info
-              title={
-                isArabic
-                  ? "الكورس"
-                  : "Course"
-              }
-              value={
-                isArabic
-                  ? certificate.courseTitle ||
-                    certificate.courseTitleEn
-                  : certificate.courseTitleEn ||
-                    certificate.courseTitle
-              }
-            />
+  title={
+    isArabic
+      ? "الكورس"
+      : "Course"
+  }
+  value={
+    certificate.courseTitle ||
+    certificate.courseTitleEn
+  }
+/>
 
             <Info
               title={
