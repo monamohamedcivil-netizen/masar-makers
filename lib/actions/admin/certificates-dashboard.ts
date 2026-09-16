@@ -367,7 +367,22 @@ Promise<GetCertificatesDashboardResult> {
         );
       });
 
-    const pendingRows = rows.filter((row) => !isIssued(row));
+    /*
+     * "مستحقة للإصدار" تعني:
+     * - لم تصدر بعد
+     * - وصلت نسبة الإنجاز إلى 100%
+     *
+     * الطلاب الأقل من 100% يظلون ظاهرين في شاشة الشهادات
+     * عند اختيار فلتر "الكل" أو "غير مكتمل"، ويمكن للإدارة
+     * إصدار شهادة لهم يدويًا عند الحاجة، لكنهم لا يدخلون
+     * في إحصائية المستحقين ولا في الإصدار الجماعي.
+     */
+    const pendingRows = rows.filter(
+      (row) =>
+        !isIssued(row) &&
+        row.progressPercent >= 100,
+    );
+
     const issuedRows = rows.filter(isIssued);
 
     const pathCounter = new Map<

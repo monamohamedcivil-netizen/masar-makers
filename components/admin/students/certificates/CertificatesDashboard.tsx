@@ -29,6 +29,7 @@ import type {
 } from "@/lib/actions/admin/certificates-dashboard";
 
 type TabId = "pending" | "issued";
+type ProgressFilter = "all" | "eligible" | "incomplete";
 
 interface CertificatesDashboardProps {
   initialData: CertificatesDashboardData;
@@ -54,6 +55,12 @@ function isIssued(row: CertificatesDashboardRow) {
     Boolean(row.certificateId) ||
     normalize(row.certificateStatus) === "issued"
   );
+}
+
+function isProgressEligible(
+  row: CertificatesDashboardRow,
+) {
+  return row.progressPercent >= 100;
 }
 
 function formatDate(value: string | null) {
@@ -98,6 +105,9 @@ export default function CertificatesDashboard({
 
   const [pathFilter, setPathFilter] =
     useState("all");
+
+  const [progressFilter, setProgressFilter] =
+    useState<ProgressFilter>("eligible");
 
   const [search, setSearch] = useState("");
 
@@ -149,9 +159,16 @@ export default function CertificatesDashboard({
         !normalizedSearch ||
         searchValue.includes(normalizedSearch);
 
+      const matchesProgress =
+        progressFilter === "all" ||
+        (progressFilter === "eligible"
+          ? isProgressEligible(row)
+          : !isProgressEligible(row));
+
       return (
         matchesTab &&
         matchesPath &&
+        matchesProgress &&
         matchesSearch
       );
     });
@@ -159,13 +176,16 @@ export default function CertificatesDashboard({
     activeTab,
     initialData.rows,
     pathFilter,
+    progressFilter,
     search,
   ]);
 
   const pendingFilteredRows = useMemo(
     () =>
       visibleRows.filter(
-        (row) => !isIssued(row),
+        (row) =>
+          !isIssued(row) &&
+          isProgressEligible(row),
       ),
     [visibleRows],
   );
@@ -340,9 +360,10 @@ export default function CertificatesDashboard({
           <div className="flex overflow-hidden rounded-xl border border-slate-200">
             <button
               type="button"
-              onClick={() =>
-                setActiveTab("pending")
-              }
+              onClick={() => {
+                setActiveTab("pending");
+                setProgressFilter("eligible");
+              }}
               className={`px-5 py-3 text-sm font-black transition ${
                 activeTab === "pending"
                   ? "bg-[#07152E] text-white"
@@ -354,9 +375,10 @@ export default function CertificatesDashboard({
 
             <button
               type="button"
-              onClick={() =>
-                setActiveTab("issued")
-              }
+              onClick={() => {
+                setActiveTab("issued");
+                setProgressFilter("all");
+              }}
               className={`px-5 py-3 text-sm font-black transition ${
                 activeTab === "issued"
                   ? "bg-[#07152E] text-white"
@@ -401,6 +423,33 @@ export default function CertificatesDashboard({
               </button>
             ) : null}
           </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+          <span className="ml-1 text-xs font-black text-slate-500">
+            نسبة الإنجاز:
+          </span>
+
+          <FilterButton
+            active={progressFilter === "all"}
+            onClick={() => setProgressFilter("all")}
+          >
+            الكل
+          </FilterButton>
+
+          <FilterButton
+            active={progressFilter === "eligible"}
+            onClick={() => setProgressFilter("eligible")}
+          >
+            مستحق 100%
+          </FilterButton>
+
+          <FilterButton
+            active={progressFilter === "incomplete"}
+            onClick={() => setProgressFilter("incomplete")}
+          >
+            غير مكتمل
+          </FilterButton>
         </div>
 
         {bulkReport ? (
@@ -485,9 +534,15 @@ function PendingTable({
             </Cell>
 
             <Cell>
-              <span className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-black text-sky-700">
-                جاهزة للإصدار
-              </span>
+              {isProgressEligible(row) ? (
+                <span className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-black text-sky-700">
+                  جاهزة للإصدار
+                </span>
+              ) : (
+                <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
+                  غير مكتملة
+                </span>
+              )}
             </Cell>
 
             <Cell>{row.progressPercent}%</Cell>
@@ -537,6 +592,7 @@ function IssuedTable({
         "الكورس",
         "كود الكورس",
         "نوع الشهادة",
+        "التقدم",
         "تاريخ الإصدار",
         "رقم الشهادة",
         "الإجراءات",
@@ -564,6 +620,8 @@ function IssuedTable({
             <Cell>
               {getCertificateLabel(row)}
             </Cell>
+
+            <Cell>{row.progressPercent}%</Cell>
 
             <Cell>
               {formatDate(
