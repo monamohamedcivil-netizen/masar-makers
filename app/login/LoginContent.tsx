@@ -25,6 +25,20 @@ export default function LoginPage() {
   const confirmationError = searchParams.get("error");
   const passwordReset = searchParams.get("password_reset");
 
+  const requestedNext =
+    searchParams.get("next");
+
+  /*
+   * نسمح فقط بمسار داخلي داخل المنصة.
+   * هذا يمنع أي Redirect خارجي غير آمن.
+   */
+  const safeNext =
+    requestedNext &&
+    requestedNext.startsWith("/") &&
+    !requestedNext.startsWith("//")
+      ? requestedNext
+      : "/home";
+
   const handleSubmit = async (
     event: FormEvent<HTMLFormElement>
   ) => {
@@ -98,7 +112,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.replace("/home");
+      router.replace(safeNext);
       router.refresh();
 
     } catch (caughtError) {

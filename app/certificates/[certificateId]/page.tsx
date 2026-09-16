@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getCertificate } from "@/lib/certificates/get-certificate";
 import { markCertificateAsViewed } from "@/lib/actions/student/certificates";
+import { createClient } from "@/lib/supabase/server";
 
 import CertificateRenderer
 
@@ -16,12 +17,45 @@ export default async function CertificatePage({
 }: Props) {
   const { certificateId } = await params;
 
-  const certificate = await getCertificate(certificateId);
+  /*
+   * على الموبايل قد يفتح Gmail/Outlook الرابط داخل متصفح
+   * لا توجد فيه جلسة Masar Makers. نطلب تسجيل الدخول أولًا
+   * ثم نعيد الطالب تلقائيًا إلى نفس الشهادة.
+   */
+  const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    const nextPath =
+      `/certificates/${encodeURIComponent(
+        certificateId,
+      )}`;
+
+    redirect(
+      `/login?next=${encodeURIComponent(
+        nextPath,
+      )}`,
+    );
+  }
+
+  const certificate =
+    await getCertificate(certificateId);
+
+  /*
+   * بعد وجود جلسة:
+   * null يعني أن الشهادة غير موجودة أو أن المستخدم
+   * الحالي لا يملك صلاحية الوصول إليها.
+   */
   if (!certificate) {
     notFound();
   }
-await markCertificateAsViewed(certificateId);
+
+  await markCertificateAsViewed(
+    certificateId,
+  );
   return (
     <main className="min-h-screen bg-slate-100 py-10">
       <div className="mx-auto mb-6 max-w-6xl px-4">
