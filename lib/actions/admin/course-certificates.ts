@@ -120,32 +120,120 @@ async function requireAdmin() {
 }
 
 /**
- * يتحقق من أن نوع الرحلة مؤهل للحصول على شهادة.
+ * نظام الشهادات مستقل عن اسم نوع الرحلة في enrollments.
  *
- * الرحلات المؤهلة:
+ * أنواع الشهادات النهائية تظل دائمًا:
  * - fundamental
  * - advanced
- * - integrated
  *
- * الرحلات غير المؤهلة:
- * - workshop
- * - free
+ * أما journey_type فيحدد أي شهادة/شهادات يستحقها الاشتراك.
+ * نحافظ هنا على نفس تطبيع القيم المستخدم في نظام الاشتراكات
+ * حتى تعمل البيانات الحالية والمستوردة بنفس القواعد.
  */
-const ELIGIBLE_ENROLLMENT_JOURNEY_TYPES = [
-  "fundamental",
-  "advanced",
-  "integrated",
-] as const;
+const PROFESSIONAL_ENROLLMENT_JOURNEY_TYPES =
+  new Set([
+    "fundamental",
+    "advanced",
+    "integrated",
+    "professional",
+    "career_path",
+  ]);
 
-type EligibleEnrollmentJourneyType =
-  (typeof ELIGIBLE_ENROLLMENT_JOURNEY_TYPES)[number];
-
-function isEligibleEnrollmentJourneyType(
+function normalizeEnrollmentJourneyType(
   value: string | null | undefined,
-): value is EligibleEnrollmentJourneyType {
-  return ELIGIBLE_ENROLLMENT_JOURNEY_TYPES.includes(
-    value as EligibleEnrollmentJourneyType,
+): string {
+  const normalized =
+    (value ?? "").trim().toLowerCase();
+
+  if (normalized === "fundamentals") {
+    return "fundamental";
+  }
+
+  if (
+    normalized === "career" ||
+    normalized === "career-path"
+  ) {
+    return "career_path";
+  }
+
+  if (
+    normalized === "one-day" ||
+    normalized === "one_day_journey" ||
+    normalized === "one_day_workshop" ||
+    normalized === "one-day-workshop"
+  ) {
+    return "workshop";
+  }
+
+  if (
+    normalized === "free_session" ||
+    normalized === "free-session" ||
+    normalized === "free_journey"
+  ) {
+    return "free";
+  }
+
+  return normalized;
+}
+
+function isProfessionalCertificateJourneyType(
+  value: string | null | undefined,
+): boolean {
+  return PROFESSIONAL_ENROLLMENT_JOURNEY_TYPES.has(
+    normalizeEnrollmentJourneyType(value),
   );
+}
+
+/**
+ * يحول نوع الاشتراك إلى نوع/أنواع الشهادات الصحيحة.
+ *
+ * Single:
+ *   أي اشتراك احترافي => Advanced فقط.
+ *
+ * Split:
+ *   Fundamental => Fundamental فقط.
+ *   Advanced => Advanced فقط.
+ *   Integrated / Professional / Career Path
+ *     => Fundamental + Advanced.
+ *
+ * Free و One-Day لا تعيد أي شهادات.
+ */
+function getCertificateTypesForEnrollment(
+  journeyType: string | null | undefined,
+  courseLevel: "single" | "split",
+): CertificateType[] {
+  const normalizedJourneyType =
+    normalizeEnrollmentJourneyType(journeyType);
+
+  if (
+    !PROFESSIONAL_ENROLLMENT_JOURNEY_TYPES.has(
+      normalizedJourneyType,
+    )
+  ) {
+    return [];
+  }
+
+  if (courseLevel === "single") {
+    return ["advanced"];
+  }
+
+  if (normalizedJourneyType === "fundamental") {
+    return ["fundamental"];
+  }
+
+  if (normalizedJourneyType === "advanced") {
+    return ["advanced"];
+  }
+
+  if (
+    normalizedJourneyType === "integrated" ||
+    normalizedJourneyType === "professional" ||
+    normalizedJourneyType === "career_path"
+  ) {
+    return ["fundamental", "advanced"];
+  }
+
+  return [];
 }
 
 /**
@@ -200,18 +288,14 @@ function mapEnrollmentToCertificateStudents(
   row: EnrollmentRow,
   courseLevel: "single" | "split",
 ): CourseCertificateStudent[] {
-  if (!isEligibleEnrollmentJourneyType(row.journey_type)) {
+  const certificateTypes =
+    getCertificateTypesForEnrollment(
+      row.journey_type,
+      courseLevel,
+    );
+
+  if (certificateTypes.length === 0) {
     return [];
-  }
-
-  let certificateTypes: CertificateType[];
-
-  if (courseLevel === "single") {
-    certificateTypes = ["advanced"];
-  } else if (row.journey_type === "integrated") {
-    certificateTypes = ["fundamental", "advanced"];
-  } else {
-    certificateTypes = [row.journey_type];
   }
 
   return certificateTypes.map((certificateType) => ({
@@ -364,11 +448,6 @@ const courseLevel: "single" | "split" =
       `)
       .eq("course_id", normalizedCourseId)
       .eq("status", "active")
-      .in("journey_type", [
-  "fundamental",
-  "advanced",
-  "integrated",
-])
       .order("student_name", {
         ascending: true,
         nullsFirst: false,
@@ -732,6 +811,18 @@ const certificateType = input.certificateType;
       };
     }
 
+    if (
+      !isProfessionalCertificateJourneyType(
+        enrollment.journey_type,
+      )
+    ) {
+      return {
+        success: false,
+        message:
+          "الشهادات متاحة فقط لرحلات الاحتراف، ولا تصدر للرحلات المجانية أو رحلات اليوم الواحد.",
+      };
+    }
+
     const { data: currentCertificate } = await supabase
   .from("certificates")
   .select("id,certificate_number,issued_at,status")
@@ -888,14 +979,23 @@ if (stationError || !stationData) {
 const courseLevel: "single" | "split" =
   courseData.level === "split" ? "split" : "single";
 
+const allowedCertificateTypes =
+  getCertificateTypesForEnrollment(
+    enrollment.journey_type,
+    courseLevel,
+  );
+
 if (
-  courseLevel === "single" &&
-  certificateType === "fundamental"
+  !allowedCertificateTypes.includes(
+    certificateType,
+  )
 ) {
   return {
     success: false,
     message:
-      "هذا الكورس مكوّن من مستوى واحد، وشهادته من نوع Advanced فقط.",
+      courseLevel === "single"
+        ? "هذا الكورس مكوّن من مستوى واحد، وشهادته من نوع Advanced فقط."
+        : "نوع الشهادة المطلوب لا يتوافق مع نوع اشتراك الطالب.",
   };
 }
 /*
