@@ -2313,10 +2313,10 @@ export async function getImportedStudentPreview(
         certificate.preview_url ??
         certificate.file_url ??
         null,
-      pdfUrl:
-        certificate.pdf_url ??
-        certificate.file_url ??
-        `/api/certificates/${certificate.id}/pdf`,
+     pdfUrl:
+  certificate.pdf_url ??
+  certificate.file_url ??
+  null,
       isNew:
         Boolean(
           certificate.is_new,

@@ -980,7 +980,7 @@ const certificates: StudentCertificate[] = certificateRows.map(
 pdfUrl:
   certificate.pdf_url ??
   certificate.file_url ??
-  `/api/certificates/${certificate.id}/pdf`,
+  null,
 
     primaryColor: "#F7B548",
     secondaryColor: "#07152E",
