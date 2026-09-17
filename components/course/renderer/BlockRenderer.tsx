@@ -1,6 +1,6 @@
 import type { CatalogPanelBlock } from "@/lib/queries/catalog";
 import HeadingBlock from "./blocks/HeadingBlock";
-
+import sanitizeHtml from "sanitize-html";
 type BlockRendererProps = {
   block: CatalogPanelBlock;
 };
@@ -19,17 +19,31 @@ export default function BlockRenderer({
 
     case "text": {
   const content =
-    typeof block.data?.content === "string"
-      ? block.data.content
-      : "";
+  typeof block.data?.content === "string"
+    ? block.data.content
+    : "";
+
+const safeContent = sanitizeHtml(content, {
+  allowedTags: sanitizeHtml.defaults.allowedTags,
+  allowedAttributes: {
+    ...sanitizeHtml.defaults.allowedAttributes,
+    "*": ["class"],
+    a: ["href", "name", "target", "rel"],
+  },
+  allowedSchemes: [
+    "http",
+    "https",
+    "mailto",
+  ],
+});
 
   return (
     <div className="px-6 py-5">
       <div
         className="prose prose-sm max-w-none"
         dangerouslySetInnerHTML={{
-          __html: content,
-        }}
+  __html: safeContent,
+}}
       />
     </div>
   );

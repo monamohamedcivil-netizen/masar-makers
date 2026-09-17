@@ -648,13 +648,15 @@ function IssuedTable({
                       <Eye className="h-4 w-4" />
                     </Link>
 
-                    <a
-                      href={`/api/certificates/${row.certificateId}/pdf`}
-                      title="تحميل"
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
-                    >
-                      <Download className="h-4 w-4" />
-                    </a>
+                    <Link
+  href={`/certificates/${row.certificateId}`}
+  title="عرض وتحميل الشهادة"
+  target="_blank"
+  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
+>
+  <Download className="h-4 w-4" />
+</Link>
+                    
                   </>
                 ) : null}
 

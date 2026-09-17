@@ -2161,7 +2161,20 @@ async function handleIncomingMessage(
 function verifyMetaSignature(rawBody: string, signature: string | null) {
   // During testing META_APP_SECRET may be unset. If set later, verification
   // becomes mandatory automatically.
-  if (!META_APP_SECRET) return true;
+  if (!META_APP_SECRET) {
+  if (process.env.NODE_ENV === "production") {
+    console.error(
+      "META_APP_SECRET is missing. WhatsApp webhook rejected.",
+    );
+    return false;
+  }
+
+  console.warn(
+    "META_APP_SECRET is missing. Signature verification is skipped outside production.",
+  );
+
+  return true;
+}
   if (!signature?.startsWith("sha256=")) return false;
 
   const expected = createHmac("sha256", META_APP_SECRET)

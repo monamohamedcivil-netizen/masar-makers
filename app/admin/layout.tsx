@@ -27,9 +27,15 @@ export default async function AdminLayout({
     .eq("id", user.id)
     .single();
 
-  if (profileError || profile?.role !== "admin") {
-    redirect("/");
-  }
+  if (
+  profileError ||
+  !profile ||
+  !["admin", "super_admin"].includes(
+    String(profile.role),
+  )
+) {
+  redirect("/");
+}
 
   const adminName =
     profile.full_name ??

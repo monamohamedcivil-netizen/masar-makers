@@ -33,13 +33,8 @@ type UserRole =
 function isCleanCertificateRoute(
   pathname: string,
 ) {
-  return (
-    pathname.startsWith(
-      "/certificates/",
-    ) ||
-    pathname.startsWith(
-      "/api/certificates/",
-    )
+  return pathname.startsWith(
+    "/certificates/",
   );
 }
 
