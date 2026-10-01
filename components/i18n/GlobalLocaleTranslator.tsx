@@ -168,13 +168,14 @@ export default function GlobalLocaleTranslator() {
             element.setAttribute("dir", "ltr");
           }
         } else if (originalDirections.has(element)) {
-          const original = originalDirections.get(element);
-          if (original === null) {
-            element.removeAttribute("dir");
-          } else {
-            element.setAttribute("dir", original);
-          }
-        }
+  const original = originalDirections.get(element);
+
+  if (original == null) {
+    element.removeAttribute("dir");
+  } else {
+    element.setAttribute("dir", original);
+  }
+}
       }
     };
 

@@ -861,7 +861,6 @@ export default function MonthlyDrawOverlay() {
                   <div className="mt-1">
                     <DrumReel
                       locale={locale}
-                      locale={locale}
                       names={weightedNames}
                       index={spinIndex}
                       spinning={spinning}
@@ -996,7 +995,7 @@ export default function MonthlyDrawOverlay() {
                   <div className="mt-3 w-full">
                     <DrumReel
                       locale={locale}
-                      locale={locale}
+                    
                       names={
                         weightedNames
                       }

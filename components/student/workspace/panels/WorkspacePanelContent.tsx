@@ -128,21 +128,24 @@ export default function WorkspacePanelContent({
 
       return (
         <EmptyPanel
-          icon={
-            panel.settings?.accent === "free"
-              ? Sparkles
-              : panel.icon
-          }
-          title={panel.title}
-          text={String(
-            panel.settings?.description ??
-              (isArabic ? "لا يوجد محتوى متاح حاليًا." : "No content is currently available."),
-          )}
-          href={String(
-            panel.settings?.href ??
-              "/career-path/road-design",
-          )}
-        />
+  icon={
+    panel.settings?.accent === "free"
+      ? Sparkles
+      : panel.icon
+  }
+  title={panel.title}
+  text={String(
+    panel.settings?.description ??
+      (isArabic
+        ? "لا يوجد محتوى متاح حاليًا."
+        : "No content is currently available."),
+  )}
+  href={String(
+    panel.settings?.href ??
+      "/career-path/road-design",
+  )}
+  locale={locale}
+/>
       );
 
     case "next-step":
@@ -200,6 +203,7 @@ function CareerPathsPanel({
         title={isArabic ? "رحلتك الأولى في انتظارك" : "Your first journey is waiting"}
         text={isArabic ? "اشترك في إحدى الرحلات لتظهر خريطة تقدمك المهنية هنا." : "Enroll in a journey to see your professional progress map here."}
         href="/career-path/road-design"
+          locale={locale}
       />
     );
   }
@@ -1203,12 +1207,15 @@ function EmptyPanel({
   title,
   text,
   href,
+  locale,
 }: {
   icon: typeof Compass;
   title: string;
   text: string;
   href: string;
+  locale: Locale;
 }) {
+  const isArabic = locale === "ar";
   return (
     <div className="flex min-h-[400px] flex-col items-center justify-center text-center">
       <span className="flex h-18 w-18 items-center justify-center rounded-full bg-[#FFF4DF] text-[#C88712]">

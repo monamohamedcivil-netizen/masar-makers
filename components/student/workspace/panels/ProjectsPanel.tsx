@@ -631,25 +631,20 @@ function ProjectPathView({
             <div className="grid gap-3">
               {activeCourseProjects.map(
                 (project) => (
-                  <ProjectCard
-                    key={project.id}
-                    project={project}
-                    onView={() =>
-                      onViewProject(
-                        project,
-                      )
-                    }
-                    onEdit={() =>
-                      onEditProject(
-                        project,
-                      )
-                    }
-                    onDelete={() =>
-                      onDeleteProject(
-                        project,
-                      )
-                    }
-                  />
+                 <ProjectCard
+  key={project.id}
+  project={project}
+  onView={() =>
+    onViewProject(project)
+  }
+  onEdit={() =>
+    onEditProject(project)
+  }
+  onDelete={() =>
+    onDeleteProject(project)
+  }
+  readOnly={readOnly}
+/>
                 ),
               )}
             </div>

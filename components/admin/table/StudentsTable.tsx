@@ -371,37 +371,57 @@ function StudentJourneyTable({
     showBottomScroll: boolean;
   } | null>(null);
 
-  useEffect(() => {
-    const wrap = tableWrapRef.current;
-    const table = tableRef.current;
-    const header = headerRef.current;
-    if (!wrap || !table || !header) return;
+ const syncAllFrom = (source: HTMLDivElement) => {
+  if (syncingRef.current) return;
 
-    const syncAllFrom = (source: HTMLDivElement) => {
-      if (syncingRef.current) return;
-      syncingRef.current = true;
-      const x = source.scrollLeft;
+  syncingRef.current = true;
+  const x = source.scrollLeft;
 
-      if (source !== wrap) wrap.scrollLeft = x;
-      if (floatingHeaderScrollRef.current && source !== floatingHeaderScrollRef.current) {
-        floatingHeaderScrollRef.current.scrollLeft = x;
-      }
-      if (floatingBottomScrollRef.current && source !== floatingBottomScrollRef.current) {
-        floatingBottomScrollRef.current.scrollLeft = x;
-      }
+  const wrap = tableWrapRef.current;
 
-      requestAnimationFrame(() => {
-        syncingRef.current = false;
-      });
-    };
+  if (wrap && source !== wrap) {
+    wrap.scrollLeft = x;
+  }
 
-    const onWrapScroll = () => syncAllFrom(wrap);
-    const onHeaderScroll = () => {
-      if (floatingHeaderScrollRef.current) syncAllFrom(floatingHeaderScrollRef.current);
-    };
-    const onBottomScroll = () => {
-      if (floatingBottomScrollRef.current) syncAllFrom(floatingBottomScrollRef.current);
-    };
+  if (
+    floatingHeaderScrollRef.current &&
+    source !== floatingHeaderScrollRef.current
+  ) {
+    floatingHeaderScrollRef.current.scrollLeft = x;
+  }
+
+  if (
+    floatingBottomScrollRef.current &&
+    source !== floatingBottomScrollRef.current
+  ) {
+    floatingBottomScrollRef.current.scrollLeft = x;
+  }
+
+  requestAnimationFrame(() => {
+    syncingRef.current = false;
+  });
+};
+
+useEffect(() => {
+  const wrap = tableWrapRef.current;
+  const table = tableRef.current;
+  const header = headerRef.current;
+
+  if (!wrap || !table || !header) return;
+
+  const onWrapScroll = () => syncAllFrom(wrap);
+
+  const onHeaderScroll = () => {
+    if (floatingHeaderScrollRef.current) {
+      syncAllFrom(floatingHeaderScrollRef.current);
+    }
+  };
+
+  const onBottomScroll = () => {
+    if (floatingBottomScrollRef.current) {
+      syncAllFrom(floatingBottomScrollRef.current);
+    }
+  };
 
     const updateChrome = () => {
       const rect = wrap.getBoundingClientRect();

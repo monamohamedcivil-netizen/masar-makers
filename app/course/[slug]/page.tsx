@@ -241,7 +241,7 @@ const courseProjects = pageData
         courses={pathCourses}
         currentCourseSlug={course.slug}
         pathTitle={path.title}
-        pathSlug={path.slug}
+        pathSlug={path.slug as PathSlug}
       />
 
       {/*
