@@ -23,6 +23,7 @@ interface Props {
   drawRewardsAvailable: number;
 
   visibleRewardItems: RewardItem[];
+  locale?: "ar" | "en";
 }
 
 export default function RewardsCard({
@@ -39,9 +40,11 @@ drawRewardsRedeemed,
 drawRewardsAvailable,
 
 visibleRewardItems,
+  locale = "ar",
 }: Props) {
+  const isArabic = locale === "ar";
   return (
-    <section className="overflow-hidden rounded-[26px] border border-[#DCE3EB] bg-white shadow-[0_14px_38px_rgba(7,21,46,0.08)]">
+    <section dir={isArabic ? "rtl" : "ltr"} className="overflow-hidden rounded-[26px] border border-[#DCE3EB] bg-white shadow-[0_14px_38px_rgba(7,21,46,0.08)]">
 
       <div className="grid lg:grid-cols-[290px_minmax(0,1fr)]">
 
@@ -56,37 +59,37 @@ visibleRewardItems,
           </p>
 
           <h3 className="mt-1 text-[20px] font-black">
-            بطاقة المكافآت
+            {isArabic ? "بطاقة المكافآت" : "Rewards Card"}
           </h3>
 
           <p className="mt-2 max-w-[220px] text-[10px] font-bold leading-5 text-white/65">
-            أكمل عشر رحلات تعليمية احترافية واحصل على مكافأة خاصة.
+            {isArabic ? "أكمل عشر رحلات تعليمية احترافية واحصل على مكافأة خاصة." : "Complete ten professional learning journeys and earn a special reward."}
           </p>
 <div className="mt-2 border-t border-white/15 pt-1">
 
   {/* Header */}
   <div className="grid grid-cols-4 items-center text-center text-[10px] font-bold text-white/65">
     <div className="py-1">
-      حالة المكافآت
+      {isArabic ? "حالة المكافآت" : "Reward Status"}
     </div>
 
     <div className="py-1">
-      المكتسبة
+      {isArabic ? "المكتسبة" : "Earned"}
     </div>
 
     <div className="py-1">
-      المستخدمة
+      {isArabic ? "المستخدمة" : "Redeemed"}
     </div>
 
     <div className="py-1">
-      المتاحة
+      {isArabic ? "المتاحة" : "Available"}
     </div>
   </div>
 
   {/* Rewards Card */}
   <div className="grid grid-cols-4 items-center border-t border-white/10 text-center text-[10px] font-bold">
     <div className="py-0 text-white/80">
-      بطاقة المكافآت
+      {isArabic ? "بطاقة المكافآت" : "Rewards Card"}
     </div>
 
     <div className="py-0 text-sm text-green-400">
@@ -105,7 +108,7 @@ visibleRewardItems,
   {/* Monthly Draw */}
   <div className="grid grid-cols-4 items-center border-t border-white/10 text-center text-[10px] font-bold">
     <div className="py-0 text-white/80">
-      السحب الشهري
+      {isArabic ? "السحب الشهري" : "Monthly Draw"}
     </div>
 
     <div className="py-0 text-sm text-green-400">
@@ -131,15 +134,15 @@ visibleRewardItems,
             <div>
 
               <p className="text-[10px] font-black text-[#C88712]">
-                المكافأة القادمة
+                {isArabic ? "المكافأة القادمة" : "Next Reward"}
               </p>
 
               <h3 className="mt-1 text-[20px] font-black text-[#07152E]">
-                رحلة مجانية من اختيارك
+                {isArabic ? "رحلة مجانية من اختيارك" : "A Free Journey of Your Choice"}
               </h3>
 
               <p className="mt-1 text-[10px] font-bold text-slate-500">
-                من رحلات اليوم الواحد في منصة Masar Makers.
+                {isArabic ? "من رحلات اليوم الواحد في منصة Masar Makers." : "Choose from Masar Makers one-day journeys."}
               </p>
 
             </div>
@@ -154,7 +157,7 @@ visibleRewardItems,
               </p>
 
               <p className="text-[9px] font-black text-[#C88712]">
-                رحلات احترافية
+                {isArabic ? "رحلات احترافية" : "Professional Journeys"}
               </p>
 
             </div>
@@ -223,11 +226,18 @@ visibleRewardItems,
             <p className="text-[10px] font-bold text-slate-500">
 
               {rewardProgress >= rewardTarget
-                ? "تهانينا! أصبحت المكافأة متاحة."
-                : `متبقي ${Math.max(
-                    0,
-                    rewardTarget - rewardProgress,
-                  )} رحلات احترافية للحصول على المكافأة.`}
+                ? isArabic
+                  ? "تهانينا! أصبحت المكافأة متاحة."
+                  : "Congratulations! Your reward is now available."
+                : isArabic
+                  ? `متبقي ${Math.max(
+                      0,
+                      rewardTarget - rewardProgress,
+                    )} رحلات احترافية للحصول على المكافأة.`
+                  : `${Math.max(
+                      0,
+                      rewardTarget - rewardProgress,
+                    )} professional journeys remaining to earn the reward.`}
 
             </p>
 

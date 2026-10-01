@@ -8,11 +8,15 @@ import {
   ALLOWED_PROJECT_IMAGE_TYPES,
   MAX_PROJECT_IMAGES,
   MAX_PROJECT_IMAGE_SIZE,
+  ALLOWED_PROJECT_VIDEO_TYPES,
+  MAX_PROJECT_VIDEO_SIZE,
 } from "./constants";
 
 import {
   deleteProjectImage,
   uploadProjectImage,
+  uploadProjectVideo,
+  deleteProjectVideo,
 } from "./project-storage";
 
 type EnrollmentRow = {
@@ -87,6 +91,12 @@ export async function createProject(
     "projectLink",
   );
 
+  const videoItem = formData.get("video");
+  const video =
+    videoItem instanceof File && videoItem.size > 0
+      ? videoItem
+      : null;
+
   const images = formData
     .getAll("images")
     .filter(
@@ -146,6 +156,26 @@ export async function createProject(
       message:
         `يمكن رفع ${MAX_PROJECT_IMAGES} صور كحد أقصى.`,
     };
+  }
+
+  if (video) {
+    if (
+      !ALLOWED_PROJECT_VIDEO_TYPES.includes(
+        video.type as (typeof ALLOWED_PROJECT_VIDEO_TYPES)[number],
+      )
+    ) {
+      return {
+        success: false,
+        message: "نوع الفيديو غير مدعوم. استخدمي MP4 أو WEBM.",
+      };
+    }
+
+    if (video.size > MAX_PROJECT_VIDEO_SIZE) {
+      return {
+        success: false,
+        message: "حجم الفيديو أكبر من 50 MB.",
+      };
+    }
   }
 
   for (const image of images) {
@@ -359,6 +389,7 @@ student_job_title:
   }
 
   const uploadedPaths: string[] = [];
+  let uploadedVideoPath: string | null = null;
 
   try {
     for (
@@ -415,7 +446,35 @@ student_job_title:
         throw imageError;
       }
     }
+
+    if (video) {
+      const videoExtension =
+        video.type === "video/webm" ? "webm" : "mp4";
+      uploadedVideoPath = [
+        user.id,
+        project.id,
+        "video",
+        `${crypto.randomUUID()}.${videoExtension}`,
+      ].join("/");
+
+      await uploadProjectVideo(uploadedVideoPath, video);
+
+      const { error: videoUpdateError } = await supabase
+        .from("student_projects")
+        .update({
+          video_storage_path: uploadedVideoPath,
+          video_url: null,
+        })
+        .eq("id", project.id)
+        .eq("user_id", user.id);
+
+      if (videoUpdateError) throw videoUpdateError;
+    }
   } catch (error) {
+    if (uploadedVideoPath) {
+      await deleteProjectVideo(uploadedVideoPath);
+    }
+
     await Promise.all(
       uploadedPaths.map(
         (storagePath) =>

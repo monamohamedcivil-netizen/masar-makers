@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import {
   deleteProjectImage,
+  deleteProjectVideo,
 } from "./project-storage";
 
 type ProjectImageRow = {
@@ -45,7 +46,7 @@ export async function deleteProject(
     error: projectError,
   } = await supabase
     .from("student_projects")
-    .select("id")
+    .select("id, video_storage_path")
     .eq("id", normalizedProjectId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -106,6 +107,13 @@ export async function deleteProject(
           ),
       ),
     );
+  }
+
+  if (
+    typeof project.video_storage_path === "string" &&
+    project.video_storage_path
+  ) {
+    await deleteProjectVideo(project.video_storage_path);
   }
 
   const {

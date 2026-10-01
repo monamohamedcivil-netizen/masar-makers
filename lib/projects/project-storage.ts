@@ -57,3 +57,26 @@ export async function deleteProjectImage(
     .from(PROJECT_BUCKET)
     .remove([storagePath]);
 }
+export async function uploadProjectVideo(
+  storagePath: string,
+  file: File,
+) {
+  const supabase = await createClient();
+  const { error } = await supabase.storage
+    .from(PROJECT_BUCKET)
+    .upload(storagePath, file, {
+      contentType: file.type,
+      upsert: false,
+    });
+
+  if (error) throw error;
+}
+
+export async function deleteProjectVideo(
+  storagePath: string,
+) {
+  const supabase = await createClient();
+  await supabase.storage
+    .from(PROJECT_BUCKET)
+    .remove([storagePath]);
+}

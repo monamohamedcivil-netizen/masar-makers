@@ -13,6 +13,7 @@ import {
   BuilderProvider,
 } from "@/components/builder";
 
+import GlobalLocaleTranslator from "@/components/i18n/GlobalLocaleTranslator";
 import MonthlyDrawOverlay from "@/components/monthly-draw/MonthlyDrawOverlay";
 
 import {
@@ -175,6 +176,8 @@ export default function RootClientShell({
 
   return (
     <BuilderProvider>
+      <GlobalLocaleTranslator />
+
       {children}
 
       {showBuilderTools ? (

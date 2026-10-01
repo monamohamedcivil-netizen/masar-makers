@@ -84,9 +84,9 @@ async function getAuthenticatedUser() {
 }
 
 async function getPublishedLesson(
+  supabase: Awaited<ReturnType<typeof createClient>>,
   lessonId: string,
 ): Promise<LessonRow | null> {
-  const { supabase } = await getAuthenticatedUser();
 
   const { data, error } = await supabase
     .from("lessons")
@@ -126,7 +126,7 @@ export async function startLesson(
   }
 
   const { supabase, user } = await getAuthenticatedUser();
-  const lesson = await getPublishedLesson(lessonId);
+  const lesson = await getPublishedLesson(supabase, lessonId);
 
   if (!lesson) {
     throw new Error("LESSON_NOT_FOUND");
@@ -264,7 +264,7 @@ export async function updateLessonProgress(
   }
 
   const { supabase, user } = await getAuthenticatedUser();
-  const lesson = await getPublishedLesson(lessonId);
+  const lesson = await getPublishedLesson(supabase, lessonId);
 
   if (!lesson) {
     throw new Error("LESSON_NOT_FOUND");
@@ -325,7 +325,7 @@ export async function completeLesson(
   }
 
   const { supabase, user } = await getAuthenticatedUser();
-  const lesson = await getPublishedLesson(lessonId);
+  const lesson = await getPublishedLesson(supabase, lessonId);
 
   if (!lesson) {
     throw new Error("LESSON_NOT_FOUND");

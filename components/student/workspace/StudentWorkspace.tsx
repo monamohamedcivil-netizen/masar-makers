@@ -13,6 +13,8 @@ type Props = {
   data: StudentDashboardData;
   initialPanelId?: WorkspacePanelId;
   initialLessonId?: string;
+  previewUserId?: string;
+  readOnly?: boolean;
 };
 
 export default function StudentWorkspace({
@@ -20,6 +22,8 @@ export default function StudentWorkspace({
   data,
   initialPanelId,
   initialLessonId,
+  previewUserId,
+  readOnly = false,
 }: Props) {
   const validInitialPanel =
     initialPanelId &&
@@ -186,6 +190,8 @@ export default function StudentWorkspace({
                 panel={activePanel}
                 data={data}
                 initialLessonId={initialLessonId}
+                previewUserId={previewUserId}
+                readOnly={readOnly}
               />
             </div>
           </div>

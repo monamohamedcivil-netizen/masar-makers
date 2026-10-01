@@ -13,3 +13,10 @@ export const ALLOWED_PROJECT_IMAGE_TYPES = [
   "image/png",
   "image/webp",
 ] as const;
+export const MAX_PROJECT_VIDEO_SIZE =
+  50 * 1024 * 1024;
+
+export const ALLOWED_PROJECT_VIDEO_TYPES = [
+  "video/mp4",
+  "video/webm",
+] as const;

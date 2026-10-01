@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   addStudentBonusPoints,
@@ -12,6 +12,7 @@ import {
   Award,
   BookOpenCheck,
   Eye,
+  ExternalLink,
   FileImage,
   Gift,
   GraduationCap,
@@ -186,44 +187,123 @@ function BasicStudentsTable({
 }: {
   students: StudentRow[];
 }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[1150px]">
-        <thead className="bg-slate-50">
-          <tr>
-            <TableHead>الطالب</TableHead>
-            <TableHead>الهاتف</TableHead>
-            <TableHead>الدولة</TableHead>
-            <TableHead>إجمالي الاشتراكات</TableHead>
-            <TableHead>النشط</TableHead>
-            <TableHead>قيد المراجعة</TableHead>
-            <TableHead>الحالة</TableHead>
-            <TableHead>عرض</TableHead>
-          </tr>
-        </thead>
+  const tableWrapRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLTableSectionElement>(null);
+  const [floatingHeader, setFloatingHeader] = useState<React.CSSProperties | null>(null);
 
-        <tbody>
+  useEffect(() => {
+    const updateFloatingHeader = () => {
+      const wrap = tableWrapRef.current;
+      const header = headerRef.current;
+      if (!wrap || !header) return;
+
+      const wrapRect = wrap.getBoundingClientRect();
+      const headerRect = header.getBoundingClientRect();
+      const topOffset = 98;
+      const shouldFloat =
+        headerRect.top < topOffset &&
+        wrapRect.bottom > topOffset + header.offsetHeight;
+
+      setFloatingHeader(
+        shouldFloat
+          ? {
+              position: "fixed",
+              top: topOffset,
+              left: wrapRect.left,
+              width: wrapRect.width,
+              zIndex: 40,
+            }
+          : null,
+      );
+    };
+
+    window.addEventListener("scroll", updateFloatingHeader, { passive: true });
+    window.addEventListener("resize", updateFloatingHeader);
+    updateFloatingHeader();
+
+    return () => {
+      window.removeEventListener("scroll", updateFloatingHeader);
+      window.removeEventListener("resize", updateFloatingHeader);
+    };
+  }, []);
+
+  const basicColGroup = (
+    <colgroup>
+      <col className="w-[23%]" />
+      <col className="w-[15%]" />
+      <col className="w-[10%]" />
+      <col className="w-[7%]" />
+      <col className="w-[8%]" />
+      <col className="w-[6%]" />
+      <col className="w-[7%]" />
+      <col className="w-[6%]" />
+      <col className="w-[18%]" />
+    </colgroup>
+  );
+
+  const basicHeaderRow = (
+    <tr>
+      <TableHead>الطالب</TableHead>
+      <TableHead>الهاتف</TableHead>
+      <TableHead>الدولة</TableHead>
+      <TableHead>الاحترافية</TableHead>
+      <TableHead>إجمالي الاشتراكات</TableHead>
+      <TableHead>النشط</TableHead>
+      <TableHead>قيد المراجعة</TableHead>
+      <TableHead>الحالة</TableHead>
+      <TableHead>عرض</TableHead>
+    </tr>
+  );
+
+  return (
+    <>
+      {floatingHeader && (
+        <div
+          style={floatingHeader}
+          className="pointer-events-none overflow-hidden border-b border-slate-200 bg-slate-50 shadow-sm"
+        >
+          <table className="w-full table-fixed">
+            {basicColGroup}
+            <thead className="bg-slate-50">{basicHeaderRow}</thead>
+          </table>
+        </div>
+      )}
+
+      <div
+        ref={tableWrapRef}
+        className="w-full overflow-x-auto lg:overflow-x-hidden"
+      >
+        <table className="w-full min-w-[980px] table-fixed lg:min-w-0">
+          {basicColGroup}
+          <thead ref={headerRef} className="bg-slate-50">
+            {basicHeaderRow}
+          </thead>
+          <tbody>
           {students.map((student) => (
             <tr
               key={student.userId}
               className="border-t border-slate-100 transition hover:bg-slate-50/70"
             >
-              <td className="px-4 py-4">
+              <td className="px-3 py-4">
                 <StudentIdentity
                   student={student}
+                  expanded
                 />
               </td>
 
-              <TableCell>
+              <td className="whitespace-nowrap px-2 py-3 text-center text-xs">
                 {student.studentPhone ? (
-                  <span className="inline-flex items-center gap-2 font-bold text-slate-600">
-                    <Phone className="h-4 w-4 text-slate-400" />
+                  <span
+                    dir="ltr"
+                    className="inline-flex items-center gap-1.5 whitespace-nowrap font-bold text-slate-600"
+                  >
+                    <Phone className="h-4 w-4 shrink-0 text-slate-400" />
                     {student.studentPhone}
                   </span>
                 ) : (
                   <EmptyValue />
                 )}
-              </TableCell>
+              </td>
 
               <TableCell>
                 {student.studentCountry ? (
@@ -235,6 +315,10 @@ function BasicStudentsTable({
                   <EmptyValue />
                 )}
               </TableCell>
+
+              <MetricCell
+                value={student.professionalEnrollments}
+              />
 
               <MetricCell
                 value={student.totalEnrollments}
@@ -254,14 +338,15 @@ function BasicStudentsTable({
                 </span>
               </TableCell>
 
-              <ViewStudentCell
+              <StudentActionsCell
                 userId={student.userId}
               />
             </tr>
           ))}
         </tbody>
-      </table>
-    </div>
+        </table>
+      </div>
+    </>
   );
 }
 
@@ -270,11 +355,115 @@ function StudentJourneyTable({
 }: {
   students: StudentRow[];
 }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[1750px]">
-        <thead className="bg-slate-50">
-          <tr>
+  const tableWrapRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
+  const headerRef = useRef<HTMLTableSectionElement>(null);
+  const floatingHeaderScrollRef = useRef<HTMLDivElement>(null);
+  const floatingBottomScrollRef = useRef<HTMLDivElement>(null);
+  const syncingRef = useRef(false);
+
+  const [floatingChrome, setFloatingChrome] = useState<{
+    left: number;
+    width: number;
+    tableWidth: number;
+    columnWidths: number[];
+    showHeader: boolean;
+    showBottomScroll: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    const wrap = tableWrapRef.current;
+    const table = tableRef.current;
+    const header = headerRef.current;
+    if (!wrap || !table || !header) return;
+
+    const syncAllFrom = (source: HTMLDivElement) => {
+      if (syncingRef.current) return;
+      syncingRef.current = true;
+      const x = source.scrollLeft;
+
+      if (source !== wrap) wrap.scrollLeft = x;
+      if (floatingHeaderScrollRef.current && source !== floatingHeaderScrollRef.current) {
+        floatingHeaderScrollRef.current.scrollLeft = x;
+      }
+      if (floatingBottomScrollRef.current && source !== floatingBottomScrollRef.current) {
+        floatingBottomScrollRef.current.scrollLeft = x;
+      }
+
+      requestAnimationFrame(() => {
+        syncingRef.current = false;
+      });
+    };
+
+    const onWrapScroll = () => syncAllFrom(wrap);
+    const onHeaderScroll = () => {
+      if (floatingHeaderScrollRef.current) syncAllFrom(floatingHeaderScrollRef.current);
+    };
+    const onBottomScroll = () => {
+      if (floatingBottomScrollRef.current) syncAllFrom(floatingBottomScrollRef.current);
+    };
+
+    const updateChrome = () => {
+      const rect = wrap.getBoundingClientRect();
+      const headerRect = header.getBoundingClientRect();
+      const topOffset = 98;
+      const viewportHeight = window.innerHeight;
+      const visible = rect.top < viewportHeight && rect.bottom > topOffset;
+      const showHeader =
+        visible &&
+        headerRect.top < topOffset &&
+        rect.bottom > topOffset + header.offsetHeight;
+      const showBottomScroll =
+        visible &&
+        rect.bottom > viewportHeight;
+
+      const columnWidths = Array.from(
+        header.querySelectorAll("th"),
+      ).map((cell) => cell.getBoundingClientRect().width);
+
+      setFloatingChrome({
+        left: Math.max(0, rect.left),
+        width: Math.max(
+          0,
+          Math.min(rect.right, window.innerWidth) -
+            Math.max(0, rect.left),
+        ),
+        tableWidth: table.scrollWidth,
+        columnWidths,
+        showHeader,
+        showBottomScroll,
+      });
+
+      requestAnimationFrame(() => {
+        if (floatingHeaderScrollRef.current) {
+          floatingHeaderScrollRef.current.scrollLeft = wrap.scrollLeft;
+        }
+        if (floatingBottomScrollRef.current) {
+          floatingBottomScrollRef.current.scrollLeft = wrap.scrollLeft;
+        }
+      });
+    };
+
+    wrap.addEventListener("scroll", onWrapScroll, { passive: true });
+    window.addEventListener("scroll", updateChrome, { passive: true });
+    window.addEventListener("resize", updateChrome);
+
+    const resizeObserver = new ResizeObserver(updateChrome);
+    resizeObserver.observe(wrap);
+    resizeObserver.observe(table);
+
+    updateChrome();
+
+    return () => {
+      wrap.removeEventListener("scroll", onWrapScroll);
+      window.removeEventListener("scroll", updateChrome);
+      window.removeEventListener("resize", updateChrome);
+      resizeObserver.disconnect();
+    };
+  }, []);
+
+  const journeyHeaderRow = (
+    <tr>
             <TableHead>الطالب</TableHead>
             <TableHead>احتراف</TableHead>
             <TableHead>يوم واحد</TableHead>
@@ -303,9 +492,56 @@ function StudentJourneyTable({
 
 <TableHead>عرض</TableHead>
           </tr>
-        </thead>
+  );
 
-        <tbody>
+  return (
+    <>
+      {floatingChrome?.showHeader && (
+        <div
+          ref={floatingHeaderScrollRef}
+          dir="ltr"
+          onScroll={(event) => syncAllFrom(event.currentTarget)}
+          className="fixed top-[98px] z-40 overflow-x-hidden border-b border-slate-200 bg-slate-50 shadow-sm"
+          style={{
+            left: floatingChrome.left,
+            width: floatingChrome.width,
+          }}
+        >
+          <table
+            dir="rtl"
+            className="table-fixed"
+            style={{
+              width: `${floatingChrome.tableWidth}px`,
+              minWidth: `${floatingChrome.tableWidth}px`,
+            }}
+          >
+            <colgroup>
+              {floatingChrome.columnWidths.map((width, index) => (
+                <col
+                  key={index}
+                  style={{ width: `${width}px` }}
+                />
+              ))}
+            </colgroup>
+            <thead className="bg-slate-50">{journeyHeaderRow}</thead>
+          </table>
+        </div>
+      )}
+
+      <div
+        ref={tableWrapRef}
+        dir="ltr"
+        className="w-full overflow-x-auto"
+      >
+        <table
+          ref={tableRef}
+          dir="rtl"
+          className="w-full min-w-[1750px]"
+        >
+          <thead ref={headerRef} className="bg-slate-50">
+            {journeyHeaderRow}
+          </thead>
+          <tbody>
           {students.map((student) => (
             <tr
               key={student.userId}
@@ -427,32 +663,69 @@ function StudentJourneyTable({
             </tr>
           ))}
         </tbody>
-      </table>
-    </div>
+        </table>
+      </div>
+
+      {floatingChrome?.showBottomScroll && (
+        <div
+          ref={floatingBottomScrollRef}
+          dir="ltr"
+          onScroll={(event) => syncAllFrom(event.currentTarget)}
+          className="fixed bottom-0 z-50 h-5 overflow-x-auto overflow-y-hidden border-t border-slate-300 bg-white shadow-[0_-2px_8px_rgba(15,23,42,0.12)]"
+          style={{
+            left: floatingChrome.left,
+            width: floatingChrome.width,
+          }}
+          aria-label="شريط تمرير أفقي ثابت لجدول رحلة الطالب"
+        >
+          <div
+            className="h-px shrink-0"
+            style={{
+              width: `${floatingChrome.tableWidth}px`,
+              minWidth: `${floatingChrome.tableWidth}px`,
+            }}
+          />
+        </div>
+      )}
+    </>
   );
 }
 
 function StudentIdentity({
   student,
+  expanded = false,
 }: {
   student: StudentRow;
+  expanded?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#07152E] text-base font-black text-[#F7B548]">
+    <div className="flex items-center gap-2">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#07152E] text-base font-black text-[#F7B548]">
         {student.studentName
           .trim()
           .charAt(0) || "؟"}
       </div>
 
-      <div className="min-w-0">
-        <div className="max-w-[250px] truncate font-black text-[#07152E]">
+      <div className="min-w-0 flex-1">
+        <div
+          className={`font-black text-[#07152E] ${
+            expanded
+              ? "whitespace-normal break-words leading-5"
+              : "max-w-[170px] truncate"
+          }`}
+        >
           {student.studentName}
         </div>
 
-        <div className="mt-1 flex max-w-[270px] items-center gap-1 truncate text-xs font-bold text-slate-500">
+        <div
+          className={`mt-1 flex items-center gap-1 text-xs font-bold text-slate-500 ${
+            expanded
+              ? "max-w-full"
+              : "max-w-[185px] truncate"
+          }`}
+        >
           <Mail className="h-3 w-3 shrink-0" />
-          <span className="truncate">
+          <span className={expanded ? "break-all" : "truncate"}>
             {student.studentEmail || "—"}
           </span>
         </div>
@@ -491,7 +764,7 @@ function TableHead({
   children: React.ReactNode;
 }) {
   return (
-    <th className="whitespace-nowrap px-4 py-4 text-center text-xs font-black text-[#07152E]">
+    <th className="whitespace-nowrap px-2 py-3 text-center text-[11px] font-black text-[#07152E]">
       {children}
     </th>
   );
@@ -503,7 +776,7 @@ function TableCell({
   children: React.ReactNode;
 }) {
   return (
-    <td className="whitespace-nowrap px-4 py-4 text-center text-sm">
+    <td className="whitespace-nowrap px-2 py-3 text-center text-xs">
       {children}
     </td>
   );
@@ -538,6 +811,37 @@ function IconMetricCell({
         <Icon className="h-4 w-4 text-[#C88712]" />
         {value}
       </span>
+    </td>
+  );
+}
+
+function StudentActionsCell({
+  userId,
+}: {
+  userId: string;
+}) {
+  return (
+    <td className="px-2 py-3 text-center">
+      <div className="flex items-center justify-center gap-1.5">
+        <Link
+          href={`/admin/students/${userId}`}
+          className="inline-flex items-center gap-1 rounded-lg bg-[#07152E] px-2 py-2 text-[10px] font-black text-white transition hover:bg-[#0B2146]"
+        >
+          <Eye size={13} />
+          عرض
+        </Link>
+
+        <Link
+          href={`/admin/students/${userId}/dashboard`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 rounded-lg border border-[#F7B548] bg-[#FFF8E9] px-2 py-2 text-[10px] font-black text-[#07152E] transition hover:bg-[#F7B548]"
+          title="فتح رحلاتي التعليمية كما يراها الطالب"
+        >
+          <ExternalLink size={13} />
+          صفحة الطالب
+        </Link>
+      </div>
     </td>
   );
 }

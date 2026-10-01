@@ -17,6 +17,7 @@ type StudentStatisticsProps = {
   nextLevel?: string | null;
   progressPercent?: number;
   pointsToNextLevel?: number;
+  locale?: "ar" | "en";
 };
 
 export default function StudentStatistics({
@@ -25,7 +26,9 @@ export default function StudentStatistics({
   nextLevel,
   progressPercent = 0,
   pointsToNextLevel = 0,
+  locale = "ar",
 }: StudentStatisticsProps) {
+  const isArabic = locale === "ar";
   const [statisticsOpen, setStatisticsOpen] =
     useState(false);
 
@@ -62,7 +65,7 @@ export default function StudentStatistics({
       {/* Full-width Level Bar */}
 <div className="w-full bg-[#07152E]">
   <div
-    dir="rtl"
+    dir={isArabic ? "rtl" : "ltr"}
     className="
       mx-auto
       grid max-w-[1680px]
@@ -80,9 +83,9 @@ export default function StudentStatistics({
     "
   >
     {/* Current level */}
-    <div className="min-w-0 text-right">
+    <div className={`min-w-0 ${isArabic ? "text-right" : "text-left"}`}>
       <p className="text-[9px] font-bold text-white/65 sm:text-[11px] lg:text-[12px]">
-        مستواك الحالي
+        {isArabic ? "مستواك الحالي" : "Your Current Level"}
       </p>
 
       <p className="mt-0.5 truncate text-[14px] font-black text-[#F7B548] sm:text-[18px] lg:text-[22px]">
@@ -91,11 +94,11 @@ export default function StudentStatistics({
 
       {nextLevel ? (
         <p className="mt-0.5 text-[8px] font-bold leading-tight text-white/65 sm:text-[10px] lg:text-[12px]">
-          المستوى التالي: {nextLevel}
+          {isArabic ? `المستوى التالي: ${nextLevel}` : `Next Level: ${nextLevel}`}
         </p>
       ) : (
         <p className="mt-0.5 text-[8px] font-bold text-emerald-300 sm:text-[10px] lg:text-[12px]">
-          وصلت إلى أعلى مستوى
+          {isArabic ? "وصلت إلى أعلى مستوى" : "You reached the highest level"}
         </p>
       )}
     </div>
@@ -136,11 +139,11 @@ export default function StudentStatistics({
         lg:w-[300px]
         lg:max-w-none
       "
-      dir="rtl"
+      dir={isArabic ? "rtl" : "ltr"}
     >
       <div className="mb-1 flex items-center justify-between gap-1 sm:gap-3">
         <span className="text-[8px] font-black leading-tight text-white/85 sm:text-[10px] lg:text-[12px]">
-          التقدم للمستوى التالي
+          {isArabic ? "التقدم للمستوى التالي" : "Progress to the Next Level"}
         </span>
 
         <span className="text-[9px] font-black text-[#F7B548] sm:text-[11px] lg:text-[13px]">
@@ -159,8 +162,12 @@ export default function StudentStatistics({
 
       <p className="mt-1 text-left text-[7px] font-black text-white/80 sm:text-[9px] lg:mt-1.5 lg:text-[11px]">
         {nextLevel
-          ? `${pointsToNextLevel} نقطة متبقية`
-          : "استمر في إنجاز المزيد"}
+          ? isArabic
+            ? `${pointsToNextLevel} نقطة متبقية`
+            : `${pointsToNextLevel} points remaining`
+          : isArabic
+            ? "استمر في إنجاز المزيد"
+            : "Keep completing more journeys"}
       </p>
     </div>
   </div>
@@ -176,7 +183,7 @@ export default function StudentStatistics({
     sm:px-6
     lg:px-8
   "
-  dir="rtl"
+  dir={isArabic ? "rtl" : "ltr"}
 >
   <div
     className="
@@ -226,7 +233,7 @@ font-black
 sm:text-[14px]
         "
       >
-        إحصائيات رحلاتي التعليمية
+        {isArabic ? "إحصائيات رحلاتي التعليمية" : "My Learning Journey Statistics"}
       </span>
 
       <ChevronDown
@@ -264,12 +271,14 @@ sm:text-[14px]
                 title="إحصائيات رحلاتي التعليمية"
                 icon={GraduationCap}
                 items={data.learning}
+                locale={locale}
               />
 
               <StatisticGroup
-                title="إحصائيات الإنجاز"
+                title={isArabic ? "إحصائيات الإنجاز" : "Achievement Statistics"}
                 icon={Award}
                 items={data.achievements}
+                locale={locale}
               />
             </div>
           </div>

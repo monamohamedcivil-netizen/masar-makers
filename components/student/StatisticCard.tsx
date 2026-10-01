@@ -5,13 +5,16 @@ type StatisticCardProps = {
   item: StudentStatisticItem;
   index: number;
   total: number;
+  locale?: "ar" | "en";
 };
 
 export default function StatisticCard({
   item,
   index,
   total,
+  locale = "ar",
 }: StatisticCardProps) {
+  const isArabic = locale === "ar";
   const Icon = item.icon;
 
   const isFirst = index === 0;
@@ -98,7 +101,7 @@ export default function StatisticCard({
             </div>
           ) : item.progress !== undefined ? (
             <p className="text-[8px] font-bold leading-tight text-slate-600 sm:text-[9px] xl:text-[10px]">
-              نسبة الإنجاز في جميع الرحلات
+              {isArabic ? "نسبة الإنجاز في جميع الرحلات" : "Completion rate across all journeys"}
             </p>
           ) : (
             <div className="flex items-baseline gap-1.5">

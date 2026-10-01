@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import {
   BarChart3,
   ClipboardList,
@@ -21,13 +23,46 @@ type Props = {
   data: StudentDashboardData;
   initialPanelId?: WorkspacePanelId;
   initialLessonId?: string;
+  previewUserId?: string;
+  readOnly?: boolean;
 };
 
 export default function StudentJourneyDashboard({
   data,
   initialPanelId,
   initialLessonId,
+  previewUserId,
+  readOnly = false,
 }: Props) {
+  const [locale, setLocale] = useState<"ar" | "en">("ar");
+
+  useEffect(() => {
+    const readLocale = () => {
+      const saved = window.localStorage.getItem("masar-locale");
+      setLocale(saved === "en" ? "en" : "ar");
+    };
+
+    readLocale();
+
+    const handleLocaleChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{ locale?: "ar" | "en" }>;
+      if (customEvent.detail?.locale === "ar" || customEvent.detail?.locale === "en") {
+        setLocale(customEvent.detail.locale);
+      } else {
+        readLocale();
+      }
+    };
+
+    window.addEventListener("masar:locale-change", handleLocaleChange);
+    window.addEventListener("storage", readLocale);
+    return () => {
+      window.removeEventListener("masar:locale-change", handleLocaleChange);
+      window.removeEventListener("storage", readLocale);
+    };
+  }, []);
+
+  const isArabic = locale === "ar";
+
   /*
    * إحصائيات موحدة:
    * نعد نفس "الرحلات التعليمية" التي تظهر فعليًا للطالب.
@@ -159,72 +194,72 @@ const averageJourneyProgress =
     learning: [
       {
         id: "paths-journeys",
-        label: "المسارات والرحلات",
+        label: isArabic ? "المسارات والرحلات" : "Paths & Journeys",
         icon: Layers3,
         splitValue: {
           primaryValue: data.careerPaths.length,
-          primaryLabel: "مسارات",
+          primaryLabel: isArabic ? "مسارات" : "Paths",
           secondaryValue: professionalCount,
-          secondaryLabel: "رحلات",
+          secondaryLabel: isArabic ? "رحلات" : "Journeys",
         },
       },
       {
         id: "one-day",
-        label: "رحلات اليوم الواحد",
+        label: isArabic ? "رحلات اليوم الواحد" : "One-Day Journeys",
         icon: Zap,
         value: oneDayCount,
         secondaryText:
           oneDayCount > 0
-            ? "رحلات متاحة في حسابك"
-            : "لا توجد رحلات بعد",
+            ? (isArabic ? "رحلات متاحة في حسابك" : "journeys available")
+            : (isArabic ? "لا توجد رحلات بعد" : "No journeys yet"),
       },
       {
         id: "free",
-        label: "الرحلات المجانية",
+        label: isArabic ? "الرحلات المجانية" : "Free Journeys",
         icon: Sparkles,
         value: freeCount,
         secondaryText:
           freeCount > 0
-            ? "رحلات مجانية متاحة"
-            : "ابدأ أول رحلة مجانية",
+            ? (isArabic ? "رحلات مجانية متاحة" : "free journeys available")
+            : (isArabic ? "ابدأ أول رحلة مجانية" : "Start your first free journey"),
       },
       {
   id: "surveys",
-  label: "الاستبيانات",
+  label: isArabic ? "الاستبيانات" : "Surveys",
   icon: ClipboardList,
   splitValue: {
     primaryValue:
       data.summary.surveysCompleted,
-    primaryLabel: "مكتمل",
+    primaryLabel: isArabic ? "مكتمل" : "Completed",
 
     secondaryValue:
       data.summary.surveysRemaining,
-    secondaryLabel: "متبقي",
+    secondaryLabel: isArabic ? "متبقي" : "Remaining",
   },
 },
     ],
     achievements: [
       {
         id: "active",
-        label: "الرحلات النشطة",
+        label: isArabic ? "الرحلات النشطة" : "Active Journeys",
         icon: Compass,
         value: activeJourneys,
       },
       {
         id: "progress",
-        label: "متوسط التقدم",
+        label: isArabic ? "متوسط التقدم" : "Average Progress",
         icon: BarChart3,
         progress: averageJourneyProgress,
       },
       {
         id: "completed",
-        label: "الرحلات المكتملة",
+        label: isArabic ? "الرحلات المكتملة" : "Completed Journeys",
         icon: GraduationCap,
         value: completedJourneys,
       },
       {
         id: "pending",
-        label: "بانتظار الاعتماد",
+        label: isArabic ? "بانتظار الاعتماد" : "Pending Approval",
         icon: Target,
         value: pendingJourneys,
       },
@@ -232,7 +267,7 @@ const averageJourneyProgress =
   };
 
   return (
-    <div dir="rtl" className="bg-white text-[#07152E]">
+    <div dir={isArabic ? "rtl" : "ltr"} className="bg-white text-[#07152E]">
       <section className="border-b border-[#C9D4DF] bg-[#DCE7F2]">
         <StudentStatistics
   data={statistics}
@@ -240,6 +275,7 @@ const averageJourneyProgress =
   nextLevel={data.passport.nextLevel}
   progressPercent={data.passport.progressPercent}
   pointsToNextLevel={data.passport.pointsToNextLevel}
+  locale={locale}
 />
       </section>
 
@@ -249,6 +285,8 @@ const averageJourneyProgress =
           data={data}
           initialPanelId={initialPanelId}
           initialLessonId={initialLessonId}
+          previewUserId={previewUserId}
+          readOnly={readOnly}
         />
       </div>
     </div>

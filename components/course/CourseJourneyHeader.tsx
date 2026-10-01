@@ -176,23 +176,28 @@ export default function CourseJourneyHeader({
                 lg:h-[20px]
               "
               style={{
-                right: `${roadInset}%`,
+                ...(isArabic
+                  ? { right: `${roadInset}%` }
+                  : { left: `${roadInset}%` }),
                 width: `${roadSpan * progressRatio}%`,
               }}
             >
               <div
-                className="
+                className={`
                   absolute inset-x-0 top-[4px]
                   h-[1px]
-                  bg-[repeating-linear-gradient(to_left,#F7B548_0_8px,transparent_8px_14px)]
 
                   sm:top-[5px]
-                  sm:bg-[repeating-linear-gradient(to_left,#F7B548_0_10px,transparent_10px_18px)]
 
                   lg:top-[9px]
                   lg:h-[2px]
-                  lg:bg-[repeating-linear-gradient(to_left,#F7B548_0_16px,transparent_16px_28px)]
-                "
+
+                  ${
+                    isArabic
+                      ? "bg-[repeating-linear-gradient(to_left,#F7B548_0_8px,transparent_8px_14px)] sm:bg-[repeating-linear-gradient(to_left,#F7B548_0_10px,transparent_10px_18px)] lg:bg-[repeating-linear-gradient(to_left,#F7B548_0_16px,transparent_16px_28px)]"
+                      : "bg-[repeating-linear-gradient(to_right,#F7B548_0_8px,transparent_8px_14px)] sm:bg-[repeating-linear-gradient(to_right,#F7B548_0_10px,transparent_10px_18px)] lg:bg-[repeating-linear-gradient(to_right,#F7B548_0_16px,transparent_16px_28px)]"
+                  }
+                `}
               />
             </div>
 

@@ -27,6 +27,8 @@ type ProjectRow = {
   project_title: string;
   project_description: string | null;
   project_link: string | null;
+  video_storage_path?: string | null;
+  video_url?: string | null;
 
   project_images?: unknown;
   cover_image?: string | null;
@@ -96,6 +98,7 @@ async function mapImage(
 function mapProject(
   row: ProjectRow,
   images: StudentProjectImage[],
+  videoUrl: string | null = null,
 ): StudentProject {
   return {
     id: row.id,
@@ -134,6 +137,12 @@ function mapProject(
 
     projectLink:
       row.project_link,
+
+    videoUrl:
+      videoUrl ?? row.video_url ?? null,
+
+    videoStoragePath:
+      row.video_storage_path ?? null,
 
     status:
       row.status,
@@ -188,8 +197,10 @@ async function getSignedImageUrl(
     return null;
   }
 
+  // Course pages can be viewed outside the image owner's session.
+  // Sign private project media on the server with the admin client.
   const supabase =
-    await createClient();
+    createAdminClient();
 
   const { data, error } =
     await supabase.storage
@@ -200,7 +211,39 @@ async function getSignedImageUrl(
       );
 
   if (error) {
+    console.error(
+      "GET SIGNED PROJECT IMAGE URL ERROR:",
+      error.message,
+    );
     return null;
+  }
+
+  return data.signedUrl;
+}
+
+async function getSignedVideoUrl(
+  storagePath: string | null | undefined,
+  fallbackUrl: string | null | undefined,
+) {
+  if (!storagePath) return fallbackUrl ?? null;
+
+  const supabase =
+    createAdminClient();
+
+  const { data, error } =
+    await supabase.storage
+      .from("student-projects")
+      .createSignedUrl(
+        storagePath,
+        60 * 60,
+      );
+
+  if (error) {
+    console.error(
+      "GET SIGNED PROJECT VIDEO URL ERROR:",
+      error.message,
+    );
+    return fallbackUrl ?? null;
   }
 
   return data.signedUrl;
@@ -441,6 +484,12 @@ export async function getStudentProjects(): Promise<
         uploadedImages,
       );
 
+    const projectVideoUrl =
+      await getSignedVideoUrl(
+        project.video_storage_path,
+        project.video_url,
+      );
+
     const {
       studentName,
       studentCountry,
@@ -462,6 +511,7 @@ export async function getStudentProjects(): Promise<
           ...uploadedImages,
           ...importedImages,
         ],
+        projectVideoUrl,
       ),
     );
   }
@@ -476,8 +526,36 @@ export async function getStudentProjects(): Promise<
 export async function getStudentProjectsByUserId(
   userId: string,
 ): Promise<StudentProject[]> {
-  const supabase =
-    createAdminClient();
+  // This function is callable from a client component through a Server Action.
+  // Verify the current session BEFORE using the service-role client.
+  const sessionSupabase = await createClient();
+  const {
+    data: { user },
+  } = await sessionSupabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("UNAUTHENTICATED");
+  }
+
+  const { data: currentProfile, error: currentProfileError } =
+    await sessionSupabase
+      .from("profiles")
+      .select("role,is_active")
+      .eq("id", user.id)
+      .maybeSingle();
+
+  const role = String(currentProfile?.role ?? "").toLowerCase();
+
+  if (
+    currentProfileError ||
+    !currentProfile ||
+    !["admin", "super_admin"].includes(role) ||
+    currentProfile.is_active === false
+  ) {
+    throw new Error("FORBIDDEN");
+  }
+
+  const supabase = createAdminClient();
 
   const normalizedUserId =
     userId.trim();
@@ -587,6 +665,12 @@ export async function getStudentProjectsByUserId(
         uploadedImages,
       );
 
+    const projectVideoUrl =
+      await getSignedVideoUrl(
+        project.video_storage_path,
+        project.video_url,
+      );
+
     const {
       studentName,
       studentCountry,
@@ -608,6 +692,7 @@ export async function getStudentProjectsByUserId(
           ...uploadedImages,
           ...importedImages,
         ],
+        projectVideoUrl,
       ),
     );
   }
@@ -796,6 +881,12 @@ export async function getCourseProjects(
         uploadedImages,
       );
 
+    const projectVideoUrl =
+      await getSignedVideoUrl(
+        project.video_storage_path,
+        project.video_url,
+      );
+
     const profile =
       project.user_id
         ? profilesByUserId.get(
@@ -824,6 +915,7 @@ export async function getCourseProjects(
           ...uploadedImages,
           ...importedImages,
         ],
+        projectVideoUrl,
       ),
     );
   }

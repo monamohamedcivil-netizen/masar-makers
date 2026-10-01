@@ -34,6 +34,7 @@ interface MasarPassportCardProps {
   onShowProgress: () => void;
 
   onShowDraw: () => void;
+  locale?: "ar" | "en";
 }
 
 export default function MasarPassportCard({
@@ -48,7 +49,9 @@ export default function MasarPassportCard({
   monthlyDrawAvailableEntries,
   onShowProgress,
   onShowDraw,
+  locale = "ar",
 }: MasarPassportCardProps) {
+  const isArabic = locale === "ar";
   const levelBadges: Record<string, string> = {
   Explorer: "/images/badges/explorer.png",
   Professional: "/images/badges/professional.png",
@@ -60,7 +63,7 @@ const currentBadge =
   levelBadges[currentLevel.name] ??
   levelBadges.Explorer;
   return (
-<section className="relative w-full overflow-hidden rounded-b-[24px] border-x-0 border-y-0 border-b border-[#C9D2DE] bg-white shadow-[0_22px_55px_rgba(7,21,46,0.16),0_4px_12px_rgba(7,21,46,0.08)]">
+<section dir={isArabic ? "rtl" : "ltr"} className="relative w-full overflow-hidden rounded-b-[24px] border-x-0 border-y-0 border-b border-[#C9D2DE] bg-white shadow-[0_22px_55px_rgba(7,21,46,0.16),0_4px_12px_rgba(7,21,46,0.08)]">
       {/* Header attached directly to JourneyTabs */}
       <header className="flex items-center justify-between gap-3 bg-[#07152E] px-5 py-2 text-white sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
@@ -72,11 +75,13 @@ const currentBadge =
 
           <div className="min-w-0">
             <h2 className="truncate text-[17px] font-black sm:text-[19px]">
-              بطاقة إنجازاتك المهنية
+              {isArabic ? "بطاقة إنجازاتك المهنية" : "Professional Achievements Card"}
             </h2>
 
             <p className="mt-0.5 truncate text-[8px] font-bold text-white/60">
-              كل خطوة في مسيرتك المهنية تقربك من إنجاز جديد.
+              {isArabic
+                ? "كل خطوة في مسيرتك المهنية تقربك من إنجاز جديد."
+                : "Every step in your professional journey brings you closer to a new achievement."}
             </p>
           </div>
         </div>
@@ -96,7 +101,7 @@ const currentBadge =
     <div className="relative h-[105px] w-[105px] shrink-0">
       <Image
         src={currentBadge}
-        alt={`شارة مستوى ${currentLevel.name}`}
+        alt={isArabic ? `شارة مستوى ${currentLevel.name}` : `${currentLevel.name} level badge`}
         fill
         sizes="105px"
         className="object-contain drop-shadow-[0_10px_18px_rgba(7,21,46,0.22)]"
@@ -104,9 +109,9 @@ const currentBadge =
     </div>
 
     {/* Level Info */}
-    <div className="min-w-0 flex-1 text-right">
+    <div className={`min-w-0 flex-1 ${isArabic ? "text-right" : "text-left"}`}>
       <p className="text-[10px] font-black text-slate-400">
-        مستواك الحالي
+        {isArabic ? "مستواك الحالي" : "Your Current Level"}
       </p>
 
       <h3 className="mt-0.5 text-[20px] font-black leading-6 text-[#07152E]">
@@ -124,8 +129,12 @@ const currentBadge =
 
       <p className="mt-1.5 text-[9px] font-bold text-slate-500">
         {nextLevel
-          ? `${remainingPoints} نقطة للوصول إلى ${nextLevel.name}`
-          : "وصلت إلى أعلى مستوى"}
+          ? isArabic
+            ? `${remainingPoints} نقطة للوصول إلى ${nextLevel.name}`
+            : `${remainingPoints} points to reach ${nextLevel.name}`
+          : isArabic
+            ? "وصلت إلى أعلى مستوى"
+            : "You reached the highest level"}
       </p>
     </div>
 
@@ -140,9 +149,9 @@ const currentBadge =
                 <Sparkles size={16} />
               </span>
 
-              <div className="text-right">
+              <div className={isArabic ? "text-right" : "text-left"}>
                 <p className="text-[8px] font-black text-slate-400">
-                  نقاطك الحالية
+                  {isArabic ? "نقاطك الحالية" : "Your Current Points"}
                 </p>
 
                 <p className="text-[23px] font-black leading-6 text-[#07152E]">
@@ -158,8 +167,8 @@ const currentBadge =
               onClick={onShowProgress}
               className="mt-2 inline-flex h-7 items-center gap-1.5 rounded-lg bg-[#07152E] px-3 text-[8px] font-black text-white transition hover:bg-[#F7B548] hover:text-[#07152E]"
             >
-              عرض تفاصيل تقدمي
-              <ChevronLeft size={11} />
+              {isArabic ? "عرض تفاصيل تقدمي" : "View Progress Details"}
+              <ChevronLeft size={11} className={isArabic ? "" : "rotate-180"} />
             </button>
           </div>
         </article>
@@ -172,9 +181,9 @@ const currentBadge =
                 <Ticket size={15} />
               </span>
 
-              <div className="text-right">
+              <div className={isArabic ? "text-right" : "text-left"}>
                 <p className="text-[8px] font-black text-slate-400">
-                  فرص السحب الشهري
+                  {isArabic ? "فرص السحب الشهري" : "Monthly Draw Entries"}
                 </p>
 
                 <p className="text-[23px] font-black leading-6 text-[#07152E]">
@@ -184,16 +193,14 @@ const currentBadge =
             </div>
 
             <p className="mt-1 text-[8px] font-bold text-slate-500">
-              الحالية {monthlyDrawAvailableEntries}
-              {" / "}
-              مرات الفوز {monthlyDrawWins}
-              {" / "}
-              إجمالي الفرص {monthlyDrawEntries}
+              {isArabic
+                ? `الحالية ${monthlyDrawAvailableEntries} / مرات الفوز ${monthlyDrawWins} / إجمالي الفرص ${monthlyDrawEntries}`
+                : `Available ${monthlyDrawAvailableEntries} / Wins ${monthlyDrawWins} / Total entries ${monthlyDrawEntries}`}
             </p>
 
             <div className="mt-1.5 flex items-center justify-center gap-2">
               <p className="text-[8px] font-bold text-slate-500">
-                كل 100 نقطة = فرصة واحدة
+                {isArabic ? "كل 100 نقطة = فرصة واحدة" : "Every 100 points = 1 entry"}
               </p>
 
               <button
@@ -201,8 +208,8 @@ const currentBadge =
                 onClick={onShowDraw}
                 className="inline-flex h-7 items-center gap-1.5 rounded-lg bg-[#F7B548] px-3 text-[8px] font-black text-[#07152E] transition hover:bg-[#07152E] hover:text-white"
               >
-                عرض السحب
-                <ChevronLeft size={11} />
+                {isArabic ? "عرض السحب" : "View Draw"}
+                <ChevronLeft size={11} className={isArabic ? "" : "rotate-180"} />
               </button>
             </div>
           </div>

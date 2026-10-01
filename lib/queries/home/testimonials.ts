@@ -27,6 +27,7 @@ type SurveyRow = {
 type ProfileRow = {
   id: string;
   full_name: string | null;
+  country: string | null;
 };
 
 type CourseRow = {
@@ -102,7 +103,7 @@ export async function getHomeTestimonials(): Promise<
       error: profilesError,
     } = await supabase
       .from("profiles")
-      .select("id, full_name")
+      .select("id, full_name, country")
       .in("id", userIds);
 
     if (profilesError) {
@@ -179,7 +180,10 @@ export async function getHomeTestimonials(): Promise<
       id: survey.id,
       studentName: name,
       jobTitle: survey.student_job_title,
-      country: survey.student_country,
+      country:
+        profile?.country?.trim() ||
+        survey.student_country?.trim() ||
+        null,
       courseId: survey.course_id,
       courseTitle: course?.title ?? "",
       courseSlug: course?.slug ?? "",

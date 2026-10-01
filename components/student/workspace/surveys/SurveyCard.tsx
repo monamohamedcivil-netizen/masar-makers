@@ -28,6 +28,7 @@ type Props = {
   surveyUrl?: string | null;
   detailedSurveyCompleted?: boolean;
   onSaved?: (survey?: SavedStudentSurvey) => void | Promise<void>;
+  locale?: "ar" | "en";
 };
 
 export default function SurveyCard({
@@ -39,7 +40,9 @@ export default function SurveyCard({
   surveyUrl = null,
   detailedSurveyCompleted = false,
   onSaved,
+  locale = "ar",
 }: Props) {
+  const isArabic = locale === "ar";
   const [rating, setRating] = useState(initialRating);
   const [comment, setComment] = useState(initialComment);
   const [isSubmitted, setIsSubmitted] = useState(submitted);
@@ -74,7 +77,7 @@ const [
     setSuccessMessage("");
 
     if (rating === 0) {
-      setErrorMessage("يرجى اختيار تقييم الرحلة أولًا.");
+      setErrorMessage(isArabic ? "يرجى اختيار تقييم الرحلة أولًا." : "Please select a journey rating first.");
       return;
     }
 
@@ -87,7 +90,7 @@ const [
 
       if (!result.success) {
         setErrorMessage(
-          result.error ?? "حدث خطأ أثناء حفظ تقييم الرحلة.",
+          result.error ?? (isArabic ? "حدث خطأ أثناء حفظ تقييم الرحلة." : "An error occurred while saving your journey review."),
         );
 
         async function handleDetailedSurveyClick() {
@@ -109,7 +112,7 @@ const [
   if (!result.success) {
     setErrorMessage(
       result.error ??
-        "تعذر تحديث حالة الاستبيان.",
+        (isArabic ? "تعذر تحديث حالة الاستبيان." : "Unable to update the detailed survey status."),
     );
 
     return;
@@ -134,7 +137,9 @@ const [
       setComment(result.survey.comment ?? "");
       setIsSubmitted(true);
       setSuccessMessage(
-        "شكرًا لمشاركتك، تم حفظ تقييم الرحلة بنجاح.",
+        isArabic
+          ? "شكرًا لمشاركتك، تم حفظ تقييم الرحلة بنجاح."
+          : "Thank you for sharing. Your journey review was saved successfully.",
       );
 
       await onSaved?.(result.survey);
@@ -159,7 +164,7 @@ const [
     if (!result.success) {
       setErrorMessage(
         result.error ??
-          "تعذر تحديث حالة الاستبيان.",
+          (isArabic ? "تعذر تحديث حالة الاستبيان." : "Unable to update the detailed survey status."),
       );
 
       return;
@@ -180,17 +185,17 @@ const [
 
 
   return (
-    <article className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <article dir={isArabic ? "rtl" : "ltr"} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-100 px-5 py-3 sm:px-6">
   <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5">
     <ChecklistItem
       completed={isSubmitted}
-      label="تقييم الرحلة"
+      label={isArabic ? "تقييم الرحلة" : "Journey Review"}
     />
 
     <ChecklistItem
       completed={isDetailedCompleted}
-      label="الاستبيان التفصيلي"
+      label={isArabic ? "الاستبيان التفصيلي" : "Detailed Survey"}
     />
   </div>
 </div>
@@ -202,7 +207,7 @@ const [
               <MessageSquareText className="h-4 w-4 text-[#F7B548]" />
 
               <h4 className="text-sm font-bold text-[#07152E]">
-                كيف كانت رحلتك التعليمية؟
+                {isArabic ? "كيف كانت رحلتك التعليمية؟" : "How was your learning journey?"}
               </h4>
             </div>
 
@@ -212,6 +217,7 @@ const [
                 onChange={setRating}
                 disabled={isPending}
                 size="md"
+                locale={locale}
               />
             </div>
 
@@ -220,7 +226,7 @@ const [
                 htmlFor={`survey-comment-${courseId}`}
                 className="mb-1 block text-xs font-semibold text-slate-700"
               >
-                شاركنا رأيك
+                {isArabic ? "شاركنا رأيك" : "Share your feedback"}
               </label>
 
               <textarea
@@ -229,7 +235,7 @@ const [
                 value={comment}
                 disabled={isPending}
                 onChange={(event) => setComment(event.target.value)}
-                placeholder="ما أكثر شيء أعجبك في الرحلة؟ وما الذي تقترح تطويره؟"
+                placeholder={isArabic ? "ما أكثر شيء أعجبك في الرحلة؟ وما الذي تقترح تطويره؟" : "What did you like most about the journey, and what would you improve?"}
                 className="w-full resize-none rounded-xl border border-slate-300 px-3 py-2 text-xs leading-5 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#F7B548] focus:ring-2 focus:ring-amber-100 disabled:cursor-not-allowed disabled:bg-slate-50"
               />
             </div>
@@ -249,12 +255,12 @@ const [
               {isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  جاري الحفظ...
+                  {isArabic ? "جاري الحفظ..." : "Saving..."}
                 </>
               ) : (
                 <>
                   <Star className="h-4 w-4 text-[#F7B548]" />
-                  إرسال تقييم الرحلة
+                  {isArabic ? "إرسال تقييم الرحلة" : "Submit Journey Review"}
                 </>
               )}
             </button>
@@ -269,11 +275,11 @@ const [
 
                 <div>
                   <h4 className="font-bold text-green-800">
-                    شكرًا لمشاركتك
+                    {isArabic ? "شكرًا لمشاركتك" : "Thank you for sharing"}
                   </h4>
 
                   <p className="mt-0.5 text-xs leading-5 text-green-700">
-                    تم حفظ تقييم الرحلة بنجاح.
+                    {isArabic ? "تم حفظ تقييم الرحلة بنجاح." : "Your journey review was saved successfully."}
                   </p>
                 </div>
               </div>
@@ -281,7 +287,7 @@ const [
               <div
                 className="mt-2 flex items-center gap-1"
                 dir="ltr"
-                aria-label={`التقييم ${rating} من 5`}
+                aria-label={isArabic ? `التقييم ${rating} من 5` : `Rating ${rating} out of 5`}
               >
                 {[1, 2, 3, 4, 5].map((starValue) => (
                   <Star
@@ -314,17 +320,19 @@ const [
 
               <div>
                 <h4 className="font-bold text-[#07152E]">
-                  أكمل الاستبيان التفصيلي
+                  {isArabic ? "أكمل الاستبيان التفصيلي" : "Complete the Detailed Survey"}
                 </h4>
 
                 <p className="mt-1 text-xs leading-5 text-slate-700">
-                  يساعدنا الاستبيان التفصيلي في تطوير الرحلات القادمة. اسمك لا
-                  يظهر لنا داخل الاستبيان، لذلك يمكنك الإجابة بكل حرية.
+                  {isArabic
+                    ? "يساعدنا الاستبيان التفصيلي في تطوير الرحلات القادمة. اسمك لا يظهر لنا داخل الاستبيان، لذلك يمكنك الإجابة بكل حرية."
+                    : "The detailed survey helps us improve future journeys. Your name is not shown to us in the survey, so you can answer freely."}
                 </p>
 
                 <p className="mt-1 text-xs leading-5 text-slate-600">
-                  يمكنك كتابة اسمك ووسيلة التواصل في السؤال الأخير للدخول في
-                  السحب الشهري، وهذا اختياري تمامًا.
+                  {isArabic
+                    ? "يمكنك كتابة اسمك ووسيلة التواصل في السؤال الأخير للدخول في السحب الشهري، وهذا اختياري تمامًا."
+                    : "You may add your name and contact information in the final question to enter the monthly draw. This is completely optional."}
                 </p>
               </div>
             </div>
@@ -337,12 +345,12 @@ const [
   }}
   className="mt-3 inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#F7B548] px-4 text-xs font-extrabold text-[#07152E] transition hover:brightness-95"
 >
-  إكمال الاستبيان التفصيلي
+  {isArabic ? "إكمال الاستبيان التفصيلي" : "Open Detailed Survey"}
   <ExternalLink className="h-4 w-4" />
 </button>
             ) : (
               <div className="mt-5 rounded-xl border border-amber-200 bg-white/70 px-4 py-3 text-sm font-medium text-amber-800">
-                رابط الاستبيان التفصيلي غير متاح حاليًا.
+                {isArabic ? "رابط الاستبيان التفصيلي غير متاح حاليًا." : "The detailed survey link is not available right now."}
               </div>
             )}
           </section>
@@ -355,11 +363,11 @@ const [
             </div>
 
             <h4 className="mt-4 text-lg font-extrabold text-[#07152E]">
-              🎉 اكتملت رحلة التقييم
+              {isArabic ? "🎉 اكتملت رحلة التقييم" : "🎉 Review Journey Completed"}
             </h4>
 
             <p className="mt-2 text-sm leading-7 text-slate-600">
-              شكرًا لمساهمتك في تطوير Masar Makers.
+              {isArabic ? "شكرًا لمساهمتك في تطوير Masar Makers." : "Thank you for helping us improve Masar Makers."}
             </p>
           </section>
         )}

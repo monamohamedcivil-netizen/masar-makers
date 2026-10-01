@@ -237,6 +237,7 @@ const tracks: Track[] = [
 const pageText = {
   ar: {
     explore: "استكشف المنصة",
+    login: "تسجيل الدخول",
     contact: "تواصل معنا",
     heroBefore: "لا تتعلم كورس فقط...",
     heroAfter: "ابنِ مسيرتك المهنية",
@@ -258,6 +259,7 @@ const pageText = {
   },
   en: {
     explore: "Explore Platform",
+    login: "Login",
     contact: "Contact Us",
     heroBefore: "Don’t just take a course...",
     heroAfter: "Build your professional path",
@@ -710,6 +712,13 @@ export default function MasarLanding() {
 
           <div className="flex gap-2 sm:gap-4">
             <Link
+              href="/login"
+              className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[#F7B548] px-4 text-[12px] font-black text-[#07152E] shadow-lg transition hover:-translate-y-0.5 hover:bg-[#FFD06A] sm:text-[14px]"
+            >
+              {text.login}
+            </Link>
+
+            <Link
               href="/home"
               className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-[#F7B548] px-3 text-[12px] font-black text-[#07152E] shadow-lg transition hover:-translate-y-0.5 sm:px-3 sm:text-[14px]"
             >
@@ -748,15 +757,15 @@ export default function MasarLanding() {
       >
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#07152E]/58 via-[#07152E]/5 to-[#07152E]/30" />
 
-        <div className="relative z-20 mx-auto max-w-[1450px] px-2 pt-4 text-center sm:px-4 sm:pt-3 lg:pt-3">
-          <h1 className="mx-auto whitespace-nowrap text-[clamp(21px,5.6vw,25px)] font-black leading-[1.1] md:text-[clamp(24px,3.2vw,42px)]">
+        <div className="relative z-20 mx-auto max-w-[1450px] px-2 pt-3 text-center sm:px-4 sm:pt-3 lg:pt-3">
+          <h1 className="mx-auto max-w-[82%] whitespace-nowrap text-[clamp(17px,4.6vw,22px)] font-black leading-[1.05] sm:max-w-[88%] md:max-w-none md:text-[clamp(24px,3.2vw,42px)]">
             <span>{text.heroBefore}</span>{" "}
             <span className="text-[#F7B548]">
               {text.heroAfter}
             </span>
           </h1>
 
-          <p className="mx-auto mt-3 max-w-3xl px-4 text-[14px] font-semibold leading-5 text-slate-200 sm:text-[13px] md:mt-2 md:px-0 md:text-[15px] lg:text-[16px]">
+          <p className="mx-auto mt-2 max-w-3xl px-12 text-[12px] font-semibold leading-4 text-slate-200 sm:px-8 sm:text-[13px] md:mt-2 md:px-0 md:text-[15px] md:leading-5 lg:text-[16px]">
             {text.heroSubtitle}
           </p>
         </div>
@@ -871,6 +880,13 @@ export default function MasarLanding() {
               </p>
             </div>
           </div>
+
+          <Link
+            href="/login"
+            className="inline-flex min-h-8 w-[115px] items-center justify-center rounded-lg bg-[#F7B548] px-3 text-[12px] font-black text-[#07152E] shadow-md transition hover:bg-[#FFD06A]"
+          >
+            {text.login}
+          </Link>
 
           <Link
             href="/home"
@@ -1697,15 +1713,16 @@ function StationPin({
       </span>
 
       <span
+        dir="ltr"
         className={`
           absolute top-[80%]
           -translate-y-1/2
-          max-w-[118px]
-          whitespace-normal
-          text-[13px] font-black leading-[1.05]
+          w-max max-w-none
+          whitespace-nowrap
+          text-[11px] font-black leading-[1.05]
           drop-shadow-[0_2px_6px_rgba(0,0,0,.9)]
-          sm:max-w-[145px] sm:text-sm
-          md:max-w-none md:whitespace-nowrap
+          sm:text-[12px]
+          md:text-sm
           lg:text-[20px]
           ${
             labelSide === "outside-left"

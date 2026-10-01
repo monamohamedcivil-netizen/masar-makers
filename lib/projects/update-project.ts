@@ -8,11 +8,15 @@ import {
   ALLOWED_PROJECT_IMAGE_TYPES,
   MAX_PROJECT_IMAGES,
   MAX_PROJECT_IMAGE_SIZE,
+  ALLOWED_PROJECT_VIDEO_TYPES,
+  MAX_PROJECT_VIDEO_SIZE,
 } from "./constants";
 
 import {
   deleteProjectImage,
   uploadProjectImage,
+  uploadProjectVideo,
+  deleteProjectVideo,
 } from "./project-storage";
 
 type ExistingImageRow = {
@@ -198,6 +202,14 @@ export async function updateProject(
       "newImageClientIds",
     );
 
+  const videoItem = formData.get("video");
+  const newVideo =
+    videoItem instanceof File && videoItem.size > 0
+      ? videoItem
+      : null;
+  const removeVideo =
+    getTextValue(formData, "removeVideo") === "true";
+
   const newFiles = formData
     .getAll("images")
     .filter(
@@ -205,6 +217,19 @@ export async function updateProject(
         item instanceof File &&
         item.size > 0,
     );
+
+  if (newVideo) {
+    if (
+      !ALLOWED_PROJECT_VIDEO_TYPES.includes(
+        newVideo.type as (typeof ALLOWED_PROJECT_VIDEO_TYPES)[number],
+      )
+    ) {
+      return { success: false, message: "نوع الفيديو غير مدعوم. استخدمي MP4 أو WEBM." };
+    }
+    if (newVideo.size > MAX_PROJECT_VIDEO_SIZE) {
+      return { success: false, message: "حجم الفيديو أكبر من 50 MB." };
+    }
+  }
 
   if (!projectId) {
     return {
@@ -283,7 +308,7 @@ export async function updateProject(
     error: projectError,
   } = await supabase
     .from("student_projects")
-    .select("id")
+    .select("id, video_storage_path")
     .eq("id", projectId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -430,6 +455,11 @@ export async function updateProject(
   );
 
   const uploadedPaths: string[] = [];
+  let uploadedVideoPath: string | null = null;
+  const previousVideoPath =
+    typeof project.video_storage_path === "string"
+      ? project.video_storage_path
+      : null;
   const insertedImageIds: string[] = [];
   const insertedByClientId =
     new Map<string, string>();
@@ -458,6 +488,33 @@ export async function updateProject(
 
     if (updateError) {
       throw updateError;
+    }
+
+    if (newVideo) {
+      const videoExtension =
+        newVideo.type === "video/webm" ? "webm" : "mp4";
+      uploadedVideoPath = [
+        user.id,
+        projectId,
+        "video",
+        `${crypto.randomUUID()}.${videoExtension}`,
+      ].join("/");
+
+      await uploadProjectVideo(uploadedVideoPath, newVideo);
+
+      const { error: videoUpdateError } = await supabase
+        .from("student_projects")
+        .update({ video_storage_path: uploadedVideoPath, video_url: null })
+        .eq("id", projectId)
+        .eq("user_id", user.id);
+      if (videoUpdateError) throw videoUpdateError;
+    } else if (removeVideo && previousVideoPath) {
+      const { error: videoRemoveError } = await supabase
+        .from("student_projects")
+        .update({ video_storage_path: null, video_url: null })
+        .eq("id", projectId)
+        .eq("user_id", user.id);
+      if (videoRemoveError) throw videoRemoveError;
     }
 
     for (const item of safeImageOrder) {
@@ -613,7 +670,25 @@ export async function updateProject(
           ),
       );
     }
+    if ((newVideo || removeVideo) && previousVideoPath) {
+      await deleteProjectVideo(previousVideoPath);
+    }
   } catch (error) {
+    if (uploadedVideoPath || removeVideo) {
+      await supabase
+        .from("student_projects")
+        .update({
+          video_storage_path: previousVideoPath,
+          video_url: null,
+        })
+        .eq("id", projectId)
+        .eq("user_id", user.id);
+    }
+
+    if (uploadedVideoPath) {
+      await deleteProjectVideo(uploadedVideoPath);
+    }
+
     if (
       insertedImageIds.length > 0
     ) {

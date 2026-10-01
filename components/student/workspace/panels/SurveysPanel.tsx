@@ -24,6 +24,7 @@ import SurveyCard from "../surveys/SurveyCard";
 
 type Props = {
   data: StudentDashboardData;
+  locale?: "ar" | "en";
 };
 
 type StudentSurveyRecord = {
@@ -84,7 +85,9 @@ function getCourseSurveyUrl(
 }
 export default function SurveysPanel({
   data,
+  locale = "ar",
 }: Props) {
+  const isArabic = locale === "ar";
   const searchParams = useSearchParams();
   const requestedCourseId =
     searchParams.get("courseId") ?? "";
@@ -139,13 +142,13 @@ export default function SurveysPanel({
 
         setSurveys([]);
         setErrorMessage(
-          "تعذر تحميل التقييمات حاليًا. يرجى المحاولة مرة أخرى.",
+          isArabic ? "تعذر تحميل التقييمات حاليًا. يرجى المحاولة مرة أخرى." : "Unable to load surveys right now. Please try again.",
         );
       } finally {
         setLoading(false);
       }
     },
-    [],
+    [isArabic],
   );
 
   useEffect(() => {
@@ -216,13 +219,13 @@ export default function SurveysPanel({
     return (
       <div
         className="flex min-h-[420px] items-center justify-center"
-        dir="rtl"
+        dir={isArabic ? "rtl" : "ltr"}
       >
         <div className="text-center">
           <Loader2 className="mx-auto h-9 w-9 animate-spin text-[#F7B548]" />
 
           <p className="mt-4 text-sm font-medium text-slate-500">
-            جاري تحميل التقييمات...
+            {isArabic ? "جاري تحميل التقييمات..." : "Loading surveys..."}
           </p>
         </div>
       </div>
@@ -233,7 +236,7 @@ export default function SurveysPanel({
     return (
       <div
         className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-700"
-        dir="rtl"
+        dir={isArabic ? "rtl" : "ltr"}
       >
         {errorMessage}
       </div>
@@ -244,29 +247,29 @@ export default function SurveysPanel({
     return (
       <div
         className="flex min-h-[400px] flex-col items-center justify-center text-center"
-        dir="rtl"
+        dir={isArabic ? "rtl" : "ltr"}
       >
         <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#FFF4DF] text-[#C88712]">
           <ClipboardCheck size={30} />
         </span>
 
         <h3 className="mt-4 text-lg font-black text-[#07152E]">
-          لا توجد رحلات متاحة للتقييم
+          {isArabic ? "لا توجد رحلات متاحة للتقييم" : "No journeys are available for review"}
         </h3>
 
         <p className="mt-2 max-w-md text-sm font-semibold leading-7 text-slate-500">
-          ستظهر هنا الرحلات التعليمية التي تم
-          تفعيل اشتراكك بها حتى تتمكني من
-          تقييمها وإكمال الاستبيان التفصيلي.
+          {isArabic
+            ? "ستظهر هنا الرحلات التعليمية التي تم تفعيل اشتراكك بها حتى تتمكني من تقييمها وإكمال الاستبيان التفصيلي."
+            : "Your active learning journeys will appear here so you can review them and complete the detailed survey."}
         </p>
       </div>
     );
   }
 
   return (
-    <div dir="rtl">
+    <div dir={isArabic ? "rtl" : "ltr"}>
       <JourneyTabs
-        ariaLabel="مسارات استبياناتي"
+        ariaLabel={isArabic ? "مسارات استبياناتي" : "My survey paths"}
         defaultTabId={
           requestedPathId ??
           paths[0]?.pathId
@@ -294,10 +297,10 @@ export default function SurveysPanel({
           return {
             id: path.pathId,
             title: path.title,
-            subtitle: `${completedCount} من ${path.stations.length} مكتملة`,
+            subtitle: isArabic ? `${completedCount} من ${path.stations.length} مكتملة` : `${completedCount} of ${path.stations.length} completed`,
             badge: `${progressPercent}%`,
             progressPercent,
-            statusLabel: `${submittedCount} تقييم`,
+            statusLabel: isArabic ? `${submittedCount} تقييم` : `${submittedCount} reviews`,
             content: (
               <SurveyPathView
                 key={path.pathId}
@@ -309,6 +312,7 @@ export default function SurveysPanel({
                   getCourseSurvey
                 }
                 onSaved={loadSurveys}
+                locale={locale}
               />
             ),
           };
@@ -323,6 +327,7 @@ function SurveyPathView({
   requestedCourseId,
   getCourseSurvey,
   onSaved,
+  locale,
 }: {
   path: StudentCareerPathProgress;
   requestedCourseId: string;
@@ -330,7 +335,9 @@ function SurveyPathView({
     courseId: string,
   ) => StudentSurveyRecord | null;
   onSaved: () => Promise<void>;
+  locale: "ar" | "en";
 }) {
+  const isArabic = locale === "ar";
   const selectableStations = useMemo(
     () =>
       path.stations.filter(
@@ -401,13 +408,14 @@ function SurveyPathView({
         onSelectCourse={
           setActiveCourseId
         }
+        locale={locale}
       />
 
       <section className="overflow-hidden rounded-b-[24px] border border-[#DCE2EA] bg-white shadow-[0_12px_32px_rgba(7,21,46,0.07)]">
         <header className="flex items-center justify-between border-b border-[#E5EAF0] bg-[#F7F9FC] px-5 py-3">
           <div>
             <p className="text-[10px] font-black text-[#C88712]">
-              استبياناتي
+              {isArabic ? "استبياناتي" : "My Surveys"}
             </p>
 
             <h3 className="mt-1 text-[17px] font-black text-[#07152E]">
@@ -418,6 +426,7 @@ function SurveyPathView({
 
           <SurveyStatusBadge
             survey={survey}
+            locale={locale}
           />
         </header>
 
@@ -453,6 +462,7 @@ function SurveyPathView({
               survey?.detailed_survey_completed,
             )}
             onSaved={onSaved}
+            locale={locale}
           />
         </div>
       </section>
@@ -465,6 +475,7 @@ function CompactStationRoad({
   activeCourseId,
   getCourseSurvey,
   onSelectCourse,
+  locale,
 }: {
   stations: StudentPathStationProgress[];
   activeCourseId: string;
@@ -474,7 +485,9 @@ function CompactStationRoad({
   onSelectCourse: (
     courseId: string,
   ) => void;
+  locale: "ar" | "en";
 }) {
+  const isArabic = locale === "ar";
   return (
     <div className="relative px-1.5 py-2 sm:px-3 sm:py-3">
       <div
@@ -593,12 +606,12 @@ function CompactStationRoad({
                   }`}
                 >
                   {!enrolled
-                    ? "غير مشترك"
+                    ? isArabic ? "غير مشترك" : "Not enrolled"
                     : completed
-                      ? "مكتمل"
+                      ? isArabic ? "مكتمل" : "Completed"
                       : survey
-                        ? "محفوظ"
-                        : "بانتظار التقييم"}
+                        ? isArabic ? "محفوظ" : "Saved"
+                        : isArabic ? "بانتظار التقييم" : "Awaiting review"}
                 </span>
               </button>
             );
@@ -611,9 +624,12 @@ function CompactStationRoad({
 
 function SurveyStatusBadge({
   survey,
+  locale,
 }: {
   survey: StudentSurveyRecord | null;
+  locale: "ar" | "en";
 }) {
+  const isArabic = locale === "ar";
   const completed =
     Boolean(survey?.submitted_at) &&
     Boolean(
@@ -623,7 +639,7 @@ function SurveyStatusBadge({
   if (completed) {
     return (
       <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black text-emerald-700">
-        اكتملت رحلة التقييم
+        {isArabic ? "اكتملت رحلة التقييم" : "Review journey completed"}
       </span>
     );
   }
@@ -631,14 +647,14 @@ function SurveyStatusBadge({
   if (survey) {
     return (
       <span className="rounded-full bg-blue-100 px-3 py-1 text-[10px] font-black text-blue-700">
-        التقييم محفوظ
+        {isArabic ? "التقييم محفوظ" : "Review saved"}
       </span>
     );
   }
 
   return (
     <span className="rounded-full bg-amber-100 px-3 py-1 text-[10px] font-black text-amber-700">
-      بانتظار التقييم
+      {isArabic ? "بانتظار التقييم" : "Awaiting review"}
     </span>
   );
 }

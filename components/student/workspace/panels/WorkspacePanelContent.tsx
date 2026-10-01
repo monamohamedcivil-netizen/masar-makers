@@ -3,7 +3,7 @@ import CertificatesPanel from "./CertificatesPanel";
 import ProjectsPanel from "./ProjectsPanel";
 import SurveysPanel from "./SurveysPanel";
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Award,
@@ -37,19 +37,74 @@ type Props = {
   panel: WorkspacePanelDefinition;
   data: StudentDashboardData;
   initialLessonId?: string;
+  previewUserId?: string;
+  readOnly?: boolean;
 };
+
+type Locale = "ar" | "en";
+
+function useMasarLocale(): Locale {
+  const [locale, setLocale] = useState<Locale>("ar");
+
+  useEffect(() => {
+    const readLocale = () => {
+      const savedLocale =
+        window.localStorage.getItem("masar-locale");
+
+      setLocale(savedLocale === "en" ? "en" : "ar");
+    };
+
+    readLocale();
+
+    const handleLocaleChange = (event: Event) => {
+      const customEvent =
+        event as CustomEvent<{ locale?: Locale }>;
+
+      if (
+        customEvent.detail?.locale === "ar" ||
+        customEvent.detail?.locale === "en"
+      ) {
+        setLocale(customEvent.detail.locale);
+        return;
+      }
+
+      readLocale();
+    };
+
+    window.addEventListener(
+      "masar:locale-change",
+      handleLocaleChange,
+    );
+    window.addEventListener("storage", readLocale);
+
+    return () => {
+      window.removeEventListener(
+        "masar:locale-change",
+        handleLocaleChange,
+      );
+      window.removeEventListener("storage", readLocale);
+    };
+  }, []);
+
+  return locale;
+}
 
 export default function WorkspacePanelContent({
   panel,
   data,
   initialLessonId,
+  previewUserId,
+  readOnly = false,
 }: Props) {
+  const locale = useMasarLocale();
+  const isArabic = locale === "ar";
   console.log("Certificates:", data.certificates);
   switch (panel.kind) {
     case "course-list":
       return (
         <CareerPathsPanel
           paths={data.careerPaths ?? []}
+          locale={locale}
         />
       );
 
@@ -81,7 +136,7 @@ export default function WorkspacePanelContent({
           title={panel.title}
           text={String(
             panel.settings?.description ??
-              "لا يوجد محتوى متاح حاليًا.",
+              (isArabic ? "لا يوجد محتوى متاح حاليًا." : "No content is currently available."),
           )}
           href={String(
             panel.settings?.href ??
@@ -91,7 +146,7 @@ export default function WorkspacePanelContent({
       );
 
     case "next-step":
-      return <NextStepPanel data={data} />;
+      return <NextStepPanel data={data} locale={locale} />;
 
   case "certificates":
   return (
@@ -104,6 +159,7 @@ export default function WorkspacePanelContent({
   return (
     <MasarPassportPanel
       data={data}
+      locale={locale}
     />
   );
 
@@ -111,6 +167,7 @@ export default function WorkspacePanelContent({
       return (
         <SurveysPanel
           data={data}
+          locale={locale}
         />
       );
 
@@ -118,6 +175,8 @@ export default function WorkspacePanelContent({
   return (
     <ProjectsPanel
       data={data}
+      previewUserId={previewUserId}
+      readOnly={readOnly}
     />
   );
 
@@ -128,15 +187,18 @@ export default function WorkspacePanelContent({
 
 function CareerPathsPanel({
   paths,
+  locale,
 }: {
   paths: StudentCareerPathProgress[];
+  locale: Locale;
 }) {
+  const isArabic = locale === "ar";
   if (!paths.length) {
     return (
       <EmptyPanel
         icon={BookOpenCheck}
-        title="رحلتك الأولى في انتظارك"
-        text="اشترك في إحدى الرحلات لتظهر خريطة تقدمك المهنية هنا."
+        title={isArabic ? "رحلتك الأولى في انتظارك" : "Your first journey is waiting"}
+        text={isArabic ? "اشترك في إحدى الرحلات لتظهر خريطة تقدمك المهنية هنا." : "Enroll in a journey to see your professional progress map here."}
         href="/career-path/road-design"
       />
     );
@@ -144,18 +206,19 @@ function CareerPathsPanel({
 
   return (
     <JourneyTabs
-      ariaLabel="المسارات المهنية المشترك بها"
+      ariaLabel={isArabic ? "المسارات المهنية المشترك بها" : "Enrolled career paths"}
       tabs={paths.map((path) => ({
         id: path.pathId,
         title: path.title,
-        subtitle: `${path.enrolledStations} من ${path.totalStations} رحلات`,
+        subtitle: isArabic ? `${path.enrolledStations} من ${path.totalStations} رحلات` : `${path.enrolledStations} of ${path.totalStations} journeys`,
         badge: `${path.progressPercent}%`,
         progressPercent: path.progressPercent,
-        statusLabel: `${path.completedStations} مكتملة`,
+        statusLabel: isArabic ? `${path.completedStations} مكتملة` : `${path.completedStations} completed`,
         content: (
           <CareerPathProgressCard
             key={path.pathId}
             path={path}
+            locale={locale}
           />
         ),
       }))}
@@ -165,9 +228,12 @@ function CareerPathsPanel({
 
 function CareerPathProgressCard({
   path,
+  locale,
 }: {
   path: StudentCareerPathProgress;
+  locale: Locale;
 }) {
+  const isArabic = locale === "ar";
   const [selectedStationId, setSelectedStationId] =
     useState<string | null>(null);
 
@@ -184,11 +250,13 @@ function CareerPathProgressCard({
         path={path}
         selectedStationId={selectedStation.stationId}
         onSelectStation={setSelectedStationId}
+        locale={locale}
       />
 
       <StationLearningView
         station={selectedStation}
         onBack={() => setSelectedStationId(null)}
+        locale={locale}
       />
     </div>
   );
@@ -203,8 +271,9 @@ function CareerPathProgressCard({
               {path.title}
             </h3>
             <p className="mt-0.5 text-[11px] font-bold text-white/75">
-              مشترك في {path.enrolledStations} من{" "}
-              {path.totalStations} رحلات
+              {isArabic
+                ? `مشترك في ${path.enrolledStations} من ${path.totalStations} رحلات`
+                : `${path.enrolledStations} of ${path.totalStations} journeys enrolled`}
             </p>
           </div>
 
@@ -222,10 +291,12 @@ function CareerPathProgressCard({
 
             <div className="hidden sm:block">
               <p className="text-[10px] font-bold text-white/70">
-                التقدم العام في المسار
+                {isArabic ? "التقدم العام في المسار" : "Overall path progress"}
               </p>
               <p className="mt-1 text-xs font-black text-[#FFE0A6]">
-                {path.completedStations} رحلات مكتملة
+                {isArabic
+                  ? `${path.completedStations} رحلات مكتملة`
+                  : `${path.completedStations} journeys completed`}
               </p>
             </div>
           </div>
@@ -245,6 +316,7 @@ function CareerPathProgressCard({
                 station={station}
                 index={index}
                 onOpen={() => setSelectedStationId(station.stationId)}
+                locale={locale}
               />
             ))}
           </div>
@@ -258,11 +330,14 @@ function PathStation({
   station,
   index,
   onOpen,
+  locale,
 }: {
   station: StudentPathStationProgress;
   index: number;
   onOpen: () => void;
+  locale: Locale;
 }) {
+  const isArabic = locale === "ar";
   const statusClasses = {
     completed:
       "border-[#70B64A] bg-[#70B64A] text-white shadow-[0_0_22px_rgba(112,182,74,.52)]",
@@ -322,7 +397,7 @@ function PathStation({
                     : "text-[#07152E]"
           }`}
         >
-          {getStationCaption(station)}
+          {getStationCaption(station, locale)}
         </span>
       </div>
     </>
@@ -332,12 +407,12 @@ function PathStation({
     return (
       <Link
         href={station.courseHref}
-        title="استكشف الرحلة واطلب الاشتراك"
+        title={isArabic ? "استكشف الرحلة واطلب الاشتراك" : "Explore the journey and request enrollment"}
         className="group relative z-10 flex min-w-0 flex-col items-center px-1 py-1 transition"
       >
         {content}
         <span className="mt-2 rounded-full bg-slate-200 px-3 py-1 text-[9px] font-black text-slate-600 transition group-hover:bg-[#07152E] group-hover:text-[#F7B548]">
-          استكشف الرحلة
+          {isArabic ? "استكشف الرحلة" : "Explore Journey"}
         </span>
       </Link>
     );
@@ -349,31 +424,41 @@ function PathStation({
       onClick={onOpen}
       title={
         station.status === "not_started"
-          ? "ابدأ الرحلة"
-          : "متابعة الرحلة"
+          ? isArabic
+            ? "ابدأ الرحلة"
+            : "Start Journey"
+          : isArabic
+            ? "متابعة الرحلة"
+            : "Continue Journey"
       }
       className="group relative z-10 flex min-w-0 flex-col items-center px-1 py-1 transition"
     >
       {content}
       <span className="mt-2 rounded-full bg-[#07152E] px-3 py-1 text-[9px] font-black text-[#F7B548] transition group-hover:bg-[#F7B548] group-hover:text-[#07152E]">
-        {station.status === "not_started" ? "ابدأ الرحلة" : "متابعة الرحلة"}
+        {station.status === "not_started"
+          ? isArabic
+            ? "ابدأ الرحلة"
+            : "Start Journey"
+          : isArabic
+            ? "متابعة الرحلة"
+            : "Continue Journey"}
       </span>
     </button>
   );
 }
 
-function formatLessonDuration(totalSeconds: number) {
+function formatLessonDuration(totalSeconds: number, locale: Locale) {
   const total = Math.max(0, Math.floor(Number(totalSeconds || 0)));
-  if (!total) return "المدة غير محددة";
+  if (!total) return locale === "ar" ? "المدة غير محددة" : "Duration unavailable";
 
   const hours = Math.floor(total / 3600);
   const minutes = Math.floor((total % 3600) / 60);
   const seconds = total % 60;
 
   return [
-    hours ? `${hours} س` : "",
-    minutes ? `${minutes} د` : "",
-    `${seconds} ث`,
+    hours ? `${hours} ${locale === "ar" ? "س" : "h"}` : "",
+    minutes ? `${minutes} ${locale === "ar" ? "د" : "m"}` : "",
+    `${seconds} ${locale === "ar" ? "ث" : "s"}`,
   ]
     .filter(Boolean)
     .join(" ");
@@ -382,10 +467,12 @@ function CompactPathStations({
   path,
   selectedStationId,
   onSelectStation,
+  locale,
 }: {
   path: StudentCareerPathProgress;
   selectedStationId: string;
   onSelectStation: (stationId: string) => void;
+  locale: Locale;
 }) {
   return (
     <div className="relative px-1.5 py-2 sm:px-3 sm:py-3">
@@ -565,15 +652,18 @@ function CompactPathStations({
 function StationLearningView({
   station,
   onBack,
+  locale,
 }: {
   station: StudentPathStationProgress;
   onBack: () => void;
+  locale: Locale;
 }) {
+  const isArabic = locale === "ar";
   const [selectedLessonId, setSelectedLessonId] =
     useState<string | null>(null);
 
   const partTitle = {
-    single: "محاضرات الكورس",
+    single: isArabic ? "محاضرات الكورس" : "Course Lessons",
     fundamentals: "Fundamentals",
     advanced: "Advanced",
   } as const;
@@ -593,9 +683,9 @@ function StationLearningView({
   } as const;
 
   const partActionTitle = {
-    single: "رحلة الاحتراف المتكاملة",
-    fundamentals: "رحلة الأساسيات",
-    advanced: "الرحلة المتقدمة",
+    single: isArabic ? "رحلة الاحتراف المتكاملة" : "Integrated Professional Journey",
+    fundamentals: isArabic ? "رحلة الأساسيات" : "Fundamentals Journey",
+    advanced: isArabic ? "الرحلة المتقدمة" : "Advanced Journey",
   } as const;
 
   return (
@@ -603,13 +693,15 @@ function StationLearningView({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
           <p className="text-xs font-black text-[#C88712]">
-            رحلة الاحتراف المتكاملة
+            {isArabic ? "رحلة الاحتراف المتكاملة" : "Integrated Professional Journey"}
           </p>
           <h3 className="mt-1 text-xl font-black text-[#07152E]">
             {station.title}
           </h3>
           <p className="mt-1 text-xs font-bold text-slate-500">
-            {station.completedLessons} من {station.totalLessons || 0} محاضرات مكتملة
+            {isArabic
+              ? `${station.completedLessons} من ${station.totalLessons || 0} محاضرات مكتملة`
+              : `${station.completedLessons} of ${station.totalLessons || 0} lessons completed`}
           </p>
         </div>
 
@@ -619,7 +711,7 @@ function StationLearningView({
           className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-[#07152E] transition hover:border-[#F7B548]"
         >
           <ChevronLeft className="h-4 w-4 rotate-180" />
-          العودة إلى خريطة المسار
+          {isArabic ? "العودة إلى خريطة المسار" : "Back to Path Map"}
         </button>
       </div>
 
@@ -654,7 +746,9 @@ function StationLearningView({
                 </div>
 
                 <p className="mt-1 text-[10px] font-bold text-white/65">
-                  {part.lessons.length} محاضرات
+                  {isArabic
+                    ? `${part.lessons.length} محاضرات`
+                    : `${part.lessons.length} lessons`}
                 </p>
               </div>
 
@@ -665,8 +759,8 @@ function StationLearningView({
                       <a
                         key={resource.id}
                         href={resource.downloadUrl}
-                        title={`تحميل ${resource.title}`}
-                        aria-label={`تحميل ${resource.title}`}
+                        title={isArabic ? `تحميل ${resource.title}` : `Download ${resource.title}`}
+                        aria-label={isArabic ? `تحميل ${resource.title}` : `Download ${resource.title}`}
                         className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#F7B548] px-2.5 text-[9px] font-black text-[#07152E] transition hover:bg-[#FFD078]"
                       >
                         <Download size={13} />
@@ -680,15 +774,15 @@ function StationLearningView({
 
                 {part.access === "active" ? (
                   <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-[10px] font-black text-emerald-200">
-                    متاح
+                    {isArabic ? "متاح" : "Available"}
                   </span>
                 ) : part.access === "pending" ? (
                   <span className="rounded-full bg-amber-400/15 px-3 py-1 text-[10px] font-black text-amber-200">
-                    طلبك قيد المراجعة
+                    {isArabic ? "طلبك قيد المراجعة" : "Pending review"}
                   </span>
                 ) : (
                   <span className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-black text-white/70">
-                    غير مشترك
+                    {isArabic ? "غير مشترك" : "Not enrolled"}
                   </span>
                 )}
               </div>
@@ -719,7 +813,7 @@ className="grid grid-cols-[34px_minmax(0,1fr)_auto_105px] items-center gap-3 px-
     <div className="flex shrink-0 items-center gap-1 text-[10px] font-bold text-slate-500">
       <Clock3 size={12} />
       <span>
-        {formatLessonDuration(lesson.durationSeconds)}
+        {formatLessonDuration(lesson.durationSeconds, locale)}
       </span>
     </div>
 
@@ -748,8 +842,8 @@ className="grid grid-cols-[34px_minmax(0,1fr)_auto_105px] items-center gap-3 px-
                             <a
                               key={resource.id}
                               href={resource.downloadUrl}
-                              title={`تحميل ${resource.title}`}
-                              aria-label={`تحميل ${resource.title}`}
+                              title={isArabic ? `تحميل ${resource.title}` : `Download ${resource.title}`}
+                              aria-label={isArabic ? `تحميل ${resource.title}` : `Download ${resource.title}`}
                               className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#F7B548]/55 bg-[#FFF8EA] text-[#B87508] transition hover:border-[#F7B548] hover:bg-[#F7B548] hover:text-[#07152E]"
                             >
                               <Download size={14} />
@@ -767,17 +861,17 @@ className="grid grid-cols-[34px_minmax(0,1fr)_auto_105px] items-center gap-3 px-
                       >
                         <PlayCircle size={14} />
                         {lesson.completed
-                          ? "مشاهدة"
+                          ? isArabic ? "مشاهدة" : "Watch"
                           : lesson.progressPercent > 0
-                            ? "استكمل"
-                            : "ابدأ الآن"}
+                            ? isArabic ? "استكمل" : "Continue"
+                            : isArabic ? "ابدأ الآن" : "Start Now"}
                       </button>
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="px-4 py-8 text-center text-xs font-bold text-slate-500">
-                  لا توجد محاضرات منشورة في هذا القسم حاليًا.
+                  {isArabic ? "لا توجد محاضرات منشورة في هذا القسم حاليًا." : "No lessons are published in this section yet."}
                 </div>
               )
             ) : (
@@ -785,15 +879,15 @@ className="grid grid-cols-[34px_minmax(0,1fr)_auto_105px] items-center gap-3 px-
                 <BookOpenCheck className="h-8 w-8 text-[#C88712]" />
                 <p className="mt-3 text-sm font-black text-[#07152E]">
                   {part.part === "fundamentals"
-                    ? "اشترك في رحلة الأساسيات"
+                    ? isArabic ? "اشترك في رحلة الأساسيات" : "Enroll in Fundamentals"
                     : part.part === "advanced"
-                      ? "اشترك في الرحلة المتقدمة"
-                      : "اشترك في الرحلة"}
+                      ? isArabic ? "اشترك في الرحلة المتقدمة" : "Enroll in Advanced"
+                      : isArabic ? "اشترك في الرحلة" : "Enroll in Journey"}
                 </p>
 
                 {part.access === "pending" ? (
                   <p className="mt-2 text-xs font-bold text-amber-700">
-                    طلب الاشتراك قيد المراجعة.
+                    {isArabic ? "طلب الاشتراك قيد المراجعة." : "Enrollment request is under review."}
                   </p>
                 ) : part.courseId ? (
                   <div className="mt-4">
@@ -818,12 +912,12 @@ className="grid grid-cols-[34px_minmax(0,1fr)_auto_105px] items-center gap-3 px-
                       enrollmentStatus={
                         part.enrollmentStatus
                       }
-                      label="اشترك الآن"
+                      label={isArabic ? "اشترك الآن" : "Enroll Now"}
                     />
                   </div>
                 ) : (
                   <p className="mt-2 text-xs font-bold text-slate-500">
-                    لم يتم تجهيز هذا القسم للاشتراك بعد.
+                    {isArabic ? "لم يتم تجهيز هذا القسم للاشتراك بعد." : "Enrollment is not available for this section yet."}
                   </p>
                 )}
               </div>
@@ -837,20 +931,22 @@ className="grid grid-cols-[34px_minmax(0,1fr)_auto_105px] items-center gap-3 px-
 
 function getStationCaption(
   station: StudentPathStationProgress,
+  locale: Locale,
 ) {
+  const isArabic = locale === "ar";
   switch (station.status) {
     case "completed":
-      return "رحلة مكتملة";
+      return isArabic ? "رحلة مكتملة" : "Completed";
     case "in_progress":
-      return `${station.completedLessons} من ${
-        station.totalLessons || "—"
-      } دروس`;
+      return isArabic
+        ? `${station.completedLessons} من ${station.totalLessons || "—"} دروس`
+        : `${station.completedLessons} of ${station.totalLessons || "—"} lessons`;
     case "not_started":
-      return "جاهزة للبدء";
+      return isArabic ? "جاهزة للبدء" : "Ready to start";
     case "pending":
-      return "بانتظار الاعتماد";
+      return isArabic ? "بانتظار الاعتماد" : "Pending approval";
     default:
-      return "غير مشترك";
+      return isArabic ? "غير مشترك" : "Not enrolled";
   }
 }
 
@@ -873,30 +969,33 @@ function LegendDot({
 
 function NextStepPanel({
   data,
+  locale,
 }: {
   data: StudentDashboardData;
+  locale: Locale;
 }) {
+  const isArabic = locale === "ar";
   const sections = data.nextStepSections ?? [];
 
   const tabMeta = {
     professional: {
-      title: "رحلة الاحتراف",
-      badgeLabel: "احتراف",
+      title: isArabic ? "رحلة الاحتراف" : "Professional Journey",
+      badgeLabel: isArabic ? "احتراف" : "Professional",
     },
     one_day: {
-      title: "رحلة اليوم الواحد",
-      badgeLabel: "يوم واحد",
+      title: isArabic ? "رحلة اليوم الواحد" : "One-Day Journey",
+      badgeLabel: isArabic ? "يوم واحد" : "One Day",
     },
     free: {
-      title: "الرحلات المجانية",
-      badgeLabel: "مجانية",
+      title: isArabic ? "الرحلات المجانية" : "Free Journeys",
+      badgeLabel: isArabic ? "مجانية" : "Free",
     },
   } as const;
 
   return (
     <div className="mx-auto max-w-5xl">
       <JourneyTabs
-        ariaLabel="الخطوة التالية حسب نوع الرحلة"
+        ariaLabel={isArabic ? "الخطوة التالية حسب نوع الرحلة" : "Next step by journey type"}
         tabs={sections.map((section) => {
           const activeItems = section.groups.flatMap(
             (group) => group.items,
@@ -923,8 +1022,12 @@ function NextStepPanel({
 
             subtitle:
               totalItems > 0
-                ? `${totalItems} محاضرات تحتاج متابعة`
-                : "لا توجد محاضرات معلقة",
+                ? isArabic
+                  ? `${totalItems} محاضرات تحتاج متابعة`
+                  : `${totalItems} lessons need attention`
+                : isArabic
+                  ? "لا توجد محاضرات معلقة"
+                  : "No pending lessons",
 
             badge: `${averageProgress}%`,
 
@@ -938,6 +1041,7 @@ function NextStepPanel({
               <NextStepSectionContent
                 key={section.kind}
                 section={section}
+                locale={locale}
               />
             ),
           };
@@ -949,11 +1053,14 @@ function NextStepPanel({
 
 function NextStepSectionContent({
   section,
+  locale,
 }: {
   section: NonNullable<
     StudentDashboardData["nextStepSections"]
   >[number];
+  locale: Locale;
 }) {
+  const isArabic = locale === "ar";
   const [selectedLessonId, setSelectedLessonId] =
     useState<string | null>(null);
 
@@ -969,7 +1076,7 @@ function NextStepSectionContent({
           className="text-[#70B64A]"
         />
 
-        لا توجد محاضرات تحتاج للاستكمال في هذا النوع
+        {isArabic ? "لا توجد محاضرات تحتاج للاستكمال في هذا النوع" : "No lessons need completion in this category"}
       </div>
     );
   }
@@ -988,7 +1095,7 @@ function NextStepSectionContent({
               }
               className="rounded-lg border border-slate-200 px-3 py-1.5 text-[10px] font-black text-[#07152E] transition hover:bg-slate-50"
             >
-              إغلاق الفيديو
+              {isArabic ? "إغلاق الفيديو" : "Close video"}
             </button>
           </div>
 
@@ -1013,7 +1120,7 @@ function NextStepSectionContent({
               </h4>
 
               <span className="rounded-full bg-[#F7B548]/15 px-3 py-1 text-[10px] font-black text-[#F7B548]">
-                {group.items.length} محاضرات
+                {isArabic ? `${group.items.length} محاضرات` : `${group.items.length} lessons`}
               </span>
             </header>
 
@@ -1036,10 +1143,12 @@ function NextStepSectionContent({
                         <Clock3 size={13} />
 
                         {item.remainingMinutes
-                          ? `متبقي ${item.remainingMinutes} د`
+                          ? isArabic
+                            ? `متبقي ${item.remainingMinutes} د`
+                            : `${item.remainingMinutes} min remaining`
                           : item.progressPercent > 0
-                            ? "الوقت غير محدد"
-                            : "لم تبدأ بعد"}
+                            ? isArabic ? "الوقت غير محدد" : "Time unavailable"
+                            : isArabic ? "لم تبدأ بعد" : "Not started yet"}
                       </div>
 
                       <span className="shrink-0 text-[10px] font-black text-slate-500">
@@ -1118,7 +1227,7 @@ function EmptyPanel({
         href={href}
         className="mt-5 inline-flex h-11 items-center gap-2 bg-[#07152E] px-5 text-xs font-black text-white"
       >
-        استكشف الآن
+        {isArabic ? "استكشف الآن" : "Explore Now"}
         <ChevronLeft size={17} />
       </Link>
     </div>

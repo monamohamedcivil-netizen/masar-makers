@@ -38,6 +38,10 @@ studentCountry: string | null;
   updatedAt: string;
 
   images: StudentProjectImage[];
+
+  videoUrl: string | null;
+
+  videoStoragePath: string | null;
 };
 
 export type StudentProjectImage = {

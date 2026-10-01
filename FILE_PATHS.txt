@@ -1,0 +1,8 @@
+REPLACE:
+sections/Navbar.tsx
+components/layout/RootClientShell.tsx
+
+ADD NEW:
+components/i18n/LanguageSwitch.tsx
+components/i18n/GlobalLocaleTranslator.tsx
+lib/i18n/ui-translations.ts

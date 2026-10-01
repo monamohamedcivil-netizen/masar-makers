@@ -125,8 +125,38 @@ export default function StudentAdminWorkspace({
               />
 
               <ProfileField
+                label="الاسم بالإنجليزية للشهادة"
+                value={data.studentProfile.fullNameEn}
+              />
+
+              <ProfileField
                 label="البريد الإلكتروني"
                 value={data.studentEmail}
+              />
+
+              <ProfileField
+                label="رقم الهاتف"
+                value={data.studentProfile.phone}
+              />
+
+              <ProfileField
+                label="الدولة"
+                value={data.studentProfile.country}
+              />
+
+              <ProfileField
+                label="المسمى الوظيفي"
+                value={data.studentProfile.jobTitle}
+              />
+
+              <ProfileField
+                label="سنوات الخبرة"
+                value={data.studentProfile.experienceLevel}
+              />
+
+              <ProfileField
+                label="التخصص"
+                value={data.studentProfile.specialty}
               />
 
               <ProfileField

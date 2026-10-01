@@ -29,6 +29,8 @@ import {
   type PublicMonthlyDrawState,
 } from "@/lib/public/monthly-draws";
 
+type Locale = "ar" | "en";
+
 const LIVE_POLL_MS = 1000;
 const COMPLETED_POLL_MS = 60 * 1000;
 
@@ -85,6 +87,27 @@ export default function MonthlyDrawOverlay() {
 
   const [showPointsModal, setShowPointsModal] =
     useState(false);
+
+  const [locale, setLocale] = useState<Locale>("ar");
+
+  useEffect(() => {
+    const savedLocale = window.localStorage.getItem("masar-locale");
+    if (savedLocale === "ar" || savedLocale === "en") {
+      setLocale(savedLocale);
+    }
+
+    const handleLocaleChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{ locale?: Locale }>;
+      if (customEvent.detail?.locale === "ar" || customEvent.detail?.locale === "en") {
+        setLocale(customEvent.detail.locale);
+      }
+    };
+
+    window.addEventListener("masar:locale-change", handleLocaleChange);
+    return () => window.removeEventListener("masar:locale-change", handleLocaleChange);
+  }, []);
+
+  const isEnglish = locale === "en";
 
   const [
     nextDrawRemaining,
@@ -774,20 +797,20 @@ export default function MonthlyDrawOverlay() {
             size={16}
             className="text-[#F7B548]"
           />
-          متابعة السحب
+          {isEnglish ? "View Draw" : "متابعة السحب"}
         </button>
       ) : null}
 
       {open ? (
         <div
-          dir="rtl"
+          dir={isEnglish ? "ltr" : "rtl"}
           className="fixed inset-0 z-[400] flex items-start justify-center overflow-y-auto bg-[#020817]/88 p-2 backdrop-blur-md sm:p-4 lg:items-center"
         >
           <div className="relative my-2 w-[94vw] max-w-[430px] overflow-hidden rounded-[20px] sm:w-[92vw] sm:max-w-[620px] lg:w-full lg:max-w-[1040px] lg:rounded-[30px] border border-[#F7B548]/35 bg-[#061127] shadow-[0_30px_90px_rgba(0,0,0,0.58)] sm:rounded-[26px] lg:my-0 lg:rounded-[30px]">
             <button
               type="button"
               onClick={closeOverlay}
-              aria-label="إغلاق شاشة السحب"
+              aria-label={isEnglish ? "Close monthly draw" : "إغلاق شاشة السحب"}
               className="absolute left-3 top-3 z-[90] flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-[#07152E]/80 text-white shadow-md transition hover:bg-[#07152E] sm:h-9 sm:w-9 lg:left-4 lg:top-4 lg:h-10 lg:w-10"
             >
               <X size={20} />
@@ -809,17 +832,17 @@ export default function MonthlyDrawOverlay() {
 
                   <div className="text-center">
                     <h2 className="text-[22px] font-black leading-none text-white">
-                      السحب الشهري
+                      {isEnglish ? "Monthly Draw" : "السحب الشهري"}
                     </h2>
 
                     <p className="mt-1 text-[10px] font-black text-[#F7B548]">
                       {currentDraw.phase === "countdown"
-                        ? "استعدوا... السحب يبدأ الآن"
+                        ? (isEnglish ? "Get ready... the draw starts now" : "استعدوا... السحب يبدأ الآن")
                         : spinning
-                          ? "جاري اختيار الفائز"
+                          ? (isEnglish ? "Selecting the winner" : "جاري اختيار الفائز")
                           : showResultPanel
-                            ? "تم اختيار الفائز"
-                            : "جاري السحب الآن..."}
+                            ? (isEnglish ? "Winner selected" : "تم اختيار الفائز")
+                            : (isEnglish ? "Drawing now..." : "جاري السحب الآن...")}
                     </p>
                   </div>
                 </div>
@@ -827,6 +850,7 @@ export default function MonthlyDrawOverlay() {
                 {currentDraw.phase === "countdown" ? (
                   <div className="mt-3">
                     <Countdown
+                      locale={locale}
                       remaining={
                         remaining ??
                         currentDraw.countdownSeconds
@@ -836,6 +860,8 @@ export default function MonthlyDrawOverlay() {
                 ) : (
                   <div className="mt-1">
                     <DrumReel
+                      locale={locale}
+                      locale={locale}
                       names={weightedNames}
                       index={spinIndex}
                       spinning={spinning}
@@ -849,7 +875,7 @@ export default function MonthlyDrawOverlay() {
                 )}
 
                 <p className="mt-1 text-center text-[10px] font-black text-white/80">
-                  ✨ كلما زادت نقاطك زادت فرصتك في الفوز ✨
+                  {isEnglish ? "✨ More points, more chances to win ✨" : "✨ كلما زادت نقاطك زادت فرصتك في الفوز ✨"}
                 </p>
               </section>
 
@@ -859,19 +885,20 @@ export default function MonthlyDrawOverlay() {
                 <div className="relative z-10 space-y-2">
                   {showResultPanel ? (
                     <WinnerSummary
+                      locale={locale}
                       name={
                         currentDraw.winnerName ??
-                        "فائز Masar Makers"
+                        (isEnglish ? "Masar Makers Winner" : "فائز Masar Makers")
                       }
                       monthKey={currentDraw.monthKey}
                     />
                   ) : (
                     <div className="rounded-[14px] border border-[#E7C36E] bg-white/85 px-3 py-2.5 text-center shadow-sm">
                       <p className="text-[10px] font-black text-[#C88712]">
-                        بانتظار إعلان الفائز
+                        {isEnglish ? "Waiting for the winner" : "بانتظار إعلان الفائز"}
                       </p>
                       <p className="mt-1 text-[9px] font-semibold leading-4 text-[#07152E]/60">
-                        تابع السحب حتى النهاية لمعرفة اسم الفائز.
+                        {isEnglish ? "Follow the draw to the end to see the winner." : "تابع السحب حتى النهاية لمعرفة اسم الفائز."}
                       </p>
                     </div>
                   )}
@@ -885,17 +912,17 @@ export default function MonthlyDrawOverlay() {
 
                         <div className="min-w-0">
                           <p className="text-[9px] font-black text-[#C88712]">
-                            الجائزة لهذا الشهر
+                            {isEnglish ? "This Month's Prize" : "الجائزة لهذا الشهر"}
                           </p>
                           <p className="mt-0.5 line-clamp-2 text-[13px] font-black leading-5 text-[#07152E]">
-                            {currentDraw.prizeTitle}
+                            {isEnglish ? translatePrizeTitleToEnglish(currentDraw.prizeTitle) : currentDraw.prizeTitle}
                           </p>
                         </div>
                       </div>
 
                       {currentDraw.prizeDescription ? (
                         <p className="mt-1.5 line-clamp-2 text-[9px] font-semibold leading-4 text-[#07152E]/60">
-                          {currentDraw.prizeDescription}
+                          {isEnglish ? translatePrizeDescriptionToEnglish(currentDraw.prizeDescription) : currentDraw.prizeDescription}
                         </p>
                       ) : null}
                     </div>
@@ -905,14 +932,14 @@ export default function MonthlyDrawOverlay() {
                     <div className="mb-2 flex items-center justify-center gap-1.5">
                       <CalendarClock size={14} className="text-[#C88712]" />
                       <p className="text-[10px] font-black text-[#C88712]">
-                        السحب القادم بعد
+                        {isEnglish ? "Next draw in" : "السحب القادم بعد"}
                       </p>
                     </div>
 
                     <div className="grid grid-cols-3 gap-1.5">
-                      <TimeBox value={nextDrawRemaining.days} label="يوم" />
-                      <TimeBox value={nextDrawRemaining.hours} label="ساعة" />
-                      <TimeBox value={nextDrawRemaining.minutes} label="دقيقة" />
+                      <TimeBox value={nextDrawRemaining.days} label={isEnglish ? "Day" : "يوم"} />
+                      <TimeBox value={nextDrawRemaining.hours} label={isEnglish ? "Hour" : "ساعة"} />
+                      <TimeBox value={nextDrawRemaining.minutes} label={isEnglish ? "Min" : "دقيقة"} />
                     </div>
                   </div>
 
@@ -921,7 +948,7 @@ export default function MonthlyDrawOverlay() {
                     onClick={() => setShowPointsModal(true)}
                     className="flex h-9 w-full items-center justify-center rounded-xl bg-[#F7B548] text-[12px] font-black text-[#07152E] shadow-sm transition hover:bg-[#ffc45d]"
                   >
-                    كيف أزيد نقاطي؟
+                    {isEnglish ? "How do I earn points?" : "كيف أزيد نقاطي؟"}
                   </button>
                 </div>
               </aside>
@@ -938,18 +965,18 @@ export default function MonthlyDrawOverlay() {
 
                   <div className="text-center">
                     <h2 className="text-[30px] font-black leading-none text-white">
-                      السحب الشهري
+                      {isEnglish ? "Monthly Draw" : "السحب الشهري"}
                     </h2>
 
                     <p className="mt-1.5 text-[14px] font-black text-[#F7B548]">
                       {currentDraw.phase ===
                       "countdown"
-                        ? "استعدوا... السحب يبدأ الآن"
+                        ? (isEnglish ? "Get ready... the draw starts now" : "استعدوا... السحب يبدأ الآن")
                         : spinning
-                          ? "حان وقت الحظ... جاري اختيار الفائز"
+                          ? (isEnglish ? "Selecting the winner" : "حان وقت الحظ... جاري اختيار الفائز")
                           : showResultPanel
-                            ? "تم اختيار الفائز"
-                            : "جاري السحب الآن..."}
+                            ? (isEnglish ? "Winner selected" : "تم اختيار الفائز")
+                            : (isEnglish ? "Drawing now..." : "جاري السحب الآن...")}
                     </p>
                   </div>
                 </div>
@@ -958,6 +985,7 @@ export default function MonthlyDrawOverlay() {
                 "countdown" ? (
                   <div className="mt-10">
                     <Countdown
+                      locale={locale}
                       remaining={
                         remaining ??
                         currentDraw.countdownSeconds
@@ -967,6 +995,8 @@ export default function MonthlyDrawOverlay() {
                 ) : (
                   <div className="mt-3 w-full">
                     <DrumReel
+                      locale={locale}
+                      locale={locale}
                       names={
                         weightedNames
                       }
@@ -986,7 +1016,7 @@ export default function MonthlyDrawOverlay() {
                 )}
 
                 <p className="mt-3 text-center text-[14px] font-black text-white/90">
-                  ✨ كلما زادت نقاطك... زادت فرصتك في الفوز ✨
+                  {isEnglish ? "✨ More points... more chances to win ✨" : "✨ كلما زادت نقاطك... زادت فرصتك في الفوز ✨"}
                 </p>
               </section>
 
@@ -1001,10 +1031,10 @@ export default function MonthlyDrawOverlay() {
 
                     <div>
                       <p className="text-[12px] font-black text-[#07152E]/70">
-                        سحب مكافآت
+                        {isEnglish ? "Rewards Draw" : "سحب مكافآت"}
                       </p>
                       <p className="mt-1 text-[22px] font-black text-[#07152E]">
-                        الشهري{" "}
+                        {isEnglish ? "Monthly" : "الشهري"}{" "}
                         <span className="text-[#F7B548]">
                           Masar Makers
                         </span>
@@ -1014,9 +1044,10 @@ export default function MonthlyDrawOverlay() {
 
                   {showResultPanel ? (
                     <WinnerSummary
+                      locale={locale}
                       name={
                         currentDraw.winnerName ??
-                        "فائز Masar Makers"
+                        (isEnglish ? "Masar Makers Winner" : "فائز Masar Makers")
                       }
                       monthKey={
                         currentDraw.monthKey
@@ -1025,10 +1056,10 @@ export default function MonthlyDrawOverlay() {
                   ) : (
                     <div className="mt-5 rounded-[18px] border border-[#E7C36E] bg-white/80 px-4 py-4 text-center shadow-sm">
                       <p className="text-[12px] font-black text-[#F7B548]">
-                        بانتظار إعلان الفائز
+                        {isEnglish ? "Waiting for the winner" : "بانتظار إعلان الفائز"}
                       </p>
                       <p className="mt-2 text-[12px] font-semibold leading-6 text-[#07152E]/65">
-                        تابع السحب حتى النهاية لمعرفة اسم الفائز لهذا الشهر.
+                        {isEnglish ? "Follow the draw to the end to see this month’s winner." : "تابع السحب حتى النهاية لمعرفة اسم الفائز لهذا الشهر."}
                       </p>
                     </div>
                   )}
@@ -1042,18 +1073,18 @@ export default function MonthlyDrawOverlay() {
 
                         <div>
                           <p className="text-[13px] font-black text-[#C88712]">
-                            الجائزة لهذا الشهر
+                            {isEnglish ? "This Month's Prize" : "الجائزة لهذا الشهر"}
                           </p>
 
                           <p className="mt-1 text-[18px] font-black leading-7 text-[#07152E]">
-                            {currentDraw.prizeTitle}
+                            {isEnglish ? translatePrizeTitleToEnglish(currentDraw.prizeTitle) : currentDraw.prizeTitle}
                           </p>
                         </div>
                       </div>
 
                       {currentDraw.prizeDescription ? (
                         <p className="mt-2 text-[11px] font-semibold leading-6 text-[#07152E]/65">
-                          {currentDraw.prizeDescription}
+                          {isEnglish ? translatePrizeDescriptionToEnglish(currentDraw.prizeDescription) : currentDraw.prizeDescription}
                         </p>
                       ) : null}
                     </div>
@@ -1066,7 +1097,7 @@ export default function MonthlyDrawOverlay() {
                         className="text-[#F7B548]"
                       />
                       <p className="text-[15px] font-black text-[#F7B548]">
-                        السحب القادم بعد
+                        {isEnglish ? "Next draw in" : "السحب القادم بعد"}
                       </p>
                     </div>
 
@@ -1075,19 +1106,19 @@ export default function MonthlyDrawOverlay() {
                         value={
                           nextDrawRemaining.days
                         }
-                        label="يوم"
+                        label={isEnglish ? "Day" : "يوم"}
                       />
                       <TimeBox
                         value={
                           nextDrawRemaining.hours
                         }
-                        label="ساعة"
+                        label={isEnglish ? "Hour" : "ساعة"}
                       />
                       <TimeBox
                         value={
                           nextDrawRemaining.minutes
                         }
-                        label="دقيقة"
+                        label={isEnglish ? "Min" : "دقيقة"}
                       />
                     </div>
                   </div>
@@ -1100,7 +1131,7 @@ export default function MonthlyDrawOverlay() {
                       }
                       className="flex h-10 w-full items-center justify-center rounded-xl bg-[#F7B548] text-[14px] font-black text-[#07152E] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#ffc45d]"
                     >
-                      كيف أزيد نقاطي؟
+                      {isEnglish ? "How do I earn points?" : "كيف أزيد نقاطي؟"}
                     </button>
                   </div>
                 </div>
@@ -1112,7 +1143,7 @@ export default function MonthlyDrawOverlay() {
 
       {showPointsModal ? (
         <div
-          dir="rtl"
+          dir={isEnglish ? "ltr" : "rtl"}
           className="fixed inset-0 z-[520] flex items-center justify-center bg-[#020817]/70 p-2 backdrop-blur-sm sm:p-4"
         >
           <div className="relative max-h-[88vh] w-[90vw] max-w-[360px] overflow-y-auto rounded-[18px] border border-[#F7B548]/55 bg-white shadow-[0_24px_70px_rgba(0,0,0,.42)] sm:max-h-[92vh] sm:w-full sm:max-w-[700px] sm:rounded-[26px] lg:max-w-[900px] lg:rounded-[30px]">
@@ -1121,7 +1152,7 @@ export default function MonthlyDrawOverlay() {
               onClick={() =>
                 setShowPointsModal(false)
               }
-              aria-label="إغلاق طرق زيادة النقاط"
+              aria-label={isEnglish ? "Close ways to earn points" : "إغلاق طرق زيادة النقاط"}
               className="absolute left-2.5 top-2.5 z-30 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[#07152E] shadow-sm transition hover:bg-slate-50 sm:left-4 sm:top-4 sm:h-9 sm:w-9 lg:left-5 lg:top-5 lg:h-10 lg:w-10"
             >
               <X size={18} />
@@ -1133,11 +1164,11 @@ export default function MonthlyDrawOverlay() {
 
                 <div className="text-center">
                   <p className="text-[16px] font-black text-[#07152E] sm:text-[20px] lg:text-[24px]">
-                    طرق زيادة النقاط
+                    {isEnglish ? "Ways to Earn Points" : "طرق زيادة النقاط"}
                   </p>
 
                   <p className="mx-auto mt-0.5 max-w-[250px] text-[8px] font-bold leading-4 text-slate-500 sm:mt-1 sm:max-w-none sm:text-[10px] lg:text-[11px]">
-                    اجمع النقاط من رحلاتك وتفاعلك على المنصة لزيادة فرصك في السحب الشهري
+                    {isEnglish ? "Earn points from your journeys and platform activity to increase your monthly draw chances." : "اجمع النقاط من رحلاتك وتفاعلك على المنصة لزيادة فرصك في السحب الشهري"}
                   </p>
                 </div>
 
@@ -1147,30 +1178,34 @@ export default function MonthlyDrawOverlay() {
 
             <div className="space-y-3 p-3 sm:space-y-4 sm:p-5 lg:space-y-5 lg:p-7">
               <PointsSection
-                title="الرحلات وأنواعها"
+                title={isEnglish ? "Journeys & Types" : "الرحلات وأنواعها"}
                 icon={<BookOpen size={19} />}
               >
                 <PointsRule
+                  locale={locale}
                   points="+50"
-                  title="الاشتراك في رحلة"
+                  title={isEnglish ? "Join a Journey" : "الاشتراك في رحلة"}
                   icon={<BookOpen size={18} />}
                 />
 
                 <PointsRule
+                  locale={locale}
                   points="+20"
-                  title="إكمال رحلة"
+                  title={isEnglish ? "Complete a Journey" : "إكمال رحلة"}
                   icon={<CheckCircle2 size={18} />}
                 />
 
                 <PointsRule
+                  locale={locale}
                   points="+20"
-                  title="الاشتراك في رحلة اليوم الواحد"
+                  title={isEnglish ? "Join a One-Day Journey" : "الاشتراك في رحلة اليوم الواحد"}
                   icon={<Plane size={18} />}
                 />
 
                 <PointsRule
+                  locale={locale}
                   points="+5"
-                  title="مشاهدة رحلة مجانية"
+                  title={isEnglish ? "Watch a Free Journey" : "مشاهدة رحلة مجانية"}
                   icon={<PlayCircle size={18} />}
                 />
               </PointsSection>
@@ -1178,41 +1213,45 @@ export default function MonthlyDrawOverlay() {
               <div className="border-t border-dashed border-[#F7B548]/45" />
 
               <PointsSection
-                title="التفاعل والمشاركة"
+                title={isEnglish ? "Engagement & Participation" : "التفاعل والمشاركة"}
                 icon={<UserPlus size={19} />}
               >
                 <PointsRule
+                  locale={locale}
                   points="+20"
-                  title="إكمال التقييم"
+                  title={isEnglish ? "Complete a Survey" : "إكمال التقييم"}
                   icon={<ClipboardCheck size={18} />}
                 />
 
                 <PointsRule
+                  locale={locale}
                   points="+50"
-                  title="رفع مشروع"
+                  title={isEnglish ? "Upload a Project" : "رفع مشروع"}
                   icon={<FileUp size={18} />}
                 />
 
                 <PointsRule
+                  locale={locale}
                   points="+20"
-                  title="مشروع مميز"
+                  title={isEnglish ? "Featured Project" : "مشروع مميز"}
                   icon={<Star size={18} />}
                 />
 
                 <PointsRule
+                  locale={locale}
                   points="+50"
-                  title="دعوة صديق"
+                  title={isEnglish ? "Refer a Friend" : "دعوة صديق"}
                   icon={<UserPlus size={18} />}
                 />
               </PointsSection>
 
               <div className="rounded-xl border border-[#F7B548]/40 bg-[#FFF8E8] px-2.5 py-2 text-center sm:rounded-2xl sm:px-4 sm:py-3 lg:px-5 lg:py-4">
                 <p className="text-[10px] font-black text-[#C88712] sm:text-[12px] lg:text-[14px]">
-                  كل 100 نقطة = فرصة إضافية في السحب الشهري
+                  {isEnglish ? "Every 100 points = 1 extra monthly draw entry" : "كل 100 نقطة = فرصة إضافية في السحب الشهري"}
                 </p>
 
                 <p className="mt-0.5 text-[7.5px] font-bold text-slate-500 sm:mt-1 sm:text-[9px] lg:text-[10px]">
-                  كلما زادت نقاطك زادت فرصك في الفوز
+                  {isEnglish ? "More points mean more chances to win" : "كلما زادت نقاطك زادت فرصك في الفوز"}
                 </p>
               </div>
             </div>
@@ -1223,10 +1262,30 @@ export default function MonthlyDrawOverlay() {
   );
 }
 
+function translatePrizeTitleToEnglish(value: string): string {
+  const normalized = value.trim();
+  const translations: Record<string, string> = {
+    "رحلة يوم واحد مجانية من اختيار الفائز": "Free One-Day Journey",
+    "رحلة مجانية من اختيار الفائز": "Free Journey",
+  };
+  return translations[normalized] ?? normalized;
+}
+
+function translatePrizeDescriptionToEnglish(value: string): string {
+  const normalized = value.trim();
+  const translations: Record<string, string> = {
+    "الفائز يختار رحلة واحدة من رحلات اليوم الواحد المتاحة على منصة Masar Makers.":
+      "The winner chooses one available One-Day Journey on Masar Makers.",
+  };
+  return translations[normalized] ?? normalized;
+}
+
 function Countdown({
   remaining,
+  locale,
 }: {
   remaining: number;
+  locale: Locale;
 }) {
   return (
     <div className="text-center">
@@ -1243,7 +1302,7 @@ function Countdown({
       </div>
 
       <p className="mt-6 text-[14px] font-bold text-white/60">
-        كل فرصة إضافية تزيد احتمالية الفوز
+        {locale === "en" ? "Every extra entry increases your chance to win" : "كل فرصة إضافية تزيد احتمالية الفوز"}
       </p>
     </div>
   );
@@ -1254,11 +1313,13 @@ function DrumReel({
   index,
   spinning,
   winnerName,
+  locale,
 }: {
   names: string[];
   index: number;
   spinning: boolean;
   winnerName: string | null;
+  locale: Locale;
 }) {
   const fallback =
     names.length > 0
@@ -1456,10 +1517,10 @@ function DrumReel({
 
       <p className="mt-0 text-center text-[10px] font-black text-white sm:mt-0.5 sm:text-[12px] lg:text-[14px]">
         {spinning
-          ? "جاري اختيار الفائز..."
+          ? (locale === "en" ? "Selecting the winner..." : "جاري اختيار الفائز...")
           : winnerName
-            ? "تم اختيار الفائز"
-            : "لحظات ويظهر الفائز"}
+            ? (locale === "en" ? "Winner selected" : "تم اختيار الفائز")
+            : (locale === "en" ? "Winner coming up..." : "لحظات ويظهر الفائز")}
       </p>
     </div>
   );
@@ -1497,10 +1558,12 @@ function PointsRule({
   points,
   title,
   icon,
+  locale,
 }: {
   points: string;
   title: string;
   icon: ReactNode;
+  locale: Locale;
 }) {
   return (
     <div className="flex min-h-[54px] items-center gap-1.5 rounded-xl border border-[#E9C673] bg-white px-2 py-1.5 shadow-[0_5px_14px_rgba(7,21,46,.04)] sm:min-h-[68px] sm:gap-2.5 sm:rounded-2xl sm:px-3 sm:py-2.5 lg:min-h-[82px] lg:gap-3 lg:px-4 lg:py-3">
@@ -1514,7 +1577,7 @@ function PointsRule({
         </p>
 
         <p className="mt-0.5 text-[8px] font-black text-[#C88712] sm:text-[10px] lg:mt-1 lg:text-[12px]">
-          {points} نقطة
+          {points} {locale === "en" ? "pts" : "نقطة"}
         </p>
       </div>
     </div>
@@ -1524,9 +1587,11 @@ function PointsRule({
 function WinnerSummary({
   name,
   monthKey,
+  locale,
 }: {
   name: string;
   monthKey: string;
+  locale: Locale;
 }) {
   const [year, month] =
     monthKey.split("-");
@@ -1534,7 +1599,7 @@ function WinnerSummary({
   const monthLabel =
     year && month
       ? new Intl.DateTimeFormat(
-          "ar-SA",
+          locale === "en" ? "en-US" : "ar-SA",
           {
             month: "long",
             year: "numeric",
@@ -1553,7 +1618,7 @@ function WinnerSummary({
       <div className="flex items-center justify-center gap-2 text-[#F7B548]">
         <Sparkles size={15} />
         <p className="text-[15px] font-black">
-          الفائز في سحب {monthLabel}
+          {locale === "en" ? `Winner — ${monthLabel}` : `الفائز في سحب ${monthLabel}`}
         </p>
         <Sparkles size={15} />
       </div>

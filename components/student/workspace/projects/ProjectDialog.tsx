@@ -15,11 +15,13 @@ import {
   Loader2,
   Star,
   Upload,
+  Video,
   X,
 } from "lucide-react";
 
 import { createProject } from "@/lib/projects/create-project";
 import { updateProject } from "@/lib/projects/update-project";
+import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 import type {
   StudentCareerPathProgress,
@@ -73,6 +75,34 @@ export default function ProjectDialog({
   mode = "create",
   project = null,
 }: Props) {
+  const [locale, setLocale] = useState<"ar" | "en">("ar");
+  const isArabic = locale === "ar";
+
+  useEffect(() => {
+    const readLocale = () => {
+      const saved = window.localStorage.getItem("masar-locale");
+      setLocale(saved === "en" ? "en" : "ar");
+    };
+
+    readLocale();
+
+    const handleLocaleChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{ locale?: "ar" | "en" }>;
+      if (customEvent.detail?.locale === "ar" || customEvent.detail?.locale === "en") {
+        setLocale(customEvent.detail.locale);
+        return;
+      }
+      readLocale();
+    };
+
+    window.addEventListener("masar:locale-change", handleLocaleChange);
+    window.addEventListener("storage", readLocale);
+    return () => {
+      window.removeEventListener("masar:locale-change", handleLocaleChange);
+      window.removeEventListener("storage", readLocale);
+    };
+  }, []);
+
   const courses = useMemo<
     ProjectCourseOption[]
   >(() => {
@@ -111,6 +141,11 @@ export default function ProjectDialog({
   const [projectLink, setProjectLink] =
     useState("");
 
+  const [newVideo, setNewVideo] =
+    useState<File | null>(null);
+  const [removeExistingVideo, setRemoveExistingVideo] =
+    useState(false);
+
   const [
     existingImages,
     setExistingImages,
@@ -130,6 +165,17 @@ export default function ProjectDialog({
 
   const [successMessage, setSuccessMessage] =
     useState("");
+
+  const newVideoPreview = useMemo(
+    () => newVideo ? URL.createObjectURL(newVideo) : "",
+    [newVideo],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (newVideoPreview) URL.revokeObjectURL(newVideoPreview);
+    };
+  }, [newVideoPreview]);
 
   const newImagePreviews = useMemo(
     () =>
@@ -162,6 +208,8 @@ export default function ProjectDialog({
     setErrorMessage("");
     setSuccessMessage("");
     setNewImages([]);
+    setNewVideo(null);
+    setRemoveExistingVideo(false);
 
     if (
       mode === "edit" &&
@@ -245,6 +293,8 @@ export default function ProjectDialog({
     setProjectLink("");
     setExistingImages([]);
     setNewImages([]);
+    setNewVideo(null);
+    setRemoveExistingVideo(false);
     setCoverKey("");
     setErrorMessage("");
     setSuccessMessage("");
@@ -265,6 +315,28 @@ export default function ProjectDialog({
     onClose();
   }
 
+  function handleVideo(
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0] ?? null;
+    event.target.value = "";
+    if (!file) return;
+
+    if (!["video/mp4", "video/webm"].includes(file.type)) {
+      setErrorMessage(isArabic ? "نوع الفيديو غير مدعوم. استخدمي MP4 أو WEBM." : "Unsupported video format. Please use MP4 or WEBM.");
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      setErrorMessage(isArabic ? "حجم الفيديو أكبر من 50 MB." : "The video size exceeds 50 MB.");
+      return;
+    }
+
+    setNewVideo(file);
+    setRemoveExistingVideo(Boolean(project?.videoUrl));
+    setErrorMessage("");
+  }
+
   function handleImages(
     event: ChangeEvent<HTMLInputElement>,
   ) {
@@ -273,7 +345,7 @@ export default function ProjectDialog({
 
     if (availableSlots <= 0) {
       setErrorMessage(
-        `يمكن رفع ${MAX_IMAGES} صور كحد أقصى.`,
+        isArabic ? `يمكن رفع ${MAX_IMAGES} صور كحد أقصى.` : `You can upload up to ${MAX_IMAGES} images.`,
       );
 
       event.target.value = "";
@@ -324,7 +396,7 @@ export default function ProjectDialog({
       availableSlots
     ) {
       setErrorMessage(
-        `تم قبول ${availableSlots} صور فقط لأن الحد الأقصى هو ${MAX_IMAGES}.`,
+        isArabic ? `تم قبول ${availableSlots} صور فقط لأن الحد الأقصى هو ${MAX_IMAGES}.` : `Only ${availableSlots} images were accepted because the maximum is ${MAX_IMAGES}.`,
       );
     } else {
       setErrorMessage("");
@@ -435,6 +507,27 @@ export default function ProjectDialog({
     );
   }
 
+
+  function localizeResultMessage(message: string) {
+    if (isArabic) return message;
+
+    const messages: Record<string, string> = {
+      "يرجى اختيار الكورس المرتبط بالمشروع.": "Please select the course related to this project.",
+      "يرجى كتابة عنوان المشروع.": "Please enter the project title.",
+      "عنوان المشروع طويل جدًا.": "The project title is too long.",
+      "وصف المشروع طويل جدًا.": "The project description is too long.",
+      "يجب اختيار صورة واحدة على الأقل.": "Please select at least one image.",
+      "يجب أن يحتوي المشروع على صورة واحدة على الأقل.": "The project must include at least one image.",
+      "نوع الفيديو غير مدعوم. استخدمي MP4 أو WEBM.": "Unsupported video format. Please use MP4 or WEBM.",
+      "حجم الفيديو أكبر من 50 MB.": "The video size exceeds 50 MB.",
+      "تم رفع المشروع بنجاح.": "Project uploaded successfully.",
+      "تم تحديث المشروع بنجاح.": "Project updated successfully.",
+      "تعذر حفظ المشروع.": "Unable to save the project.",
+    };
+
+    return messages[message] ?? message;
+  }
+
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>,
   ) {
@@ -448,21 +541,21 @@ export default function ProjectDialog({
 
     if (!selectedCourse) {
       setErrorMessage(
-        "يرجى اختيار الكورس المرتبط بالمشروع.",
+        isArabic ? "يرجى اختيار الكورس المرتبط بالمشروع." : "Please select the course related to this project.",
       );
       return;
     }
 
     if (!projectTitle.trim()) {
       setErrorMessage(
-        "يرجى كتابة عنوان المشروع.",
+        isArabic ? "يرجى كتابة عنوان المشروع." : "Please enter the project title.",
       );
       return;
     }
 
     if (totalImagesCount === 0) {
       setErrorMessage(
-        "يجب أن يحتوي المشروع على صورة واحدة على الأقل.",
+        isArabic ? "يجب أن يحتوي المشروع على صورة واحدة على الأقل." : "The project must include at least one image.",
       );
       return;
     }
@@ -472,7 +565,7 @@ export default function ProjectDialog({
       MAX_IMAGES
     ) {
       setErrorMessage(
-        `يمكن رفع ${MAX_IMAGES} صور كحد أقصى.`,
+        isArabic ? `يمكن رفع ${MAX_IMAGES} صور كحد أقصى.` : `You can upload up to ${MAX_IMAGES} images.`,
       );
       return;
     }
@@ -509,6 +602,16 @@ export default function ProjectDialog({
         "projectLink",
         projectLink.trim(),
       );
+
+      // Keep video bytes out of the Server Action request.
+      // The video is uploaded directly from the browser to Supabase Storage
+      // after the project record/images are saved successfully.
+      if (mode === "edit" && project) {
+        formData.append(
+          "removeVideo",
+          String(removeExistingVideo && !newVideo),
+        );
+      }
 
       const imageOrder =
         buildImageOrder();
@@ -594,17 +697,121 @@ export default function ProjectDialog({
 
       if (!result.success) {
         setErrorMessage(
-          result.message ||
-            "تعذر حفظ المشروع.",
+          result.message
+            ? localizeResultMessage(result.message)
+            : isArabic
+              ? "تعذر حفظ المشروع."
+              : "Unable to save the project.",
         );
         return;
       }
 
+      if (newVideo) {
+        const savedProjectId =
+          result.projectId ??
+          (mode === "edit" ? project?.id : null);
+
+        if (!savedProjectId) {
+          throw new Error(
+            isArabic
+              ? "تعذر تحديد معرّف المشروع لرفع الفيديو."
+              : "Unable to determine the project ID for the video upload.",
+          );
+        }
+
+        const supabase =
+          createBrowserSupabaseClient();
+
+        const videoExtension =
+          newVideo.type === "video/webm"
+            ? "webm"
+            : "mp4";
+
+        const videoStoragePath = [
+          savedProjectId,
+          "video",
+          `${crypto.randomUUID()}.${videoExtension}`,
+        ];
+
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError || !user) {
+          throw (
+            userError ??
+            new Error(
+              isArabic
+                ? "يجب تسجيل الدخول لرفع الفيديو."
+                : "You must be signed in to upload the video.",
+            )
+          );
+        }
+
+        const fullVideoStoragePath = [
+          user.id,
+          ...videoStoragePath,
+        ].join("/");
+
+        const { error: uploadVideoError } =
+          await supabase.storage
+            .from("student-projects")
+            .upload(
+              fullVideoStoragePath,
+              newVideo,
+              {
+                contentType: newVideo.type,
+                upsert: false,
+              },
+            );
+
+        if (uploadVideoError) {
+          throw uploadVideoError;
+        }
+
+        const { error: linkVideoError } =
+          await supabase
+            .from("student_projects")
+            .update({
+              video_storage_path:
+                fullVideoStoragePath,
+              video_url: null,
+              updated_at:
+                new Date().toISOString(),
+            })
+            .eq("id", savedProjectId)
+            .eq("user_id", user.id);
+
+        if (linkVideoError) {
+          await supabase.storage
+            .from("student-projects")
+            .remove([fullVideoStoragePath]);
+
+          throw linkVideoError;
+        }
+
+        const previousVideoPath =
+          mode === "edit"
+            ? project?.videoStoragePath
+            : null;
+
+        if (
+          previousVideoPath &&
+          previousVideoPath !==
+            fullVideoStoragePath
+        ) {
+          await supabase.storage
+            .from("student-projects")
+            .remove([previousVideoPath]);
+        }
+      }
+
       setSuccessMessage(
-        result.message ||
+        (result.message ? localizeResultMessage(result.message) : "") ||
           (mode === "create"
-            ? "تم رفع المشروع بنجاح."
-            : "تم تحديث المشروع بنجاح."),
+            ? isArabic ? "تم رفع المشروع بنجاح." : "Project uploaded successfully."
+            : isArabic ? "تم تحديث المشروع بنجاح." : "Project updated successfully."),
       );
 
       window.setTimeout(() => {
@@ -618,7 +825,7 @@ export default function ProjectDialog({
       );
 
       setErrorMessage(
-        "حدث خطأ غير متوقع أثناء حفظ المشروع.",
+        isArabic ? "حدث خطأ غير متوقع أثناء حفظ المشروع." : "An unexpected error occurred while saving the project.",
       );
     } finally {
       setSubmitting(false);
@@ -632,7 +839,7 @@ export default function ProjectDialog({
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4"
-      dir="rtl"
+      dir={isArabic ? "rtl" : "ltr"}
       onMouseDown={(event) => {
         if (
           event.target ===
@@ -647,14 +854,14 @@ export default function ProjectDialog({
           <div>
             <h2 className="text-xl font-bold text-[#07152E]">
               {mode === "create"
-                ? "إضافة مشروع"
-                : "تعديل المشروع"}
+                ? (isArabic ? "إضافة مشروع" : "Add Project")
+                : (isArabic ? "تعديل المشروع" : "Edit Project")}
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
               {mode === "create"
-                ? "أضف صور المشروع واربطه بالكورس الصحيح."
-                : "عدّل بيانات المشروع وصوره ثم احفظ التغييرات."}
+                ? (isArabic ? "أضف صور المشروع واربطه بالكورس الصحيح." : "Add your project images and link the project to the correct course.")
+                : (isArabic ? "عدّل بيانات المشروع وصوره ثم احفظ التغييرات." : "Update the project details and media, then save your changes.")}
             </p>
           </div>
 
@@ -663,7 +870,7 @@ export default function ProjectDialog({
             onClick={handleClose}
             disabled={submitting}
             className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="إغلاق"
+            aria-label={isArabic ? "إغلاق" : "Close"}
           >
             <X className="h-5 w-5" />
           </button>
@@ -690,12 +897,12 @@ export default function ProjectDialog({
               htmlFor="project-course"
               className="block text-sm font-semibold text-[#07152E]"
             >
-              الكورس المرتبط بالمشروع
+              {isArabic ? "الكورس المرتبط بالمشروع" : "Related Course"}
             </label>
 
             {courses.length === 0 ? (
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                لا توجد لديك اشتراكات مقبولة في كورسات متاحة لرفع المشاريع.
+                {isArabic ? "لا توجد لديك اشتراكات مقبولة في كورسات متاحة لرفع المشاريع." : "You do not have any accepted enrollments in courses available for project submission."}
               </div>
             ) : courses.length === 1 ? (
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
@@ -724,7 +931,7 @@ export default function ProjectDialog({
                 className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-[#07152E] outline-none transition focus:border-[#F7B548] focus:ring-2 focus:ring-[#F7B548]/20 disabled:cursor-not-allowed disabled:bg-slate-100"
               >
                 <option value="">
-                  اختر الكورس
+                  {isArabic ? "اختر الكورس" : "Select a course"}
                 </option>
 
                 {courses.map(
@@ -752,7 +959,7 @@ export default function ProjectDialog({
               htmlFor="project-title"
               className="block text-sm font-semibold text-[#07152E]"
             >
-              عنوان المشروع
+              {isArabic ? "عنوان المشروع" : "Project Title"}
             </label>
 
             <input
@@ -768,7 +975,7 @@ export default function ProjectDialog({
               required
               disabled={submitting}
               maxLength={150}
-              placeholder="مثال: تصميم شبكة طرق لمشروع سكني"
+              placeholder={isArabic ? "مثال: تصميم شبكة طرق لمشروع سكني" : "Example: Road network design for a residential project"}
               className="h-12 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#F7B548] focus:ring-2 focus:ring-[#F7B548]/20 disabled:cursor-not-allowed disabled:bg-slate-100"
             />
           </div>
@@ -778,7 +985,7 @@ export default function ProjectDialog({
               htmlFor="project-description"
               className="block text-sm font-semibold text-[#07152E]"
             >
-              وصف المشروع
+              {isArabic ? "وصف المشروع" : "Project Description"}
             </label>
 
             <textarea
@@ -792,7 +999,7 @@ export default function ProjectDialog({
               rows={4}
               disabled={submitting}
               maxLength={1500}
-              placeholder="اكتب وصفًا مختصرًا للمشروع والأعمال التي قمت بتنفيذها."
+              placeholder={isArabic ? "اكتب وصفًا مختصرًا للمشروع والأعمال التي قمت بتنفيذها." : "Write a brief description of the project and the work you completed."}
               className="w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#F7B548] focus:ring-2 focus:ring-[#F7B548]/20 disabled:cursor-not-allowed disabled:bg-slate-100"
             />
           </div>
@@ -802,14 +1009,14 @@ export default function ProjectDialog({
               htmlFor="project-link"
               className="block text-sm font-semibold text-[#07152E]"
             >
-              رابط المشروع
-              <span className="mr-1 font-normal text-slate-400">
-                (اختياري)
+              {isArabic ? "رابط المشروع" : "Project Link"}
+              <span className={isArabic ? "mr-1 font-normal text-slate-400" : "ml-1 font-normal text-slate-400"}>
+                {isArabic ? "(اختياري)" : "(Optional)"}
               </span>
             </label>
 
             <div className="relative">
-              <Link2 className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Link2 className={`pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 ${isArabic ? "right-4" : "left-4"}`} />
 
               <input
                 id="project-link"
@@ -822,27 +1029,64 @@ export default function ProjectDialog({
                 }
                 disabled={submitting}
                 placeholder="https://"
-                className="h-12 w-full rounded-xl border border-slate-200 py-2 pr-11 pl-4 text-left text-sm outline-none transition placeholder:text-slate-400 focus:border-[#F7B548] focus:ring-2 focus:ring-[#F7B548]/20 disabled:cursor-not-allowed disabled:bg-slate-100"
+                className={`h-12 w-full rounded-xl border border-slate-200 py-2 text-left text-sm outline-none transition placeholder:text-slate-400 focus:border-[#F7B548] focus:ring-2 focus:ring-[#F7B548]/20 disabled:cursor-not-allowed disabled:bg-slate-100 ${isArabic ? "pr-11 pl-4" : "pl-11 pr-4"}`}
                 dir="ltr"
               />
             </div>
           </div>
 
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-[#07152E]">
+                {isArabic ? "فيديو قصير للمشروع" : "Short Project Video"} <span className="font-normal text-slate-400">{isArabic ? "(اختياري)" : "(Optional)"}</span>
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {isArabic ? "فيديو واحد بصيغة MP4 أو WEBM وبحد أقصى 50 MB." : "One MP4 or WEBM video, up to 50 MB."}
+              </p>
+            </div>
+
+            {newVideoPreview ? (
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-950">
+                <video src={newVideoPreview} controls preload="metadata" className="max-h-[320px] w-full" />
+                <div className="flex items-center justify-between gap-3 bg-white p-3">
+                  <span className="truncate text-xs font-semibold text-slate-600">{newVideo?.name}</span>
+                  <button type="button" onClick={() => { setNewVideo(null); setRemoveExistingVideo(false); }} disabled={submitting} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600">{isArabic ? "حذف الفيديو" : "Remove Video"}</button>
+                </div>
+              </div>
+            ) : project?.videoUrl && !removeExistingVideo ? (
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-950">
+                <video src={project.videoUrl} controls preload="metadata" className="max-h-[320px] w-full" />
+                <div className="flex justify-end bg-white p-3">
+                  <button type="button" onClick={() => setRemoveExistingVideo(true)} disabled={submitting} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600">{isArabic ? "حذف الفيديو الحالي" : "Remove Current Video"}</button>
+                </div>
+              </div>
+            ) : (
+              <label className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 px-6 py-7 text-center transition hover:border-[#F7B548] hover:bg-amber-50/40 ${submitting ? "pointer-events-none opacity-60" : ""}`}>
+                <input type="file" accept="video/mp4,video/webm" onChange={handleVideo} disabled={submitting} className="hidden" />
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100">
+                  <Video className="h-7 w-7 text-slate-500" />
+                </div>
+                <p className="mt-3 font-semibold text-[#07152E]">{isArabic ? "إضافة فيديو قصير" : "Add Short Video"}</p>
+                <p className="mt-1 text-xs text-slate-500">{isArabic ? "MP4 أو WEBM — حتى 50 MB" : "MP4 or WEBM — up to 50 MB"}</p>
+              </label>
+            )}
+          </div>
+
           <div className="space-y-4">
             <div>
               <p className="text-sm font-semibold text-[#07152E]">
-                صور المشروع
+                {isArabic ? "صور المشروع" : "Project Images"}
               </p>
 
               <p className="mt-1 text-xs text-slate-500">
-                يمكنك الاحتفاظ أو حذف الصور الحالية وإضافة صور جديدة، ثم اختيار صورة الغلاف.
+                {isArabic ? "يمكنك الاحتفاظ أو حذف الصور الحالية وإضافة صور جديدة، ثم اختيار صورة الغلاف." : "Keep or remove current images, add new ones, then choose the cover image."}
               </p>
             </div>
 
             {existingImages.length > 0 && (
               <div className="space-y-3">
                 <p className="text-xs font-bold text-slate-500">
-                  الصور الحالية
+                  {isArabic ? "الصور الحالية" : "Current Images"}
                 </p>
 
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
@@ -869,7 +1113,7 @@ export default function ProjectDialog({
                               src={
                                 image.imageUrl
                               }
-                              alt="صورة المشروع"
+                              alt={isArabic ? "صورة المشروع" : "Project image"}
                               className="aspect-square w-full object-cover"
                             />
                           ) : (
@@ -881,7 +1125,7 @@ export default function ProjectDialog({
                           {isCover && (
                             <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-[#F7B548] px-2 py-1 text-[10px] font-bold text-[#07152E]">
                               <Check className="h-3 w-3" />
-                              الغلاف
+                              {isArabic ? "الغلاف" : "Cover"}
                             </span>
                           )}
 
@@ -896,7 +1140,7 @@ export default function ProjectDialog({
                               submitting
                             }
                             className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-slate-950/70 text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
-                            aria-label="حذف الصورة الحالية"
+                            aria-label={isArabic ? "حذف الصورة الحالية" : "Remove current image"}
                           >
                             <X className="h-4 w-4" />
                           </button>
@@ -915,7 +1159,7 @@ export default function ProjectDialog({
                               className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-lg bg-white/95 px-2 py-1 text-[10px] font-bold text-[#07152E] shadow-sm transition hover:bg-[#F7B548]"
                             >
                               <Star className="h-3 w-3" />
-                              اجعلها الغلاف
+                              {isArabic ? "اجعلها الغلاف" : "Set as Cover"}
                             </button>
                           )}
                         </div>
@@ -953,17 +1197,17 @@ export default function ProjectDialog({
               </div>
 
               <p className="mt-4 font-semibold text-[#07152E]">
-                إضافة صور جديدة
+                {isArabic ? "إضافة صور جديدة" : "Add New Images"}
               </p>
 
               <p className="mt-1 text-xs text-slate-500">
-                JPG أو PNG أو WEBP — المتبقي{" "}
+                {isArabic ? "JPG أو PNG أو WEBP — المتبقي" : "JPG, PNG or WEBP — remaining"}{" "}
                 {Math.max(
                   0,
                   MAX_IMAGES -
                     totalImagesCount,
                 )}{" "}
-                صور
+                {isArabic ? "صور" : "images"}
               </p>
             </label>
 
@@ -971,7 +1215,7 @@ export default function ProjectDialog({
               0 && (
               <div className="space-y-3">
                 <p className="text-xs font-bold text-slate-500">
-                  الصور الجديدة
+                  {isArabic ? "الصور الجديدة" : "New Images"}
                 </p>
 
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
@@ -997,14 +1241,14 @@ export default function ProjectDialog({
                         >
                           <img
                             src={preview.url}
-                            alt="صورة جديدة للمشروع"
+                            alt={isArabic ? "صورة جديدة للمشروع" : "New project image"}
                             className="aspect-square w-full object-cover"
                           />
 
                           {isCover && (
                             <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-[#F7B548] px-2 py-1 text-[10px] font-bold text-[#07152E]">
                               <Check className="h-3 w-3" />
-                              الغلاف
+                              {isArabic ? "الغلاف" : "Cover"}
                             </span>
                           )}
 
@@ -1019,7 +1263,7 @@ export default function ProjectDialog({
                               submitting
                             }
                             className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-slate-950/70 text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
-                            aria-label="حذف الصورة الجديدة"
+                            aria-label={isArabic ? "حذف الصورة الجديدة" : "Remove new image"}
                           >
                             <X className="h-4 w-4" />
                           </button>
@@ -1038,7 +1282,7 @@ export default function ProjectDialog({
                               className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-lg bg-white/95 px-2 py-1 text-[10px] font-bold text-[#07152E] shadow-sm transition hover:bg-[#F7B548]"
                             >
                               <Star className="h-3 w-3" />
-                              اجعلها الغلاف
+                              {isArabic ? "اجعلها الغلاف" : "Set as Cover"}
                             </button>
                           )}
                         </div>
@@ -1057,7 +1301,7 @@ export default function ProjectDialog({
               disabled={submitting}
               className="h-11 rounded-xl border border-slate-300 px-6 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              إلغاء
+              {isArabic ? "إلغاء" : "Cancel"}
             </button>
 
             <button
@@ -1075,15 +1319,15 @@ export default function ProjectDialog({
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   {mode === "create"
-                    ? "جاري رفع المشروع..."
-                    : "جاري حفظ التعديلات..."}
+                    ? (isArabic ? "جاري رفع المشروع..." : "Uploading Project...")
+                    : (isArabic ? "جاري حفظ التعديلات..." : "Saving Changes...")}
                 </>
               ) : (
                 <>
                   <Upload className="h-4 w-4" />
                   {mode === "create"
-                    ? "رفع المشروع"
-                    : "حفظ التعديلات"}
+                    ? (isArabic ? "رفع المشروع" : "Upload Project")
+                    : (isArabic ? "حفظ التعديلات" : "Save Changes")}
                 </>
               )}
             </button>

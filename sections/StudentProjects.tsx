@@ -57,6 +57,7 @@ const labels = {
     next: "المشاريع التالية",
     featured: "مشروع مميز",
     images: "صور",
+    video: "فيديو",
     empty: "لا توجد مشاريع منشورة في هذا التصنيف بعد.",
     projectNext: "مشروعك القادم قد يكون هنا",
     projectNextDescription:
@@ -71,6 +72,7 @@ const labels = {
     next: "Next projects",
     featured: "Featured Project",
     images: "Images",
+    video: "Video",
     empty: "No published projects are available in this category yet.",
     projectNext: "Your next project could be here",
     projectNextDescription:
@@ -258,6 +260,7 @@ export default function StudentProjects() {
       courseTitle: project.software,
       images: getProjectImages(project),
       projectLink: project.projectLink,
+      videoUrl: project.videoUrl,
     });
   };
 
@@ -525,9 +528,8 @@ export default function StudentProjects() {
                           </span>
                         ) : null}
 
-                        {/* Images Count */}
-                        {projectImages.length >
-                        1 ? (
+                        {/* Project media count */}
+                        {projectImages.length > 1 || project.video ? (
                           <span
                             className={`absolute top-9 rounded-full bg-black/65 px-2 py-1 text-[7px] font-black text-white backdrop-blur sm:top-10 sm:text-[8px] ${
                               isArabic
@@ -535,10 +537,8 @@ export default function StudentProjects() {
                                 : "right-2 sm:right-2.5"
                             }`}
                           >
-                            {
-                              projectImages.length
-                            }{" "}
-                            {text.images}
+                            {projectImages.length} {text.images}
+                            {project.video ? ` + ${text.video}` : ""}
                           </span>
                         ) : null}
 

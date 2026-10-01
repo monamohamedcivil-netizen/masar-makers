@@ -265,7 +265,7 @@ export default function PathRoadmap({
 
           {/* Center markings */}
           <div
-            className="
+            className={`
               path-road-flow
               absolute
               left-[8%]
@@ -280,7 +280,9 @@ export default function PathRoadmap({
               lg:left-[12%]
               lg:right-[12%]
               lg:h-[2px]
-            "
+
+              ${!isArabic ? "scale-x-[-1]" : ""}
+            `}
           />
 
           {/* Start */}

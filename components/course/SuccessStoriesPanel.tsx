@@ -193,7 +193,7 @@ function ProjectCard({
 
         {imagesCount > 1 ? (
           <span className="absolute bottom-2 left-2 rounded-full bg-black/65 px-2.5 py-1 text-[9px] font-black text-white backdrop-blur">
-            {imagesCount} صور
+            {imagesCount} صور{project.videoUrl ? " + فيديو" : ""}
           </span>
         ) : null}
 
@@ -290,6 +290,7 @@ export default function SuccessStoriesPanel({
             ? [coverImage]
             : [],
       projectLink: project.projectLink,
+      videoUrl: project.videoUrl ?? null,
     });
   };
 

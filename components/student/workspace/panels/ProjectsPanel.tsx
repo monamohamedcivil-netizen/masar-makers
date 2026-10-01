@@ -15,6 +15,7 @@ import {
   ImageIcon,
   Loader2,
   Pencil,
+  PlayCircle,
   Plus,
   Trash2,
   X,
@@ -31,6 +32,7 @@ import type {
 
 import {
   getStudentProjects,
+  getStudentProjectsByUserId,
 } from "@/lib/projects/student-projects";
 import {
   deleteProject,
@@ -41,10 +43,14 @@ import ProjectDialog from "../projects/ProjectDialog";
 
 type Props = {
   data: StudentDashboardData;
+  previewUserId?: string;
+  readOnly?: boolean;
 };
 
 export default function ProjectsPanel({
   data,
+  previewUserId,
+  readOnly = false,
 }: Props) {
   const [dialogOpen, setDialogOpen] =
     useState(false);
@@ -125,8 +131,9 @@ export default function ProjectsPanel({
       setErrorMessage("");
 
       try {
-        const studentProjects =
-          await getStudentProjects();
+        const studentProjects = previewUserId
+          ? await getStudentProjectsByUserId(previewUserId)
+          : await getStudentProjects();
 
         setProjects(studentProjects);
       } catch (error) {
@@ -144,7 +151,7 @@ export default function ProjectsPanel({
         setLoading(false);
       }
     },
-    [],
+    [previewUserId],
   );
 
   useEffect(() => {
@@ -400,6 +407,7 @@ export default function ProjectsPanel({
                   onDeleteProject={
                     openDeleteConfirmation
                   }
+                  readOnly={readOnly}
                 />
               ),
             };
@@ -407,6 +415,7 @@ export default function ProjectsPanel({
         />
       )}
 
+      {!readOnly ? (
       <ProjectDialog
         open={dialogOpen}
         onClose={handleDialogClose}
@@ -429,8 +438,9 @@ export default function ProjectsPanel({
         mode={dialogMode}
         project={editingProject}
       />
+      ) : null}
 
-      {deletingProject ? (
+      {!readOnly && deletingProject ? (
         <DeleteProjectDialog
           project={deletingProject}
           submitting={deleteSubmitting}
@@ -472,6 +482,7 @@ function ProjectPathView({
   onEditProject,
   onViewProject,
   onDeleteProject,
+  readOnly,
 }: {
   path: StudentCareerPathProgress;
   projects: StudentProject[];
@@ -490,6 +501,7 @@ function ProjectPathView({
   onDeleteProject: (
     project: StudentProject,
   ) => void;
+  readOnly: boolean;
 }) {
   const selectableStations = useMemo(
     () =>
@@ -579,18 +591,24 @@ function ProjectPathView({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() =>
-              onCreateProject(
-                activeCourse.courseId,
-              )
-            }
-            className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#07152E] px-4 text-[10px] font-black text-white transition hover:bg-[#102A50]"
-          >
-            <Plus size={14} />
-            إضافة مشروع
-          </button>
+          {!readOnly ? (
+            <button
+              type="button"
+              onClick={() =>
+                onCreateProject(
+                  activeCourse.courseId,
+                )
+              }
+              className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#07152E] px-4 text-[10px] font-black text-white transition hover:bg-[#102A50]"
+            >
+              <Plus size={14} />
+              إضافة مشروع
+            </button>
+          ) : (
+            <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[9px] font-black text-slate-500">
+              معاينة فقط
+            </span>
+          )}
         </header>
 
         <div className="p-4">
@@ -784,11 +802,13 @@ function ProjectCard({
   onView,
   onEdit,
   onDelete,
+  readOnly,
 }: {
   project: StudentProject;
   onView: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  readOnly: boolean;
 }) {
   const sortedImages = [...project.images].sort(
     (a, b) =>
@@ -886,6 +906,12 @@ function ProjectCard({
             </span>
           ) : null}
 
+          {project.videoUrl ? (
+            <span className="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-[#F7B548] px-2.5 py-1 text-[9px] font-black text-[#07152E]">
+              <PlayCircle size={11} /> فيديو
+            </span>
+          ) : null}
+
           {/* الأسهم */}
           {sortedImages.length > 1 ? (
             <>
@@ -954,7 +980,7 @@ function ProjectCard({
           <div>
             <div className="mb-2 border-t border-slate-100" />
 
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className={`grid gap-1.5 ${readOnly ? "grid-cols-1" : "grid-cols-3"}`}>
               <button
                 type="button"
                 onClick={onView}
@@ -964,6 +990,8 @@ function ProjectCard({
                 عرض
               </button>
 
+              {!readOnly ? (
+                <>
               <button
                 type="button"
                 onClick={onEdit}
@@ -981,6 +1009,8 @@ function ProjectCard({
                 <Trash2 size={12} />
                 حذف
               </button>
+                </>
+              ) : null}
             </div>
           </div>
         </div>
@@ -1113,7 +1143,7 @@ function ProjectViewer({
             </h2>
 
             <p className="mt-1 text-xs text-slate-500">
-              {project.images.length} صور
+              {project.images.length} صور{project.videoUrl ? " + فيديو" : ""}
             </p>
           </div>
 
@@ -1219,6 +1249,16 @@ function ProjectViewer({
           </div>
 
           <div className="space-y-5">
+            {project.videoUrl ? (
+              <div>
+                <h3 className="mb-2 flex items-center gap-2 text-sm font-black text-[#07152E]">
+                  <PlayCircle className="h-4 w-4 text-[#C88712]" />
+                  فيديو المشروع
+                </h3>
+                <video src={project.videoUrl} controls preload="metadata" className="max-h-[260px] w-full rounded-xl bg-slate-950" />
+              </div>
+            ) : null}
+
             <div>
               <h3 className="text-sm font-black text-[#07152E]">
                 وصف المشروع

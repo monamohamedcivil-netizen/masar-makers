@@ -6,7 +6,6 @@ import AnnouncementBar from "@/sections/AnnouncementBar";
 
 import {
   CourseInteractiveDashboard,
-  CourseJourneyHeader,
   CourseStats,
 } from "@/components/course";
 
@@ -70,6 +69,7 @@ import type {
 } from "@/lib/queries/catalog/stations";
 
 import CourseActionButton from "@/components/course/CourseActionButton";
+import CourseJourneyHeaderLocale from "@/components/course/CourseJourneyHeaderLocale";
 import BunnyVideoPlayer from "@/components/student/player/BunnyVideoPlayer";
 import { getCourseEnrollmentAccess } from "@/lib/actions/enroll";
 import {
@@ -237,7 +237,7 @@ const courseProjects = pageData
         </section>
       ) : null}
 
-      <CourseJourneyHeader
+      <CourseJourneyHeaderLocale
         courses={pathCourses}
         currentCourseSlug={course.slug}
         pathTitle={path.title}

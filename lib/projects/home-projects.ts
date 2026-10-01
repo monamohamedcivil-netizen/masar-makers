@@ -23,6 +23,7 @@ export type HomeProject = {
   software: string;
   featured: boolean;
   video: boolean;
+  videoUrl: string | null;
   projectLink: string | null;
 };
 
@@ -39,6 +40,8 @@ type ProjectRow = {
   project_title: string;
   project_description: string | null;
   project_link: string | null;
+  video_storage_path: string | null;
+  video_url: string | null;
   student_name: string | null;
   student_country: string | null;
   featured: boolean | null;
@@ -198,6 +201,8 @@ export async function getHomeProjects(): Promise<
       project_title,
       project_description,
       project_link,
+      video_storage_path,
+      video_url,
       student_name,
       student_country,
       featured,
@@ -409,6 +414,11 @@ const courseTitle =
       courseTitle,
     );
 
+    const videoUrl = await getProjectImageUrl(
+      row.video_storage_path,
+      row.video_url,
+    );
+
     projects.push({
       id: row.id,
       title: row.project_title,
@@ -440,7 +450,8 @@ const courseTitle =
         courseCode ||
         category,
       featured: Boolean(row.featured),
-      video: false,
+      video: Boolean(videoUrl),
+      videoUrl,
       projectLink: row.project_link,
     });
   }

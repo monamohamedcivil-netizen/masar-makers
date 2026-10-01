@@ -33,7 +33,7 @@ function formatIssueDate(value: string) {
     return value;
   }
 
-  return new Intl.DateTimeFormat("ar-SA", {
+  return new Intl.DateTimeFormat("en-GB", {
     year: "numeric",
     month: "long",
     day: "numeric",

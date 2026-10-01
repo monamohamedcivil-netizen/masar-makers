@@ -200,6 +200,14 @@ export type StudentSurvey = {
 export type StudentDashboardData = {
   studentName: string;
   studentEmail: string;
+  studentProfile: {
+    fullNameEn: string;
+    phone: string;
+    country: string;
+    jobTitle: string;
+    experienceLevel: string;
+    specialty: string;
+  };
   activeCourses: StudentCourseCard[];
   pendingCourses: StudentCourseCard[];
   completedCourses: StudentCourseCard[];
@@ -537,10 +545,12 @@ function estimateRemainingMinutes(
 function emptyDashboard(
   studentName: string,
   studentEmail: string,
+  studentProfile: StudentDashboardData["studentProfile"],
 ): StudentDashboardData {
   return {
     studentName,
     studentEmail,
+    studentProfile,
     activeCourses: [],
     pendingCourses: [],
     completedCourses: [],
@@ -888,9 +898,9 @@ if (userId !== user.id) {
     certificatesResult,
     surveysResult,
   ] = await Promise.all([
-    supabase
+    adminSupabase
       .from("profiles")
-      .select("full_name,email")
+      .select("full_name,email,full_name_en,phone,country")
       .eq("id", userId)
       .maybeSingle(),
     supabase
@@ -959,6 +969,40 @@ const studentEmail =
     ? user.email
     : "") ||
   "";
+
+const { data: targetAuthUserResult } =
+  await adminSupabase.auth.admin.getUserById(userId);
+
+const registrationMetadata =
+  targetAuthUserResult?.user?.user_metadata ?? {};
+
+const studentProfile: StudentDashboardData["studentProfile"] = {
+  fullNameEn:
+    String(
+      profile?.full_name_en ??
+      registrationMetadata.full_name_en ??
+      "",
+    ).trim(),
+  phone:
+    String(
+      profile?.phone ??
+      registrationMetadata.phone ??
+      "",
+    ).trim(),
+  country:
+    String(
+      profile?.country ??
+      registrationMetadata.country ??
+      "",
+    ).trim(),
+  jobTitle:
+    String(registrationMetadata.job_title ?? "").trim(),
+  experienceLevel:
+    String(registrationMetadata.experience_level ?? "").trim(),
+  specialty:
+    String(registrationMetadata.specialty ?? "").trim(),
+};
+
 const passport =
   await getMasarPassport(userId);
   const certificateRows = certificatesResult.error
@@ -1036,7 +1080,7 @@ pdfUrl:
 
   if (courseIds.length === 0) {
     return {
-    ...emptyDashboard(studentName, studentEmail),
+    ...emptyDashboard(studentName, studentEmail, studentProfile),
     certificates,
     surveys,
     passport,
@@ -3096,6 +3140,7 @@ const surveysRemaining = Math.max(
   return {
     studentName,
     studentEmail,
+    studentProfile,
     activeCourses,
     pendingCourses,
     completedCourses,

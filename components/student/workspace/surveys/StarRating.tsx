@@ -8,6 +8,7 @@ type Props = {
   onChange: (value: number) => void;
   disabled?: boolean;
   size?: "sm" | "md" | "lg";
+  locale?: "ar" | "en";
 };
 
 const sizeClasses = {
@@ -21,7 +22,9 @@ export default function StarRating({
   onChange,
   disabled = false,
   size = "md",
+  locale = "ar",
 }: Props) {
+  const isArabic = locale === "ar";
   const [hoveredValue, setHoveredValue] =
     useState(0);
 
@@ -33,7 +36,7 @@ export default function StarRating({
       className="flex items-center gap-1"
       dir="ltr"
       role="radiogroup"
-      aria-label="تقييم الكورس"
+      aria-label={isArabic ? "تقييم الكورس" : "Course rating"}
       onMouseLeave={() =>
         setHoveredValue(0)
       }
@@ -51,7 +54,7 @@ export default function StarRating({
               aria-checked={
                 value === starValue
               }
-              aria-label={`${starValue} من 5`}
+              aria-label={isArabic ? `${starValue} من 5` : `${starValue} out of 5`}
               disabled={disabled}
               onMouseEnter={() => {
                 if (!disabled) {

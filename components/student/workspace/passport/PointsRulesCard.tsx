@@ -16,17 +16,21 @@ interface Props {
   interactionRules: readonly Rule[];
   JourneyIcon: typeof Award;
   InteractionIcon: typeof Award;
+  locale?: "ar" | "en";
 }
 
 function PointsRulesRow({
   title,
   icon: SectionIcon,
   rules,
+  locale,
 }: {
   title: string;
   icon: typeof Award;
   rules: readonly Rule[];
+  locale: "ar" | "en";
 }) {
+  const isArabic = locale === "ar";
   return (
     <div className="grid gap-2 lg:grid-cols-[170px_minmax(0,1fr)] lg:items-center">
 
@@ -60,7 +64,7 @@ function PointsRulesRow({
                 {rule.label}
 
                 <span className="mr-1 whitespace-nowrap text-[#C88712]">
-                  {rule.points} نقطة
+                  {rule.points} {isArabic ? "نقطة" : "points"}
                 </span>
               </p>
 
@@ -79,16 +83,18 @@ export default function PointsRulesCard({
   interactionRules,
   JourneyIcon,
   InteractionIcon,
+  locale = "ar",
 }: Props) {
+  const isArabic = locale === "ar";
   return (
-    <section className="rounded-[22px] border border-[#E3C47B] bg-[#FFFDF8] px-4 py-6 shadow-[0_8px_24px_rgba(247,181,72,0.08)] sm:px-5">
+    <section dir={isArabic ? "rtl" : "ltr"} className="rounded-[22px] border border-[#E3C47B] bg-[#FFFDF8] px-4 py-6 shadow-[0_8px_24px_rgba(247,181,72,0.08)] sm:px-5">
 
       <div className="mb-6 flex items-center justify-center gap-3">
 
         <span className="h-px w-16 bg-[#F7B548]" />
 
         <h3 className="text-[17px] font-black text-[#07152E]">
-          طرق زيادة النقاط
+          {isArabic ? "طرق زيادة النقاط" : "Ways to Earn More Points"}
         </h3>
 
         <span className="h-px w-16 bg-[#F7B548]" />
@@ -96,17 +102,19 @@ export default function PointsRulesCard({
       </div>
 
       <PointsRulesRow
-        title="الرحلات وأنواعها"
+        title={isArabic ? "الرحلات وأنواعها" : "Journeys & Types"}
         icon={JourneyIcon}
         rules={journeyRules}
+        locale={locale}
       />
 
       <div className="my-4 border-t border-dashed border-[#E7C77E]" />
 
       <PointsRulesRow
-        title="التفاعل والمشاركة"
+        title={isArabic ? "التفاعل والمشاركة" : "Engagement & Participation"}
         icon={InteractionIcon}
         rules={interactionRules}
+        locale={locale}
       />
 
     </section>

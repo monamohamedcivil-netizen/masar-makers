@@ -29,6 +29,7 @@ import type {
 
 type Props = {
   data: StudentDashboardData;
+  locale?: "ar" | "en";
 };
 
 type ModalType =
@@ -68,24 +69,28 @@ const journeyPointsRules = [
   {
     key: "professional-enrollment",
     label: "الاشتراك في رحلة احتراف",
+    labelEn: "Enroll in a Professional Journey",
     points: 50,
     icon: BookOpenCheck,
   },
   {
     key: "professional-completion",
     label: "إكمال رحلة احتراف",
+    labelEn: "Complete a Professional Journey",
     points: 20,
     icon: CheckCircle2,
   },
   {
     key: "one-day-enrollment",
     label: "الاشتراك في رحلة اليوم الواحد",
+    labelEn: "Enroll in a One-Day Journey",
     points: 20,
     icon: Plane,
   },
   {
     key: "free-view",
     label: "مشاهدة رحلة مجانية",
+    labelEn: "Watch a Free Journey",
     points: 5,
     icon: PlayCircle,
   },
@@ -95,24 +100,28 @@ const interactionPointsRules = [
   {
     key: "survey",
     label: "إكمال التقييم",
+    labelEn: "Complete a Review",
     points: 20,
     icon: ClipboardCheck,
   },
   {
     key: "project",
     label: "رفع مشروع",
+    labelEn: "Upload a Project",
     points: 50,
     icon: FileUp,
   },
   {
     key: "featured-project",
     label: "مشروع مميز",
+    labelEn: "Featured Project",
     points: 20,
     icon: Star,
   },
   {
     key: "referral",
     label: "دعوة صديق",
+    labelEn: "Refer a Friend",
     points: 50,
     icon: Users,
   },
@@ -120,7 +129,9 @@ const interactionPointsRules = [
 
 export default function MasarPassportPanel({
   data,
+  locale = "ar",
 }: Props) {
+  const isArabic = locale === "ar";
   const [activeModal, setActiveModal] =
     useState<ModalType>(null);
 
@@ -206,19 +217,19 @@ export default function MasarPassportPanel({
 
   return (
     <>
-      <div dir="rtl">
+      <div dir={isArabic ? "rtl" : "ltr"}>
         <JourneyTabs
-          ariaLabel="بطاقات Masar Passport"
+          ariaLabel={isArabic ? "بطاقات Masar Passport" : "Masar Passport cards"}
           tabs={[
             {
               id: "achievements",
               title:
-                "بطاقة إنجازاتك المهنية",
+                isArabic ? "بطاقة إنجازاتك المهنية" : "Professional Achievements Card",
               subtitle:
-                "مستواك ونقاطك الحالية",
+                isArabic ? "مستواك ونقاطك الحالية" : "Your current level and points",
               badge: `${totalPoints.toLocaleString(
                 "en-US",
-              )} نقطة`,
+              )} ${isArabic ? "نقطة" : "points"}`,
               content: (
                 <MasarPassportCard
   CurrentLevelIcon={CurrentLevelIcon}
@@ -242,15 +253,16 @@ export default function MasarPassportPanel({
     ),
   );
 }}
+  locale={locale}
 />
               ),
             },
             {
               id: "rewards",
               title:
-                "بطاقة المكافآت",
+                isArabic ? "بطاقة المكافآت" : "Rewards Card",
               subtitle:
-                "تقدمك نحو المكافآت",
+                isArabic ? "تقدمك نحو المكافآت" : "Your progress toward rewards",
               badge: `${passport.availableRewards}`,
               content: (
                 <div className="[&>section]:rounded-t-none [&>section]:border-t-0">
@@ -285,6 +297,7 @@ export default function MasarPassportPanel({
                     visibleRewardItems={
                       visibleRewardItems
                     }
+                    locale={locale}
                   />
                 </div>
               ),
@@ -292,25 +305,28 @@ export default function MasarPassportPanel({
             {
               id: "points",
               title:
-                "طرق زيادة النقاط",
+                isArabic ? "طرق زيادة النقاط" : "Ways to Earn More Points",
               subtitle:
-                "كيف تجمع نقاطًا أكثر",
-              badge: "8 طرق",
+                isArabic ? "كيف تجمع نقاطًا أكثر" : "How to earn more points",
+              badge: isArabic ? "8 طرق" : "8 Ways",
               content: (
                 <div className="[&>section]:rounded-t-none [&>section]:border-t-0">
                   <PointsRulesCard
-                    journeyRules={
-                      journeyPointsRules
-                    }
-                    interactionRules={
-                      interactionPointsRules
-                    }
+                    journeyRules={journeyPointsRules.map((rule) => ({
+                      ...rule,
+                      label: isArabic ? rule.label : rule.labelEn,
+                    }))}
+                    interactionRules={interactionPointsRules.map((rule) => ({
+                      ...rule,
+                      label: isArabic ? rule.label : rule.labelEn,
+                    }))}
                     JourneyIcon={
                       BookOpenCheck
                     }
                     InteractionIcon={
                       Users
                     }
+                    locale={locale}
                   />
                 </div>
               ),
@@ -345,6 +361,7 @@ export default function MasarPassportPanel({
         pointsBreakdown={
           pointsBreakdown
         }
+        locale={locale}
       />
     </>
   );

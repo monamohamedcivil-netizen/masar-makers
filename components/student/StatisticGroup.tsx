@@ -7,12 +7,14 @@ type StatisticGroupProps = {
   title: string;
   icon: LucideIcon;
   items: StudentStatisticItem[];
+  locale?: "ar" | "en";
 };
 
 export default function StatisticGroup({
   title,
   icon: Icon,
   items,
+  locale = "ar",
 }: StatisticGroupProps) {
   return (
     <section className="w-full">
@@ -65,6 +67,7 @@ export default function StatisticGroup({
             item={item}
             index={index}
             total={items.length}
+            locale={locale}
           />
         ))}
       </div>

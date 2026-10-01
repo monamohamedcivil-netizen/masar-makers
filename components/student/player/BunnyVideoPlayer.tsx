@@ -277,6 +277,15 @@ export default function BunnyVideoPlayer({
   const lastSavedSecondRef =
     useRef(0);
 
+  const currentSecondRef =
+    useRef(0);
+
+  const durationRef =
+    useRef(0);
+
+  const currentPercentRef =
+    useRef(0);
+
   const [playback, setPlayback] =
     useState<StudentLessonPlayback | null>(
       null,
@@ -346,6 +355,14 @@ export default function BunnyVideoPlayer({
       lastSavedSecondRef.current =
         result.data
           .initialPositionSeconds;
+
+      currentSecondRef.current =
+        result.data
+          .initialPositionSeconds;
+
+      currentPercentRef.current =
+        result.data
+          .initialProgressPercent;
 
       setCurrentPercent(
         result.data
@@ -467,64 +484,92 @@ export default function BunnyVideoPlayer({
       }
     }, [isProtectedFullscreen]);
 
-  const saveProgress =
+  const updateLocalProgress =
     useCallback(
-      async (
+      (
         seconds: number,
         duration: number,
-        force = false,
       ) => {
         if (
-          savingRef.current ||
-          !Number.isFinite(
-            duration,
-          ) ||
+          !Number.isFinite(duration) ||
           duration <= 0
         ) {
           return;
         }
 
-        const currentSecond =
-          Math.max(
-            0,
-            Math.floor(
-              seconds,
-            ),
-          );
+        const currentSecond = Math.max(
+          0,
+          Math.floor(seconds),
+        );
 
+        const percent = Math.max(
+          0,
+          Math.min(
+            100,
+            Math.round(
+              (seconds / duration) * 100,
+            ),
+          ),
+        );
+
+        currentSecondRef.current = currentSecond;
+        durationRef.current = duration;
+        currentPercentRef.current = percent;
+        setCurrentPercent(percent);
+      },
+      [],
+    );
+
+  const saveProgress =
+    useCallback(
+      async (
+        seconds: number,
+        duration: number,
+        complete = false,
+      ) => {
         if (
-          !force &&
-          currentSecond -
-            lastSavedSecondRef.current <
-            10
+          savingRef.current ||
+          !Number.isFinite(duration) ||
+          duration <= 0
         ) {
           return;
         }
 
-        const percent =
-          Math.max(
-            0,
-            Math.min(
-              100,
-              Math.round(
-                (seconds /
-                  duration) *
-                  100,
-              ),
-            ),
-          );
-
-        setCurrentPercent(
-          percent,
+        const currentSecond = Math.max(
+          0,
+          Math.floor(seconds),
         );
 
-        savingRef.current =
-          true;
+        const percent = complete
+          ? 100
+          : Math.max(
+              0,
+              Math.min(
+                100,
+                Math.round(
+                  (seconds / duration) * 100,
+                ),
+              ),
+            );
+
+        currentSecondRef.current = currentSecond;
+        durationRef.current = duration;
+        currentPercentRef.current = percent;
+        setCurrentPercent(percent);
+
+        if (
+          !complete &&
+          !completedRef.current &&
+          currentSecond === lastSavedSecondRef.current
+        ) {
+          return;
+        }
+
+        savingRef.current = true;
 
         try {
           if (
-            percent >=
-              completionThreshold &&
+            complete &&
             !completedRef.current
           ) {
             await completeLesson(
@@ -532,19 +577,11 @@ export default function BunnyVideoPlayer({
               currentSecond,
             );
 
-            completedRef.current =
-              true;
-
-            setCompleted(
-              true,
-            );
-
-            setCurrentPercent(
-              100,
-            );
-          } else if (
-            !completedRef.current
-          ) {
+            completedRef.current = true;
+            setCompleted(true);
+            currentPercentRef.current = 100;
+            setCurrentPercent(100);
+          } else if (!completedRef.current) {
             await updateLessonProgress(
               lessonId,
               percent,
@@ -552,13 +589,11 @@ export default function BunnyVideoPlayer({
             );
           }
 
-          lastSavedSecondRef.current =
-            currentSecond;
+          lastSavedSecondRef.current = currentSecond;
 
-          const refreshPercent =
-            completedRef.current
-              ? 100
-              : Math.floor(percent);
+          const refreshPercent = completedRef.current
+            ? 100
+            : Math.floor(percent);
 
           if (
             refreshPercent >
@@ -566,7 +601,6 @@ export default function BunnyVideoPlayer({
           ) {
             lastDashboardRefreshPercentRef.current =
               refreshPercent;
-
             router.refresh();
           }
         } catch (saveError) {
@@ -575,15 +609,10 @@ export default function BunnyVideoPlayer({
             saveError,
           );
         } finally {
-          savingRef.current =
-            false;
+          savingRef.current = false;
         }
       },
-      [
-        completionThreshold,
-        lessonId,
-        router,
-      ],
+      [lessonId, router],
     );
 
   useEffect(() => {
@@ -595,7 +624,6 @@ export default function BunnyVideoPlayer({
     }
 
     let disposed = false;
-
     let player: any = null;
 
     const onTimeUpdate = (
@@ -604,151 +632,151 @@ export default function BunnyVideoPlayer({
         duration?: number;
       },
     ) => {
-      const seconds =
-        Number(
-          data?.seconds ??
-            0,
-        );
+      const seconds = Number(data?.seconds ?? 0);
+      const duration = Number(data?.duration ?? 0);
+      updateLocalProgress(seconds, duration);
+    };
 
-      const duration =
-        Number(
-          data?.duration ??
-            0,
-        );
+    const saveCurrentPosition = () => {
+      if (!player) return;
 
-      void saveProgress(
-        seconds,
-        duration,
+      player.getCurrentTime(
+        (seconds: number) => {
+          player.getDuration(
+            (duration: number) => {
+              void saveProgress(
+                seconds,
+                duration,
+                false,
+              );
+            },
+          );
+        },
       );
     };
 
-    const saveCurrentPosition =
-      () => {
-        if (!player) return;
+    const handlePageHide = () => {
+      saveCurrentPosition();
+    };
 
-        player.getCurrentTime(
-          (seconds: number) => {
-            player.getDuration(
-              (
-                duration: number,
-              ) => {
-                void saveProgress(
-                  seconds,
-                  duration,
-                  true,
-                );
-              },
-            );
-          },
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        saveCurrentPosition();
+      }
+    };
+
+    const initialize = async () => {
+      try {
+        await loadPlayerJs();
+
+        if (
+          disposed ||
+          !iframeRef.current ||
+          !window.playerjs
+        ) {
+          return;
+        }
+
+        player = new window.playerjs.Player(
+          iframeRef.current,
         );
-      };
 
-    const initialize =
-      async () => {
-        try {
-          await loadPlayerJs();
+        playerRef.current = player;
 
+        player.on("ready", () => {
           if (
-            disposed ||
-            !iframeRef.current ||
-            !window.playerjs
+            playback.initialPositionSeconds > 0
           ) {
+            player.setCurrentTime(
+              playback.initialPositionSeconds,
+            );
+          }
+        });
+
+        player.on("play", () => {
+          if (startedRef.current) {
             return;
           }
 
-          player =
-            new window.playerjs.Player(
-              iframeRef.current,
-            );
+          startedRef.current = true;
 
-          playerRef.current =
-            player;
+          void startLesson(lessonId).catch(
+            (startError) => {
+              console.error(
+                "START LESSON ERROR",
+                startError,
+              );
+            },
+          );
+        });
 
-          player.on(
-            "ready",
-            () => {
-              if (
-                playback.initialPositionSeconds >
-                0
-              ) {
-                player.setCurrentTime(
-                  playback.initialPositionSeconds,
+        player.on(
+          "timeupdate",
+          onTimeUpdate,
+        );
+
+        player.on(
+          "pause",
+          saveCurrentPosition,
+        );
+
+        player.on("ended", () => {
+          player.getDuration(
+            (duration: number) => {
+              const safeDuration =
+                Number.isFinite(duration) &&
+                duration > 0
+                  ? duration
+                  : durationRef.current;
+
+              if (safeDuration > 0) {
+                void saveProgress(
+                  safeDuration,
+                  safeDuration,
+                  true,
                 );
               }
             },
           );
+        });
 
-          player.on(
-            "play",
-            () => {
-              if (
-                startedRef.current
-              ) {
-                return;
-              }
+        window.addEventListener(
+          "pagehide",
+          handlePageHide,
+        );
+        document.addEventListener(
+          "visibilitychange",
+          handleVisibilityChange,
+        );
+      } catch (playerError) {
+        console.error(
+          "BUNNY PLAYER INITIALIZATION ERROR",
+          playerError,
+        );
 
-              startedRef.current =
-                true;
-
-              void startLesson(
-                lessonId,
-              ).catch(
-                (
-                  startError,
-                ) => {
-                  console.error(
-                    "START LESSON ERROR",
-                    startError,
-                  );
-                },
-              );
-            },
+        if (!disposed) {
+          setError(
+            "تعذر تحميل مشغل الفيديو.",
           );
-
-          player.on(
-            "timeupdate",
-            onTimeUpdate,
-          );
-
-          player.on(
-            "pause",
-            saveCurrentPosition,
-          );
-
-          player.on(
-            "ended",
-            () => {
-              player.getDuration(
-                (
-                  duration: number,
-                ) => {
-                  void saveProgress(
-                    duration,
-                    duration,
-                    true,
-                  );
-                },
-              );
-            },
-          );
-        } catch (playerError) {
-          console.error(
-            "BUNNY PLAYER INITIALIZATION ERROR",
-            playerError,
-          );
-
-          if (!disposed) {
-            setError(
-              "تعذر تحميل مشغل الفيديو.",
-            );
-          }
         }
-      };
+      }
+    };
 
     void initialize();
 
     return () => {
+      // Save once when navigating away/unmounting the lesson.
+      saveCurrentPosition();
       disposed = true;
+
+      window.removeEventListener(
+        "pagehide",
+        handlePageHide,
+      );
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange,
+      );
 
       try {
         if (player) {
@@ -756,7 +784,6 @@ export default function BunnyVideoPlayer({
             "timeupdate",
             onTimeUpdate,
           );
-
           player.off(
             "pause",
             saveCurrentPosition,
@@ -766,13 +793,13 @@ export default function BunnyVideoPlayer({
         // Player is being destroyed with iframe.
       }
 
-      playerRef.current =
-        null;
+      playerRef.current = null;
     };
   }, [
     lessonId,
     playback,
     saveProgress,
+    updateLocalProgress,
   ]);
 
   const watermarkText =

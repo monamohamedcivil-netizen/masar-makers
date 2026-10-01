@@ -546,10 +546,10 @@ function translatePrizeTitleToEnglish(
     string
   > = {
     "رحلة يوم واحد مجانية من اختيار الفائز":
-      "One free One-Day Journey of the winner's choice",
+      "Free One-Day Journey",
 
     "رحلة مجانية من اختيار الفائز":
-      "One free journey of the winner's choice",
+      "Free Journey",
   };
 
   return (

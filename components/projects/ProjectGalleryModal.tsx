@@ -24,6 +24,7 @@ export type ProjectGalleryData = {
   courseTitle?: string | null;
   images: string[];
   projectLink?: string | null;
+  videoUrl?: string | null;
 };
 
 type Props = {
@@ -50,6 +51,27 @@ export default function ProjectGalleryModal({
     [project],
   );
 
+  const videoUrl =
+    project?.videoUrl?.trim() || null;
+
+  const media = useMemo(
+    () => [
+      ...images.map((url) => ({
+        type: "image" as const,
+        url,
+      })),
+      ...(videoUrl
+        ? [
+            {
+              type: "video" as const,
+              url: videoUrl,
+            },
+          ]
+        : []),
+    ],
+    [images, videoUrl],
+  );
+
   useEffect(() => {
     setMounted(true);
     return () => setMounted(false);
@@ -70,15 +92,15 @@ export default function ProjectGalleryModal({
         onClose();
       }
 
-      if (event.key === "ArrowRight" && images.length > 1) {
+      if (event.key === "ArrowRight" && media.length > 1) {
         setActiveIndex((current) =>
-          current === 0 ? images.length - 1 : current - 1,
+          current === 0 ? media.length - 1 : current - 1,
         );
       }
 
-      if (event.key === "ArrowLeft" && images.length > 1) {
+      if (event.key === "ArrowLeft" && media.length > 1) {
         setActiveIndex((current) =>
-          current === images.length - 1 ? 0 : current + 1,
+          current === media.length - 1 ? 0 : current + 1,
         );
       }
     };
@@ -89,23 +111,23 @@ export default function ProjectGalleryModal({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [images.length, onClose, project]);
+  }, [media.length, onClose, project]);
 
   if (!project || !mounted) {
     return null;
   }
 
-  const activeImage = images[activeIndex] ?? null;
+  const activeMedia = media[activeIndex] ?? null;
 
   const goPrevious = () => {
     setActiveIndex((current) =>
-      current === 0 ? images.length - 1 : current - 1,
+      current === 0 ? media.length - 1 : current - 1,
     );
   };
 
   const goNext = () => {
     setActiveIndex((current) =>
-      current === images.length - 1 ? 0 : current + 1,
+      current === media.length - 1 ? 0 : current + 1,
     );
   };
 
@@ -135,9 +157,18 @@ export default function ProjectGalleryModal({
         {/* Image area */}
         <div className="flex min-h-0 flex-1 flex-col bg-[#07152E] lg:min-w-0">
           <div className="relative flex h-[320px] items-center justify-center overflow-hidden bg-[#07152E] p-3 sm:h-[390px] sm:p-4 md:h-[470px] lg:h-auto lg:min-h-[540px] lg:flex-1 lg:p-5">
-            {activeImage ? (
+            {activeMedia?.type === "video" ? (
+              <video
+                key={activeMedia.url}
+                src={activeMedia.url}
+                controls
+                playsInline
+                preload="metadata"
+                className="h-full w-full object-contain"
+              />
+            ) : activeMedia?.type === "image" ? (
               <img
-                src={activeImage}
+                src={activeMedia.url}
                 alt={`${project.title} - الصورة ${activeIndex + 1}`}
                 className="h-full w-full object-contain"
               />
@@ -145,12 +176,12 @@ export default function ProjectGalleryModal({
               <div className="flex flex-col items-center gap-3 text-slate-400">
                 <ImageIcon size={48} />
                 <p className="text-sm font-bold">
-                  لا توجد صور للمشروع
+                  لا توجد وسائط للمشروع
                 </p>
               </div>
             )}
 
-            {images.length > 1 ? (
+            {media.length > 1 ? (
               <>
                 <button
                   type="button"
@@ -172,31 +203,42 @@ export default function ProjectGalleryModal({
               </>
             ) : null}
 
-            {images.length > 0 ? (
+            {media.length > 0 ? (
               <span className="absolute bottom-2 left-2 rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-black text-white backdrop-blur sm:bottom-3 sm:left-3 sm:px-3 sm:text-[11px]">
-                {activeIndex + 1} / {images.length}
+                {activeIndex + 1} / {media.length}
               </span>
             ) : null}
           </div>
 
-          {images.length > 1 ? (
+          {media.length > 1 ? (
             <div className="flex gap-2 overflow-x-auto border-t border-white/10 bg-[#0B1C38] p-2.5 sm:p-3">
-              {images.map((image, index) => (
+              {media.map((item, index) => (
                 <button
-                  key={`${image}-${index}`}
+                  key={`${item.type}-${item.url}-${index}`}
                   type="button"
                   onClick={() => setActiveIndex(index)}
+                  aria-label={
+                    item.type === "video"
+                      ? "عرض فيديو المشروع"
+                      : `عرض الصورة ${index + 1}`
+                  }
                   className={`relative h-[54px] w-[82px] shrink-0 overflow-hidden rounded-lg border-2 transition sm:h-[60px] sm:w-[92px] ${
                     index === activeIndex
                       ? "border-[#F7B548] opacity-100"
                       : "border-transparent opacity-55 hover:opacity-100"
                   }`}
                 >
-                  <img
-                    src={image}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
+                  {item.type === "video" ? (
+                    <div className="flex h-full w-full items-center justify-center bg-[#07152E] text-[10px] font-black text-[#F7B548]">
+                      فيديو
+                    </div>
+                  ) : (
+                    <img
+                      src={item.url}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  )}
                 </button>
               ))}
             </div>
@@ -265,11 +307,11 @@ export default function ProjectGalleryModal({
 
           <div className="mt-4 flex items-center justify-between border-y border-[#E5E9EF] py-3">
             <span className="text-[10px] font-bold text-slate-500">
-              عدد الصور
+              محتوى المشروع
             </span>
 
             <span className="rounded-full bg-[#07152E] px-2.5 py-1 text-[10px] font-black text-white">
-              {images.length}
+              {images.length} صور{videoUrl ? " + فيديو" : ""}
             </span>
           </div>
 

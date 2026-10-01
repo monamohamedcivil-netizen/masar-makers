@@ -35,6 +35,7 @@ const labels = {
     admin: "مدير المنصة",
     student: "طالب",
     openMenu: "فتح قائمة المستخدم",
+    login: "تسجيل الدخول",
   },
   en: {
     profile: "My Profile",
@@ -47,6 +48,7 @@ const labels = {
     admin: "Administrator",
     student: "Student",
     openMenu: "Open user menu",
+    login: "Login",
   },
 } as const;
 
@@ -157,7 +159,14 @@ export default function NavbarUser({
   }
 
   if (!user) {
-    return null;
+    return (
+      <Link
+        href="/login"
+        className="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-full bg-[#F7B548] px-4 text-[12px] font-black text-[#07152E] shadow-md transition hover:-translate-y-0.5 hover:bg-[#ffc45d]"
+      >
+        {text.login}
+      </Link>
+    );
   }
 
   const metadata = user.user_metadata ?? {};
