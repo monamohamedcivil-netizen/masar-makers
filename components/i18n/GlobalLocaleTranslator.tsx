@@ -270,7 +270,7 @@ export default function GlobalLocaleTranslator() {
       `}</style>
 
       {showFloatingSwitch ? (
-        <div className="fixed end-3 top-3 z-[9998] sm:end-5 sm:top-5">
+        <div className="fixed end-3 top-16 z-[9998] sm:end-5 sm:top-5">
           <LanguageSwitch
             floating
             compact

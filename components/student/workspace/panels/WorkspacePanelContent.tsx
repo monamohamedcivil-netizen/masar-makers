@@ -307,13 +307,12 @@ function CareerPathProgressCard({
         </div>
       </header>
 
-      <div className="bg-[#F8FAFC] px-3 py-5 sm:px-4">
-          <div
-            className="relative mx-auto grid w-full grid-cols-5 items-start gap-1 px-2 pt-3 sm:px-4"
-            dir="rtl"
-          >
-            <div className="absolute left-[11%] right-[11%] top-[42px] h-[16px] rounded-full border-y border-[#F7B548] bg-[#07152E]" />
-
+      <div className="bg-[#F8FAFC] px-1.5 py-3 sm:px-4 sm:py-5">
+  <div
+    className="relative mx-auto grid w-full grid-cols-5 items-start gap-0 px-0 pt-1 sm:gap-1 sm:px-4 sm:pt-3"
+    dir="rtl"
+  >
+    <div className="absolute left-[9%] right-[9%] top-[25px] h-[7px] border-y border-[#F7B548] bg-[#07152E] sm:left-[11%] sm:right-[11%] sm:top-[42px] sm:h-[16px] sm:rounded-full" />
             {path.stations.map((station, index) => (
               <PathStation
                 key={station.stationId}
@@ -342,6 +341,7 @@ function PathStation({
   locale: Locale;
 }) {
   const isArabic = locale === "ar";
+
   const statusClasses = {
     completed:
       "border-[#70B64A] bg-[#70B64A] text-white shadow-[0_0_22px_rgba(112,182,74,.52)]",
@@ -355,55 +355,147 @@ function PathStation({
       "border-[#AAB3C0] bg-[#E4E8ED] text-[#657080]",
   } as const;
 
+  const actionLabel = !station.isEnrolled
+    ? isArabic
+      ? "استكشف"
+      : "Explore"
+    : station.status === "not_started"
+      ? isArabic
+        ? "ابدأ"
+        : "Start"
+      : isArabic
+        ? "استكمل"
+        : "Continue";
+
   const content = (
     <>
-      <div className="relative z-10 flex flex-col items-center">
-        <span
-          className={`relative flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full border-[2px] bg-white text-xs font-black transition duration-300 ${statusClasses[station.status]}`}
-        >
-          {station.iconUrl ? (
-            <Image
-              src={station.iconUrl}
-              alt=""
-              fill
-              sizes="52px"
-              className={`object-cover ${
-                station.status === "not_enrolled"
-                  ? "grayscale opacity-65"
-                  : ""
-              }`}
-            />
-          ) : station.status === "completed" ? (
-            <Check size={25} strokeWidth={3} />
-          ) : station.status === "pending" ? (
-            <Clock3 size={22} />
-          ) : station.status === "in_progress" ? (
-            <span>{Math.round(station.progressPercent)}%</span>
-          ) : (
-            <span>{index + 1}</span>
-          )}
-        </span>
+      {/* Station icon */}
+      <span
+        className={`
+          relative
+          flex
+          h-[38px]
+          w-[38px]
+          shrink-0
+          items-center
+          justify-center
+          overflow-hidden
+          rounded-full
+          border-[2px]
+          bg-white
+          text-xs
+          font-black
+          transition
+          duration-300
 
-        <span className="mt-2 w-full truncate text-center text-[9px] font-black text-[#334155] sm:text-[10px]">
-          {station.shortTitle}
-        </span>
+          sm:h-[52px]
+          sm:w-[52px]
 
-        <span
-          className={`mt-0.5 min-h-4 text-center text-[8px] font-bold ${
-            station.status === "completed"
-              ? "text-[#589638]"
-              : station.status === "in_progress"
-                ? "text-[#B87508]"
-                : station.status === "pending"
-                  ? "text-amber-700"
-                  : station.status === "not_enrolled"
-                    ? "text-slate-400"
-                    : "text-[#07152E]"
-          }`}
-        >
-          {getStationCaption(station, locale)}
-        </span>
-      </div>
+          ${statusClasses[station.status]}
+        `}
+      >
+        {station.iconUrl ? (
+          <Image
+            src={station.iconUrl}
+            alt=""
+            fill
+            sizes="52px"
+            className={`object-cover ${
+              station.status === "not_enrolled"
+                ? "grayscale opacity-65"
+                : ""
+            }`}
+          />
+        ) : station.status === "completed" ? (
+          <Check
+            size={22}
+            strokeWidth={3}
+          />
+        ) : station.status === "pending" ? (
+          <Clock3 size={19} />
+        ) : station.status === "in_progress" ? (
+          <span className="text-[8px] sm:text-xs">
+            {Math.round(
+              station.progressPercent,
+            )}
+            %
+          </span>
+        ) : (
+          <span>{index + 1}</span>
+        )}
+      </span>
+
+      {/* Station name */}
+      <span
+        className="
+          mt-1
+          line-clamp-2
+          min-h-[18px]
+          w-full
+          px-0.5
+          text-center
+          text-[7px]
+          font-black
+          leading-[1.25]
+          text-[#334155]
+
+          sm:mt-2
+          sm:min-h-[26px]
+          sm:px-1
+          sm:text-[10px]
+        "
+      >
+        {station.shortTitle}
+      </span>
+
+      {/* Status */}
+      <span
+        className={`mt-0.5 line-clamp-2 min-h-[16px] w-full px-0.5 text-center text-[6.5px] font-bold leading-[1.2] sm:min-h-[20px] sm:text-[8px] ${
+          station.status === "completed"
+            ? "text-[#589638]"
+            : station.status === "in_progress"
+              ? "text-[#B87508]"
+              : station.status === "pending"
+                ? "text-amber-700"
+                : station.status ===
+                    "not_enrolled"
+                  ? "text-slate-400"
+                  : "text-[#07152E]"
+        }`}
+      >
+        {getStationCaption(
+          station,
+          locale,
+        )}
+      </span>
+
+      {/* Compact action */}
+      <span
+        className={`
+          mt-1
+          max-w-full
+          truncate
+          px-0.5
+          text-center
+          text-[6.5px]
+          font-black
+          leading-tight
+
+          sm:mt-2
+          sm:rounded-full
+          sm:px-3
+          sm:py-1
+          sm:text-[9px]
+
+          ${
+            station.isEnrolled
+              ? "text-[#B87508] sm:bg-[#07152E] sm:text-[#F7B548]"
+              : "text-slate-500 sm:bg-slate-200 sm:text-slate-600"
+          }
+        `}
+      >
+        {actionLabel}
+      </span>
     </>
   );
 
@@ -411,13 +503,27 @@ function PathStation({
     return (
       <Link
         href={station.courseHref}
-        title={isArabic ? "استكشف الرحلة واطلب الاشتراك" : "Explore the journey and request enrollment"}
-        className="group relative z-10 flex min-w-0 flex-col items-center px-1 py-1 transition"
+        title={
+          isArabic
+            ? "استكشف الرحلة واطلب الاشتراك"
+            : "Explore the journey and request enrollment"
+        }
+        className="
+          group
+          relative
+          z-10
+          flex
+          min-w-0
+          flex-col
+          items-center
+          px-0.5
+          py-0.5
+
+          sm:px-1
+          sm:py-1
+        "
       >
         {content}
-        <span className="mt-2 rounded-full bg-slate-200 px-3 py-1 text-[9px] font-black text-slate-600 transition group-hover:bg-[#07152E] group-hover:text-[#F7B548]">
-          {isArabic ? "استكشف الرحلة" : "Explore Journey"}
-        </span>
       </Link>
     );
   }
@@ -427,7 +533,8 @@ function PathStation({
       type="button"
       onClick={onOpen}
       title={
-        station.status === "not_started"
+        station.status ===
+        "not_started"
           ? isArabic
             ? "ابدأ الرحلة"
             : "Start Journey"
@@ -435,18 +542,22 @@ function PathStation({
             ? "متابعة الرحلة"
             : "Continue Journey"
       }
-      className="group relative z-10 flex min-w-0 flex-col items-center px-1 py-1 transition"
+      className="
+        group
+        relative
+        z-10
+        flex
+        min-w-0
+        flex-col
+        items-center
+        px-0.5
+        py-0.5
+
+        sm:px-1
+        sm:py-1
+      "
     >
       {content}
-      <span className="mt-2 rounded-full bg-[#07152E] px-3 py-1 text-[9px] font-black text-[#F7B548] transition group-hover:bg-[#F7B548] group-hover:text-[#07152E]">
-        {station.status === "not_started"
-          ? isArabic
-            ? "ابدأ الرحلة"
-            : "Start Journey"
-          : isArabic
-            ? "متابعة الرحلة"
-            : "Continue Journey"}
-      </span>
     </button>
   );
 }

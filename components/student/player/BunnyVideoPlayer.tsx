@@ -245,7 +245,7 @@ function loadPlayerJs() {
 
 export default function BunnyVideoPlayer({
   lessonId,
-  completionThreshold = 90,
+  completionThreshold = 95,
 }: Props) {
   const iframeRef =
     useRef<HTMLIFrameElement | null>(
@@ -540,38 +540,44 @@ export default function BunnyVideoPlayer({
           Math.floor(seconds),
         );
 
-        const percent = complete
-          ? 100
-          : Math.max(
-              0,
-              Math.min(
-                100,
-                Math.round(
-                  (seconds / duration) * 100,
-                ),
-              ),
-            );
+        const watchedPercent = Math.max(
+  0,
+  Math.min(
+    100,
+    Math.round(
+      (seconds / duration) * 100,
+    ),
+  ),
+);
+
+const shouldComplete =
+  complete ||
+  watchedPercent >= completionThreshold;
+
+const percent = shouldComplete
+  ? 100
+  : watchedPercent;
 
         currentSecondRef.current = currentSecond;
         durationRef.current = duration;
         currentPercentRef.current = percent;
         setCurrentPercent(percent);
 
-        if (
-          !complete &&
-          !completedRef.current &&
-          currentSecond === lastSavedSecondRef.current
-        ) {
-          return;
-        }
+       if (
+  !shouldComplete &&
+  !completedRef.current &&
+  currentSecond === lastSavedSecondRef.current
+) {
+  return;
+}
 
         savingRef.current = true;
 
         try {
-          if (
-            complete &&
-            !completedRef.current
-          ) {
+       if (
+  shouldComplete &&
+  !completedRef.current
+) {
             await completeLesson(
               lessonId,
               currentSecond,

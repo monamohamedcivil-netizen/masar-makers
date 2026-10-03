@@ -273,8 +273,58 @@ export async function updateLessonProgress(
   const normalizedPercent = clampPercent(progressPercent);
   const normalizedPosition = normalizePosition(lastPositionSeconds);
   const now = new Date().toISOString();
-  const isCompleted = normalizedPercent >= 100;
+const { data: existing, error: existingError } =
+  await supabase
+    .from("lesson_progress")
+    .select(
+      `
+        lesson_id,
+        completed,
+        progress_percent,
+        last_position_seconds,
+        started_at,
+        completed_at,
+        last_watched_at
+      `,
+    )
+    .eq("user_id", user.id)
+    .eq("lesson_id", lessonId)
+    .maybeSingle();
 
+if (existingError) {
+  console.error(
+    "Failed to load existing lesson progress:",
+    existingError.message,
+  );
+
+  throw new Error("PROGRESS_LOAD_FAILED");
+}
+
+if (existing?.completed) {
+  return mapLessonProgress(
+    existing as LessonProgressRow,
+  );
+}
+
+const existingPercent = clampPercent(
+  Number(existing?.progress_percent ?? 0),
+);
+
+const existingPosition = normalizePosition(
+  Number(existing?.last_position_seconds ?? 0),
+);
+
+const safePercent = Math.max(
+  existingPercent,
+  normalizedPercent,
+);
+
+const safePosition = Math.max(
+  existingPosition,
+  normalizedPosition,
+);
+
+const isCompleted = safePercent >= 95;
   const { data, error } = await supabase
     .from("lesson_progress")
     .upsert(
@@ -282,9 +332,14 @@ export async function updateLessonProgress(
         user_id: user.id,
         lesson_id: lessonId,
         completed: isCompleted,
-        progress_percent: normalizedPercent,
-        last_position_seconds: normalizedPosition,
-        started_at: now,
+        progress_percent: isCompleted
+  ? 100
+  : safePercent,
+
+last_position_seconds: safePosition,
+
+started_at:
+  existing?.started_at ?? now,
         last_watched_at: now,
         completed_at: isCompleted ? now : null,
       },
