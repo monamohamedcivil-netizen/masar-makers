@@ -8,7 +8,6 @@ import {
   Minimize2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-
 import {
   useCallback,
   useEffect,
@@ -65,6 +64,7 @@ async function getStudentLessonPlayback(
 async function postLessonProgress(
   lessonId: string,
   body: Record<string, unknown>,
+  options?: { keepalive?: boolean },
 ) {
   const response = await fetch(
     `/api/student/lessons/${encodeURIComponent(lessonId)}`,
@@ -74,6 +74,7 @@ async function postLessonProgress(
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
+      keepalive: options?.keepalive ?? false,
     },
   );
 
@@ -98,56 +99,54 @@ async function updateLessonProgress(
   lessonId: string,
   progressPercent: number,
   lastPositionSeconds: number,
+  keepalive = false,
 ) {
-  return postLessonProgress(lessonId, {
-    action: "update",
-    progressPercent,
-    lastPositionSeconds,
-  });
+  return postLessonProgress(
+    lessonId,
+    {
+      action: "update",
+      progressPercent,
+      lastPositionSeconds,
+    },
+    { keepalive },
+  );
 }
 
 async function completeLesson(
   lessonId: string,
   lastPositionSeconds: number,
+  keepalive = false,
 ) {
-  return postLessonProgress(lessonId, {
-    action: "complete",
-    lastPositionSeconds,
-  });
+  return postLessonProgress(
+    lessonId,
+    {
+      action: "complete",
+      lastPositionSeconds,
+    },
+    { keepalive },
+  );
 }
 
 declare global {
   interface Window {
     playerjs?: {
       Player: new (
-        element:
-          | HTMLIFrameElement
-          | string,
+        element: HTMLIFrameElement | string,
       ) => {
         on: (
           event: string,
-          callback: (
-            data?: any,
-          ) => void,
+          callback: (data?: any) => void,
         ) => void;
         off: (
           event: string,
-          callback?: (
-            data?: any,
-          ) => void,
+          callback?: (data?: any) => void,
         ) => void;
-        setCurrentTime: (
-          seconds: number,
-        ) => void;
+        setCurrentTime: (seconds: number) => void;
         getCurrentTime: (
-          callback: (
-            seconds: number,
-          ) => void,
+          callback: (seconds: number) => void,
         ) => void;
         getDuration: (
-          callback: (
-            duration: number,
-          ) => void,
+          callback: (duration: number) => void,
         ) => void;
       };
     };
@@ -167,80 +166,55 @@ const WATERMARK_POSITIONS = [
   "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
 ];
 
-const FULLSCREEN_WATERMARK_POSITIONS = [
-  "right-[6%] top-[8%]",
-  "left-[7%] top-[12%]",
-  "right-[10%] bottom-[18%]",
-  "left-[8%] bottom-[20%]",
-  "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
-];
-
 function loadPlayerJs() {
-  return new Promise<void>(
-    (resolve, reject) => {
-      if (
-        typeof window ===
-          "undefined" ||
-        window.playerjs
-      ) {
-        resolve();
-        return;
-      }
+  return new Promise<void>((resolve, reject) => {
+    if (
+      typeof window === "undefined" ||
+      window.playerjs
+    ) {
+      resolve();
+      return;
+    }
 
-      const existing =
-        document.querySelector<HTMLScriptElement>(
-          'script[data-masar-playerjs="1"]',
-        );
-
-      if (existing) {
-        existing.addEventListener(
-          "load",
-          () => resolve(),
-          { once: true },
-        );
-
-        existing.addEventListener(
-          "error",
-          () =>
-            reject(
-              new Error(
-                "PLAYERJS_LOAD_FAILED",
-              ),
-            ),
-          { once: true },
-        );
-
-        return;
-      }
-
-      const script =
-        document.createElement(
-          "script",
-        );
-
-      script.src =
-        "https://assets.mediadelivery.net/playerjs/playerjs-latest.min.js";
-
-      script.async = true;
-
-      script.dataset.masarPlayerjs =
-        "1";
-
-      script.onload = () =>
-        resolve();
-
-      script.onerror = () =>
-        reject(
-          new Error(
-            "PLAYERJS_LOAD_FAILED",
-          ),
-        );
-
-      document.head.appendChild(
-        script,
+    const existing =
+      document.querySelector<HTMLScriptElement>(
+        'script[data-masar-playerjs="1"]',
       );
-    },
-  );
+
+    if (existing) {
+      existing.addEventListener(
+        "load",
+        () => resolve(),
+        { once: true },
+      );
+
+      existing.addEventListener(
+        "error",
+        () =>
+          reject(
+            new Error("PLAYERJS_LOAD_FAILED"),
+          ),
+        { once: true },
+      );
+
+      return;
+    }
+
+    const script =
+      document.createElement("script");
+
+    script.src =
+      "https://assets.mediadelivery.net/playerjs/playerjs-latest.min.js";
+    script.async = true;
+    script.dataset.masarPlayerjs = "1";
+    script.onload = () => resolve();
+    script.onerror = () =>
+      reject(
+        new Error("PLAYERJS_LOAD_FAILED"),
+      );
+
+    document.head.appendChild(script);
+  });
 }
 
 export default function BunnyVideoPlayer({
@@ -248,70 +222,38 @@ export default function BunnyVideoPlayer({
   completionThreshold = 95,
 }: Props) {
   const iframeRef =
-    useRef<HTMLIFrameElement | null>(
-      null,
-    );
-
+    useRef<HTMLIFrameElement | null>(null);
   const playerContainerRef =
-    useRef<HTMLDivElement | null>(
-      null,
-    );
-
-  const playerRef =
-    useRef<any>(null);
+    useRef<HTMLDivElement | null>(null);
+  const playerRef = useRef<any>(null);
 
   const router = useRouter();
 
   const lastDashboardRefreshPercentRef =
     useRef(-1);
-
-  const startedRef =
-    useRef(false);
-
-  const completedRef =
-    useRef(false);
-
-  const savingRef =
-    useRef(false);
-
-  const lastSavedSecondRef =
-    useRef(0);
-
-  const currentSecondRef =
-    useRef(0);
-
-  const durationRef =
-    useRef(0);
-
-  const currentPercentRef =
-    useRef(0);
+  const startedRef = useRef(false);
+  const completedRef = useRef(false);
+  const savingRef = useRef(false);
+  const lastSavedSecondRef = useRef(0);
+  const lastQueuedSecondRef = useRef(-1);
+  const currentSecondRef = useRef(0);
+  const durationRef = useRef(0);
+  const currentPercentRef = useRef(0);
 
   const [playback, setPlayback] =
     useState<StudentLessonPlayback | null>(
       null,
     );
-
   const [loading, setLoading] =
     useState(true);
-
   const [error, setError] =
     useState("");
-
-  const [
-    completed,
-    setCompleted,
-  ] = useState(false);
-
-  const [
-    watermarkIndex,
-    setWatermarkIndex,
-  ] = useState(0);
-
-  const [
-    currentPercent,
-    setCurrentPercent,
-  ] = useState(0);
-
+  const [completed, setCompleted] =
+    useState(false);
+  const [watermarkIndex, setWatermarkIndex] =
+    useState(0);
+  const [currentPercent, setCurrentPercent] =
+    useState(0);
   const [
     isProtectedFullscreen,
     setIsProtectedFullscreen,
@@ -332,41 +274,28 @@ export default function BunnyVideoPlayer({
       if (!active) return;
 
       if (!result.success) {
-        setError(
-          result.message,
-        );
+        setError(result.message);
         setLoading(false);
         return;
       }
 
-      setPlayback(
-        result.data,
-      );
-
+      setPlayback(result.data);
       setCompleted(
-        result.data
-          .alreadyCompleted,
+        result.data.alreadyCompleted,
       );
 
       completedRef.current =
-        result.data
-          .alreadyCompleted;
-
+        result.data.alreadyCompleted;
       lastSavedSecondRef.current =
-        result.data
-          .initialPositionSeconds;
-
+        result.data.initialPositionSeconds;
+      lastQueuedSecondRef.current = -1;
       currentSecondRef.current =
-        result.data
-          .initialPositionSeconds;
-
+        result.data.initialPositionSeconds;
       currentPercentRef.current =
-        result.data
-          .initialProgressPercent;
+        result.data.initialProgressPercent;
 
       setCurrentPercent(
-        result.data
-          .initialProgressPercent,
+        result.data.initialProgressPercent,
       );
 
       lastDashboardRefreshPercentRef.current =
@@ -387,22 +316,19 @@ export default function BunnyVideoPlayer({
   useEffect(() => {
     if (!playback) return;
 
-    const timer =
-      window.setInterval(
-        () => {
-          setWatermarkIndex(
-            (current) =>
-              (current + 1) %
-              WATERMARK_POSITIONS.length,
-          );
-        },
-        17000,
-      );
+    const timer = window.setInterval(
+      () => {
+        setWatermarkIndex(
+          (current) =>
+            (current + 1) %
+            WATERMARK_POSITIONS.length,
+        );
+      },
+      17000,
+    );
 
     return () =>
-      window.clearInterval(
-        timer,
-      );
+      window.clearInterval(timer);
   }, [playback]);
 
   useEffect(() => {
@@ -465,11 +391,6 @@ export default function BunnyVideoPlayer({
         return;
       }
 
-      /*
-       * First switch to our full-viewport protected layout.
-       * Then use the browser Fullscreen API when available.
-       * If the browser blocks it, the CSS layout is still a safe fallback.
-       */
       setIsProtectedFullscreen(true);
 
       try {
@@ -512,9 +433,11 @@ export default function BunnyVideoPlayer({
           ),
         );
 
-        currentSecondRef.current = currentSecond;
+        currentSecondRef.current =
+          currentSecond;
         durationRef.current = duration;
-        currentPercentRef.current = percent;
+        currentPercentRef.current =
+          percent;
         setCurrentPercent(percent);
       },
       [],
@@ -526,9 +449,12 @@ export default function BunnyVideoPlayer({
         seconds: number,
         duration: number,
         complete = false,
+        options?: {
+          keepalive?: boolean;
+          refreshDashboard?: boolean;
+        },
       ) => {
         if (
-          savingRef.current ||
           !Number.isFinite(duration) ||
           duration <= 0
         ) {
@@ -541,73 +467,112 @@ export default function BunnyVideoPlayer({
         );
 
         const watchedPercent = Math.max(
-  0,
-  Math.min(
-    100,
-    Math.round(
-      (seconds / duration) * 100,
-    ),
-  ),
-);
+          0,
+          Math.min(
+            100,
+            Math.round(
+              (seconds / duration) * 100,
+            ),
+          ),
+        );
 
-const shouldComplete =
-  complete ||
-  watchedPercent >= completionThreshold;
+        const shouldComplete =
+          complete ||
+          watchedPercent >=
+            completionThreshold;
 
-const percent = shouldComplete
-  ? 100
-  : watchedPercent;
+        const percent = shouldComplete
+          ? 100
+          : watchedPercent;
 
-        currentSecondRef.current = currentSecond;
+        currentSecondRef.current =
+          currentSecond;
         durationRef.current = duration;
-        currentPercentRef.current = percent;
+        currentPercentRef.current =
+          percent;
         setCurrentPercent(percent);
 
-       if (
-  !shouldComplete &&
-  !completedRef.current &&
-  currentSecond === lastSavedSecondRef.current
-) {
-  return;
-}
+        if (
+          !shouldComplete &&
+          !completedRef.current &&
+          currentSecond ===
+            lastQueuedSecondRef.current
+        ) {
+          return;
+        }
 
-        savingRef.current = true;
+        if (
+          !shouldComplete &&
+          !completedRef.current &&
+          currentSecond ===
+            lastSavedSecondRef.current
+        ) {
+          return;
+        }
+
+        if (
+          savingRef.current &&
+          !options?.keepalive
+        ) {
+          return;
+        }
+
+        lastQueuedSecondRef.current =
+          currentSecond;
+
+        if (!options?.keepalive) {
+          savingRef.current = true;
+        }
 
         try {
-       if (
-  shouldComplete &&
-  !completedRef.current
-) {
+          if (
+            shouldComplete &&
+            !completedRef.current
+          ) {
             await completeLesson(
               lessonId,
               currentSecond,
+              options?.keepalive ?? false,
             );
 
             completedRef.current = true;
             setCompleted(true);
             currentPercentRef.current = 100;
             setCurrentPercent(100);
-          } else if (!completedRef.current) {
+          } else if (
+            !completedRef.current
+          ) {
             await updateLessonProgress(
               lessonId,
               percent,
               currentSecond,
+              options?.keepalive ?? false,
             );
           }
 
-          lastSavedSecondRef.current = currentSecond;
-
-          const refreshPercent = completedRef.current
-            ? 100
-            : Math.floor(percent);
+          lastSavedSecondRef.current =
+            Math.max(
+              lastSavedSecondRef.current,
+              currentSecond,
+            );
 
           if (
-            refreshPercent >
-            lastDashboardRefreshPercentRef.current
+            options?.refreshDashboard !==
+            false
           ) {
-            lastDashboardRefreshPercentRef.current =
-              refreshPercent;
-            router.refresh();
+            const refreshPercent =
+              completedRef.current
+                ? 100
+                : Math.floor(percent);
+
+            if (
+              refreshPercent >
+              lastDashboardRefreshPercentRef.current
+            ) {
+              lastDashboardRefreshPercentRef.current =
+                refreshPercent;
+              router.refresh();
+            }
           }
         } catch (saveError) {
           console.error(
@@ -615,10 +580,16 @@ const percent = shouldComplete
             saveError,
           );
         } finally {
-          savingRef.current = false;
+          if (!options?.keepalive) {
+            savingRef.current = false;
+          }
         }
       },
-      [lessonId, router],
+      [
+        completionThreshold,
+        lessonId,
+        router,
+      ],
     );
 
   useEffect(() => {
@@ -629,6 +600,8 @@ const percent = shouldComplete
       return;
     }
 
+    const activePlayback = playback;
+
     let disposed = false;
     let player: any = null;
 
@@ -638,9 +611,17 @@ const percent = shouldComplete
         duration?: number;
       },
     ) => {
-      const seconds = Number(data?.seconds ?? 0);
-      const duration = Number(data?.duration ?? 0);
-      updateLocalProgress(seconds, duration);
+      const seconds = Number(
+        data?.seconds ?? 0,
+      );
+      const duration = Number(
+        data?.duration ?? 0,
+      );
+
+      updateLocalProgress(
+        seconds,
+        duration,
+      );
     };
 
     const saveCurrentPosition = () => {
@@ -654,6 +635,10 @@ const percent = shouldComplete
                 seconds,
                 duration,
                 false,
+                {
+                  keepalive: false,
+                  refreshDashboard: true,
+                },
               );
             },
           );
@@ -661,13 +646,40 @@ const percent = shouldComplete
       );
     };
 
+    const saveLifecyclePosition = () => {
+      const seconds =
+        currentSecondRef.current;
+      const duration =
+        durationRef.current;
+
+      if (
+        !Number.isFinite(duration) ||
+        duration <= 0
+      ) {
+        return;
+      }
+
+      void saveProgress(
+        seconds,
+        duration,
+        false,
+        {
+          keepalive: true,
+          refreshDashboard: false,
+        },
+      );
+    };
+
     const handlePageHide = () => {
-      saveCurrentPosition();
+      saveLifecyclePosition();
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        saveCurrentPosition();
+      if (
+        document.visibilityState ===
+        "hidden"
+      ) {
+        saveLifecyclePosition();
       }
     };
 
@@ -683,18 +695,21 @@ const percent = shouldComplete
           return;
         }
 
-        player = new window.playerjs.Player(
-          iframeRef.current,
-        );
+        player =
+          new window.playerjs.Player(
+            iframeRef.current,
+          );
 
         playerRef.current = player;
 
         player.on("ready", () => {
           if (
-            playback.initialPositionSeconds > 0
+            activePlayback
+              .initialPositionSeconds > 0
           ) {
             player.setCurrentTime(
-              playback.initialPositionSeconds,
+              activePlayback
+                .initialPositionSeconds,
             );
           }
         });
@@ -706,7 +721,9 @@ const percent = shouldComplete
 
           startedRef.current = true;
 
-          void startLesson(lessonId).catch(
+          void startLesson(
+            lessonId,
+          ).catch(
             (startError) => {
               console.error(
                 "START LESSON ERROR",
@@ -727,19 +744,39 @@ const percent = shouldComplete
         );
 
         player.on("ended", () => {
+          const safeDuration =
+            durationRef.current;
+
+          if (safeDuration > 0) {
+            void saveProgress(
+              safeDuration,
+              safeDuration,
+              true,
+              {
+                keepalive: false,
+                refreshDashboard: true,
+              },
+            );
+            return;
+          }
+
           player.getDuration(
             (duration: number) => {
-              const safeDuration =
-                Number.isFinite(duration) &&
+              if (
+                Number.isFinite(
+                  duration,
+                ) &&
                 duration > 0
-                  ? duration
-                  : durationRef.current;
-
-              if (safeDuration > 0) {
+              ) {
                 void saveProgress(
-                  safeDuration,
-                  safeDuration,
+                  duration,
+                  duration,
                   true,
+                  {
+                    keepalive: false,
+                    refreshDashboard:
+                      true,
+                  },
                 );
               }
             },
@@ -750,6 +787,7 @@ const percent = shouldComplete
           "pagehide",
           handlePageHide,
         );
+
         document.addEventListener(
           "visibilitychange",
           handleVisibilityChange,
@@ -771,14 +809,20 @@ const percent = shouldComplete
     void initialize();
 
     return () => {
-      // Save once when navigating away/unmounting the lesson.
-      saveCurrentPosition();
+      /*
+       * Save from the refs instead of waiting for PlayerJS callbacks.
+       * This covers navigation/unmount and avoids router.refresh while
+       * the dashboard is changing views.
+       */
+      saveLifecyclePosition();
+
       disposed = true;
 
       window.removeEventListener(
         "pagehide",
         handlePageHide,
       );
+
       document.removeEventListener(
         "visibilitychange",
         handleVisibilityChange,
@@ -790,6 +834,7 @@ const percent = shouldComplete
             "timeupdate",
             onTimeUpdate,
           );
+
           player.off(
             "pause",
             saveCurrentPosition,
@@ -809,65 +854,55 @@ const percent = shouldComplete
   ]);
 
   const watermarkText =
-  useMemo(() => {
-    if (!playback) {
-      return null;
-    }
+    useMemo(() => {
+      if (!playback) {
+        return null;
+      }
 
-    return (
-      <div
-        className={
-          isProtectedFullscreen
-            ? "space-y-0 md:space-y-0.5"
-            : "space-y-0"
-        }
-      >
-        <p
-  className={
-    isProtectedFullscreen
-      ? "text-[7px] font-black leading-[9px] md:text-[20px] md:leading-8"
-      : "text-[6px] font-black leading-[8px] md:text-[9px]"
-  }
->
-          {
-            playback
-              .watermark
-              .name
-          }
-        </p>
-
-        <p
-        className={
-  isProtectedFullscreen
-    ? "text-[5.5px] leading-[8px] md:text-[20px] md:leading-6"
-    : "text-[5px] leading-[7px] md:text-[8px]"
-}
-        >
-          {
-            playback
-              .watermark
-              .email
-          }
-        </p>
-
-        <p
+      return (
+        <div
           className={
             isProtectedFullscreen
-              ? "text-[7px] leading-3 md:text-[20px] md:leading-6"
-              : "text-[6px] leading-3 md:text-[8px]"
+              ? "space-y-0 md:space-y-0.5"
+              : "space-y-0"
           }
         >
-          Masar Makers •{" "}
-          {
-            playback
-              .watermark
-              .sessionCode
-          }
-        </p>
-      </div>
-    );
-  }, [playback, isProtectedFullscreen]);
-           
+          <p
+            className={
+              isProtectedFullscreen
+                ? "text-[7px] font-black leading-[9px] md:text-[20px] md:leading-8"
+                : "text-[6px] font-black leading-[8px] md:text-[9px]"
+            }
+          >
+            {playback.watermark.name}
+          </p>
+
+          <p
+            className={
+              isProtectedFullscreen
+                ? "text-[5.5px] leading-[8px] md:text-[20px] md:leading-6"
+                : "text-[5px] leading-[7px] md:text-[8px]"
+            }
+          >
+            {playback.watermark.email}
+          </p>
+
+          <p
+            className={
+              isProtectedFullscreen
+                ? "text-[7px] leading-3 md:text-[20px] md:leading-6"
+                : "text-[6px] leading-3 md:text-[8px]"
+            }
+          >
+            Masar Makers •{" "}
+            {playback.watermark.sessionCode}
+          </p>
+        </div>
+      );
+    }, [
+      playback,
+      isProtectedFullscreen,
+    ]);
 
   if (loading) {
     return (
@@ -928,18 +963,13 @@ const percent = shouldComplete
         >
           <iframe
             ref={iframeRef}
-            src={
-              playback.embedUrl
-            }
-            title={
-              playback.title
-            }
+            src={playback.embedUrl}
+            title={playback.title}
             allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
             referrerPolicy="strict-origin-when-cross-origin"
             className="absolute inset-0 h-full w-full border-0"
           />
 
-          {/* ثابت: شعار Masar Makers — مربوط بمساحة الفيديو نفسها */}
           <img
             src="/images/branding/masar-makers-video-logo.png"
             alt=""
@@ -953,25 +983,22 @@ const percent = shouldComplete
             ].join(" ")}
           />
 
-         {/* متحرك: Watermark خاص بالطالب */}
-<div
-  aria-hidden="true"
- className={`pointer-events-none absolute z-20 select-none rounded bg-black/10 text-white/30 shadow-sm transition-all duration-700 ${
-  isProtectedFullscreen
-    ? "max-w-[24%] px-1 py-0.5 md:max-w-[42%] md:px-3 md:py-2"
-    : "max-w-[24%] px-1 py-0.5 md:max-w-[34%] md:px-2 md:py-1"
-} ${WATERMARK_POSITIONS[watermarkIndex]}`}
->
-  {watermarkText}
-</div>
+          <div
+            aria-hidden="true"
+            className={`pointer-events-none absolute z-20 select-none rounded bg-black/10 text-white/30 shadow-sm transition-all duration-700 ${
+              isProtectedFullscreen
+                ? "max-w-[24%] px-1 py-0.5 md:max-w-[42%] md:px-3 md:py-2"
+                : "max-w-[24%] px-1 py-0.5 md:max-w-[34%] md:px-2 md:py-1"
+            } ${WATERMARK_POSITIONS[watermarkIndex]}`}
+          >
+            {watermarkText}
+          </div>
 
-          {/*
-           * هذا الزر يغطي زر Full Screen الداخلي في Bunny.
-           * بالتالي يتم تكبير الفيديو + اللوجو + Watermark معًا.
-           */}
           <button
             type="button"
-            onClick={toggleProtectedFullscreen}
+            onClick={
+              toggleProtectedFullscreen
+            }
             aria-label={
               isProtectedFullscreen
                 ? "الخروج من ملء الشاشة"
@@ -997,16 +1024,12 @@ const percent = shouldComplete
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-black text-[#07152E]">
-              {
-                playback.title
-              }
+              {playback.title}
             </h2>
 
             {playback.description ? (
               <p className="mt-1 text-sm font-bold text-slate-500">
-                {
-                  playback.description
-                }
+                {playback.description}
               </p>
             ) : null}
           </div>
@@ -1038,8 +1061,7 @@ const percent = shouldComplete
         </div>
 
         <p className="mt-2 text-[10px] font-bold text-slate-400">
-          يتم حفظ آخر نقطة
-          مشاهدة تلقائيًا.
+          يتم حفظ آخر نقطة مشاهدة تلقائيًا.
         </p>
       </div>
     </section>

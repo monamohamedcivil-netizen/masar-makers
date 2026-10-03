@@ -487,19 +487,44 @@ const adminSupabase =
                 return null;
               }
 
-              const {
-                data: signed,
-                error: signedError,
-              } =
-                await adminSupabase.storage
-                  .from("lesson-resources")
-                  .createSignedUrl(
-                    path,
-                    10 * 60,
-                    {
-                      download: true,
-                    },
-                  );
+              const resourceTitle =
+  resource.title?.trim() || "مرفق";
+
+const storedFileName =
+  path.split("/").pop() ?? "";
+
+const extensionMatch =
+  storedFileName.match(
+    /(\.[^./\\]+)$/,
+  );
+
+const extension =
+  extensionMatch?.[1] ?? "";
+
+const downloadFileName =
+  extension &&
+  !resourceTitle
+    .toLowerCase()
+    .endsWith(
+      extension.toLowerCase(),
+    )
+    ? `${resourceTitle}${extension}`
+    : resourceTitle;
+
+const {
+  data: signed,
+  error: signedError,
+} =
+  await adminSupabase.storage
+    .from("lesson-resources")
+    .createSignedUrl(
+      path,
+      10 * 60,
+      {
+        download:
+          downloadFileName,
+      },
+    );
 
               if (
                 signedError ||

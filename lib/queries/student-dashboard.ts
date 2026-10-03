@@ -1294,12 +1294,41 @@ pdfUrl:
       const filePath = row.file_path?.trim();
       if (!filePath) return null;
 
-      const { data: signedData, error: signedError } =
-        await adminSupabase.storage
-          .from("lesson-resources")
-          .createSignedUrl(filePath, 10 * 60, {
-            download: true,
-          });
+      const resourceTitle =
+  row.title?.trim() || "مرفق";
+
+const storedFileName =
+  filePath.split("/").pop() ?? "";
+
+const extensionMatch =
+  storedFileName.match(
+    /(\.[^./\\]+)$/,
+  );
+
+const extension =
+  extensionMatch?.[1] ?? "";
+
+const downloadFileName =
+  extension &&
+  !resourceTitle
+    .toLowerCase()
+    .endsWith(
+      extension.toLowerCase(),
+    )
+    ? `${resourceTitle}${extension}`
+    : resourceTitle;
+
+const { data: signedData, error: signedError } =
+  await adminSupabase.storage
+    .from("lesson-resources")
+    .createSignedUrl(
+      filePath,
+      10 * 60,
+      {
+        download:
+          downloadFileName,
+      },
+    );
 
       if (signedError || !signedData?.signedUrl) {
         console.error(
