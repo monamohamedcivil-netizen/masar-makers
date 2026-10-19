@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { deleteBunnyVideo } from "@/lib/bunny/stream";
+import { extractYouTubeVideoId } from "@/lib/youtube/parse";
 
 type Result<T = unknown> =
   | { success: true; data?: T; message: string }
@@ -205,6 +206,43 @@ export async function saveLesson(
       };
     }
 
+    /*
+     * الترتيب فريد داخل (الكورس + القسم). لو كان الرقم المطلوب مستخدمًا:
+     * - درس جديد: نأخذ أول رقم تالٍ فارغ تلقائيًا.
+     * - تعديل درس: نرجع رسالة واضحة بدل خطأ قاعدة البيانات.
+     */
+    const requestedSortOrder = Math.max(
+      1,
+      numberValue(input.sort_order ?? input.lesson_order, 1),
+    );
+
+    const { data: sameSlotLessons, error: sameSlotError } = await supabase
+      .from("lessons")
+      .select("id,sort_order")
+      .eq("course_id", courseId)
+      .eq("course_part", requestedCoursePart);
+
+    if (sameSlotError) {
+      return { success: false, message: sameSlotError.message };
+    }
+
+    const usedSortOrders = (sameSlotLessons ?? [])
+      .filter((lesson) => lesson.id !== id)
+      .map((lesson) => Number(lesson.sort_order));
+
+    let finalSortOrder = requestedSortOrder;
+
+    if (usedSortOrders.includes(requestedSortOrder)) {
+      if (id) {
+        return {
+          success: false,
+          message: `الترتيب ${requestedSortOrder} مستخدم لدرس آخر في نفس القسم. اختاري رقمًا آخر.`,
+        };
+      }
+
+      finalSortOrder = Math.max(0, ...usedSortOrders) + 1;
+    }
+
     const primaryJourney = selectedJourneys[0];
 
     /*
@@ -236,17 +274,71 @@ export async function saveLesson(
       journey_type: legacyLessonJourneyType,
       title,
       description: clean(input.description),
-      video_provider: clean(input.video_provider) || "bunny",
-      sort_order: Math.max(
-        1,
-        numberValue(input.sort_order ?? input.lesson_order, 1),
-      ),
+      sort_order: finalSortOrder,
       duration_minutes: Math.max(0, numberValue(input.duration_minutes, 0)),
       is_preview: booleanValue(input.is_preview),
       status: isPublished ? "published" : "draft",
       published_at: isPublished ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
     };
+
+    /*
+     * مصدر الفيديو: bunny (الافتراضي، يُدار من BunnyVideoUploader)
+     * أو youtube (رابط يُلصق هنا فقط، ويُخزَّن معرّف الفيديو).
+     * لا نلمس حقول الفيديو لدروس Bunny الحالية عند الحفظ العادي.
+     */
+    const requestedProvider =
+      clean(input.video_provider) === "youtube"
+        ? "youtube"
+        : "bunny";
+
+    let existingProvider: string | null = null;
+    let existingAssetId: string | null = null;
+
+    if (id) {
+      const { data: existingLesson } = await supabase
+        .from("lessons")
+        .select("video_provider,video_asset_id")
+        .eq("id", id)
+        .maybeSingle();
+
+      existingProvider = existingLesson?.video_provider ?? null;
+      existingAssetId = existingLesson?.video_asset_id ?? null;
+    }
+
+    if (requestedProvider === "youtube") {
+      const youtubeId = extractYouTubeVideoId(input.youtube_url);
+
+      if (!youtubeId) {
+        return {
+          success: false,
+          message:
+            "ألصقي رابط فيديو YouTube صحيحًا (مثل https://youtu.be/xxxxxxxxxxx).",
+        };
+      }
+
+      if (existingProvider === "bunny" && existingAssetId) {
+        return {
+          success: false,
+          message:
+            "هذه المحاضرة عليها فيديو Bunny. احذفي فيديو Bunny من نفس النافذة أولًا ثم اختاري YouTube.",
+        };
+      }
+
+      payload.video_provider = "youtube";
+      payload.video_asset_id = youtubeId;
+      payload.video_status = "ready";
+      payload.video_thumbnail_url = null;
+      payload.video_size_bytes = null;
+      payload.video_updated_at = new Date().toISOString();
+    } else if (existingProvider === "youtube") {
+      // الرجوع من YouTube إلى Bunny: نفرّغ بيانات YouTube فقط.
+      payload.video_provider = "bunny";
+      payload.video_asset_id = null;
+      payload.video_status = null;
+      payload.video_thumbnail_url = null;
+      payload.video_updated_at = new Date().toISOString();
+    }
 
     if (!id) {
       payload.slug = slugify(title);
