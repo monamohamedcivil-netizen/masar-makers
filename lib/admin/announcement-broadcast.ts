@@ -79,6 +79,105 @@ export async function getBroadcastAudienceCount(): Promise<{
   };
 }
 
+type ActivityScore = { points: number; lastAt: number };
+
+/*
+ * ترتيب نشاط الطالب (يُستخدم فقط عند زيادة العدد عن الحد اليومي للإيميل):
+ *  اشتراك نشط +3 | درس بدأه +1 (وأكمله +1 إضافية) | مشروع +4 | استبيان +2
+ *  شهادة +3 | دخول السحب الشهري +1 | نقاط إضافية +1
+ * وعند التساوي: الأحدث نشاطًا أولًا.
+ */
+async function getActivityScores(
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<Map<string, ActivityScore>> {
+  const scores = new Map<string, ActivityScore>();
+
+  const add = (
+    userId: unknown,
+    points: number,
+    at?: unknown,
+  ) => {
+    if (typeof userId !== "string" || !userId) return;
+
+    const current = scores.get(userId) ?? { points: 0, lastAt: 0 };
+    const time = at ? new Date(String(at)).getTime() : 0;
+
+    current.points += points;
+
+    if (Number.isFinite(time) && time > current.lastAt) {
+      current.lastAt = time;
+    }
+
+    scores.set(userId, current);
+  };
+
+  async function scan(
+    table: string,
+    columns: string,
+    handle: (row: Record<string, unknown>) => void,
+    filter?: (query: any) => any,
+  ) {
+    const pageSize = 1000;
+
+    for (let from = 0; ; from += pageSize) {
+      let query: any = admin.from(table).select(columns);
+
+      if (filter) query = filter(query);
+
+      const { data, error } = await query
+        .order("created_at", { ascending: true })
+        .range(from, from + pageSize - 1);
+
+      if (error) {
+        console.error(`ACTIVITY SCAN ERROR (${table}):`, error.message);
+        return;
+      }
+
+      for (const row of (data ?? []) as Record<string, unknown>[]) {
+        handle(row);
+      }
+
+      if (!data || data.length < pageSize) return;
+    }
+  }
+
+  await Promise.all([
+    scan(
+      "enrollments",
+      "user_id,updated_at,created_at",
+      (row) => add(row.user_id, 3, row.updated_at ?? row.created_at),
+      (query) => query.eq("status", "active"),
+    ),
+    scan(
+      "lesson_progress",
+      "user_id,completed,last_watched_at,created_at",
+      (row) =>
+        add(
+          row.user_id,
+          row.completed ? 2 : 1,
+          row.last_watched_at ?? row.created_at,
+        ),
+    ),
+    scan("student_projects", "user_id,created_at", (row) =>
+      add(row.user_id, 4, row.created_at),
+    ),
+    scan("student_surveys", "user_id,created_at", (row) =>
+      add(row.user_id, 2, row.created_at),
+    ),
+    scan("certificates", "user_id,created_at", (row) =>
+      add(row.user_id, 3, row.created_at),
+    ),
+    scan("monthly_draw_entries", "user_id,created_at", (row) =>
+      add(row.user_id, 1, row.created_at),
+    ),
+    scan("student_bonus_points", "user_id,created_at", (row) =>
+      add(row.user_id, 1, row.created_at),
+    ),
+  ]);
+
+  return scores;
+}
+
 function notificationActionUrl(href: string | null) {
   const value = href?.trim() ?? "";
 
@@ -202,22 +301,10 @@ export async function broadcastAnnouncement(
     }
 
     /* ---------- 2) إيميل ---------- */
-    const emailRecipientsCount = audience.filter((student) =>
-      /^\S+@\S+\.\S+$/.test(student.email),
-    ).length;
-
     if (options.email && !isAnnouncementEmailConfigured()) {
       anyFailed = true;
       messages.push(
         "لم يُرسل الإيميل: خدمة Brevo غير مفعّلة بعد (المفتاح BREVO_API_KEY غير مضاف في إعدادات الاستضافة).",
-      );
-    } else if (
-      options.email &&
-      emailRecipientsCount > ANNOUNCEMENT_EMAIL_DAILY_CAP
-    ) {
-      anyFailed = true;
-      messages.push(
-        `لم يُرسل الإيميل: عدد الطلاب (${emailRecipientsCount}) أكبر من الحد اليومي المسموح (${ANNOUNCEMENT_EMAIL_DAILY_CAP}).`,
       );
     } else if (options.email) {
       const { data: claimed } = await admin
@@ -230,12 +317,38 @@ export async function broadcastAnnouncement(
       if (!claimed || claimed.length === 0) {
         messages.push("الإيميل أُرسل مسبقًا لهذا الإعلان.");
       } else {
-        const recipients: AnnouncementRecipient[] = audience
-          .filter((student) => /^\S+@\S+\.\S+$/.test(student.email))
-          .map((student) => ({
+        let eligible = audience.filter((student) =>
+          /^\S+@\S+\.\S+$/.test(student.email),
+        );
+
+        let skippedByCap = 0;
+
+        // لو زاد العدد عن الحد اليومي: الإيميل لأكثر الطلاب نشاطًا فقط.
+        if (eligible.length > ANNOUNCEMENT_EMAIL_DAILY_CAP) {
+          const scores = await getActivityScores(admin);
+
+          eligible = eligible
+            .map((student) => ({
+              student,
+              score: scores.get(student.id) ?? { points: 0, lastAt: 0 },
+            }))
+            .sort(
+              (a, b) =>
+                b.score.points - a.score.points ||
+                b.score.lastAt - a.score.lastAt,
+            )
+            .map((item) => item.student);
+
+          skippedByCap = eligible.length - ANNOUNCEMENT_EMAIL_DAILY_CAP;
+          eligible = eligible.slice(0, ANNOUNCEMENT_EMAIL_DAILY_CAP);
+        }
+
+        const recipients: AnnouncementRecipient[] = eligible.map(
+          (student) => ({
             email: student.email,
             name: student.name,
-          }));
+          }),
+        );
 
         const result = await sendAnnouncementEmails(
           {
@@ -273,6 +386,12 @@ export async function broadcastAnnouncement(
             ? `الإيميل: وصل إلى ${result.sent} وفشل ${result.failed}. (${result.errors[0] ?? ""})`
             : `تم إرسال الإيميل إلى ${result.sent} طالب.`,
         );
+
+        if (skippedByCap > 0) {
+          messages.push(
+            `بسبب الحد اليومي (${ANNOUNCEMENT_EMAIL_DAILY_CAP}) أُرسل الإيميل لأكثر الطلاب نشاطًا، ولم يُرسل إلى ${skippedByCap} طالب (وصلهم الإشعار داخل المنصة).`,
+          );
+        }
       }
     }
 

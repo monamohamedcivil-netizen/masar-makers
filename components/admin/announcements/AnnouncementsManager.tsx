@@ -213,7 +213,7 @@ export default function AnnouncementsManager({
             } else if (
               audience.count > audience.emailCap
             ) {
-              emailWarning = `\n\nتنبيه: عدد الطلاب أكبر من الحد اليومي للإيميل (${audience.emailCap})، فلن يُرسل الإيميل.`;
+              emailWarning = `\n\nملاحظة: عدد الطلاب أكبر من الحد اليومي للإيميل (${audience.emailCap})، فسيُرسل الإيميل لأكثر الطلاب نشاطًا فقط، والباقون يصلهم الإشعار داخل المنصة.`;
             }
           }
         } catch {
