@@ -21,6 +21,10 @@ import {
   type PlatformAnnouncement,
   type PlatformAnnouncementType,
 } from "@/lib/admin/platform-announcements";
+import {
+  broadcastAnnouncement,
+  getBroadcastAudienceCount,
+} from "@/lib/admin/announcement-broadcast";
 
 type Props = {
   initialAnnouncements: PlatformAnnouncement[];
@@ -39,6 +43,8 @@ type FormState = {
   displayOrder: number;
   startsAt: string;
   endsAt: string;
+  notifyStudents: boolean;
+  emailStudents: boolean;
 };
 
 const EMPTY_FORM: FormState = {
@@ -54,6 +60,8 @@ const EMPTY_FORM: FormState = {
   displayOrder: 0,
   startsAt: "",
   endsAt: "",
+  notifyStudents: true,
+  emailStudents: true,
 };
 
 const TYPE_LABELS: Record<PlatformAnnouncementType, string> = {
@@ -144,6 +152,8 @@ export default function AnnouncementsManager({
       endsAt: toInputDate(
         item.ends_at,
       ),
+      notifyStudents: false,
+      emailStudents: false,
     });
 
     setError("");
@@ -180,6 +190,45 @@ export default function AnnouncementsManager({
         endsAt: form.endsAt,
       };
 
+      const wantsBroadcast =
+        !editingId &&
+        (form.notifyStudents ||
+          form.emailStudents);
+
+      if (wantsBroadcast) {
+        // تأكيد قبل أي إرسال جماعي (الإيميل لا يمكن التراجع عنه).
+        let audienceCount = 0;
+
+        try {
+          audienceCount =
+            await getBroadcastAudienceCount();
+        } catch {
+          setError(
+            "تعذر حساب عدد الطلاب. لم يتم حفظ الإعلان.",
+          );
+          return;
+        }
+
+        const channels = [
+          form.notifyStudents
+            ? "إشعار داخل المنصة"
+            : "",
+          form.emailStudents
+            ? "إيميل"
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" + ");
+
+        if (
+          !window.confirm(
+            `سيتم حفظ الإعلان وإرساله الآن إلى ${audienceCount} طالب (${channels}).\nالإيميل لا يمكن التراجع عنه بعد إرساله.\n\nهل تريد المتابعة؟`,
+          )
+        ) {
+          return;
+        }
+      }
+
       const result = editingId
         ? await updatePlatformAnnouncement(
             editingId,
@@ -191,6 +240,23 @@ export default function AnnouncementsManager({
 
       if (!result.success) {
         setError(result.message);
+        return;
+      }
+
+      if (wantsBroadcast && result.id) {
+        const broadcast =
+          await broadcastAnnouncement(
+            result.id,
+            {
+              notify: form.notifyStudents,
+              email: form.emailStudents,
+            },
+          );
+
+        window.alert(
+          `${result.message}\n${broadcast.message}`,
+        );
+        window.location.reload();
         return;
       }
 
@@ -527,6 +593,54 @@ export default function AnnouncementsManager({
               الإعلان نشط ويظهر عند استيفاء فترة العرض
             </span>
           </label>
+
+          {!editingId ? (
+            <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/60 p-4 md:col-span-2">
+              <p className="text-[11px] font-black text-[#07152E]">
+                إرسال الإعلان للطلاب عند الحفظ
+              </p>
+
+              <label className="flex cursor-pointer items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={form.notifyStudents}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      notifyStudents:
+                        event.target.checked,
+                    }))
+                  }
+                  className="h-4 w-4 accent-[#F7B548]"
+                />
+                <span className="text-[11px] font-bold text-[#07152E]">
+                  إشعار داخل المنصة لكل الطلاب
+                </span>
+              </label>
+
+              <label className="flex cursor-pointer items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={form.emailStudents}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      emailStudents:
+                        event.target.checked,
+                    }))
+                  }
+                  className="h-4 w-4 accent-[#F7B548]"
+                />
+                <span className="text-[11px] font-bold text-[#07152E]">
+                  إيميل بتصميم Masar Makers لكل الطلاب
+                </span>
+              </label>
+
+              <p className="text-[10px] font-bold text-slate-500">
+                سيظهر لك تأكيد بعدد الطلاب قبل الإرسال. للإعلان المؤقت أو التجريبي ألغي الخيارين.
+              </p>
+            </div>
+          ) : null}
 
           {(message || error) && (
             <div className="md:col-span-2">
