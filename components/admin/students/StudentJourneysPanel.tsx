@@ -184,6 +184,7 @@ export default function StudentJourneysPanel({
       reward: 0,
       active: 0,
       completed: 0,
+      professionalCompleted: 0,
       pending: 0,
       professional: 0,
       oneDay: 0,

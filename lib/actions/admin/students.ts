@@ -693,8 +693,11 @@ lastRewardRedeemedAt: null,
      * لكنها ليست اشتراكات مدفوعة.
      */
     if (isFree) {
-      student.freeEnrollments +=
-        journeyCount;
+      // الرحلة المجانية تُعدّ فقط إذا كان اشتراكها مفعّلًا.
+      if (isApprovedStatus(enrollment.status)) {
+        student.freeEnrollments +=
+          journeyCount;
+      }
 
       const actionKey =
         textValue(
@@ -752,25 +755,29 @@ lastRewardRedeemedAt: null,
       continue;
     }
 
-    student.totalEnrollments +=
-      journeyCount;
-
-    if (
-      isProfessionalJourney(
-        enrollment.journey_type,
-      )
-    ) {
-      student.professionalEnrollments +=
+    // الطلبات قيد المراجعة والمرفوضة لا تدخل في إجمالي الاشتراكات؛
+    // تظهر فقط في عمود "قيد المراجعة".
+    if (isApprovedStatus(enrollment.status)) {
+      student.totalEnrollments +=
         journeyCount;
-    }
 
-    if (
-      isOneDayJourney(
-        enrollment.journey_type,
-      )
-    ) {
-      student.oneDayEnrollments +=
-        journeyCount;
+      if (
+        isProfessionalJourney(
+          enrollment.journey_type,
+        )
+      ) {
+        student.professionalEnrollments +=
+          journeyCount;
+      }
+
+      if (
+        isOneDayJourney(
+          enrollment.journey_type,
+        )
+      ) {
+        student.oneDayEnrollments +=
+          journeyCount;
+      }
     }
 
     if (
