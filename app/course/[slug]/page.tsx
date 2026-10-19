@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getStudentRegistrationInfo } from "@/lib/students/registration-info";
 import { notFound } from "next/navigation";
 
 import Navbar from "@/sections/Navbar";
@@ -1150,6 +1151,9 @@ async function loadPublishedCourseReviews(
    * وإذا كان الطالب مستوردًا ولم يسجل بعد،
    * نستخدم البيانات المحفوظة في student_surveys.
    */
+  const registrationInfo =
+    await getStudentRegistrationInfo(userIds);
+
   return rows
     .filter(
       (row) =>
@@ -1168,8 +1172,15 @@ async function loadPublishedCourseReviews(
           row.student_name?.trim() ||
           "أحد متدربي Masar Makers",
 
+        studentNameEn: row.user_id
+          ? registrationInfo.get(row.user_id)?.nameEn || ""
+          : "",
+
         studentRole:
   row.student_job_title?.trim() ||
+  (row.user_id
+    ? registrationInfo.get(row.user_id)?.jobTitle
+    : "") ||
   "",
 
         country:

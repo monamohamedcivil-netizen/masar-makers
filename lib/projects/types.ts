@@ -14,6 +14,7 @@ export type StudentProject = {
   courseTitle: string | null;
 
   studentName: string | null;
+  studentNameEn?: string;
 studentCountry: string | null;
   studentEmail: string | null;
 

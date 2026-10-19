@@ -14,6 +14,10 @@ import {
   Target,
 } from "lucide-react";
 
+import {
+  LocalizedStudentMeta,
+  LocalizedStudentName,
+} from "./LocalizedStudent";
 import CourseActionButton from "./CourseActionButton";
 
 import type { EnrollmentStatus, EnrollmentStatusMap } from "@/lib/actions/enroll";
@@ -228,12 +232,17 @@ description="تقييمات حقيقية ومشاريع نفذها المتدر�
 
                   <div className="mt-3 border-t border-[#E4E8EE] pt-3">
                     <p className="text-[11px] font-black text-[#07152E]">
-                      {review.studentName}
+                      <LocalizedStudentName
+                        name={review.studentName}
+                        nameEn={review.studentNameEn}
+                      />
                     </p>
 
                     <p className="mt-0.5 text-[9px] font-bold text-slate-400">
-                      {review.studentRole} —{" "}
-                      {review.country}
+                      <LocalizedStudentMeta
+                        job={review.studentRole}
+                        country={review.country}
+                      />
                     </p>
                   </div>
                 </article>

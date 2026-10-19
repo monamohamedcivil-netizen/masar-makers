@@ -3,6 +3,7 @@
 import {
   createAdminClient,
 } from "@/lib/supabase/server";
+import { getStudentRegistrationInfo } from "@/lib/students/registration-info";
 
 export type HomeProjectCategory =
   | "Civil 3D"
@@ -19,6 +20,8 @@ export type HomeProject = {
   images: string[];
   category: HomeProjectCategory;
   student: string;
+  studentEn: string;
+  job: string;
   country: string;
   software: string;
   featured: boolean;
@@ -331,6 +334,8 @@ const profileByUserId = new Map(
     },
   ]),
 );
+  const registrationInfo =
+    await getStudentRegistrationInfo(userIds);
   const projects: HomeProject[] = [];
 
   for (const rawRow of data ?? []) {
@@ -435,6 +440,12 @@ const courseTitle =
   linkedProfile?.fullName ||
   row.student_name?.trim() ||
   "أحد طلاب Masar Makers",
+      studentEn: row.user_id
+        ? registrationInfo.get(String(row.user_id))?.nameEn || ""
+        : "",
+      job: row.user_id
+        ? registrationInfo.get(String(row.user_id))?.jobTitle || ""
+        : "",
      country:
   linkedProfile?.country ||
   (

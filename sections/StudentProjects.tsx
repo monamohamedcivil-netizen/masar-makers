@@ -20,6 +20,11 @@ import {
 } from "lucide-react";
 
 import AuthLink from "@/components/AuthLink";
+import {
+  localizeCountry,
+  localizeJobTitle,
+  localizeStudentName,
+} from "@/lib/i18n/student-display";
 
 import ProjectGalleryModal, {
   type ProjectGalleryData,
@@ -255,8 +260,8 @@ export default function StudentProjects() {
       id: project.id,
       title: project.title,
       description: project.description,
-      studentName: project.student,
-      studentCountry: project.country,
+      studentName: localizeStudentName(locale, project.student, project.studentEn),
+      studentCountry: localizeCountry(locale, project.country),
       courseTitle: project.software,
       images: getProjectImages(project),
       projectLink: project.projectLink,
@@ -584,9 +589,15 @@ export default function StudentProjects() {
                                 <Building2 className="h-3 w-3 shrink-0 text-[#F7B548]" />
 
                                 <span className="truncate">
-                                  {
-                                    project.student
-                                  }
+                                  {localizeStudentName(
+                                    locale,
+                                    project.student,
+                                    project.studentEn,
+                                  )}
+                                  {project.job &&
+                                  localizeJobTitle(locale, project.job)
+                                    ? ` · ${localizeJobTitle(locale, project.job)}`
+                                    : ""}
                                 </span>
                               </span>
 
@@ -594,9 +605,10 @@ export default function StudentProjects() {
                                 <span className="flex shrink-0 items-center gap-1">
                                   <MapPin className="h-3 w-3 text-[#F7B548]" />
 
-                                  {
-                                    project.country
-                                  }
+                                  {localizeCountry(
+                                    locale,
+                                    project.country,
+                                  )}
                                 </span>
                               ) : null}
                             </div>

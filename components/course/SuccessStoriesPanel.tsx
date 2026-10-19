@@ -11,6 +11,15 @@ import {
 import { useState } from "react";
 
 import type { Review } from "@/data/types";
+import { useSiteLocale } from "@/lib/i18n/use-site-locale";
+import {
+  localizeCountry,
+  localizeStudentName,
+} from "@/lib/i18n/student-display";
+import {
+  LocalizedStudentMeta,
+  LocalizedStudentName,
+} from "./LocalizedStudent";
 
 import type {
   StudentProject,
@@ -121,22 +130,19 @@ function ReviewCard({
 
       <div className="mt-auto border-t border-[#E4E8EE] pt-3">
         <p className="text-[11px] font-black text-[#07152E]">
-          {review.studentName}
+          <LocalizedStudentName
+            name={review.studentName}
+            nameEn={review.studentNameEn}
+          />
         </p>
 
         <div className="mt-1 flex flex-wrap items-center gap-1 text-[9px] font-bold text-slate-400">
-          {review.studentRole ? (
-            <span>{review.studentRole}</span>
-          ) : null}
-
-          {review.studentRole &&
-          review.country ? (
-            <span>—</span>
-          ) : null}
-
-          {review.country ? (
-            <span>{review.country}</span>
-          ) : null}
+          <span>
+            <LocalizedStudentMeta
+              job={review.studentRole}
+              country={review.country}
+            />
+          </span>
         </div>
       </div>
     </article>
@@ -220,12 +226,15 @@ function ProjectCard({
           />
 
           <span className="min-w-0 truncate">
-            {project.studentName ||
-              "أحد متدربي Masar Makers"}
+            <LocalizedStudentName
+              name={project.studentName}
+              nameEn={project.studentNameEn}
+              fallback="أحد متدربي Masar Makers"
+            />
 
             {project.studentCountry ? (
               <span className="mr-1 text-slate-400">
-                — {project.studentCountry}
+                — <LocalizedStudentMeta country={project.studentCountry} />
               </span>
             ) : null}
           </span>
@@ -239,6 +248,7 @@ export default function SuccessStoriesPanel({
   reviews,
   projects,
 }: Props) {
+  const siteLocale = useSiteLocale();
   const [
     selectedProject,
     setSelectedProject,
@@ -279,9 +289,15 @@ export default function SuccessStoriesPanel({
       title: project.projectTitle,
       description:
         project.projectDescription,
-      studentName: project.studentName,
-      studentCountry:
-        project.studentCountry,
+      studentName: localizeStudentName(
+        siteLocale,
+        project.studentName ?? "",
+        project.studentNameEn ?? "",
+      ),
+      studentCountry: localizeCountry(
+        siteLocale,
+        project.studentCountry ?? "",
+      ),
       courseTitle: project.courseTitle,
       images:
         projectImages.length > 0
