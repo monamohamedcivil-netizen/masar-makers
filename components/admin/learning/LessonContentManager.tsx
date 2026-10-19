@@ -1973,6 +1973,13 @@ function LessonDialog({
                 course_id: stationCourse?.id || "",
                 journey_id: "",
                 journey_ids: [],
+                // الدرس الجديد: نحسب أول ترتيب فارغ في الكورس المختار.
+                lesson_order: editing.id
+                  ? editing.lesson_order
+                  : getNextLessonOrder(
+                      stationCourse?.id || "",
+                      editing.course_part || "single",
+                    ),
               });
             }}
             options={[

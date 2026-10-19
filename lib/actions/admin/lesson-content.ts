@@ -206,6 +206,43 @@ export async function saveLesson(
       };
     }
 
+    /*
+     * الترتيب فريد داخل (الكورس + القسم). لو كان الرقم المطلوب مستخدمًا:
+     * - درس جديد: نأخذ أول رقم تالٍ فارغ تلقائيًا.
+     * - تعديل درس: نرجع رسالة واضحة بدل خطأ قاعدة البيانات.
+     */
+    const requestedSortOrder = Math.max(
+      1,
+      numberValue(input.sort_order ?? input.lesson_order, 1),
+    );
+
+    const { data: sameSlotLessons, error: sameSlotError } = await supabase
+      .from("lessons")
+      .select("id,sort_order")
+      .eq("course_id", courseId)
+      .eq("course_part", requestedCoursePart);
+
+    if (sameSlotError) {
+      return { success: false, message: sameSlotError.message };
+    }
+
+    const usedSortOrders = (sameSlotLessons ?? [])
+      .filter((lesson) => lesson.id !== id)
+      .map((lesson) => Number(lesson.sort_order));
+
+    let finalSortOrder = requestedSortOrder;
+
+    if (usedSortOrders.includes(requestedSortOrder)) {
+      if (id) {
+        return {
+          success: false,
+          message: `الترتيب ${requestedSortOrder} مستخدم لدرس آخر في نفس القسم. اختاري رقمًا آخر.`,
+        };
+      }
+
+      finalSortOrder = Math.max(0, ...usedSortOrders) + 1;
+    }
+
     const primaryJourney = selectedJourneys[0];
 
     /*
@@ -237,10 +274,7 @@ export async function saveLesson(
       journey_type: legacyLessonJourneyType,
       title,
       description: clean(input.description),
-      sort_order: Math.max(
-        1,
-        numberValue(input.sort_order ?? input.lesson_order, 1),
-      ),
+      sort_order: finalSortOrder,
       duration_minutes: Math.max(0, numberValue(input.duration_minutes, 0)),
       is_preview: booleanValue(input.is_preview),
       status: isPublished ? "published" : "draft",
