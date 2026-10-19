@@ -31,6 +31,7 @@ export type PlatformAnnouncement = {
 export type AnnouncementActionResult = {
   success: boolean;
   message: string;
+  id?: string;
 };
 
 async function requireAdmin() {
@@ -139,7 +140,7 @@ export async function createPlatformAnnouncement(input: {
     };
   }
 
-  const { error } = await supabase
+  const { data: created, error } = await supabase
     .from("platform_announcements")
     .insert({
       type: input.type,
@@ -154,7 +155,9 @@ export async function createPlatformAnnouncement(input: {
       display_order: Number(input.displayOrder ?? 0),
       starts_at: startsAt,
       ends_at: endsAt,
-    });
+    })
+    .select("id")
+    .single();
 
   if (error) {
     return {
@@ -169,6 +172,7 @@ export async function createPlatformAnnouncement(input: {
   return {
     success: true,
     message: "تم إنشاء الإعلان بنجاح.",
+    id: created?.id as string | undefined,
   };
 }
 
