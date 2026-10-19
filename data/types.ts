@@ -202,6 +202,7 @@ export type Review = {
   id: number;
 
   studentName: string;
+  studentNameEn?: string;
   studentRole: string;
   country: string;
 

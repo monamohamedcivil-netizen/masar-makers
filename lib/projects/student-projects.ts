@@ -8,6 +8,7 @@ import type {
   StudentProjectImage,
 } from "./types";
 
+import { getStudentRegistrationInfo } from "@/lib/students/registration-info";
 import {
   createAdminClient,
   createClient,
@@ -854,6 +855,13 @@ export async function getCourseProjects(
       ),
     );
 
+  const registrationInfo =
+    await getStudentRegistrationInfo(
+      (projects as ProjectRow[]).map(
+        (item) => item.user_id,
+      ),
+    );
+
   const result: StudentProject[] =
     [];
 
@@ -902,8 +910,8 @@ export async function getCourseProjects(
       profile,
     );
 
-    result.push(
-      mapProject(
+    result.push({
+      ...mapProject(
         {
           ...project,
           student_name:
@@ -917,7 +925,10 @@ export async function getCourseProjects(
         ],
         projectVideoUrl,
       ),
-    );
+      studentNameEn: project.user_id
+        ? registrationInfo.get(project.user_id)?.nameEn || ""
+        : "",
+    });
   }
 
   return result;

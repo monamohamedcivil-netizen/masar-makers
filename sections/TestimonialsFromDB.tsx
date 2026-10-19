@@ -8,6 +8,12 @@ import {
   Star,
 } from "lucide-react";
 
+import {
+  localizeCountry,
+  localizeJobTitle,
+  localizeStudentName,
+} from "@/lib/i18n/student-display";
+
 type Locale = "ar" | "en";
 
 type CourseId =
@@ -21,6 +27,7 @@ type CourseId =
 type ApiTestimonial = {
   id: string;
   studentName: string;
+  studentNameEn?: string;
   jobTitle: string | null;
   country: string | null;
   courseId: string;
@@ -34,6 +41,9 @@ type ApiTestimonial = {
 type Testimonial = {
   id: string;
   name: string;
+  nameEn: string;
+  roleRaw: string;
+  countryRaw: string;
   role: string;
   country: string;
   courseId: Exclude<CourseId, "all"> | string;
@@ -273,6 +283,9 @@ export default function TestimonialsFromDB() {
             name:
               testimonial.studentName ||
               labels.ar.trainee,
+            nameEn: testimonial.studentNameEn || "",
+            roleRaw: testimonial.jobTitle || "",
+            countryRaw: testimonial.country || "",
             role:
               testimonial.jobTitle ||
               labels.ar.trainee,
@@ -552,7 +565,9 @@ export default function TestimonialsFromDB() {
                   <div className="relative z-10 mt-2.5 flex items-center gap-2.5 border-t border-[#E9EDF3] pt-2.5">
                     <div
   dir={
-    /[\u0600-\u06FF]/.test(testimonial.name)
+    /[\u0600-\u06FF]/.test(
+      localizeStudentName(locale, testimonial.name, testimonial.nameEn)
+    )
       ? "rtl"
       : "ltr"
   }
@@ -560,7 +575,7 @@ export default function TestimonialsFromDB() {
 >
                       {getInitialLetters(
                         testimonial.initials,
-                        testimonial.name,
+                        localizeStudentName(locale, testimonial.name, testimonial.nameEn),
                         locale,
                       ).map((letter, letterIndex) => (
                         <span
@@ -580,14 +595,19 @@ export default function TestimonialsFromDB() {
                       }`}
                     >
                       <h3 className="truncate text-[10.5px] font-black text-[#07152E] sm:text-[11.5px] lg:text-[12px]">
-                        {testimonial.name}
+                        {localizeStudentName(locale, testimonial.name, testimonial.nameEn)}
                       </h3>
 
                       <p className="mt-0.5 truncate text-[8px] font-bold text-slate-500 sm:text-[8.5px] lg:text-[9px]">
-                        {testimonial.role}
-                        {testimonial.country
-                          ? ` · ${testimonial.country}`
-                          : ""}
+                        {testimonial.roleRaw
+                          ? localizeJobTitle(locale, testimonial.roleRaw) ||
+                            testimonial.role
+                          : testimonial.role}
+                        {testimonial.countryRaw
+                          ? ` · ${localizeCountry(locale, testimonial.countryRaw)}`
+                          : testimonial.country
+                            ? ` · ${testimonial.country}`
+                            : ""}
                       </p>
                     </div>
                   </div>
@@ -615,7 +635,7 @@ export default function TestimonialsFromDB() {
                     onClick={() =>
                       setStartIndex(index)
                     }
-                    aria-label={`${text.showReview} ${testimonial.name}`}
+                    aria-label={`${text.showReview} ${localizeStudentName(locale, testimonial.name, testimonial.nameEn)}`}
                     className={`h-[5px] rounded-full transition-all duration-500 ${
                       index === startIndex
                         ? "w-7 bg-[#F7B548]"
