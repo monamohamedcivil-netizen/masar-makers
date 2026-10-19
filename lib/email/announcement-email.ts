@@ -14,6 +14,10 @@ export type AnnouncementEmailInput = {
   descriptionEn?: string | null;
   buttonText?: string | null;
   href?: string | null;
+  /** عنوان رسالة مخصص (وإلا يُستخدم العنوان مع الرمز التعبيري). */
+  subject?: string | null;
+  /** false = بدون زر (للإيميل المخصص). الافتراضي: يظهر الزر. */
+  showButton?: boolean;
 };
 
 export type AnnouncementRecipient = {
@@ -139,9 +143,13 @@ export function buildAnnouncementEmailHtml(
           ${description}
           ${english}
 
-          <a href="${url}" style="display:inline-block;background:#F7B548;color:#07152E;text-decoration:none;font-size:16px;font-weight:bold;padding:14px 34px;border-radius:10px;">
+          ${
+            announcement.showButton === false
+              ? ""
+              : `<a href="${url}" style="display:inline-block;background:#F7B548;color:#07152E;text-decoration:none;font-size:16px;font-weight:bold;padding:14px 34px;border-radius:10px;">
             ${buttonText}
-          </a>
+          </a>`
+          }
         </div>
 
         <div style="text-align:center;padding:20px;color:#64748b;font-size:12px;">
@@ -258,7 +266,9 @@ export async function sendAnnouncementEmails(
     };
   }
 
-  const subject = `${TYPE_EMOJI[announcement.type] ?? "📢"} ${announcement.title} | Masar Makers`;
+  const subject =
+    announcement.subject?.trim() ||
+    `${TYPE_EMOJI[announcement.type] ?? "📢"} ${announcement.title} | Masar Makers`;
 
   let sent = 0;
   let failed = 0;

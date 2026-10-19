@@ -3,11 +3,15 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import {
-  ANNOUNCEMENT_EMAIL_DAILY_CAP,
   isAnnouncementEmailConfigured,
   sendAnnouncementEmails,
   type AnnouncementRecipient,
 } from "@/lib/email/announcement-email";
+import {
+  getRemainingDailyEmails,
+  loadAudience,
+  rankByActivity,
+} from "@/lib/admin/student-audience";
 
 /*
  * إرسال إعلان لكل الطلاب:
@@ -23,46 +27,6 @@ type BroadcastResult = {
   message: string;
 };
 
-type Audience = Array<{
-  id: string;
-  email: string;
-  name: string | null;
-}>;
-
-async function loadAudience(): Promise<Audience> {
-  const admin = createAdminClient();
-  const audience: Audience = [];
-  const pageSize = 1000;
-
-  for (let from = 0; ; from += pageSize) {
-    const { data, error } = await admin
-      .from("profiles")
-      .select("id,email,full_name")
-      .eq("role", "student")
-      .or("is_active.is.null,is_active.eq.true")
-      .order("created_at", { ascending: true })
-      .range(from, from + pageSize - 1);
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    for (const row of data ?? []) {
-      audience.push({
-        id: row.id as string,
-        email: String(row.email ?? "").trim(),
-        name: (row.full_name as string | null) ?? null,
-      });
-    }
-
-    if (!data || data.length < pageSize) {
-      break;
-    }
-  }
-
-  return audience;
-}
-
 export async function getBroadcastAudienceCount(): Promise<{
   count: number;
   emailCap: number;
@@ -71,111 +35,14 @@ export async function getBroadcastAudienceCount(): Promise<{
   await requireAdmin();
 
   const audience = await loadAudience();
+  const quota = await getRemainingDailyEmails(createAdminClient());
 
   return {
     count: audience.length,
-    emailCap: ANNOUNCEMENT_EMAIL_DAILY_CAP,
+    // الرصيد المتبقي اليوم (الحد اليومي ناقص ما أُرسل في آخر 24 ساعة).
+    emailCap: quota.remaining,
     emailConfigured: isAnnouncementEmailConfigured(),
   };
-}
-
-type ActivityScore = { points: number; lastAt: number };
-
-/*
- * ترتيب نشاط الطالب (يُستخدم فقط عند زيادة العدد عن الحد اليومي للإيميل):
- *  اشتراك نشط +3 | درس بدأه +1 (وأكمله +1 إضافية) | مشروع +4 | استبيان +2
- *  شهادة +3 | دخول السحب الشهري +1 | نقاط إضافية +1
- * وعند التساوي: الأحدث نشاطًا أولًا.
- */
-async function getActivityScores(
-  admin: ReturnType<typeof createAdminClient>,
-): Promise<Map<string, ActivityScore>> {
-  const scores = new Map<string, ActivityScore>();
-
-  const add = (
-    userId: unknown,
-    points: number,
-    at?: unknown,
-  ) => {
-    if (typeof userId !== "string" || !userId) return;
-
-    const current = scores.get(userId) ?? { points: 0, lastAt: 0 };
-    const time = at ? new Date(String(at)).getTime() : 0;
-
-    current.points += points;
-
-    if (Number.isFinite(time) && time > current.lastAt) {
-      current.lastAt = time;
-    }
-
-    scores.set(userId, current);
-  };
-
-  async function scan(
-    table: string,
-    columns: string,
-    handle: (row: Record<string, unknown>) => void,
-    filter?: (query: any) => any,
-  ) {
-    const pageSize = 1000;
-
-    for (let from = 0; ; from += pageSize) {
-      let query: any = admin.from(table).select(columns);
-
-      if (filter) query = filter(query);
-
-      const { data, error } = await query
-        .order("created_at", { ascending: true })
-        .range(from, from + pageSize - 1);
-
-      if (error) {
-        console.error(`ACTIVITY SCAN ERROR (${table}):`, error.message);
-        return;
-      }
-
-      for (const row of (data ?? []) as Record<string, unknown>[]) {
-        handle(row);
-      }
-
-      if (!data || data.length < pageSize) return;
-    }
-  }
-
-  await Promise.all([
-    scan(
-      "enrollments",
-      "user_id,updated_at,created_at",
-      (row) => add(row.user_id, 3, row.updated_at ?? row.created_at),
-      (query) => query.eq("status", "active"),
-    ),
-    scan(
-      "lesson_progress",
-      "user_id,completed,last_watched_at,created_at",
-      (row) =>
-        add(
-          row.user_id,
-          row.completed ? 2 : 1,
-          row.last_watched_at ?? row.created_at,
-        ),
-    ),
-    scan("student_projects", "user_id,created_at", (row) =>
-      add(row.user_id, 4, row.created_at),
-    ),
-    scan("student_surveys", "user_id,created_at", (row) =>
-      add(row.user_id, 2, row.created_at),
-    ),
-    scan("certificates", "user_id,created_at", (row) =>
-      add(row.user_id, 3, row.created_at),
-    ),
-    scan("monthly_draw_entries", "user_id,created_at", (row) =>
-      add(row.user_id, 1, row.created_at),
-    ),
-    scan("student_bonus_points", "user_id,created_at", (row) =>
-      add(row.user_id, 1, row.created_at),
-    ),
-  ]);
-
-  return scores;
 }
 
 function notificationActionUrl(href: string | null) {
@@ -323,24 +190,19 @@ export async function broadcastAnnouncement(
 
         let skippedByCap = 0;
 
-        // لو زاد العدد عن الحد اليومي: الإيميل لأكثر الطلاب نشاطًا فقط.
-        if (eligible.length > ANNOUNCEMENT_EMAIL_DAILY_CAP) {
-          const scores = await getActivityScores(admin);
+        // الرصيد المتبقي اليوم؛ لو لم يكفِ: الإيميل لأكثر الطلاب نشاطًا فقط.
+        const quota = await getRemainingDailyEmails(admin);
 
-          eligible = eligible
-            .map((student) => ({
-              student,
-              score: scores.get(student.id) ?? { points: 0, lastAt: 0 },
-            }))
-            .sort(
-              (a, b) =>
-                b.score.points - a.score.points ||
-                b.score.lastAt - a.score.lastAt,
-            )
-            .map((item) => item.student);
+        if (eligible.length > quota.remaining) {
+          eligible = (await rankByActivity(admin, eligible)).slice(
+            0,
+            quota.remaining,
+          );
 
-          skippedByCap = eligible.length - ANNOUNCEMENT_EMAIL_DAILY_CAP;
-          eligible = eligible.slice(0, ANNOUNCEMENT_EMAIL_DAILY_CAP);
+          skippedByCap =
+            audience.filter((student) =>
+              /^\S+@\S+\.\S+$/.test(student.email),
+            ).length - eligible.length;
         }
 
         const recipients: AnnouncementRecipient[] = eligible.map(
@@ -389,7 +251,7 @@ export async function broadcastAnnouncement(
 
         if (skippedByCap > 0) {
           messages.push(
-            `بسبب الحد اليومي (${ANNOUNCEMENT_EMAIL_DAILY_CAP}) أُرسل الإيميل لأكثر الطلاب نشاطًا، ولم يُرسل إلى ${skippedByCap} طالب (وصلهم الإشعار داخل المنصة).`,
+            `بسبب الحد اليومي (المتبقي اليوم ${quota.remaining}) أُرسل الإيميل لأكثر الطلاب نشاطًا، ولم يُرسل إلى ${skippedByCap} طالب (وصلهم الإشعار داخل المنصة).`,
           );
         }
       }
