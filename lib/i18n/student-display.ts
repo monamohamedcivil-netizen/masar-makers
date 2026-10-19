@@ -124,6 +124,7 @@ const JOB_PHRASES: Array<{ ar: string[]; en: string }> = [
   { ar: ["مهندس", "مهندسه", "مهندسة"], en: "Engineer" },
   { ar: ["مهندس مدني", "مهندسة مدنية"], en: "Civil Engineer" },
   { ar: ["استشاري", "مستشار"], en: "Consultant" },
+  { ar: ["مدرب", "مدرّب"], en: "Trainer" },
   { ar: ["طالب", "طالبة"], en: "Student" },
   { ar: ["مدير مشروع", "مدير مشاريع"], en: "Project Manager" },
   { ar: ["مهندس معماري", "مهندسة معمارية"], en: "Architect" },
