@@ -117,6 +117,7 @@ export function buildAnnouncementEmailHtml(
       <div style="max-width:600px;margin:0 auto;padding:35px 20px;">
 
         <div style="background:#07152E;border-radius:18px 18px 0 0;padding:28px;text-align:center;">
+          <img src="${getAppUrl()}/images/branding/masar-makers-email-logo.png" alt="Masar Makers" width="84" height="84" style="display:block;margin:0 auto 12px;width:84px;height:auto;border:0;" />
           <h1 style="margin:0;color:#ffffff;font-size:28px;">
             Masar <span style="color:#F7B548;">Makers</span>
           </h1>
