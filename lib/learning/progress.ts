@@ -1,6 +1,9 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import {
+  createAdminClient,
+  createClient,
+} from "@/lib/supabase/server";
 import { handleLessonStarted } from "@/lib/services/student-journey";
 export type LessonProgressData = {
   lessonId: string;
@@ -133,6 +136,16 @@ export async function startLesson(
   }
 
   const now = new Date().toISOString();
+
+  // عدّاد التشغيل لعرضه في لوحة الإدارة (لا يوقف التشغيل لو فشل).
+  try {
+    await createAdminClient().rpc("increment_lesson_play", {
+      p_lesson: lessonId,
+      p_user: user.id,
+    });
+  } catch (playError) {
+    console.error("Failed to count lesson play:", playError);
+  }
 
   const { data: existing, error: existingError } = await supabase
     .from("lesson_progress")

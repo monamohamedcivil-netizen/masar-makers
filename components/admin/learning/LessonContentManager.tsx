@@ -396,7 +396,9 @@ export default function LessonContentManager({
   careerPaths,
   stations,
   lessonJourneys,
+  lessonStats = {},
 }: {
+  lessonStats?: Record<string, { plays: number; students: number }>;
   initialLessons: Row[];
   courses: Row[];
   journeys: Row[];
@@ -427,6 +429,41 @@ export default function LessonContentManager({
           ),
       })),
     );
+
+  // أنواع الرحلات التي نُشرت فيها المحاضرة (من الرحلات المربوطة بها).
+  function lessonJourneyLabels(lesson: Row): string[] {
+    const ids: string[] = Array.isArray(lesson.journey_ids)
+      ? [...lesson.journey_ids]
+      : [];
+
+    if (lesson.journey_id && !ids.includes(lesson.journey_id)) {
+      ids.push(lesson.journey_id);
+    }
+
+    const kinds = new Set<string>();
+
+    const add = (raw: unknown) => {
+      const value = String(raw || "").toLowerCase();
+      if (!value) return;
+      if (value.includes("free")) kinds.add("مجانية");
+      else if (
+        value.includes("day") ||
+        value.includes("one") ||
+        value.includes("workshop")
+      )
+        kinds.add("يوم واحد");
+      else kinds.add("احتراف");
+    };
+
+    for (const journey of journeys) {
+      if (ids.includes(journey.id)) add(journey.journey_type);
+    }
+
+    if (kinds.size === 0) add(lesson.journey_type);
+
+    const order = ["احتراف", "يوم واحد", "مجانية"];
+    return order.filter((kind) => kinds.has(kind));
+  }
 
   const [resources, setResources] =
     useState<Row[]>(initialResources);
@@ -1640,6 +1677,25 @@ export default function LessonContentManager({
 
                                                           <span>
                                                             {lessonFiles.length} مرفق
+                                                          </span>
+
+                                                          <span>
+                                                            •
+                                                          </span>
+
+                                                          <span className="rounded-md bg-sky-50 px-1.5 py-0.5 text-sky-700">
+                                                            منشورة في:{" "}
+                                                            {lessonJourneyLabels(lesson).join(" + ") || "غير محدد"}
+                                                          </span>
+
+                                                          <span className="rounded-md bg-violet-50 px-1.5 py-0.5 text-violet-700">
+                                                            التشغيل:{" "}
+                                                            {lessonStats[lesson.id]?.plays ?? 0} مرة
+                                                          </span>
+
+                                                          <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-emerald-700">
+                                                            الطلاب:{" "}
+                                                            {lessonStats[lesson.id]?.students ?? 0}
                                                           </span>
 
                                                           <span>
