@@ -758,14 +758,24 @@ export default function MasarLanding() {
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#07152E]/58 via-[#07152E]/5 to-[#07152E]/30" />
 
         <div className="relative z-20 mx-auto max-w-[1450px] px-2 pt-3 text-center sm:px-4 sm:pt-3 lg:pt-3">
-          <h1 className="mx-auto max-w-[82%] whitespace-nowrap text-[clamp(17px,4.6vw,22px)] font-black leading-[1.05] sm:max-w-[88%] md:max-w-none md:text-[clamp(24px,3.2vw,42px)]">
+          <h1 className={`mx-auto text-[clamp(17px,4.6vw,22px)] font-black leading-[1.05] sm:max-w-[88%] md:max-w-none md:whitespace-nowrap md:text-[clamp(24px,3.2vw,42px)] ${
+              locale === "en"
+                ? "max-w-[94%] text-[clamp(15px,4.2vw,20px)]"
+                : "max-w-[82%] whitespace-nowrap"
+            }`}>
             <span>{text.heroBefore}</span>{" "}
             <span className="text-[#F7B548]">
               {text.heroAfter}
             </span>
           </h1>
 
-          <p className="mx-auto mt-2 max-w-3xl px-12 text-[12px] font-semibold leading-4 text-slate-200 sm:px-8 sm:text-[13px] md:mt-2 md:px-0 md:text-[15px] md:leading-5 lg:text-[16px]">
+          <p
+            className={`mx-auto mt-2 max-w-3xl font-semibold text-slate-200 sm:px-8 sm:text-[13px] md:mt-2 md:px-0 md:text-[15px] md:leading-5 lg:text-[16px] ${
+              locale === "en"
+                ? "pl-4 pr-[84px] text-[11px] leading-[14px] sm:pr-8 sm:leading-4"
+                : "px-12 text-[12px] leading-4"
+            }`}
+          >
             {text.heroSubtitle}
           </p>
         </div>
@@ -786,15 +796,39 @@ export default function MasarLanding() {
 
 
         {/* Mobile path titles */}
-        <div className="absolute left-[12%] top-[34.5%] z-20 text-center text-[#F7B548] md:hidden">
-          <p className="text-[17px] font-black">
+        <div
+          className={`absolute z-20 text-center text-[#F7B548] md:hidden ${
+            locale === "en"
+              ? "left-[3%] top-[35.5%] w-[43%]"
+              : "left-[12%] top-[34.5%]"
+          }`}
+        >
+          <p
+            className={`font-black ${
+              locale === "en"
+                ? "text-[13px] leading-[1.15]"
+                : "text-[17px]"
+            }`}
+          >
             {tracks[1].title[locale]}
           </p>
           <div className="mx-auto mt-1.5 h-0.5 w-20 bg-[#F7B548]" />
         </div>
 
-        <div className="absolute right-[6%] top-[34.5%] z-20 text-center text-[#F7B548] md:hidden">
-          <p className="text-[17px] font-black">
+        <div
+          className={`absolute z-20 text-center text-[#F7B548] md:hidden ${
+            locale === "en"
+              ? "right-[3%] top-[35.5%] w-[46%]"
+              : "right-[6%] top-[34.5%]"
+          }`}
+        >
+          <p
+            className={`font-black ${
+              locale === "en"
+                ? "text-[13px] leading-[1.15]"
+                : "text-[17px]"
+            }`}
+          >
             {tracks[0].title[locale]}
           </p>
           <div className="mx-auto mt-1.5 h-0.5 w-24 bg-[#F7B548]" />
@@ -817,8 +851,9 @@ export default function MasarLanding() {
                 key={`mobile-traffic-${item.title}`}
                 course={item}
                 active={active}
-                left={pos.left}
+                left={locale === "en" ? Math.max(pos.left, 24) : pos.left}
                 top={pos.top}
+                compactLabel={locale === "en"}
                 onSelect={() => selectCourseManually(1, courseIndex)}
                 onHoverStart={() => {
                   setHoverPaused(true);
@@ -845,8 +880,9 @@ export default function MasarLanding() {
                 key={`mobile-road-${item.title}`}
                 course={item}
                 active={active}
-                left={pos.left}
+                left={locale === "en" ? Math.min(pos.left, 74) : pos.left}
                 top={pos.top}
+                compactLabel={locale === "en"}
                 onSelect={() => selectCourseManually(0, courseIndex)}
                 onHoverStart={() => {
                   setHoverPaused(true);
@@ -883,14 +919,14 @@ export default function MasarLanding() {
 
           <Link
             href="/login"
-            className="inline-flex min-h-8 w-[115px] items-center justify-center rounded-lg bg-[#F7B548] px-3 text-[12px] font-black text-[#07152E] shadow-md transition hover:bg-[#FFD06A]"
+            className={`inline-flex min-h-8 whitespace-nowrap ${locale === "en" ? "w-[150px]" : "w-[115px]"} items-center justify-center rounded-lg bg-[#F7B548] px-3 text-[12px] font-black text-[#07152E] shadow-md transition hover:bg-[#FFD06A]`}
           >
             {text.login}
           </Link>
 
           <Link
             href="/home"
-            className="inline-flex min-h-8 w-[115px] items-center justify-center gap-1 rounded-lg bg-[#F7B548] px-3 text-[12px] font-black text-[#07152E] shadow-md"
+            className={`inline-flex min-h-8 whitespace-nowrap ${locale === "en" ? "w-[150px]" : "w-[115px]"} items-center justify-center gap-1 rounded-lg bg-[#F7B548] px-3 text-[12px] font-black text-[#07152E] shadow-md`}
           >
             {text.explore}
             <ArrowIcon className="h-3 w-3" />
@@ -900,7 +936,7 @@ export default function MasarLanding() {
             href="https://wa.me/201031885659?text=السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار."
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex min-h-8 w-[115px] items-center justify-center gap-1.5 rounded-lg border border-[#25D366]/70 bg-[#0B502B]/85 px-3 text-[12px] font-black text-white shadow-md"
+            className={`inline-flex min-h-8 whitespace-nowrap ${locale === "en" ? "w-[150px]" : "w-[115px]"} items-center justify-center gap-1.5 rounded-lg border border-[#25D366]/70 bg-[#0B502B]/85 px-3 text-[12px] font-black text-white shadow-md`}
           >
             <FaWhatsapp className="h-4 w-4" />
             {text.contact}
@@ -998,15 +1034,15 @@ export default function MasarLanding() {
 
         <div className="absolute left-1/2 top-[70%] z-20 -translate-x-1/2 text-center md:top-[65%]">
           <div
-            className="
+            className={`
               relative whitespace-nowrap
               px-8 py-4
-              text-[30px] font-black
+              ${locale === "en" ? "text-[19px]" : "text-[30px]"} font-black
               text-[#FFF7E7]
               sm:text-[30px]
               lg:text-[40px]
               [text-shadow:0_3px_5px_rgba(0,0,0,.95),0_0_16px_rgba(0,0,0,.8),0_0_28px_rgba(247,181,72,.35)]
-            "
+            `}
           >
             <span
               className="
@@ -1219,8 +1255,9 @@ function PromoShowcase({
 
   return (
     <div
-      className="
-        absolute left-1/2 top-[9%] z-30
+      className={`
+        absolute left-1/2 z-30
+        ${locale === "en" ? "top-[11%]" : "top-[9%]"}
         h-[255px] min-h-0
         w-full max-w-none
         -translate-x-1/2
@@ -1234,7 +1271,7 @@ function PromoShowcase({
         md:shadow-[0_18px_55px_rgba(0,0,0,.40),0_0_26px_rgba(247,181,72,.12)]
         md:backdrop-blur-md
         lg:w-[51%]
-      "
+      `}
     >
       {course ? (
         <div
@@ -1647,7 +1684,9 @@ function StationPin({
   onHoverStart,
   onHoverEnd,
   labelSide,
+  compactLabel = false,
 }: {
+  compactLabel?: boolean;
   course: Course;
   active: boolean;
   left: number;
@@ -1714,11 +1753,24 @@ function StationPin({
 
       <span
         dir="ltr"
+        style={
+          compactLabel
+            ? {
+                maxWidth: `calc(${
+                  labelSide === "outside-left" ? left : 100 - left
+                }vw - 36px)`,
+              }
+            : undefined
+        }
         className={`
           absolute top-[80%]
           -translate-y-1/2
-          w-max max-w-none
-          whitespace-nowrap
+          w-max
+          ${
+            compactLabel
+              ? "whitespace-normal text-[10px] md:max-w-none md:whitespace-nowrap"
+              : "max-w-none whitespace-nowrap"
+          }
           text-[11px] font-black leading-[1.05]
           drop-shadow-[0_2px_6px_rgba(0,0,0,.9)]
           sm:text-[12px]
