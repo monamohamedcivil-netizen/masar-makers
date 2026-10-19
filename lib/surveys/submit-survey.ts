@@ -116,6 +116,23 @@ export async function submitSurvey({
     };
   }
 
+  // لو أرسل الطالب تقييمه من قبل، فالتعديل يمر عبر طلب موافقة الإدارة
+  // (requestSurveyEdit) ولا يُستبدل التقييم المنشور مباشرة.
+  const { data: existingSurvey } = await supabase
+    .from("student_surveys")
+    .select("id,submitted_at")
+    .eq("user_id", user.id)
+    .eq("course_id", normalizedCourseId)
+    .maybeSingle();
+
+  if (existingSurvey?.submitted_at) {
+    return {
+      success: false,
+      error:
+        "لقد أرسلت تقييمك لهذه الرحلة من قبل. استخدم زر «تعديل تقييمي» لإرسال تعديل للمراجعة.",
+    };
+  }
+
   const submittedAt = new Date().toISOString();
 
   /*

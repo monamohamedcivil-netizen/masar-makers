@@ -56,7 +56,10 @@ function getIcon(type: string) {
     return FileImage;
   }
 
-  if (type === "admin_survey_submitted") {
+  if (
+    type === "admin_survey_submitted" ||
+    type === "admin_survey_edit_request"
+  ) {
     return Star;
   }
 

@@ -38,6 +38,9 @@ export type AdminCourseSurvey = {
   editedByStudent: boolean;
 
   studentLastEditAt: string | null;
+  pendingRating: number | null;
+  pendingComment: string | null;
+  pendingRequestedAt: string | null;
   studentJobTitle: string | null;
 studentCountry: string | null;
 };
@@ -74,7 +77,11 @@ student_country,
       status,
 
       edited_by_student,
-      student_last_edit_at
+      student_last_edit_at,
+
+      pending_rating,
+      pending_comment,
+      pending_requested_at
     `)
     .eq("course_id", courseId)
     .order("submitted_at", {
@@ -161,6 +168,15 @@ editedByStudent:
 
 studentLastEditAt:
   survey.student_last_edit_at,
+
+pendingRating:
+  survey.pending_rating ?? null,
+
+pendingComment:
+  survey.pending_comment ?? null,
+
+pendingRequestedAt:
+  survey.pending_requested_at ?? null,
     };
   }) satisfies AdminCourseSurvey[];
 }
