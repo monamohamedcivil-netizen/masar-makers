@@ -3,6 +3,8 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import {
+  ANNOUNCEMENT_EMAIL_DAILY_CAP,
+  isAnnouncementEmailConfigured,
   sendAnnouncementEmails,
   type AnnouncementRecipient,
 } from "@/lib/email/announcement-email";
@@ -61,12 +63,20 @@ async function loadAudience(): Promise<Audience> {
   return audience;
 }
 
-export async function getBroadcastAudienceCount(): Promise<number> {
+export async function getBroadcastAudienceCount(): Promise<{
+  count: number;
+  emailCap: number;
+  emailConfigured: boolean;
+}> {
   await requireAdmin();
 
   const audience = await loadAudience();
 
-  return audience.length;
+  return {
+    count: audience.length,
+    emailCap: ANNOUNCEMENT_EMAIL_DAILY_CAP,
+    emailConfigured: isAnnouncementEmailConfigured(),
+  };
 }
 
 function notificationActionUrl(href: string | null) {
@@ -192,7 +202,24 @@ export async function broadcastAnnouncement(
     }
 
     /* ---------- 2) إيميل ---------- */
-    if (options.email) {
+    const emailRecipientsCount = audience.filter((student) =>
+      /^\S+@\S+\.\S+$/.test(student.email),
+    ).length;
+
+    if (options.email && !isAnnouncementEmailConfigured()) {
+      anyFailed = true;
+      messages.push(
+        "لم يُرسل الإيميل: خدمة Brevo غير مفعّلة بعد (المفتاح BREVO_API_KEY غير مضاف في إعدادات الاستضافة).",
+      );
+    } else if (
+      options.email &&
+      emailRecipientsCount > ANNOUNCEMENT_EMAIL_DAILY_CAP
+    ) {
+      anyFailed = true;
+      messages.push(
+        `لم يُرسل الإيميل: عدد الطلاب (${emailRecipientsCount}) أكبر من الحد اليومي المسموح (${ANNOUNCEMENT_EMAIL_DAILY_CAP}).`,
+      );
+    } else if (options.email) {
       const { data: claimed } = await admin
         .from("platform_announcements")
         .update({ emailed_at: new Date().toISOString() })

@@ -1,8 +1,9 @@
-import { resend } from "./resend";
-
 /*
  * إيميل الإعلانات لكل الطلاب — بنفس تصميم إيميل الشهادات
  * (هيدر كحلي، بطاقة بيضاء، زر ذهبي، فوتر).
+ *
+ * الإرسال عبر Brevo (باقة مجانية) وليس Resend، حتى لا تستهلك الإعلانات
+ * حصة إيميلات التفعيل والشهادات. لا يوجد أي رجوع تلقائي إلى Resend.
  */
 
 export type AnnouncementEmailInput = {
@@ -153,60 +154,147 @@ export function buildAnnouncementEmailHtml(
   `;
 }
 
-const BATCH_SIZE = 50;
-const BATCH_DELAY_MS = 700;
+const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
+const CONCURRENCY = 5;
+
+/** الحد اليومي لباقة Brevo المجانية (300) مع هامش أمان. يمكن تغييره من إعدادات الاستضافة. */
+export const ANNOUNCEMENT_EMAIL_DAILY_CAP =
+  Number(process.env.ANNOUNCEMENT_EMAIL_DAILY_CAP) || 280;
+
+export function isAnnouncementEmailConfigured() {
+  return Boolean(process.env.BREVO_API_KEY?.trim());
+}
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function getSender() {
+  const match = FROM.match(/^(.*)<(.+)>$/);
+
+  return {
+    name: match?.[1]?.trim() || "Masar Makers",
+    email:
+      process.env.ANNOUNCEMENT_EMAIL_FROM?.trim() ||
+      match?.[2]?.trim() ||
+      "notifications@masarmakers.com",
+  };
+}
+
+async function sendOne(
+  apiKey: string,
+  subject: string,
+  recipient: AnnouncementRecipient,
+  htmlContent: string,
+): Promise<{ ok: boolean; error?: string }> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const response = await fetch(BREVO_ENDPOINT, {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "api-key": apiKey,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          sender: getSender(),
+          to: [
+            recipient.name?.trim()
+              ? { email: recipient.email, name: recipient.name.trim() }
+              : { email: recipient.email },
+          ],
+          subject,
+          htmlContent,
+        }),
+      });
+
+      if (response.ok) {
+        return { ok: true };
+      }
+
+      // ضغط مؤقت أو عطل عابر: نعيد المحاولة بعد انتظار قصير.
+      if (response.status === 429 || response.status >= 500) {
+        await sleep(1000 * (attempt + 1));
+        continue;
+      }
+
+      const detail = await response.text().catch(() => "");
+
+      return {
+        ok: false,
+        error: `${response.status} ${detail.slice(0, 200)}`,
+      };
+    } catch (error) {
+      if (attempt === 2) {
+        return {
+          ok: false,
+          error:
+            error instanceof Error ? error.message : "NETWORK_ERROR",
+        };
+      }
+
+      await sleep(1000 * (attempt + 1));
+    }
+  }
+
+  return { ok: false, error: "RETRY_EXHAUSTED" };
+}
+
 /**
- * يرسل الإعلان لكل المستلمين على دفعات (حد Resend: 100 رسالة في الطلب،
- * وطلبان في الثانية). كل مستلم يحصل على رسالة منفصلة باسمه فقط.
+ * يرسل الإعلان لكل المستلمين عبر Brevo، كل مستلم برسالة منفصلة باسمه،
+ * بخمس طلبات متوازية كحد أقصى.
  */
 export async function sendAnnouncementEmails(
   announcement: AnnouncementEmailInput,
   recipients: AnnouncementRecipient[],
 ) {
+  const apiKey = process.env.BREVO_API_KEY?.trim();
+
+  if (!apiKey) {
+    return {
+      sent: 0,
+      failed: recipients.length,
+      errors: ["BREVO_API_KEY غير مضاف."],
+    };
+  }
+
   const subject = `${TYPE_EMOJI[announcement.type] ?? "📢"} ${announcement.title} | Masar Makers`;
 
   let sent = 0;
   let failed = 0;
   const errors: string[] = [];
+  let cursor = 0;
 
-  for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
-    const chunk = recipients.slice(i, i + BATCH_SIZE);
+  async function worker() {
+    while (cursor < recipients.length) {
+      const recipient = recipients[cursor];
+      cursor += 1;
 
-    try {
-      const { error } = await resend.batch.send(
-        chunk.map((recipient) => ({
-          from: FROM,
-          to: recipient.email,
-          subject,
-          html: buildAnnouncementEmailHtml(
-            announcement,
-            recipient.name,
-          ),
-        })),
+      const result = await sendOne(
+        apiKey!,
+        subject,
+        recipient,
+        buildAnnouncementEmailHtml(announcement, recipient.name),
       );
 
-      if (error) {
-        failed += chunk.length;
-        errors.push(error.message);
+      if (result.ok) {
+        sent += 1;
       } else {
-        sent += chunk.length;
-      }
-    } catch (error) {
-      failed += chunk.length;
-      errors.push(
-        error instanceof Error ? error.message : "SEND_FAILED",
-      );
-    }
+        failed += 1;
 
-    if (i + BATCH_SIZE < recipients.length) {
-      await sleep(BATCH_DELAY_MS);
+        if (errors.length < 3 && result.error) {
+          errors.push(result.error);
+        }
+      }
     }
   }
+
+  await Promise.all(
+    Array.from(
+      { length: Math.min(CONCURRENCY, recipients.length) },
+      () => worker(),
+    ),
+  );
 
   return { sent, failed, errors };
 }

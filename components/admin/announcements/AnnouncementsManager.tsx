@@ -198,10 +198,24 @@ export default function AnnouncementsManager({
       if (wantsBroadcast) {
         // تأكيد قبل أي إرسال جماعي (الإيميل لا يمكن التراجع عنه).
         let audienceCount = 0;
+        let emailWarning = "";
 
         try {
-          audienceCount =
+          const audience =
             await getBroadcastAudienceCount();
+
+          audienceCount = audience.count;
+
+          if (form.emailStudents) {
+            if (!audience.emailConfigured) {
+              emailWarning =
+                "\n\nتنبيه: خدمة الإيميل (Brevo) غير مفعّلة بعد، فلن يُرسل الإيميل وسيُرسل الإشعار داخل المنصة فقط.";
+            } else if (
+              audience.count > audience.emailCap
+            ) {
+              emailWarning = `\n\nتنبيه: عدد الطلاب أكبر من الحد اليومي للإيميل (${audience.emailCap})، فلن يُرسل الإيميل.`;
+            }
+          }
         } catch {
           setError(
             "تعذر حساب عدد الطلاب. لم يتم حفظ الإعلان.",
@@ -222,7 +236,7 @@ export default function AnnouncementsManager({
 
         if (
           !window.confirm(
-            `سيتم حفظ الإعلان وإرساله الآن إلى ${audienceCount} طالب (${channels}).\nالإيميل لا يمكن التراجع عنه بعد إرساله.\n\nهل تريد المتابعة؟`,
+            `سيتم حفظ الإعلان وإرساله الآن إلى ${audienceCount} طالب (${channels}).\nالإيميل لا يمكن التراجع عنه بعد إرساله.${emailWarning}\n\nهل تريد المتابعة؟`,
           )
         ) {
           return;
