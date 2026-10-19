@@ -4,6 +4,10 @@ import {
 } from "@/lib/supabase/server";
 
 import {
+  INTERNAL_ACCOUNT_EMAILS,
+  getInternalAccountUserIds,
+} from "@/lib/admin/internal-accounts";
+import {
   getCertificatesDashboard,
 } from "@/lib/actions/admin/certificates-dashboard";
 import {
@@ -60,9 +64,19 @@ async function requireAdmin() {
   }
 }
 
+/*
+ * الحسابات الداخلية (الفريق) لا تدخل في أرقام الإحصائيات.
+ * - enrollments: نستبعد حسب user_id أو البريد المسجّل في الاشتراك.
+ * - student_registry: نستبعد حسب البريد (normalized_email).
+ */
+type Exclusion = {
+  userIds: string[];
+};
+
 async function countRows(
   table: string,
   filters: Array<[string, string]> = [],
+  exclusion?: Exclusion,
 ): Promise<number> {
   const admin = createAdminClient();
 
@@ -75,6 +89,33 @@ async function countRows(
 
   for (const [column, value] of filters) {
     query = query.eq(column, value);
+  }
+
+  if (exclusion) {
+    const emails = INTERNAL_ACCOUNT_EMAILS.map(
+      (email) => `"${email}"`,
+    ).join(",");
+
+    if (table === "enrollments") {
+      if (exclusion.userIds.length > 0) {
+        // user_id قد يكون فارغًا في الاشتراكات المستوردة، فنُبقي تلك الصفوف.
+        query = query.or(
+          `user_id.is.null,user_id.not.in.(${exclusion.userIds.join(",")})`,
+        );
+      }
+
+      query = query.or(
+        `student_email.is.null,student_email.not.in.(${emails})`,
+      );
+    }
+
+    if (table === "student_registry") {
+      query = query.not(
+        "normalized_email",
+        "in",
+        `(${emails})`,
+      );
+    }
   }
 
   const { count, error } = await query;
@@ -93,6 +134,12 @@ async function countRows(
 export async function getAdminDashboardStats():
 Promise<AdminDashboardStats> {
   await requireAdmin();
+
+  const internalUserIds =
+    await getInternalAccountUserIds();
+  const exclusion: Exclusion = {
+    userIds: internalUserIds,
+  };
 
   const [
     students,
@@ -120,27 +167,31 @@ Promise<AdminDashboardStats> {
     projectsResult,
     surveysResult,
   ] = await Promise.all([
-    countRows("student_registry"),
+    countRows("student_registry", [], exclusion),
     countRows("courses"),
 
     countRows(
       "enrollments",
       [["status", "active"]],
+      exclusion,
     ),
 
     countRows(
       "enrollments",
       [["status", "pending"]],
+      exclusion,
     ),
 
     countRows(
       "enrollments",
       [["status", "rejected"]],
+      exclusion,
     ),
 
     countRows(
       "enrollments",
       [["status", "suspended"]],
+      exclusion,
     ),
 
     getCertificatesDashboard(),
