@@ -39,6 +39,8 @@ type StudentSurveyRecord = {
   show_on_course?: boolean;
   detailed_survey_completed?: boolean;
   detailed_survey_completed_at?: string | null;
+  pending_rating?: number | null;
+  pending_comment?: string | null;
   survey_templates?:
     | {
         id?: string;
@@ -432,7 +434,7 @@ function SurveyPathView({
 
         <div className="p-4">
           <SurveyCard
-            key={`${activeCourse.courseId}-${survey?.submitted_at ?? "new"}-${survey?.detailed_survey_completed ?? false}`}
+            key={`${activeCourse.courseId}-${survey?.submitted_at ?? "new"}-${survey?.detailed_survey_completed ?? false}-${survey?.pending_rating ?? 0}`}
             courseId={
               activeCourse.courseId
             }
@@ -461,6 +463,8 @@ function SurveyPathView({
             detailedSurveyCompleted={Boolean(
               survey?.detailed_survey_completed,
             )}
+            pendingRating={survey?.pending_rating ?? null}
+            pendingComment={survey?.pending_comment ?? null}
             onSaved={onSaved}
             locale={locale}
           />

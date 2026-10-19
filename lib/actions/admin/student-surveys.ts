@@ -50,6 +50,104 @@ export async function updateStudentSurveyVisibility(
     message: "تم الحفظ بنجاح",
   };
 }
+/*
+ * موافقة الأدمن على تعديل الطالب لتقييمه.
+ * التقييم المنشور لا يتغير إلا هنا، والأدمن يحدد الظهور في الرئيسية وصفحة الكورس.
+ */
+export async function approveSurveyEdit(
+  surveyId: string,
+  showOnHome: boolean,
+  showOnCourse: boolean,
+) {
+  await requireAdmin();
+
+  const supabase = createAdminClient();
+
+  const { data: current, error: readError } = await supabase
+    .from("student_surveys")
+    .select(
+      "id,pending_rating,pending_comment,pending_requested_at,show_on_home,show_on_course",
+    )
+    .eq("id", surveyId)
+    .maybeSingle();
+
+  if (
+    readError ||
+    !current ||
+    !current.pending_requested_at ||
+    !current.pending_rating
+  ) {
+    return {
+      success: false,
+      message: "لا يوجد تعديل معلّق لهذا التقييم.",
+    };
+  }
+
+  const now = new Date().toISOString();
+
+  const { data: updated, error } = await supabase
+    .from("student_surveys")
+    .update({
+      rating: current.pending_rating,
+      comment: current.pending_comment,
+      show_on_home: showOnHome,
+      show_on_course: showOnCourse,
+      previous_show_on_home: Boolean(current.show_on_home),
+      previous_show_on_course: Boolean(current.show_on_course),
+      edited_by_student: true,
+      student_last_edit_at: current.pending_requested_at,
+      updated_at: now,
+      pending_rating: null,
+      pending_comment: null,
+      pending_requested_at: null,
+    })
+    .eq("id", surveyId)
+    // نتأكد أن الطلب ما زال معلّقًا (لم يُعالج من نافذة أخرى).
+    .not("pending_requested_at", "is", null)
+    .select("id");
+
+  if (error || !updated || updated.length === 0) {
+    return {
+      success: false,
+      message: error?.message || "تعذرت الموافقة على التعديل.",
+    };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+
+  return { success: true, message: "تمت الموافقة على التعديل." };
+}
+
+export async function rejectSurveyEdit(surveyId: string) {
+  await requireAdmin();
+
+  const { data: updated, error } = await createAdminClient()
+    .from("student_surveys")
+    .update({
+      pending_rating: null,
+      pending_comment: null,
+      pending_requested_at: null,
+    })
+    .eq("id", surveyId)
+    .not("pending_requested_at", "is", null)
+    .select("id");
+
+  if (error || !updated || updated.length === 0) {
+    return {
+      success: false,
+      message: error?.message || "لا يوجد تعديل معلّق لهذا التقييم.",
+    };
+  }
+
+  revalidatePath("/admin");
+
+  return {
+    success: true,
+    message: "تم رفض التعديل وبقي التقييم السابق كما هو.",
+  };
+}
+
 export async function createImportedStudentSurvey({
   studentName,
   studentEmail,

@@ -19,6 +19,10 @@ import {
 import {
   completeDetailedSurvey,
 } from "@/lib/surveys/complete-detailed-survey";
+import {
+  cancelSurveyEditRequest,
+  requestSurveyEdit,
+} from "@/lib/surveys/survey-edit-request";
 type Props = {
   courseId: string;
   courseTitle: string;
@@ -27,6 +31,8 @@ type Props = {
   comment?: string;
   surveyUrl?: string | null;
   detailedSurveyCompleted?: boolean;
+  pendingRating?: number | null;
+  pendingComment?: string | null;
   onSaved?: (survey?: SavedStudentSurvey) => void | Promise<void>;
   locale?: "ar" | "en";
 };
@@ -39,6 +45,8 @@ export default function SurveyCard({
   comment: initialComment = "",
   surveyUrl = null,
   detailedSurveyCompleted = false,
+  pendingRating = null,
+  pendingComment = null,
   onSaved,
   locale = "ar",
 }: Props) {
@@ -49,6 +57,61 @@ export default function SurveyCard({
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editRating, setEditRating] = useState(0);
+  const [editComment, setEditComment] = useState("");
+  const hasPendingEdit = Boolean(pendingRating);
+
+  function startEditing() {
+    setErrorMessage("");
+    setSuccessMessage("");
+    setEditRating(pendingRating ?? rating);
+    setEditComment(
+      pendingRating ? (pendingComment ?? "") : comment,
+    );
+    setIsEditing(true);
+  }
+
+  function submitEdit() {
+    setErrorMessage("");
+
+    if (editRating === 0) {
+      setErrorMessage(isArabic ? "يرجى اختيار التقييم أولًا." : "Please select a rating first.");
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await requestSurveyEdit({
+        courseId,
+        rating: editRating,
+        comment: editComment,
+      });
+
+      if (!result.success) {
+        setErrorMessage(result.error);
+        return;
+      }
+
+      setIsEditing(false);
+      setSuccessMessage(result.message);
+      await onSaved?.();
+    });
+  }
+
+  function cancelPendingEdit() {
+    setErrorMessage("");
+
+    startTransition(async () => {
+      const result = await cancelSurveyEditRequest(courseId);
+
+      if (!result.success) {
+        setErrorMessage(result.error);
+        return;
+      }
+
+      await onSaved?.();
+    });
+  }
 const [
   isDetailedCompleted,
   setIsDetailedCompleted,
@@ -309,6 +372,126 @@ const [
             </div>
 
             {successMessage && <p className="sr-only">{successMessage}</p>}
+
+            {hasPendingEdit && !isEditing && (
+              <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+                <h4 className="text-sm font-bold text-amber-900">
+                  {isArabic ? "تعديلك قيد المراجعة" : "Your edit is under review"}
+                </h4>
+
+                <p className="mt-0.5 text-xs leading-5 text-amber-800">
+                  {isArabic
+                    ? "سيظهر تعديلك بعد موافقة الإدارة. حتى ذلك الحين يبقى تقييمك السابق كما هو."
+                    : "Your edit will appear after the team approves it. Until then, your previous review stays as is."}
+                </p>
+
+                <div className="mt-2 flex items-center gap-1" dir="ltr">
+                  {[1, 2, 3, 4, 5].map((starValue) => (
+                    <Star
+                      key={starValue}
+                      className={`h-4 w-4 ${
+                        starValue <= (pendingRating ?? 0)
+                          ? "fill-[#F7B548] text-[#F7B548]"
+                          : "fill-transparent text-slate-300"
+                      }`}
+                    />
+                  ))}
+                </div>
+
+                {pendingComment?.trim() && (
+                  <p className="mt-2 whitespace-pre-wrap rounded-lg bg-white/70 px-3 py-2 text-sm leading-5 text-slate-700">
+                    {pendingComment}
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={cancelPendingEdit}
+                  className="mt-2 text-xs font-bold text-amber-900 underline disabled:opacity-50"
+                >
+                  {isArabic ? "إلغاء طلب التعديل" : "Cancel edit request"}
+                </button>
+              </div>
+            )}
+
+            {isEditing ? (
+              <div className="mt-3 space-y-2 rounded-xl border border-slate-200 bg-white p-3">
+                <h4 className="text-sm font-bold text-[#07152E]">
+                  {isArabic ? "تعديل تقييمي" : "Edit my review"}
+                </h4>
+
+                <p className="text-xs leading-5 text-slate-600">
+                  {isArabic
+                    ? "سيُراجع التعديل من الإدارة قبل ظهوره."
+                    : "Your edit will be reviewed before it appears."}
+                </p>
+
+                <StarRating
+                  value={editRating}
+                  onChange={setEditRating}
+                  disabled={isPending}
+                  size="md"
+                  locale={locale}
+                />
+
+                <textarea
+                  rows={3}
+                  value={editComment}
+                  disabled={isPending}
+                  onChange={(event) => setEditComment(event.target.value)}
+                  className="w-full resize-none rounded-xl border border-slate-300 px-3 py-2 text-xs leading-5 text-slate-700 outline-none transition focus:border-[#F7B548] focus:ring-2 focus:ring-amber-100 disabled:bg-slate-50"
+                />
+
+                {errorMessage && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                    {errorMessage}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={submitEdit}
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#07152E] px-4 text-xs font-bold text-white transition hover:bg-[#0B2148] disabled:opacity-60"
+                  >
+                    {isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : null}
+                    {isArabic ? "إرسال التعديل للمراجعة" : "Send edit for review"}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => setIsEditing(false)}
+                    className="h-9 rounded-lg border border-slate-300 px-4 text-xs font-bold text-slate-700 disabled:opacity-60"
+                  >
+                    {isArabic ? "إلغاء" : "Cancel"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {errorMessage && hasPendingEdit && (
+                  <div className="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                    {errorMessage}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={startEditing}
+                  className="mt-3 inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-xs font-bold text-[#07152E] transition hover:border-[#F7B548]"
+                >
+                  <Star className="h-4 w-4 text-[#F7B548]" />
+                  {hasPendingEdit
+                    ? isArabic ? "تعديل طلبي" : "Change my edit"
+                    : isArabic ? "تعديل تقييمي" : "Edit my review"}
+                </button>
+              </>
+            )}
           </section>
         )}
 

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import SurveyVisibilityToggle from "@/components/admin/courses/SurveyVisibilityToggle";
+import SurveyEditReview from "@/components/admin/courses/SurveyEditReview";
 import type { AdminCourseSurvey } from "@/lib/queries/admin/course-surveys";
 
 interface CourseSurveyTableClientProps {
@@ -22,7 +23,8 @@ type FilterValue =
   | "fourPlus"
   | "detailed"
   | "home"
-  | "course";
+  | "course"
+  | "pending";
 
 export default function CourseSurveyTableClient({
   surveys,
@@ -41,6 +43,10 @@ export default function CourseSurveyTableClient({
 
   const completedDetailed = surveys.filter(
     (survey) => survey.detailedSurveyCompleted,
+  ).length;
+
+  const pendingCount = surveys.filter((survey) =>
+    Boolean(survey.pendingRequestedAt),
   ).length;
 
   const filteredSurveys = useMemo(() => {
@@ -83,6 +89,10 @@ export default function CourseSurveyTableClient({
 
       if (filter === "course") {
         return survey.showOnCourse;
+      }
+
+      if (filter === "pending") {
+        return Boolean(survey.pendingRequestedAt);
       }
 
       return true;
@@ -160,6 +170,17 @@ export default function CourseSurveyTableClient({
       </div>
 
       <div className="space-y-6 p-6">
+        {pendingCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setFilter("pending")}
+            className="w-full rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-right text-sm font-black text-amber-900"
+          >
+            يوجد {pendingCount} تعديل من الطلاب بانتظار موافقتك. اضغطي هنا
+            لعرضها.
+          </button>
+        )}
+
         <div className="grid gap-4 md:grid-cols-3">
           <StatCard
             icon={Star}
@@ -216,6 +237,9 @@ export default function CourseSurveyTableClient({
               </option>
               <option value="course">
                 منشور في صفحة الكورس
+              </option>
+              <option value="pending">
+                تعديلات بانتظار الموافقة ({pendingCount})
               </option>
             </select>
 
@@ -320,7 +344,7 @@ export default function CourseSurveyTableClient({
                       </div>
                     </td>
 
-                    <td className="max-w-xs px-4 py-4">
+                    <td className="max-w-sm px-4 py-4">
                       <p
                         title={
                           survey.comment ??
@@ -331,6 +355,20 @@ export default function CourseSurveyTableClient({
                         {survey.comment ||
                           "لا يوجد تعليق"}
                       </p>
+
+                      {survey.pendingRequestedAt &&
+                        survey.pendingRating && (
+                          <SurveyEditReview
+                            surveyId={survey.id}
+                            currentShowOnHome={survey.showOnHome}
+                            currentShowOnCourse={
+                              survey.showOnCourse
+                            }
+                            pendingRating={survey.pendingRating}
+                            pendingComment={survey.pendingComment}
+                            requestedAt={survey.pendingRequestedAt}
+                          />
+                        )}
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-4 text-center text-sm text-slate-500">
