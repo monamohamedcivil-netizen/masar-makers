@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/require-admin";
 
 export type AdminStudentNotification = {
   id: string;
@@ -17,6 +18,9 @@ export type AdminStudentNotification = {
 export async function getAdminStudentNotifications(
   userId: string,
 ): Promise<AdminStudentNotification[]> {
+  // حماية: هذه الدالة تستخدم service_role فيجب أن يكون المستدعي أدمن.
+  await requireAdmin();
+
   const normalizedUserId = userId.trim();
 
   if (!normalizedUserId) {

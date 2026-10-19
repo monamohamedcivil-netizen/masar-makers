@@ -5,12 +5,16 @@ import {
   createClient,
   createAdminClient,
 } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/require-admin";
 
 export async function updateStudentSurveyVisibility(
   surveyId: string,
   showOnHome: boolean,
   showOnCourse: boolean,
 ) {
+  // حماية: عملية إدارية تستخدم service_role.
+  await requireAdmin();
+
   // هذه عملية إدارية؛ استخدام عميل المستخدم قد يجعل RLS
   // يعيد نجاحًا بدون تحديث أي صف (data = [] و error = null).
   const supabase = createAdminClient();
@@ -77,6 +81,9 @@ export async function createImportedStudentSurvey({
 
   sourceReference: string;
 }) {
+  // حماية إضافية: الاستيراد الإداري للتقييمات للأدمن فقط.
+  await requireAdmin();
+
   const supabase = await createClient();
 
   // محاولة ربط الطالب إذا كان لديه حساب
