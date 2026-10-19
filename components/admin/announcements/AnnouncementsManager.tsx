@@ -60,8 +60,8 @@ const EMPTY_FORM: FormState = {
   displayOrder: 0,
   startsAt: "",
   endsAt: "",
-  notifyStudents: true,
-  emailStudents: true,
+  notifyStudents: false,
+  emailStudents: false,
 };
 
 const TYPE_LABELS: Record<PlatformAnnouncementType, string> = {
@@ -651,7 +651,7 @@ export default function AnnouncementsManager({
               </label>
 
               <p className="text-[10px] font-bold text-slate-500">
-                سيظهر لك تأكيد بعدد الطلاب قبل الإرسال. للإعلان المؤقت أو التجريبي ألغي الخيارين.
+                سيظهر لك تأكيد بعدد الطلاب قبل الإرسال. الخياران غير مفعّلين تلقائيًا: فعّليهما فقط إذا أردتِ إرسال الإعلان للطلاب، وإلا يظهر في شريط المنصة فقط.
               </p>
             </div>
           ) : null}
