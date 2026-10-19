@@ -35,7 +35,6 @@ async function requireAdmin() {
   const role =
     profile?.role ??
     user.app_metadata?.role ??
-    user.user_metadata?.role ??
     null;
 
   if (

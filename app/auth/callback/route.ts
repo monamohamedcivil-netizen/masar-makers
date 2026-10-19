@@ -6,7 +6,14 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
 
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/auth/confirmed";
+  // نسمح فقط بمسار داخلي يبدأ بـ "/" لمنع التحويل إلى مواقع خارجية.
+  const requestedNext = searchParams.get("next") ?? "/auth/confirmed";
+  const next =
+    requestedNext.startsWith("/") &&
+    !requestedNext.startsWith("//") &&
+    !requestedNext.includes("\\")
+      ? requestedNext
+      : "/auth/confirmed";
 
   // Production:
   // https://masarmakers.com
