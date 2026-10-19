@@ -154,6 +154,39 @@ export async function getHomeTestimonials(): Promise<
     ])
   );
 
+  /*
+   * بعض الاستبيانات محفوظة بدون مهنة، لكن مهنة الطالب موجودة في بيانات تسجيله.
+   * نقرأها من هناك فقط للاستبيانات الناقصة (عددها قليل).
+   */
+  const jobTitleByUserId = new Map<string, string>();
+
+  const missingJobUserIds = Array.from(
+    new Set(
+      surveys
+        .filter(
+          (survey) =>
+            survey.user_id && !survey.student_job_title?.trim(),
+        )
+        .map((survey) => survey.user_id as string),
+    ),
+  ).slice(0, 50);
+
+  await Promise.all(
+    missingJobUserIds.map(async (userId) => {
+      try {
+        const { data } =
+          await supabase.auth.admin.getUserById(userId);
+        const value = data?.user?.user_metadata?.job_title;
+
+        if (typeof value === "string" && value.trim()) {
+          jobTitleByUserId.set(userId, value.trim());
+        }
+      } catch {
+        // نتجاهل: يبقى النص الافتراضي.
+      }
+    }),
+  );
+
   return surveys.map((survey) => {
     const profile = survey.user_id
       ? profileMap.get(survey.user_id)
@@ -179,7 +212,12 @@ export async function getHomeTestimonials(): Promise<
    return {
       id: survey.id,
       studentName: name,
-      jobTitle: survey.student_job_title,
+      jobTitle:
+        survey.student_job_title?.trim() ||
+        (survey.user_id
+          ? jobTitleByUserId.get(survey.user_id)
+          : undefined) ||
+        null,
       country:
         profile?.country?.trim() ||
         survey.student_country?.trim() ||

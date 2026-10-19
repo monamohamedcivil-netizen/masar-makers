@@ -144,12 +144,21 @@ export async function submitSurvey({
     user.email?.trim().toLowerCase() ||
     null;
 
+  // مهنة الطالب من بيانات التسجيل. تُضاف فقط لو موجودة حتى لا نمسح قيمة محفوظة.
+  const studentJobTitle =
+    typeof user.user_metadata?.job_title === "string"
+      ? user.user_metadata.job_title.trim()
+      : "";
+
   const { data, error } = await supabase
     .from("student_surveys")
     .upsert(
       {
         user_id: user.id,
         student_name: studentName,
+        ...(studentJobTitle
+          ? { student_job_title: studentJobTitle }
+          : {}),
         student_email: studentEmail,
         course_id: normalizedCourseId,
         rating: normalizedRating,
