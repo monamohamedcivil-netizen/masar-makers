@@ -90,6 +90,35 @@ export async function requestSurveyEdit(input: {
     return { success: false, error: "تعذر حفظ طلب التعديل." };
   }
 
+  // إشعار للأدمن (يظهر في لوحة التحكم وفي المنصة). فشل الإشعار لا يفشل الطلب.
+  try {
+    const [{ data: profile }, { data: course }] = await Promise.all([
+      admin
+        .from("profiles")
+        .select("full_name")
+        .eq("id", userId)
+        .maybeSingle(),
+      admin
+        .from("courses")
+        .select("title,title_ar")
+        .eq("id", courseId)
+        .maybeSingle(),
+    ]);
+
+    const studentName = profile?.full_name?.trim() || "طالب";
+    const courseTitle =
+      course?.title_ar?.trim() || course?.title?.trim() || "الكورس";
+
+    await admin.rpc("create_admin_event_notification", {
+      p_title: "طلب تعديل تقييم بانتظار موافقتك",
+      p_body: `${studentName} طلب تعديل تقييمه لكورس ${courseTitle}.`,
+      p_type: "admin_survey_edit_request",
+      p_action_url: "/admin/students/surveys",
+    });
+  } catch (notifyError) {
+    console.error("SURVEY EDIT NOTIFICATION ERROR:", notifyError);
+  }
+
   revalidatePath("/dashboard");
 
   return {

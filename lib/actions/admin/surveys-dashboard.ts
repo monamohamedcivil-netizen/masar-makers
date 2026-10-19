@@ -1,7 +1,7 @@
 "use server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 
-export type SurveysDashboardRow={id:string;userId:string|null;studentName:string;studentEmail:string;courseId:string;courseTitle:string;courseCode:string|null;pathId:string|null;pathTitle:string;rating:number;comment:string|null;submittedAt:string|null;detailedSurveyCompleted:boolean;showOnHome:boolean;showOnCourse:boolean;surveyUrl:string|null};
+export type SurveysDashboardRow={id:string;userId:string|null;studentName:string;studentEmail:string;courseId:string;courseTitle:string;courseCode:string|null;pathId:string|null;pathTitle:string;rating:number;comment:string|null;submittedAt:string|null;detailedSurveyCompleted:boolean;showOnHome:boolean;showOnCourse:boolean;surveyUrl:string|null;pendingRating:number|null;pendingComment:string|null;pendingRequestedAt:string|null};
 export type SurveysDashboardData={rows:SurveysDashboardRow[];paths:{id:string;title:string;count:number}[];statistics:{total:number;average:number;detailedCompleted:number;showOnHome:number}};
 
 async function requireAdmin(){
@@ -14,7 +14,7 @@ async function requireAdmin(){
 export async function getSurveysDashboard(){
  try{
   await requireAdmin();const a=createAdminClient();
-  const {data:sd,error:se}=await a.from("student_surveys").select("id,user_id,student_name,student_email,course_id,rating,comment,submitted_at,detailed_survey_completed,show_on_home,show_on_course").order("submitted_at",{ascending:false});
+  const {data:sd,error:se}=await a.from("student_surveys").select("id,user_id,student_name,student_email,course_id,rating,comment,submitted_at,detailed_survey_completed,show_on_home,show_on_course,pending_rating,pending_comment,pending_requested_at").order("submitted_at",{ascending:false});
   if(se)return{success:false,message:se.message};
   const ids=[...new Set((sd??[]).map(x=>x.course_id).filter(Boolean))];
   const {data:cd,error:ce}=ids.length?await a.from("courses").select("id,title,title_ar,course_code,station_id,survey_enabled,survey_url").in("id",ids):{data:[],error:null};
@@ -51,7 +51,10 @@ export async function getSurveysDashboard(){
     detailedSurveyCompleted:Boolean(s.detailed_survey_completed),
     showOnHome:Boolean(s.show_on_home),
     showOnCourse:Boolean(s.show_on_course),
-    surveyUrl:c?.survey_enabled===false?null:(c?.survey_url?.trim()||null)
+    surveyUrl:c?.survey_enabled===false?null:(c?.survey_url?.trim()||null),
+    pendingRating:s.pending_requested_at&&s.pending_rating?Number(s.pending_rating):null,
+    pendingComment:s.pending_requested_at?(s.pending_comment??null):null,
+    pendingRequestedAt:s.pending_requested_at??null
    }
   });
   const pc=new Map<string,{id:string;title:string;count:number}>();rows.forEach(r=>{const id=r.pathId??"unassigned",o=pc.get(id);if(o)o.count++;else pc.set(id,{id,title:r.pathTitle,count:1})});
