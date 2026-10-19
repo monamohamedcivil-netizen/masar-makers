@@ -63,7 +63,6 @@ type StationLookupRow = {
   id: string;
   slug: string;
   title: string;
-  title_ar: string | null;
 };
 
 function getJourneyTitle(journeyType: string) {
@@ -91,7 +90,7 @@ async function findStation(
 
   const { data, error } = await supabase
     .from("course_stations")
-    .select("id,slug,title,title_ar")
+    .select("id,slug,title")
     .eq("id", stationId)
     .maybeSingle();
 
@@ -454,7 +453,6 @@ export async function requestEnrollment(
   const resolvedCourseTitle =
     course.title_ar?.trim() || course.title;
   const resolvedStationTitle =
-    station?.title_ar?.trim() ||
     station?.title?.trim() ||
     resolvedCourseTitle;
 
@@ -704,7 +702,6 @@ export async function startFreeJourney(
   const resolvedCourseTitle =
     course.title_ar?.trim() || course.title;
   const resolvedStationTitle =
-    station?.title_ar?.trim() ||
     station?.title?.trim() ||
     resolvedCourseTitle;
   const resolvedJourneyTitle = getJourneyTitle("free");

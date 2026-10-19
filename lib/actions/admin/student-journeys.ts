@@ -83,8 +83,6 @@ type CourseRow = {
 type StationRow = {
   id: string;
   title: string | null;
-  title_ar: string | null;
-  name: string | null;
 };
 
 type LessonRow = {
@@ -298,9 +296,7 @@ function getStationTitle(
   station: StationRow | undefined,
 ) {
   return (
-    station?.title_ar?.trim() ||
     station?.title?.trim() ||
-    station?.name?.trim() ||
     null
   );
 }
@@ -576,7 +572,7 @@ export async function getStudentJourneys(
     } = await supabase
       .from("course_stations")
       .select(
-        "id,title,title_ar,name",
+        "id,title",
       )
       .in("id", stationIds);
 
