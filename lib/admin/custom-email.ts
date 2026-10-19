@@ -27,6 +27,9 @@ export type EmailPickerStudent = {
 export type EmailCampaignRow = {
   id: string;
   subject: string;
+  body: string;
+  button_text: string | null;
+  button_url: string | null;
   audience: string;
   recipient_count: number;
   sent_count: number;
@@ -63,20 +66,42 @@ export async function listRecentEmailCampaigns(): Promise<
 > {
   await requireAdmin();
 
-  const { data, error } = await createAdminClient()
+  const admin = createAdminClient();
+
+  const full = await admin
     .from("admin_email_campaigns")
     .select(
-      "id,subject,audience,recipient_count,sent_count,failed_count,created_at",
+      "id,subject,body,button_text,button_url,audience,recipient_count,sent_count,failed_count,created_at",
     )
     .order("created_at", { ascending: false })
-    .limit(10);
+    .limit(30);
 
-  // الجدول قد لا يكون موجودًا قبل تنفيذ التعديل.
+  if (!full.error) {
+    return (full.data ?? []) as EmailCampaignRow[];
+  }
+
+  // أعمدة الزر قد لا تكون مضافة بعد: نقرأ الأعمدة الأساسية فقط.
+  const { data, error } = await admin
+    .from("admin_email_campaigns")
+    .select(
+      "id,subject,body,audience,recipient_count,sent_count,failed_count,created_at",
+    )
+    .order("created_at", { ascending: false })
+    .limit(30);
+
   if (error) {
     return [];
   }
 
-  return (data ?? []) as EmailCampaignRow[];
+  return ((data ?? []) as Omit<
+    EmailCampaignRow,
+    "button_text" | "button_url"
+  >[]).map((row) => ({
+    ...row,
+    button_text: null,
+    button_url: null,
+  }));
+
 }
 
 export async function getEmailQuota() {
@@ -211,17 +236,30 @@ export async function sendCustomEmail(input: {
     );
 
     // تسجيل الحملة (لو الجدول غير موجود نتجاهل الخطأ).
-    const { error: logError } = await admin
+    const logRow = {
+      subject,
+      body,
+      audience: input.audience,
+      recipient_count: recipients.length,
+      sent_count: result.sent,
+      failed_count: result.failed,
+      created_by: adminUser.id,
+    };
+
+    let { error: logError } = await admin
       .from("admin_email_campaigns")
       .insert({
-        subject,
-        body,
-        audience: input.audience,
-        recipient_count: recipients.length,
-        sent_count: result.sent,
-        failed_count: result.failed,
-        created_by: adminUser.id,
+        ...logRow,
+        button_text: buttonUrl ? buttonText || null : null,
+        button_url: buttonUrl || null,
       });
+
+    if (logError) {
+      // أعمدة الزر غير موجودة بعد: نسجّل بدونها.
+      ({ error: logError } = await admin
+        .from("admin_email_campaigns")
+        .insert(logRow));
+    }
 
     if (logError) {
       console.error("EMAIL CAMPAIGN LOG ERROR:", logError.message);

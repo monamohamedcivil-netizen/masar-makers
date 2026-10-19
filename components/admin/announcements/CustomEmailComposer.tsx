@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Mail, Search, Send } from "lucide-react";
 
 import {
@@ -47,6 +48,23 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
     text: string;
   } | null>(null);
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
+  const [openCampaign, setOpenCampaign] = useState<string | null>(null);
+
+  function applyTemplate(c: EmailCampaignRow) {
+    setSubject(c.subject);
+    setBody(c.body);
+    setButtonText(c.button_text ?? "");
+    setButtonUrl(c.button_url ?? "");
+    setMode("test");
+    setFeedback({
+      ok: true,
+      text: "تم تحميل الإيميل في النموذج. عدّلي ما تريدين ثم اختاري المستلمين وأرسلي.",
+    });
+    document
+      .getElementById("custom-email-composer")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   useEffect(() => {
     getEmailQuota()
@@ -141,6 +159,7 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
       });
 
       setFeedback({ ok: result.success, text: result.message });
+      router.refresh();
       getEmailQuota().then(setQuota).catch(() => undefined);
 
       if (result.success && mode !== "test") {
@@ -154,7 +173,7 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
   }
 
   return (
-    <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <section id="custom-email-composer" className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <header className="flex items-center justify-between gap-4 border-b border-slate-200 bg-[#F8FAFC] px-5 py-4">
         <div>
           <p className="text-[10px] font-black text-[#C88712]">
@@ -370,19 +389,49 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
             </p>
             <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
               {recentCampaigns.map((c) => (
-                <div
-                  key={c.id}
-                  className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
-                >
-                  <span className="text-[11px] font-black text-[#07152E]">
-                    {c.subject}
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-500">
-                    {AUDIENCE_LABEL[c.audience] ?? c.audience} — وصل{" "}
-                    {c.sent_count}
-                    {c.failed_count > 0 ? ` / فشل ${c.failed_count}` : ""} —{" "}
-                    {new Date(c.created_at).toLocaleString("ar-EG")}
-                  </span>
+                <div key={c.id} className="px-3 py-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenCampaign(
+                          openCampaign === c.id ? null : c.id,
+                        )
+                      }
+                      className="text-right text-[11px] font-black text-[#07152E] underline-offset-2 hover:underline"
+                    >
+                      {c.subject}
+                    </button>
+                    <span className="text-[10px] font-bold text-slate-500">
+                      {AUDIENCE_LABEL[c.audience] ?? c.audience} — وصل{" "}
+                      {c.sent_count}
+                      {c.failed_count > 0
+                        ? ` / فشل ${c.failed_count}`
+                        : ""}{" "}
+                      — {new Date(c.created_at).toLocaleString("ar-EG")}
+                    </span>
+                  </div>
+
+                  {openCampaign === c.id && (
+                    <div className="mt-2 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <p className="whitespace-pre-wrap text-[11px] font-semibold leading-6 text-[#07152E]">
+                        {c.body}
+                      </p>
+                      {c.button_url && (
+                        <p className="text-[10px] font-bold text-slate-500">
+                          الزر: {c.button_text || "فتح الرابط"} →{" "}
+                          <span dir="ltr">{c.button_url}</span>
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => applyTemplate(c)}
+                        className="inline-flex h-8 items-center rounded-lg bg-[#07152E] px-3 text-[10px] font-black text-white transition hover:bg-[#F7B548] hover:text-[#07152E]"
+                      >
+                        استخدام كقالب (تعديل وإرسال)
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
