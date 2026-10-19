@@ -40,7 +40,7 @@ export type CustomEmailResult = {
 };
 
 const EMAIL_PATTERN = /^\S+@\S+\.\S+$/;
-const MAX_SELECTED = 300;
+const MAX_SELECTED = 5000;
 
 export async function listEmailPickerStudents(): Promise<
   EmailPickerStudent[]
@@ -153,7 +153,7 @@ export async function sendCustomEmail(input: {
       if (input.audience === "all") {
         recipients = audience.filter((s) => EMAIL_PATTERN.test(s.email));
       } else {
-        const ids = new Set((input.studentIds ?? []).slice(0, 5000));
+        const ids = new Set((input.studentIds ?? []).slice(0, MAX_SELECTED + 1));
 
         if (ids.size === 0) {
           return { success: false, message: "اختاري طالبًا واحدًا على الأقل." };
@@ -162,7 +162,7 @@ export async function sendCustomEmail(input: {
         if (ids.size > MAX_SELECTED) {
           return {
             success: false,
-            message: `الحد الأقصى ${MAX_SELECTED} طالب في المرة الواحدة. للجميع استخدمي «كل الطلاب».`,
+            message: `عدد المختارين أكبر من المسموح (${MAX_SELECTED}).`,
           };
         }
 

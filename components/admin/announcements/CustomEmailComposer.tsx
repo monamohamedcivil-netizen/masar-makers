@@ -66,16 +66,31 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
     const term = search.trim().toLowerCase();
     const list = students ?? [];
 
-    if (!term) return list.slice(0, 100);
+    if (!term) return list;
 
-    return list
-      .filter(
-        (s) =>
-          s.name.toLowerCase().includes(term) ||
-          s.email.toLowerCase().includes(term),
-      )
-      .slice(0, 100);
+    return list.filter(
+      (s) =>
+        s.name.toLowerCase().includes(term) ||
+        s.email.toLowerCase().includes(term),
+    );
   }, [students, search]);
+
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((s) => selected.has(s.id));
+
+  function toggleAll() {
+    setSelected((current) => {
+      const next = new Set(current);
+
+      if (allFilteredSelected) {
+        filtered.forEach((s) => next.delete(s.id));
+      } else {
+        filtered.forEach((s) => next.add(s.id));
+      }
+
+      return next;
+    });
+  }
 
   function toggle(id: string) {
     setSelected((current) => {
@@ -263,7 +278,23 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
                 />
               </div>
 
-              <div className="max-h-64 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 bg-white">
+              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-amber-200 bg-white px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={allFilteredSelected}
+                  onChange={toggleAll}
+                  disabled={filtered.length === 0}
+                  className="h-4 w-4 accent-[#F7B548]"
+                />
+                <span className="text-[11px] font-black text-[#07152E]">
+                  {search.trim()
+                    ? `تحديد كل نتائج البحث (${filtered.length})`
+                    : `تحديد الكل (${filtered.length})`}
+                  {" — ثم أزيلي علامة من لا تريدين الإرسال له"}
+                </span>
+              </label>
+
+              <div className="max-h-80 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 bg-white">
                 {students === null ? (
                   <p className="p-4 text-[11px] font-bold text-slate-500">
                     جارٍ تحميل الطلاب...
@@ -302,9 +333,7 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
 
               <p className="text-[10px] font-bold text-slate-500">
                 المختارون: {selected.size}
-                {students && !search.trim() && students.length > 100
-                  ? " — تظهر أول 100 فقط، استخدمي البحث للباقي."
-                  : ""}
+                {students ? ` من ${students.length} طالب` : ""}
               </p>
             </div>
           )}
