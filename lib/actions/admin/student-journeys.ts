@@ -47,6 +47,7 @@ export interface StudentJourneysResult {
     reward: number;
     active: number;
     completed: number;
+    professionalCompleted: number;
     pending: number;
     professional: number;
     oneDay: number;
@@ -407,6 +408,7 @@ export async function getStudentJourneys(
     reward: 0,
     active: 0,
     completed: 0,
+    professionalCompleted: 0,
     pending: 0,
     professional: 0,
     oneDay: 0,

@@ -71,6 +71,8 @@ export type SharedJourneyStatistics = {
   reward: number;
   active: number;
   completed: number;
+  /** رحلات الاحتراف المكتملة فقط (بدون المجانية واليوم الواحد). */
+  professionalCompleted: number;
   pending: number;
   professional: number;
   oneDay: number;
@@ -318,6 +320,15 @@ export function calculateSharedPartRealProgress(
   );
 }
 
+/** حالات الاشتراك المفعّل فقط. */
+export const ACTIVE_JOURNEY_STATUSES = [
+  "active",
+  "approved",
+  "enrolled",
+  "confirmed",
+  "completed",
+];
+
 function normalizeSource(
   value: string | null | undefined,
   journeyType: string | null | undefined,
@@ -431,18 +442,17 @@ export function buildSharedJourneys(input: {
           "under_review",
         ].includes(status);
 
-      const isCompleted =
-        status === "completed" ||
-        progressPercent >= 100;
-
       const isActiveStatus =
-        [
-          "active",
-          "approved",
-          "enrolled",
-          "confirmed",
-          "completed",
-        ].includes(status);
+        ACTIVE_JOURNEY_STATUSES.includes(
+          status,
+        );
+
+      // لا تُعتبر الرحلة مكتملة إلا إذا كان اشتراكها مفعّلًا فعلًا
+      // (الطلب قيد المراجعة أو المرفوض لا يُحتسب حتى لو شاهد محاضرة).
+      const isCompleted =
+        isActiveStatus &&
+        (status === "completed" ||
+          progressPercent >= 100);
 
       journeys.push({
         id,
@@ -631,6 +641,7 @@ export function calculateSharedJourneyStatistics(
     reward: 0,
     active: 0,
     completed: 0,
+    professionalCompleted: 0,
     pending: 0,
     professional: 0,
     oneDay: 0,
@@ -638,7 +649,17 @@ export function calculateSharedJourneyStatistics(
     averageProgress: 0,
   };
 
-  for (const journey of journeys) {
+  // الطلبات قيد المراجعة والمرفوضة لا تدخل في الإحصائيات،
+  // وتُعدّ فقط في خانة "قيد المراجعة".
+  const activeJourneys = journeys.filter((journey) =>
+    ACTIVE_JOURNEY_STATUSES.includes(journey.status),
+  );
+
+  statistics.pending = journeys.filter(
+    (journey) => journey.isPending,
+  ).length;
+
+  for (const journey of activeJourneys) {
     statistics.total += 1;
 
     if (journey.isProfessional) {
@@ -667,18 +688,14 @@ export function calculateSharedJourneyStatistics(
 
     if (journey.isCompleted) {
       statistics.completed += 1;
-    }
 
-    if (journey.isPending) {
-      statistics.pending += 1;
+      if (journey.isProfessional) {
+        statistics.professionalCompleted += 1;
+      }
     }
   }
 
-  const progressJourneys =
-    journeys.filter(
-      (journey) =>
-        !journey.isPending,
-    );
+  const progressJourneys = activeJourneys;
 
   statistics.averageProgress =
     progressJourneys.length > 0

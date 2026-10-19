@@ -580,6 +580,7 @@ if (stationIds.length > 0) {
     reward: 0,
     active: 0,
     completed: 0,
+    professionalCompleted: 0,
     pending: 0,
     professional: 0,
     oneDay: 0,
@@ -975,7 +976,7 @@ if (freeLessonIds.length > 0) {
     sharedJourneyStatistics.professional;
 
   professionalCompletions =
-    sharedJourneyStatistics.completed;
+    sharedJourneyStatistics.professionalCompleted;
 
   oneDayEnrollments =
     sharedJourneyStatistics.oneDay;
