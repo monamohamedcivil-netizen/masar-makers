@@ -6,6 +6,8 @@ import {
 } from "@/lib/supabase/server";
 import { createBunnyEmbedUrl } from "@/lib/bunny/stream";
 
+const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
+
 type Result<T = unknown> =
   | { success: true; data: T; message: string }
   | { success: false; message: string };
@@ -76,6 +78,7 @@ export type StudentLessonPlayback = {
   courseId: string;
   title: string;
   description: string | null;
+  videoProvider: "bunny" | "youtube";
   embedUrl: string;
   tokenExpiresAt: number;
   initialPositionSeconds: number;
@@ -176,11 +179,20 @@ const adminSupabase =
       };
     }
 
+    const videoProvider: "bunny" | "youtube" | null =
+      normalize(lesson.video_provider) === "youtube"
+        ? "youtube"
+        : normalize(lesson.video_provider) === "bunny"
+          ? "bunny"
+          : null;
+
     if (
-      normalize(
-        lesson.video_provider,
-      ) !== "bunny" ||
-      !lesson.video_asset_id
+      !videoProvider ||
+      !lesson.video_asset_id ||
+      (videoProvider === "youtube" &&
+        !YOUTUBE_ID_PATTERN.test(
+          lesson.video_asset_id,
+        ))
     ) {
       return {
         success: false,
@@ -190,6 +202,7 @@ const adminSupabase =
     }
 
     if (
+      videoProvider === "bunny" &&
       ![
         "ready",
         "playable",
@@ -602,11 +615,29 @@ const {
       );
     }
 
+    /*
+     * Bunny: رابط مضمّن موقّع بصلاحية 10 دقائق.
+     * YouTube: رابط youtube-nocookie ثابت (لا توقيع)، والفيديو نفسه
+     * عام أو غير مدرج على YouTube. العلامة المائية تُعرض من المنصة.
+     */
     const embed =
-      createBunnyEmbedUrl(
-        lesson.video_asset_id,
-        10 * 60,
-      );
+      videoProvider === "youtube"
+        ? {
+            url: `https://www.youtube-nocookie.com/embed/${lesson.video_asset_id}?enablejsapi=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&fs=0&start=${Math.max(
+              0,
+              Math.floor(
+                Number(
+                  progress?.last_position_seconds ??
+                    0,
+                ),
+              ),
+            )}`,
+            expires: 0,
+          }
+        : createBunnyEmbedUrl(
+            lesson.video_asset_id,
+            10 * 60,
+          );
 
     const displayName =
       getDisplayName(user);
@@ -636,6 +667,7 @@ const {
         description:
           lesson.description ??
           null,
+        videoProvider,
         embedUrl:
           embed.url,
         tokenExpiresAt:
