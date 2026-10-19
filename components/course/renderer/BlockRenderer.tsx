@@ -1,5 +1,6 @@
 import type { CatalogPanelBlock } from "@/lib/queries/catalog";
 import HeadingBlock from "./blocks/HeadingBlock";
+import CachedImage from "@/components/common/CachedImage";
 import sanitizeHtml from "sanitize-html";
 type BlockRendererProps = {
   block: CatalogPanelBlock;
@@ -61,7 +62,7 @@ const safeContent = sanitizeHtml(content, {
       : "";
 
   return (
-    <img
+    <CachedImage
       src={imageSrc}
       alt={imageAlt}
       className="w-full rounded-xl"

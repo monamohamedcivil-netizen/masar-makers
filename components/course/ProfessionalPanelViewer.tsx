@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { CalendarDays, CheckCircle2, Gift, MessageSquareQuote, Play, PlayCircle, Rocket, Target, X } from "lucide-react";
 
 import PlatformActionButton from "./PlatformActionButton";
+import CachedImage from "@/components/common/CachedImage";
 
 import type {
   CourseEnrollmentAccess,
@@ -504,10 +505,10 @@ function ViewerBlock({
               aria-label="تكبير الصورة"
               title="اضغط لتكبير الصورة"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <CachedImage
                 src={block.imageUrl}
                 alt={block.altText || block.title}
+                optimizeWidth={1200}
                 className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.015]"
               />
             </button>
@@ -551,10 +552,10 @@ function ViewerBlock({
               className="flex max-h-[82vh] max-w-[88vw] items-center justify-center rounded-2xl bg-white p-3 shadow-[0_24px_80px_rgba(0,0,0,0.45)] sm:p-5"
               onClick={(event) => event.stopPropagation()}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <CachedImage
                 src={block.imageUrl}
                 alt={block.altText || block.title}
+                optimizeWidth={1920}
                 className="max-h-[76vh] max-w-[82vw] object-contain"
               />
             </div>
@@ -587,10 +588,10 @@ function ViewerBlock({
             className="group relative flex aspect-video w-full items-center justify-center overflow-hidden bg-[#07152E]"
             aria-label="فتح الفيديو"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <CachedImage
               src={displayThumbnail}
               alt={videoBlock.title || "غلاف الفيديو"}
+              optimizeWidth={1200}
               className="h-full w-full object-contain transition duration-500 group-hover:scale-[1.02]"
             />
 
