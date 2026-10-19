@@ -27,6 +27,10 @@ import { createClient } from "@/lib/supabase/client";
 import * as tus from "tus-js-client";
 
 import BunnyVideoUploader from "@/components/admin/learning/BunnyVideoUploader";
+import {
+  extractYouTubeVideoId,
+  getYouTubeWatchUrl,
+} from "@/lib/youtube/parse";
 
 import {
   createAssetPreview,
@@ -909,7 +913,18 @@ export default function LessonContentManager({
                 row,
               ),
             video_provider:
-              "bunny",
+              row.video_provider ===
+              "youtube"
+                ? "youtube"
+                : "bunny",
+            youtube_url:
+              row.video_provider ===
+                "youtube" &&
+              row.video_asset_id
+                ? getYouTubeWatchUrl(
+                    row.video_asset_id,
+                  )
+                : "",
             course_part:
               normalizePart(
                 row.course_part,
@@ -935,6 +950,7 @@ export default function LessonContentManager({
             description: "",
             video_provider:
               "bunny",
+            youtube_url: "",
             video_asset_id: "",
             video_status: null,
             lesson_order:
@@ -1202,7 +1218,23 @@ export default function LessonContentManager({
 
   async function previewVideo(
     lessonId: string,
+    lessonRow?: Row,
   ) {
+    if (
+      lessonRow?.video_provider ===
+        "youtube" &&
+      lessonRow.video_asset_id
+    ) {
+      window.open(
+        getYouTubeWatchUrl(
+          lessonRow.video_asset_id,
+        ),
+        "_blank",
+        "noopener,noreferrer",
+      );
+      return;
+    }
+
     const result =
       await getAdminBunnyEmbedUrl(
         lessonId,
@@ -1639,6 +1671,7 @@ export default function LessonContentManager({
                                                             onClick={() =>
                                                               previewVideo(
                                                                 lesson.id,
+                                                                lesson,
                                                               )
                                                             }
                                                             className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 px-2.5 text-[9px] font-black text-blue-600"
@@ -2042,7 +2075,7 @@ function LessonDialog({
             )}
 
             <p className="mt-2 text-xs text-slate-500">
-              يمكن اختيار أكثر من نوع رحلة لنفس المحاضرة، ويظل فيديو Bunny واحدًا فقط.
+              يمكن اختيار أكثر من نوع رحلة لنفس المحاضرة، ويظل الفيديو واحدًا فقط (Bunny أو YouTube).
             </p>
           </div>
 
@@ -2070,13 +2103,79 @@ function LessonDialog({
             }
           />
 
-          <div className="rounded-xl border border-slate-200 p-3">
-            <p className="text-sm font-bold text-[#07152E]">مصدر الفيديو</p>
-            <p className="mt-1 text-sm font-black text-[#C88712]">Bunny Stream</p>
-          </div>
+          <Select
+            label="مصدر الفيديو"
+            value={editing.video_provider === "youtube" ? "youtube" : "bunny"}
+            set={(value: string) => {
+              if (value === "youtube") {
+                if (
+                  editing.video_provider !== "youtube" &&
+                  editing.video_asset_id
+                ) {
+                  alert(
+                    "هذه المحاضرة عليها فيديو Bunny. احذفي الفيديو أولًا بزر الحذف في خانة Bunny ثم اختاري YouTube.",
+                  );
+                  return;
+                }
+
+                setEditing({ ...editing, video_provider: "youtube" });
+                return;
+              }
+
+              setEditing({
+                ...editing,
+                video_provider: "bunny",
+                video_asset_id: "",
+                video_status: null,
+                youtube_url: "",
+              });
+            }}
+            options={[
+              { value: "bunny", label: "Bunny Stream (محمي — للمحاضرات المدفوعة)" },
+              { value: "youtube", label: "YouTube (رابط — للمحاضرات المجانية والتسويقية)" },
+            ]}
+          />
 
           <div className="md:col-span-2">
-            {editing.id ? (
+            {editing.video_provider === "youtube" ? (
+              <div className="rounded-2xl border border-red-100 bg-red-50/40 p-5">
+                <label className="mb-2 block text-sm font-bold text-[#07152E]">
+                  رابط فيديو YouTube
+                </label>
+
+                <input
+                  dir="ltr"
+                  value={editing.youtube_url || ""}
+                  onChange={(event) =>
+                    setEditing({
+                      ...editing,
+                      youtube_url: event.target.value,
+                    })
+                  }
+                  placeholder="https://youtu.be/xxxxxxxxxxx"
+                  className="w-full rounded-xl border border-slate-200 bg-white p-3 outline-none focus:border-[#F7B548]"
+                />
+
+                {editing.youtube_url ? (
+                  extractYouTubeVideoId(editing.youtube_url) ? (
+                    <p className="mt-2 text-xs font-black text-emerald-600">
+                      رابط صحيح — سيظهر الفيديو للطلاب داخل المنصة مع العلامة المائية.
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-xs font-black text-red-600">
+                      الرابط غير صحيح. الصقي رابط فيديو من YouTube.
+                    </p>
+                  )
+                ) : null}
+
+                <p className="mt-3 text-xs leading-6 text-slate-500">
+                  ارفعي الفيديو على YouTube أولًا ثم الصقي رابطه هنا. يجب أن يكون التضمين
+                  مسموحًا في إعدادات الفيديو. تُحفظ مع الدرس عند الضغط على «حفظ الدرس».
+                  تنبيه: فيديو YouTube غير محمي، ويستطيع من يملك رابطه مشاهدته على
+                  YouTube بدون العلامة المائية.
+                </p>
+              </div>
+            ) : editing.id ? (
               <BunnyVideoUploader
                 lessonId={editing.id}
                 lessonTitle={editing.title || "Lesson"}

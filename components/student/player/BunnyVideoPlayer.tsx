@@ -16,6 +16,8 @@ import {
   useState,
 } from "react";
 
+import { createYouTubePlayerAdapter } from "@/lib/youtube/player-adapter";
+
 type StudentLessonResource = {
   id: string;
   title: string;
@@ -29,6 +31,7 @@ type StudentLessonPlayback = {
   courseId: string;
   title: string;
   description: string | null;
+  videoProvider?: "bunny" | "youtube";
   embedUrl: string;
   tokenExpiresAt: number;
   initialPositionSeconds: number;
@@ -685,20 +688,40 @@ export default function BunnyVideoPlayer({
 
     const initialize = async () => {
       try {
-        await loadPlayerJs();
-
         if (
-          disposed ||
-          !iframeRef.current ||
-          !window.playerjs
+          activePlayback.videoProvider ===
+          "youtube"
         ) {
-          return;
-        }
+          // YouTube: نفس الأحداث ونفس حفظ التقدم عبر المحوّل.
+          if (disposed || !iframeRef.current) {
+            return;
+          }
 
-        player =
-          new window.playerjs.Player(
-            iframeRef.current,
-          );
+          player =
+            await createYouTubePlayerAdapter(
+              iframeRef.current,
+            );
+
+          if (disposed) {
+            player.destroy();
+            return;
+          }
+        } else {
+          await loadPlayerJs();
+
+          if (
+            disposed ||
+            !iframeRef.current ||
+            !window.playerjs
+          ) {
+            return;
+          }
+
+          player =
+            new window.playerjs.Player(
+              iframeRef.current,
+            );
+        }
 
         playerRef.current = player;
 
@@ -839,6 +862,8 @@ export default function BunnyVideoPlayer({
             "pause",
             saveCurrentPosition,
           );
+
+          player.destroy?.();
         }
       } catch {
         // Player is being destroyed with iframe.
@@ -936,6 +961,15 @@ export default function BunnyVideoPlayer({
     );
   }
 
+  const isYouTube =
+    playback.videoProvider === "youtube";
+
+  const iframeSrc = isYouTube
+    ? `${playback.embedUrl}&origin=${encodeURIComponent(
+        window.location.origin,
+      )}`
+    : playback.embedUrl;
+
   return (
     <section
       dir="rtl"
@@ -963,7 +997,7 @@ export default function BunnyVideoPlayer({
         >
           <iframe
             ref={iframeRef}
-            src={playback.embedUrl}
+            src={iframeSrc}
             title={playback.title}
             allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
             referrerPolicy="strict-origin-when-cross-origin"
@@ -1009,7 +1043,13 @@ export default function BunnyVideoPlayer({
                 ? "الخروج من ملء الشاشة"
                 : "ملء الشاشة"
             }
-            className="absolute bottom-2 right-2 z-50 flex h-9 w-9 items-center justify-center rounded-lg bg-black/75 text-white shadow-lg backdrop-blur-sm transition hover:bg-black sm:h-10 sm:w-10"
+            className={[
+              "absolute right-2 z-50 flex h-9 w-9 items-center justify-center rounded-lg bg-black/75 text-white shadow-lg backdrop-blur-sm transition hover:bg-black sm:h-10 sm:w-10",
+              // مع YouTube: نبعد الزر عن شريط التحكم حتى لا يغطي زر الجودة والإعدادات.
+              isYouTube
+                ? "top-1/2 -translate-y-1/2"
+                : "bottom-2",
+            ].join(" ")}
           >
             {isProtectedFullscreen ? (
               <Minimize2 className="h-5 w-5" />
