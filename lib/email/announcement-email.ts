@@ -117,8 +117,16 @@ export function buildAnnouncementEmailHtml(
     announcement.buttonText?.trim() || "التفاصيل",
   );
 
-  return `
-    <div dir="rtl" style="margin:0;padding:0;background:#f4f6f9;font-family:Arial,Tahoma,sans-serif;">
+  return `<!DOCTYPE html>
+<html lang="ar" dir="rtl" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Language" content="ar" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Masar Makers</title>
+</head>
+<body lang="ar" style="margin:0;padding:0;background:#f4f6f9;">
+    <div dir="rtl" lang="ar" style="margin:0;padding:0;background:#f4f6f9;font-family:Arial,Tahoma,sans-serif;">
       <div style="max-width:600px;margin:0 auto;padding:35px 20px;">
 
         <div style="background:#07152E;border-radius:18px 18px 0 0;padding:28px;text-align:center;">
@@ -159,7 +167,8 @@ export function buildAnnouncementEmailHtml(
 
       </div>
     </div>
-  `;
+</body>
+</html>`;
 }
 
 const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
