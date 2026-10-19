@@ -1,6 +1,10 @@
 import AdminPageHeader from "@/components/admin/layout/AdminPageHeader";
 import LessonContentManager from "@/components/admin/learning/LessonContentManager";
-import { createClient } from "@/lib/supabase/server";
+import {
+  createAdminClient,
+  createClient,
+} from "@/lib/supabase/server";
+import { getInternalAccountUserIds } from "@/lib/admin/internal-accounts";
 
 export const dynamic = "force-dynamic";
 
@@ -140,6 +144,59 @@ export default async function LessonsPage() {
       `),
   ]);
 
+  /*
+   * إحصائيات التشغيل لكل محاضرة (بدون الحسابات الداخلية):
+   *  - plays: مرات التشغيل (من العدّاد، وللمحاضرات القديمة قبل العدّاد
+   *    نعتبر كل طالب بدأها مرة واحدة على الأقل).
+   *  - students: عدد الطلاب الذين شغّلوها.
+   */
+  const admin = createAdminClient();
+  const internalIds = new Set(await getInternalAccountUserIds());
+
+  const [{ data: playRows }, { data: progressRows }] = await Promise.all([
+    admin
+      .from("lesson_play_counts")
+      .select("lesson_id,user_id,play_count"),
+    admin
+      .from("lesson_progress")
+      .select("lesson_id,user_id,progress_percent,completed,last_position_seconds,started_at"),
+  ]);
+
+  const perLessonUser = new Map<string, Map<string, number>>();
+
+  function bump(lessonId: string, userId: string, plays: number) {
+    if (internalIds.has(userId)) return;
+    const users = perLessonUser.get(lessonId) ?? new Map<string, number>();
+    users.set(userId, Math.max(users.get(userId) ?? 0, plays));
+    perLessonUser.set(lessonId, users);
+  }
+
+  for (const row of playRows ?? []) {
+    bump(String(row.lesson_id), String(row.user_id), Number(row.play_count ?? 0));
+  }
+
+  for (const row of progressRows ?? []) {
+    const started =
+      Boolean(row.completed) ||
+      Number(row.progress_percent ?? 0) > 0 ||
+      Number(row.last_position_seconds ?? 0) > 0 ||
+      Boolean(row.started_at);
+
+    if (started) {
+      bump(String(row.lesson_id), String(row.user_id), 1);
+    }
+  }
+
+  const lessonStats: Record<string, { plays: number; students: number }> = {};
+
+  for (const [lessonId, users] of perLessonUser) {
+    let plays = 0;
+    users.forEach((count) => {
+      plays += count;
+    });
+    lessonStats[lessonId] = { plays, students: users.size };
+  }
+
   return (
     <>
       <AdminPageHeader
@@ -148,6 +205,7 @@ export default async function LessonsPage() {
       />
 
       <LessonContentManager
+        lessonStats={lessonStats}
         initialLessons={lessons ?? []}
         courses={courses ?? []}
         journeys={journeys ?? []}
