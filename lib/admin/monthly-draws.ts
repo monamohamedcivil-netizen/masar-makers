@@ -5,6 +5,7 @@ import {
   createAdminClient,
   createClient,
 } from "@/lib/supabase/server";
+import { buildYearWinnerBlocklist } from "@/lib/draw/year-winners";
 import {
   getMasarPassport,
   getMasarPassportForRegistry,
@@ -742,7 +743,9 @@ export async function prepareMonthlyDrawParticipants(
 
   const { data: draw, error: drawError } = await supabase
     .from("monthly_draws")
-    .select("id,status")
+    .select(
+      "id,status,month_key,winner_mode,preset_winner_user_id,preset_winner_registry_id",
+    )
     .eq("id", drawId)
     .maybeSingle();
 
@@ -778,7 +781,7 @@ export async function prepareMonthlyDrawParticipants(
   } = await supabase
     .from("monthly_draws")
     .select(
-      "winner_user_id,winner_registry_id",
+      "winner_user_id,winner_registry_id,month_key",
     )
     .eq("status", "completed");
 
@@ -795,6 +798,12 @@ export async function prepareMonthlyDrawParticipants(
     winsByRegistryId,
   } = buildWinnerCountMaps(
     completedWinnerRows ?? [],
+  );
+
+  // لا يفوز الشخص مرتين في نفس السنة إلا إذا اختارته الإدارة يدويًا.
+  const yearBlocklist = buildYearWinnerBlocklist(
+    completedWinnerRows ?? [],
+    draw,
   );
 
   const { data: profiles, error: profilesError } =
@@ -897,6 +906,15 @@ export async function prepareMonthlyDrawParticipants(
         registryByUserId.get(
           profile.id,
         ) ?? null;
+
+      if (
+        yearBlocklist.isBlocked(
+          profile.id,
+          linkedRegistry?.id ?? null,
+        )
+      ) {
+        continue;
+      }
 
       const previousWins =
         (
@@ -1060,6 +1078,10 @@ export async function prepareMonthlyDrawParticipants(
           passport.drawEntries ?? 0,
         ),
       );
+
+      if (yearBlocklist.isBlocked(null, registry.id)) {
+        continue;
+      }
 
       const previousWins =
         winsByRegistryId.get(
