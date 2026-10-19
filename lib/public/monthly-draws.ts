@@ -1,6 +1,7 @@
 "use server";
 
 import { randomInt } from "crypto";
+import { buildYearWinnerBlocklist } from "@/lib/draw/year-winners";
 
 import { createAdminClient } from "@/lib/supabase/server";
 import {
@@ -215,7 +216,7 @@ async function ensureParticipantSnapshot(
   } = await supabase
     .from("monthly_draws")
     .select(
-      "winner_user_id,winner_registry_id",
+      "winner_user_id,winner_registry_id,month_key",
     )
     .eq("status", "completed");
 
@@ -230,6 +231,12 @@ async function ensureParticipantSnapshot(
     winsByRegistryId,
   } = buildWinnerCountMaps(
     completedWinnerRows ?? [],
+  );
+
+  // لا يفوز الشخص مرتين في نفس السنة إلا إذا اختارته الإدارة يدويًا.
+  const yearBlocklist = buildYearWinnerBlocklist(
+    completedWinnerRows ?? [],
+    draw,
   );
 
   const { data: profiles, error: profilesError } =
@@ -345,6 +352,15 @@ async function ensureParticipantSnapshot(
         registryByUserId.get(
           profile.id,
         ) ?? null;
+
+      if (
+        yearBlocklist.isBlocked(
+          profile.id,
+          linkedRegistry?.id ?? null,
+        )
+      ) {
+        continue;
+      }
 
       const previousWins =
         (
@@ -504,6 +520,10 @@ async function ensureParticipantSnapshot(
           ),
         ),
       );
+
+      if (yearBlocklist.isBlocked(null, registry.id)) {
+        continue;
+      }
 
       const previousWins =
         winsByRegistryId.get(
