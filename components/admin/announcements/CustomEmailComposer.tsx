@@ -27,12 +27,20 @@ const AUDIENCE_LABEL: Record<string, string> = {
   test: "تجربة لي فقط",
 };
 
+const CHANNEL_LABEL: Record<string, string> = {
+  email: "إيميل",
+  notify: "إشعار",
+  both: "إيميل + إشعار",
+};
+
 export default function CustomEmailComposer({ recentCampaigns }: Props) {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [buttonText, setButtonText] = useState("");
   const [buttonUrl, setButtonUrl] = useState("");
   const [mode, setMode] = useState<AudienceMode>("test");
+  const [sendEmailChannel, setSendEmailChannel] = useState(true);
+  const [sendNotifyChannel, setSendNotifyChannel] = useState(false);
   const [students, setStudents] = useState<EmailPickerStudent[] | null>(
     null,
   );
@@ -57,6 +65,8 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
     setButtonText(c.button_text ?? "");
     setButtonUrl(c.button_url ?? "");
     setMode("test");
+    setSendEmailChannel(c.channels !== "notify");
+    setSendNotifyChannel(c.channels === "notify" || c.channels === "both");
     setFeedback({
       ok: true,
       text: "تم تحميل الإيميل في النموذج. عدّلي ما تريدين ثم اختاري المستلمين وأرسلي.",
@@ -127,6 +137,14 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
       return;
     }
 
+    if (!sendEmailChannel && !sendNotifyChannel) {
+      setFeedback({
+        ok: false,
+        text: "اختاري طريقة الإرسال: إيميل أو إشعار على المنصة أو الاثنين.",
+      });
+      return;
+    }
+
     if (mode === "selected" && selected.size === 0) {
       setFeedback({ ok: false, text: "اختاري طالبًا واحدًا على الأقل." });
       return;
@@ -137,12 +155,12 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
         ? "كل الطلاب"
         : mode === "selected"
           ? `${selected.size} طالب`
-          : "إيميلك أنتِ فقط (تجربة)";
+          : "حسابك أنتِ فقط (تجربة)";
 
     if (
       mode !== "test" &&
       !window.confirm(
-        `سيتم إرسال هذا الإيميل إلى ${target}، ولا يمكن التراجع بعد الإرسال. هل تريدين المتابعة؟`,
+        `سيتم إرسال هذه الرسالة إلى ${target}، ولا يمكن التراجع بعد الإرسال. هل تريدين المتابعة؟`,
       )
     ) {
       return;
@@ -156,6 +174,10 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
         studentIds: mode === "selected" ? [...selected] : undefined,
         buttonText,
         buttonUrl,
+        channels: {
+          email: sendEmailChannel,
+          notify: sendNotifyChannel,
+        },
       });
 
       setFeedback({ ok: result.success, text: result.message });
@@ -180,7 +202,7 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
             إيميل مخصص
           </p>
           <h2 className="mt-0.5 text-[18px] font-black text-[#07152E]">
-            إرسال إيميل لكل الطلاب أو لطلاب محددين
+            إرسال رسالة (إيميل و/أو إشعار) لكل الطلاب أو لطلاب محددين
           </h2>
         </div>
         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FFF4DF] text-[#C88712]">
@@ -198,7 +220,7 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
             }`}
           >
             {quota.configured
-              ? `المتبقي اليوم من الحد المجاني: ${quota.remaining} إيميل من ${quota.cap}.`
+              ? `المتبقي اليوم من الحد المجاني للإيميلات: ${quota.remaining} من ${quota.cap}. (الإشعارات داخل المنصة بلا حد.)`
               : "خدمة الإرسال (Brevo) غير مفعّلة بعد، لن يعمل الإرسال حتى تُضاف."}
           </p>
         )}
@@ -252,6 +274,36 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
               dir="ltr"
               placeholder="https://masarmakers.com/courses"
             />
+          </label>
+        </div>
+
+        <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+          <p className="text-[11px] font-black text-[#07152E]">
+            طريقة الإرسال
+          </p>
+
+          <label className="flex cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              checked={sendEmailChannel}
+              onChange={(e) => setSendEmailChannel(e.target.checked)}
+              className="h-4 w-4 accent-[#F7B548]"
+            />
+            <span className="text-[11px] font-bold text-[#07152E]">
+              إيميل
+            </span>
+          </label>
+
+          <label className="flex cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              checked={sendNotifyChannel}
+              onChange={(e) => setSendNotifyChannel(e.target.checked)}
+              className="h-4 w-4 accent-[#F7B548]"
+            />
+            <span className="text-[11px] font-bold text-[#07152E]">
+              إشعار على المنصة (يظهر في جرس الإشعارات)
+            </span>
           </label>
         </div>
 
@@ -378,7 +430,7 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
             className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#07152E] px-5 text-[11px] font-black text-white transition hover:bg-[#F7B548] hover:text-[#07152E] disabled:opacity-60"
           >
             <Send size={14} />
-            {pending ? "جارٍ الإرسال..." : "إرسال الإيميل"}
+            {pending ? "جارٍ الإرسال..." : "إرسال"}
           </button>
         </div>
 
@@ -403,6 +455,7 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
                       {c.subject}
                     </button>
                     <span className="text-[10px] font-bold text-slate-500">
+                      {CHANNEL_LABEL[c.channels ?? "email"] ?? "إيميل"} —{" "}
                       {AUDIENCE_LABEL[c.audience] ?? c.audience} — وصل{" "}
                       {c.sent_count}
                       {c.failed_count > 0
