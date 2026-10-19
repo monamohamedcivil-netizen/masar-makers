@@ -45,6 +45,7 @@ export interface EnrollmentRequestResult {
     number: string;
     studentName: string;
     studentEmail: string;
+    studentCountry: string;
     courseTitle: string;
     journeyType: string;
     requestNumber: string;
@@ -458,7 +459,7 @@ export async function requestEnrollment(
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name,email,phone")
+    .select("full_name,email,phone,country")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -470,6 +471,12 @@ export async function requestEnrollment(
     "طالب جديد";
 
   const studentEmail = profile?.email || user.email || "غير متوفر";
+  const studentCountry =
+    (typeof profile?.country === "string" ? profile.country.trim() : "") ||
+    (typeof user.user_metadata?.country === "string"
+      ? user.user_metadata.country.trim()
+      : "") ||
+    "غير مضافة";
   const resolvedJourneyType =
     normalizeJourneyType(journeyType) || "career_path";
   const resolvedJourneyTitle =
@@ -492,6 +499,7 @@ export async function requestEnrollment(
     number: whatsappNumber,
     studentName,
     studentEmail,
+    studentCountry,
     courseTitle: resolvedStationTitle,
     journeyType: resolvedJourneyType,
     requestNumber: `MM-${enrollment.id.slice(0, 8).toUpperCase()}`,

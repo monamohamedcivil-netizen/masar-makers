@@ -187,6 +187,7 @@ export default function CourseActionButton({
           "",
           `👤 الاسم: ${whatsapp.studentName}`,
           `📧 البريد الإلكتروني: ${whatsapp.studentEmail}`,
+          `🌍 الدولة: ${whatsapp.studentCountry || "غير مضافة"}`,
           `📚 الكورس: ${whatsapp.courseTitle}`,
           `🛣️ الرحلة: ${getJourneyLabel(whatsapp.journeyType)}`,
           itemTitle ? `📌 العنصر: ${itemTitle}` : "",
