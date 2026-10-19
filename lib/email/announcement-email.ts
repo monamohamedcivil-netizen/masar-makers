@@ -85,7 +85,7 @@ export function buildAnnouncementEmailHtml(
 
   const greeting = name
     ? `أهلًا ${escapeHtml(name)}`
-    : "أهلًا بك في Masar Makers";
+    : "أهلًا شريك النجاح";
 
   const description = announcement.description?.trim()
     ? `<p style="color:#475569;font-size:16px;line-height:1.9;margin:0 0 24px;">${multiline(

@@ -146,7 +146,7 @@ export async function sendCustomEmail(input: {
         };
       }
 
-      recipients = [{ email: adminEmail, name: "تجربة" }];
+      recipients = [{ email: adminEmail, name: null }];
     } else {
       const audience = await loadAudience();
 
