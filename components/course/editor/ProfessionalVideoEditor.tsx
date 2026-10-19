@@ -21,6 +21,7 @@ import {
 } from "react";
 
 import { createClient } from "@/lib/supabase/client";
+import { compressImageForUpload } from "@/lib/utils/compress-image";
 
 import type {
   ProfessionalContentBlock,
@@ -218,15 +219,17 @@ export default function ProfessionalVideoEditor({
     setIsUploading(true);
 
     try {
+      // نضغط الصورة قبل الرفع لتقليل استهلاك نقل البيانات.
+      const uploadFile = await compressImageForUpload(file);
       const supabase = createClient();
-      const extension = getSafeFileExtension(file);
+      const extension = getSafeFileExtension(uploadFile);
       const filePath = `${STORAGE_FOLDER}/${block.id}/${Date.now()}-${createRandomId()}.${extension}`;
 
       const { error: uploadStorageError } = await supabase.storage
         .from(STORAGE_BUCKET)
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          contentType: file.type,
+        .upload(filePath, uploadFile, {
+          cacheControl: "31536000",
+          contentType: uploadFile.type,
           upsert: false,
         });
 

@@ -48,3 +48,6 @@ supabase/.temp/
 
 # Landing Page promotional videos
 public/videos/promos/*.mp4
+# ملفات مؤقتة لسكربت ضغط الصور
+/backup-course-images
+/optimized-preview

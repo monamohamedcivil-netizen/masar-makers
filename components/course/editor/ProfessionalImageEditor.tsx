@@ -16,6 +16,7 @@ import {
 } from "react";
 
 import { createClient } from "@/lib/supabase/client";
+import { compressImageForUpload } from "@/lib/utils/compress-image";
 
 import type {
   ProfessionalContentBlock,
@@ -80,6 +81,9 @@ export default function ProfessionalImageEditor({
     setIsUploading(true);
 
     try {
+      // نضغط الصورة قبل الرفع لتقليل استهلاك نقل البيانات.
+      const uploadFile = await compressImageForUpload(file);
+
       const supabase = createClient();
 
       const {
@@ -98,7 +102,7 @@ export default function ProfessionalImageEditor({
       }
 
       const extension =
-        getSafeFileExtension(file);
+        getSafeFileExtension(uploadFile);
 
       const fileName =
         `${crypto.randomUUID()}.${extension}`;
@@ -117,9 +121,9 @@ export default function ProfessionalImageEditor({
       const { error: uploadError } =
         await supabase.storage
           .from(STORAGE_BUCKET)
-          .upload(filePath, file, {
-            cacheControl: "3600",
-            contentType: file.type,
+          .upload(filePath, uploadFile, {
+            cacheControl: "31536000",
+            contentType: uploadFile.type,
             upsert: false,
           });
 
