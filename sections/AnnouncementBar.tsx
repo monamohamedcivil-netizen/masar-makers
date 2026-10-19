@@ -208,7 +208,7 @@ const { data, error } = await supabase
   const isExternalLink = /^https?:\/\//i.test(href);
 
   const ctaClassMobile =
-    "inline-flex h-9 items-center gap-1 rounded-full bg-[#F7B548] px-3 text-[11px] font-black text-[#07152E] shadow-sm transition hover:scale-105";
+    "inline-flex h-8 max-w-[104px] items-center gap-1 whitespace-nowrap rounded-full bg-[#F7B548] px-2.5 text-[10px] font-black text-[#07152E] shadow-sm transition hover:scale-105";
 
   const ctaClassDesktop =
     "flex items-center gap-2 rounded-full bg-[#F7B548] px-5 py-2 text-sm font-bold text-[#07152E] transition duration-300 hover:scale-105 hover:shadow-lg";
@@ -221,73 +221,75 @@ const { data, error } = await supabase
       className="relative h-[92px] border-b border-[#E8EEF8] bg-gradient-to-r from-[#FFFDF7] via-[#FFF8EB] to-[#F8FBFF] sm:h-16"
     >
       <div className="relative mx-auto h-full w-full max-w-7xl px-2 sm:px-6">
-        {/* Mobile layout */}
-        <div className="relative h-full sm:hidden">
-          <div className={`absolute top-2 z-30 ${isArabic ? "right-2" : "left-2"}`}>
-            <NotificationCenter />
-          </div>
+        {/* Mobile layout: جرس | نص الإعلان | زر — بدون تكدّس أو تداخل */}
+        <div className="flex h-full flex-col justify-center py-1.5 sm:hidden">
+          <div className="flex items-center gap-2">
+            <div className="shrink-0">
+              <NotificationCenter />
+            </div>
 
-          {!loading && !item ? null : item ? (
-            <>
-              <div className={`absolute top-2 z-20 ${isArabic ? "left-2" : "right-2"}`}>
-                {isExternalLink ? (
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={ctaClassMobile}
-                  >
-                    {buttonText}
-                    <CTAArrow size={13} />
-                  </a>
-                ) : (
-                  <AuthLink href={href} className={ctaClassMobile}>
-                    {buttonText}
-                    <CTAArrow size={13} />
-                  </AuthLink>
-                )}
-              </div>
-
-              <div className="absolute inset-x-0 bottom-1 top-1 flex flex-col items-center justify-end px-[74px] text-center">
+            {!loading && !item ? null : item ? (
+              <>
                 <div
-                  className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
-                  style={{ background: theme.bg, color: theme.color }}
+                  className={`min-w-0 flex-1 ${
+                    isArabic ? "text-right" : "text-left"
+                  }`}
                 >
-                  {theme.icon}
+                  <h3
+                    className="line-clamp-2 flex items-start gap-1 text-[11.5px] font-black leading-[15px]"
+                    style={{ color: theme.color }}
+                  >
+                    <span className="mt-[1px] shrink-0 [&_svg]:h-3.5 [&_svg]:w-3.5">
+                      {theme.icon}
+                    </span>
+                    <span className="min-w-0">{title}</span>
+                  </h3>
+
+                  {description ? (
+                    <p className="mt-0.5 line-clamp-2 text-[10px] font-semibold leading-[14px] text-slate-600">
+                      {description}
+                    </p>
+                  ) : null}
                 </div>
 
-                <h3
-                  className="line-clamp-2 max-w-full font-black leading-[15px]"
-                  style={{ color: theme.color, fontSize: "11px" }}
-                >
-                  {title}
-                </h3>
+                <div className="shrink-0">
+                  {isExternalLink ? (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={ctaClassMobile}
+                    >
+                      <span className="truncate">{buttonText}</span>
+                      <CTAArrow size={12} className="shrink-0" />
+                    </a>
+                  ) : (
+                    <AuthLink href={href} className={ctaClassMobile}>
+                      <span className="truncate">{buttonText}</span>
+                      <CTAArrow size={12} className="shrink-0" />
+                    </AuthLink>
+                  )}
+                </div>
+              </>
+            ) : null}
+          </div>
 
-                {description ? (
-                  <p className="mt-0.5 line-clamp-2 max-w-full text-[9px] font-semibold leading-[13px] text-slate-600">
-                    {description}
-                  </p>
-                ) : null}
-
-                {announcements.length > 1 ? (
-                  <div className="mt-1 flex justify-center gap-1.5">
-                    {announcements.map((announcement, index) => (
-                      <button
-                        key={announcement.id}
-                        type="button"
-                        aria-label={`${text.show} ${index + 1}`}
-                        onClick={() => setCurrent(index)}
-                        className={`rounded-full transition-all duration-500 ${
-                          current === index
-                            ? "h-[5px] w-5 bg-[#F7B548]"
-                            : "h-[5px] w-[5px] bg-slate-300"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            </>
+          {item && announcements.length > 1 ? (
+            <div className="mt-1 flex justify-center gap-1.5">
+              {announcements.map((announcement, index) => (
+                <button
+                  key={announcement.id}
+                  type="button"
+                  aria-label={`${text.show} ${index + 1}`}
+                  onClick={() => setCurrent(index)}
+                  className={`rounded-full transition-all duration-500 ${
+                    current === index
+                      ? "h-[5px] w-5 bg-[#F7B548]"
+                      : "h-[5px] w-[5px] bg-slate-300"
+                  }`}
+                />
+              ))}
+            </div>
           ) : null}
         </div>
 
