@@ -19,7 +19,11 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(
+    searchParams.get("suspended")
+      ? "تم إيقاف هذا الحساب. للاستفسار تواصل مع إدارة المنصة."
+      : ""
+  );
 
   const confirmed = searchParams.get("confirmed");
   const confirmationError = searchParams.get("error");
@@ -97,6 +101,10 @@ export default function LoginPage() {
         ) {
           setError(
             "البريد الإلكتروني أو كلمة المرور غير صحيحة."
+          );
+        } else if (errorMessage.includes("banned")) {
+          setError(
+            "تم إيقاف هذا الحساب. للاستفسار تواصل مع إدارة المنصة."
           );
         } else {
           setError(signInError.message);

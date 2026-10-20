@@ -15,6 +15,9 @@ export interface StudentSummary {
   studentPhone: string | null;
   studentCountry: string | null;
 
+  accountActive: boolean;
+  suspensionReason: string | null;
+
   professionalEnrollments: number;
   oneDayEnrollments: number;
   freeEnrollments: number;
@@ -618,6 +621,12 @@ for (const bonusRow of bonusPointRows) {
 
       studentCountry:
         getStudentCountry(profile),
+
+      accountActive: profile?.is_active !== false,
+      suspensionReason:
+        typeof profile?.suspension_reason === "string"
+          ? profile.suspension_reason
+          : null,
 
       professionalEnrollments: 0,
       oneDayEnrollments: 0,

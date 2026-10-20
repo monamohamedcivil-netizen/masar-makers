@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import AccountSuspensionButton from "@/components/admin/students/AccountSuspensionButton";
 import {
   addStudentBonusPoints,
   getStudentBonusPointsHistory,
@@ -31,6 +32,9 @@ export interface StudentRow {
   studentEmail: string;
   studentPhone: string | null;
   studentCountry: string | null;
+
+  accountActive: boolean;
+  suspensionReason: string | null;
 
   professionalEnrollments: number;
   oneDayEnrollments: number;
@@ -229,15 +233,15 @@ function BasicStudentsTable({
 
   const basicColGroup = (
     <colgroup>
-      <col className="w-[23%]" />
-      <col className="w-[15%]" />
-      <col className="w-[10%]" />
-      <col className="w-[7%]" />
+      <col className="w-[20%]" />
+      <col className="w-[13%]" />
       <col className="w-[8%]" />
-      <col className="w-[6%]" />
+      <col className="w-[7%]" />
       <col className="w-[7%]" />
       <col className="w-[6%]" />
-      <col className="w-[18%]" />
+      <col className="w-[6%]" />
+      <col className="w-[7%]" />
+      <col className="w-[26%]" />
     </colgroup>
   );
 
@@ -333,13 +337,25 @@ function BasicStudentsTable({
               />
 
               <TableCell>
-                <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">
-                  نشط
-                </span>
+                {student.accountActive ? (
+                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">
+                    نشط
+                  </span>
+                ) : (
+                  <span
+                    title={student.suspensionReason ?? undefined}
+                    className="rounded-full bg-red-100 px-3 py-1 text-xs font-black text-red-700"
+                  >
+                    موقوف
+                  </span>
+                )}
               </TableCell>
 
               <StudentActionsCell
                 userId={student.userId}
+                studentName={student.studentName}
+                suspended={!student.accountActive}
+                reason={student.suspensionReason}
               />
             </tr>
           ))}
@@ -837,12 +853,18 @@ function IconMetricCell({
 
 function StudentActionsCell({
   userId,
+  studentName,
+  suspended,
+  reason,
 }: {
   userId: string;
+  studentName: string;
+  suspended: boolean;
+  reason: string | null;
 }) {
   return (
     <td className="px-2 py-3 text-center">
-      <div className="flex items-center justify-center gap-1.5">
+      <div className="flex flex-wrap items-center justify-center gap-1.5">
         <Link
           href={`/admin/students/${userId}`}
           className="inline-flex items-center gap-1 rounded-lg bg-[#07152E] px-2 py-2 text-[10px] font-black text-white transition hover:bg-[#0B2146]"
@@ -861,6 +883,13 @@ function StudentActionsCell({
           <ExternalLink size={13} />
           صفحة الطالب
         </Link>
+
+        <AccountSuspensionButton
+          userId={userId}
+          studentName={studentName}
+          suspended={suspended}
+          reason={reason}
+        />
       </div>
     </td>
   );

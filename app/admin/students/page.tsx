@@ -19,6 +19,8 @@ function toTableRow(
     studentEmail: student.studentEmail,
     studentPhone: student.studentPhone,
     studentCountry: student.studentCountry,
+    accountActive: student.accountActive,
+    suspensionReason: student.suspensionReason,
 
     professionalEnrollments:
       student.professionalEnrollments,
