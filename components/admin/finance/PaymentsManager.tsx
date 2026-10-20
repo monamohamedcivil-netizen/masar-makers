@@ -340,7 +340,11 @@ export default function PaymentsManager(props: Props) {
                   {columns.map((c) => (
                     <th
                       key={c.key}
-                      className="whitespace-nowrap px-2 py-3 text-[11px] font-black text-slate-500"
+                      className={`whitespace-nowrap px-2 py-3 text-[11px] font-black text-slate-500 ${
+                        c.key === "student_name"
+                          ? "sticky right-0 z-20 bg-slate-50 shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.2)]"
+                          : ""
+                      }`}
                     >
                       {c.label}
                     </th>
@@ -381,9 +385,26 @@ export default function PaymentsManager(props: Props) {
                             مشترك ✓
                           </span>
                         )}
+                        {p.is_reward && (
+                          <span
+                            className="mr-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black text-violet-800"
+                            title={`${p.reward_reason ?? "مكافأة"}${p.reward_date ? ` — ${p.reward_date}` : ""}`}
+                          >
+                            🎁 مكافأة{p.reward_date ? ` · ${p.reward_date}` : ""}
+                          </span>
+                        )}
                       </td>
                       {columns.map((c) => (
-                        <td key={c.key} className="px-1 py-1">
+                        <td
+                          key={c.key}
+                          className={`px-1 py-1 ${
+                            c.key === "student_name"
+                              ? `sticky right-0 z-[5] shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.2)] ${
+                                  p.account_status === "none" ? "bg-amber-50" : "bg-white"
+                                }`
+                              : ""
+                          }`}
+                        >
                           {c.auto ? (
                             <span
                               className="block px-1.5 text-center text-sm font-black text-emerald-600"

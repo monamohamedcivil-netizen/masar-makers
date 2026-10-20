@@ -790,7 +790,8 @@ export async function createPaymentForEnrollment(
     const journey = String(enrollment.journey_type ?? "")
       .toLowerCase()
       .replaceAll("-", "_");
-    if (enrollment.enrollment_source === "reward" || FREE_JOURNEYS.has(journey)) {
+    const isReward = enrollment.enrollment_source === "reward";
+    if (!isReward && FREE_JOURNEYS.has(journey)) {
       return { success: true, data: { created: false } };
     }
 
@@ -815,7 +816,22 @@ export async function createPaymentForEnrollment(
       loadRates(admin),
     ]);
 
-    const price = enrollment.subscription_price
+    // المكافآت تُسجَّل في المدفوعات بقيمة 0 مع سبب المكافأة وتاريخها.
+    let rewardReason: string | null = null;
+    if (isReward) {
+      const { data: draw } = await admin
+        .from("monthly_draws")
+        .select("month_key")
+        .eq("reward_enrollment_id", enrollmentId)
+        .maybeSingle();
+      const mk = draw?.month_key ? String(draw.month_key) : "";
+      const [y, m] = mk.split("-");
+      rewardReason = mk
+        ? `مكافأة السحب الشهري لشهر ${Number(m)}-${y}`
+        : "مكافأة بطاقة المكافآت";
+    }
+
+    const price = !isReward && enrollment.subscription_price
       ? Number(enrollment.subscription_price)
       : 0;
     const currency = normalizeCurrency(enrollment.subscription_currency);
@@ -852,7 +868,7 @@ export async function createPaymentForEnrollment(
       amount_total: price || null,
       amount_paid: price,
       amount_egp: toEgp(price, currency, rates),
-      payment_status: price ? "paid" : "unpaid",
+      payment_status: price || isReward ? "paid" : "unpaid",
       journey_kind: ["workshop", "one_day", "one_day_journey"].includes(journey)
         ? "one_day"
         : "integrated",
@@ -860,6 +876,14 @@ export async function createPaymentForEnrollment(
       followup_date: followupDate,
       followup_reason: followupReason,
       source: "enrollment",
+      ...(isReward
+        ? {
+            is_reward: true,
+            reward_reason: rewardReason,
+            reward_date: new Date().toISOString().slice(0, 10),
+            notes: rewardReason,
+          }
+        : {}),
     });
     if (error) throw new Error(error.message);
 

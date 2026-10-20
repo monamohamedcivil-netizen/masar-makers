@@ -49,6 +49,10 @@ export interface FinancePayment {
   survey_done: boolean;
   source: "enrollment" | "import" | "manual";
   journey_kind: "integrated" | "one_day";
+  /** اشتراك مكافأة (مثل جائزة السحب الشهري) بلا دفع */
+  is_reward?: boolean;
+  reward_reason?: string | null;
+  reward_date?: string | null;
   created_at: string;
   /** يُحسب تلقائيًا: none = لم يسجّل بالمنصة، registered = له حساب بلا اشتراك نشط بالكورس، enrolled = مشترك. */
   account_status?: "none" | "registered" | "enrolled";
@@ -62,6 +66,27 @@ export function stageOfEdition(edition: string | null | undefined): CourseStage 
   if (/-F/.test(code)) return "fundamental";
   if (/-A/.test(code)) return "advanced";
   return "other";
+}
+
+export type JourneyLabel = "أساسيات" | "متقدم" | "رحلة يوم واحد" | "كورس كامل";
+
+export const JOURNEY_ORDER: JourneyLabel[] = [
+  "أساسيات",
+  "متقدم",
+  "كورس كامل",
+  "رحلة يوم واحد",
+];
+
+/** نوع الرحلة للدفعة: أساسيات / متقدم / يوم واحد / كورس كامل (للكورسات غير المنقسمة). */
+export function journeyLabelOf(r: {
+  journey_kind: string | null;
+  edition_code: string | null;
+}): JourneyLabel {
+  if (r.journey_kind === "one_day") return "رحلة يوم واحد";
+  const stage = stageOfEdition(r.edition_code);
+  if (stage === "fundamental") return "أساسيات";
+  if (stage === "advanced") return "متقدم";
+  return "كورس كامل";
 }
 
 export interface FinanceOffer {

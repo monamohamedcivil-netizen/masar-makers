@@ -137,6 +137,74 @@ async function countRows(
   return count ?? 0;
 }
 
+/*
+ * الاشتراكات النشطة المدفوعة بنفس قاعدة صفحة الطلاب والتقارير:
+ * - المجانية لا تُحتسب.
+ * - الرحلة المتكاملة/المهنية في كورس منقسم (أساسيات + متقدم) تُحسب مرحلتين.
+ */
+async function countPaidSubscriptionUnits(
+  exclusion: Exclusion,
+): Promise<number> {
+  const admin = createAdminClient();
+
+  const [{ data: enrollments, error }, { data: lessons }] = await Promise.all([
+    admin
+      .from("enrollments")
+      .select("user_id,course_id,journey_type,student_email")
+      .eq("status", "active")
+      .limit(5000),
+    admin
+      .from("lessons")
+      .select("course_id,course_part")
+      .eq("status", "published")
+      .limit(10000),
+  ]);
+
+  if (error) {
+    console.error("Dashboard paid subscriptions error:", error.message);
+    return 0;
+  }
+
+  const parts = new Map<string, { f: boolean; a: boolean }>();
+  for (const l of lessons ?? []) {
+    const id = String(l.course_id ?? "");
+    if (!id) continue;
+    const cur = parts.get(id) ?? { f: false, a: false };
+    const part = String(l.course_part ?? "").toLowerCase();
+    if (part === "fundamental" || part === "fundamentals") cur.f = true;
+    if (part === "advanced") cur.a = true;
+    parts.set(id, cur);
+  }
+
+  const internalIds = new Set(exclusion.userIds);
+  const internalEmails = new Set(
+    INTERNAL_ACCOUNT_EMAILS.map((e) => e.toLowerCase()),
+  );
+  const grantsAll = new Set([
+    "integrated",
+    "professional",
+    "professional_journey",
+    "career_path",
+    "career",
+  ]);
+
+  let total = 0;
+  for (const e of enrollments ?? []) {
+    const type = String(e.journey_type ?? "").trim().toLowerCase();
+    if (type === "free") continue;
+    if (e.user_id && internalIds.has(String(e.user_id))) continue;
+    if (e.student_email && internalEmails.has(String(e.student_email).toLowerCase())) continue;
+
+    const p = parts.get(String(e.course_id ?? ""));
+    if (grantsAll.has(type) && p && (p.f || p.a)) {
+      total += Number(p.f) + Number(p.a);
+    } else {
+      total += 1;
+    }
+  }
+  return total;
+}
+
 export async function getAdminDashboardStats():
 Promise<AdminDashboardStats> {
   await requireAdmin();
@@ -176,12 +244,7 @@ Promise<AdminDashboardStats> {
     countRows("student_registry", [], exclusion),
     countRows("courses"),
 
-    countRows(
-      "enrollments",
-      [["status", "active"]],
-      exclusion,
-      { paidOnly: true },
-    ),
+    countPaidSubscriptionUnits(exclusion),
 
     countRows(
       "enrollments",
