@@ -181,14 +181,6 @@ export default function EnrollmentStatusStudentsTable({
                           "—"}
                       </p>
 
-                      {enrollment.actionKey ? (
-                        <p
-                          title={enrollment.actionKey}
-                          className="mt-1 truncate font-mono text-[10px] text-slate-400"
-                        >
-                          {enrollment.actionKey}
-                        </p>
-                      ) : null}
                     </div>
                   </TableCell>
 
