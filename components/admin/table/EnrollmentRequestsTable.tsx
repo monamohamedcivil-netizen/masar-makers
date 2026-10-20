@@ -19,6 +19,7 @@ import type {
 import StatusBadge from "./StatusBadge";
 import EnrollmentActionButtons from "./EnrollmentActionButtons";
 import EnrollmentSourceSelect from "./EnrollmentSourceSelect";
+import EnrollmentPricingFields from "./EnrollmentPricingFields";
 
 export interface EnrollmentRequestRow {
   id: string;
@@ -34,10 +35,14 @@ export interface EnrollmentRequestRow {
   rewardSource: RewardSource | null;
   status: string;
   createdAt: string;
+  subscriptionPrice: number | null;
+  subscriptionCurrency: string;
+  offerLabel: string;
 }
 
 interface EnrollmentRequestsTableProps {
   requests: EnrollmentRequestRow[];
+  offerNames: string[];
 }
 
 type JourneyTab =
@@ -109,6 +114,14 @@ function getJourneyTab(
   return "professional";
 }
 
+/** هل هذا الطلب مدفوع (يحتاج سعراً)؟ الرحلات المجانية والمكافآت لا تحتاج. */
+function isPaidRequest(request: EnrollmentRequestRow) {
+  return (
+    request.enrollmentSource !== "reward" &&
+    getJourneyTab(request.journeyType) !== "free"
+  );
+}
+
 function formatDate(date: string) {
   if (!date) return "—";
 
@@ -136,6 +149,7 @@ function formatDate(date: string) {
 
 export default function EnrollmentRequestsTable({
   requests,
+  offerNames,
 }: EnrollmentRequestsTableProps) {
   const [activeTab, setActiveTab] =
     useState<JourneyTab>(
@@ -410,7 +424,7 @@ export default function EnrollmentRequestsTable({
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1450px] text-right">
+          <table className="w-full min-w-[1800px] text-right">
             <thead className="bg-slate-50">
               <tr className="border-b border-slate-200">
                 <th className="px-5 py-4 text-xs font-black text-slate-500">
@@ -431,6 +445,14 @@ export default function EnrollmentRequestsTable({
 
                 <th className="px-5 py-4 text-xs font-black text-slate-500">
                   نوع الاشتراك
+                </th>
+
+                <th className="px-5 py-4 text-xs font-black text-slate-500">
+                  قيمة الاشتراك
+                </th>
+
+                <th className="px-5 py-4 text-xs font-black text-slate-500">
+                  العرض
                 </th>
 
                 <th className="px-5 py-4 text-xs font-black text-slate-500">
@@ -539,6 +561,18 @@ export default function EnrollmentRequestsTable({
                       />
                     </td>
 
+                    <EnrollmentPricingFields
+                      enrollmentId={request.id}
+                      editable={
+                        request.status.toLowerCase() === "pending"
+                      }
+                      applicable={isPaidRequest(request)}
+                      initialPrice={request.subscriptionPrice}
+                      initialCurrency={request.subscriptionCurrency}
+                      initialOffer={request.offerLabel}
+                      offerNames={offerNames}
+                    />
+
                     <td className="px-5 py-4">
                       <span className="flex items-center gap-2 text-sm text-slate-600">
                         <CalendarDays className="h-4 w-4 text-slate-400" />
@@ -565,6 +599,13 @@ export default function EnrollmentRequestsTable({
                         status={
                           request.status
                         }
+                        needsPrice={
+                          isPaidRequest(request) &&
+                          !(
+                            (request.subscriptionPrice ?? 0) > 0
+                          )
+                        }
+                        studentName={request.studentName}
                       />
                     </td>
                   </tr>

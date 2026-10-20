@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import AdminShell from "@/components/admin/layout/AdminShell";
+import { dispatchDueFollowups } from "@/lib/finance/followups";
 import { createClient } from "@/lib/supabase/server";
 
 interface AdminLayoutProps {
@@ -36,6 +37,9 @@ export default async function AdminLayout({
 ) {
   redirect("/");
 }
+
+  // تنبيه المتابعات المستحقة (يعمل مرة لكل دفعة ولا يعطّل الصفحة عند الخطأ).
+  await dispatchDueFollowups();
 
   const adminName =
     profile.full_name ??
