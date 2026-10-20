@@ -197,6 +197,62 @@ export default async function LessonsPage() {
     lessonStats[lessonId] = { plays, students: users.size };
   }
 
+  /*
+   * عدد الطلاب المشتركين (اشتراك مفعّل) في كل كورس حسب نوع الرحلة،
+   * بدون الحسابات الداخلية. كل طالب يُعدّ مرة واحدة لكل نوع.
+   */
+  const { data: enrollmentRows } = await admin
+    .from("enrollments")
+    .select("course_id,user_id,journey_type,status");
+
+  const activeStatuses = new Set([
+    "active",
+    "approved",
+    "enrolled",
+    "confirmed",
+    "completed",
+  ]);
+
+  const seen = {
+    professional: new Map<string, Set<string>>(),
+    oneDay: new Map<string, Set<string>>(),
+    free: new Map<string, Set<string>>(),
+  };
+
+  for (const row of enrollmentRows ?? []) {
+    const userId = String(row.user_id ?? "");
+    const courseId = String(row.course_id ?? "");
+
+    if (!userId || !courseId || internalIds.has(userId)) continue;
+    if (!activeStatuses.has(String(row.status ?? "").trim().toLowerCase())) continue;
+
+    const type = String(row.journey_type ?? "").trim().toLowerCase();
+    const bucket =
+      type === "free" || type === "free_session" || type === "free_journey"
+        ? seen.free
+        : ["workshop", "one_day", "one-day", "one_day_journey", "one_day_workshop", "one-day-workshop"].includes(type)
+          ? seen.oneDay
+          : seen.professional;
+
+    const users = bucket.get(courseId) ?? new Set<string>();
+    users.add(userId);
+    bucket.set(courseId, users);
+  }
+
+  const courseEnrollmentCounts: Record<
+    string,
+    { professional: number; oneDay: number; free: number }
+  > = {};
+
+  for (const course of courses ?? []) {
+    const id = String(course.id);
+    courseEnrollmentCounts[id] = {
+      professional: seen.professional.get(id)?.size ?? 0,
+      oneDay: seen.oneDay.get(id)?.size ?? 0,
+      free: seen.free.get(id)?.size ?? 0,
+    };
+  }
+
   return (
     <>
       <AdminPageHeader
@@ -205,6 +261,7 @@ export default async function LessonsPage() {
       />
 
       <LessonContentManager
+        courseEnrollmentCounts={courseEnrollmentCounts}
         lessonStats={lessonStats}
         initialLessons={lessons ?? []}
         courses={courses ?? []}
