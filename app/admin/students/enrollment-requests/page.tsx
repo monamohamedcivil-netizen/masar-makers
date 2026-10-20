@@ -4,6 +4,7 @@ import EnrollmentRequestsTable, {
 } from "@/components/admin/table/EnrollmentRequestsTable";
 
 import { getEnrollmentRequests } from "@/lib/actions/admin/enrollments";
+import { createAdminClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -26,12 +27,22 @@ rewardSource:
   request.rewardSource ?? null,
 status: request.status,
     createdAt: request.createdAt,
+    subscriptionPrice: request.subscriptionPrice,
+    subscriptionCurrency: request.subscriptionCurrency,
+    offerLabel: request.offerLabel ?? "",
   };
 }
 
 export default async function EnrollmentRequestsPage() {
   const enrollmentRequests = await getEnrollmentRequests();
   const requests = enrollmentRequests.map(toTableRow);
+
+  const { data: offerRows } = await createAdminClient()
+    .from("finance_offers")
+    .select("name")
+    .eq("is_active", true)
+    .order("sort_order");
+  const offerNames = (offerRows ?? []).map((o) => String(o.name));
 
   const pendingCount = requests.filter(
     (request) => request.status === "pending",
@@ -95,7 +106,10 @@ export default async function EnrollmentRequestsPage() {
         </div>
       </div>
 
-      <EnrollmentRequestsTable requests={requests} />
+      <EnrollmentRequestsTable
+        requests={requests}
+        offerNames={offerNames}
+      />
     </div>
   );
 }

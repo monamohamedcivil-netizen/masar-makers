@@ -1,16 +1,19 @@
 import AdminPageHeader from "@/components/admin/layout/AdminPageHeader";
+import ReportsDashboard from "@/components/admin/finance/ReportsDashboard";
+import { getFinanceData } from "@/lib/finance/queries";
 
-export default function ReportsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function ReportsPage() {
+  const data = await getFinanceData();
+
   return (
     <>
       <AdminPageHeader
         title="التقارير"
-        description="سيتم تطوير نظام التقارير والإحصائيات في المرحلة القادمة."
+        description="لوحة الدخل والمصروفات والاشتراكات، وجدول متابعة الدفعات."
       />
-
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-20 text-center text-slate-500">
-        قريباً...
-      </div>
+      <ReportsDashboard data={data} />
     </>
   );
 }

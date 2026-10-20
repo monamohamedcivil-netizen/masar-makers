@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { EnrollmentStatus } from "@/lib/actions/enroll";
 import { getMasarPassport } from "@/lib/dashboard/masar-passport";
 import { activateEnrollmentWorkflow } from "@/lib/workflows";
+import { createPaymentForEnrollment } from "@/lib/actions/admin/finance";
 
 export type EnrollmentSource = "paid" | "reward";
 
@@ -27,6 +28,9 @@ export interface AdminEnrollmentRequest {
   status: EnrollmentStatus;
   createdAt: string;
   updatedAt: string | null;
+  subscriptionPrice: number | null;
+  subscriptionCurrency: string;
+  offerLabel: string | null;
 
   student: {
     name: string;
@@ -64,6 +68,9 @@ type EnrollmentRow = {
   status: EnrollmentStatus;
   created_at: string;
   updated_at: string | null;
+  subscription_price: number | null;
+  subscription_currency: string | null;
+  offer_label: string | null;
 };
 
 type ApproveEnrollmentRow = {
@@ -271,7 +278,7 @@ export async function getEnrollmentRequests(): Promise<
   const { data, error } = await supabase
     .from("enrollments")
     .select(
-      "id,user_id,student_name,student_email,course_id,journey_type,action_key,action_title,enrollment_source,reward_source,status,created_at,updated_at",
+      "id,user_id,student_name,student_email,course_id,journey_type,action_key,action_title,enrollment_source,reward_source,status,created_at,updated_at,subscription_price,subscription_currency,offer_label",
     )
     .order("created_at", { ascending: false });
 
@@ -414,6 +421,12 @@ export async function getEnrollmentRequests(): Promise<
       status: enrollment.status,
       createdAt: enrollment.created_at,
       updatedAt: enrollment.updated_at,
+      subscriptionPrice:
+        enrollment.subscription_price == null
+          ? null
+          : Number(enrollment.subscription_price),
+      subscriptionCurrency: enrollment.subscription_currency || "EGP",
+      offerLabel: enrollment.offer_label?.trim() || null,
 
       student: {
         name: getStudentName(
@@ -572,6 +585,7 @@ async function changeEnrollmentStatus(
 
 export async function approveEnrollment(
   enrollmentId: string,
+  options?: { followup?: { reason: string; date: string } | null },
 ): Promise<AdminActionResult> {
   if (!enrollmentId?.trim()) {
     return {
@@ -592,6 +606,7 @@ export async function approveEnrollment(
       enrollment_source,
       reward_source,
       status,
+      subscription_price,
       courses (
         title,
         title_ar
@@ -609,10 +624,33 @@ export async function approveEnrollment(
     };
   }
 
-  const enrollment = data as ApproveEnrollmentRow;
+  const enrollment = data as ApproveEnrollmentRow & {
+    subscription_price: number | null;
+  };
   const enrollmentSource = normalizeEnrollmentSource(
     enrollment.enrollment_source,
   );
+
+  // الاشتراك المدفوع بدون سعر مسجّل يحتاج سبب + موعد متابعة قبل القبول.
+  const followup = options?.followup ?? null;
+  const isFreeJourney = [
+    "free",
+    "free_session",
+    "free_journey",
+  ].includes(normalizeJourneyType(enrollment.journey_type));
+  const missingPrice = !(Number(enrollment.subscription_price) > 0);
+
+  if (
+    enrollmentSource === "paid" &&
+    !isFreeJourney &&
+    missingPrice &&
+    !(followup?.reason?.trim() && followup?.date)
+  ) {
+    return {
+      success: false,
+      message: "NEEDS_PRICE_FOLLOWUP",
+    };
+  }
 
   const rewardSource =
     normalizeRewardSource(
@@ -863,6 +901,23 @@ export async function approveEnrollment(
     }
   }
 
+  let paymentWarning: string | undefined;
+
+  try {
+    const payment = await createPaymentForEnrollment(
+      enrollmentId,
+      followup,
+    );
+
+    if (!payment.success) {
+      paymentWarning = `تم تفعيل الاشتراك، لكن تعذر تسجيل الدفعة: ${payment.message}`;
+    }
+  } catch (paymentError) {
+    paymentWarning = `تم تفعيل الاشتراك، لكن تعذر تسجيل الدفعة: ${
+      paymentError instanceof Error ? paymentError.message : String(paymentError)
+    }`;
+  }
+
   revalidateEnrollmentPages();
 
   return {
@@ -876,6 +931,7 @@ export async function approveEnrollment(
           : "تم قبول الاشتراك وتسجيله كمكافأة بطاقة المكافآت.",
     warning:
       rewardWarning ??
+      paymentWarning ??
       result.warning,
   };
 }

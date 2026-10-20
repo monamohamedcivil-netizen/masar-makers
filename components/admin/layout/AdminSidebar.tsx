@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   Megaphone,
   MessageCircle,
+  Receipt,
   Route,
   Settings,
   ShieldCheck,
@@ -140,6 +141,11 @@ const navigationGroups: NavigationGroup[] = [
         title: "المدفوعات",
         href: "/admin/finance/payments",
         icon: CircleDollarSign,
+      },
+      {
+        title: "المصروفات",
+        href: "/admin/finance/expenses",
+        icon: Receipt,
       },
       {
         title: "الإعلانات",
