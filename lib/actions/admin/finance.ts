@@ -4,13 +4,18 @@ import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/server";
-import { mapPayment } from "@/lib/finance/queries";
+import { applyAutoFlags, mapPayment } from "@/lib/finance/queries";
+import { computeExpenseTotals } from "@/lib/finance/expense-calc";
 import {
   DEFAULT_RATES,
   derivePaymentStatus,
   normalizeCurrency,
   toEgp,
+  classifyExpense,
+  type BillingPeriod,
+  type ExpenseCategory,
   type FinanceExpense,
+  type FinanceService,
   type FinanceOtherIncome,
   type FinancePayment,
   type FinanceRates,
@@ -81,12 +86,8 @@ const PAYMENT_TEXT_FIELDS = [
   "activation_key",
 ] as const;
 
-const PAYMENT_BOOL_FIELDS = [
-  "email_sent",
-  "certificate_issued",
-  "survey_done",
-  "followup_done",
-] as const;
+// الشهادة والاستبيان يُحسبان تلقائيًا من بيانات المنصة ولا يُعدَّلان يدويًا.
+const PAYMENT_BOOL_FIELDS = ["email_sent", "followup_done"] as const;
 
 const PAYMENT_DATE_FIELDS = ["paid_at", "followup_date", "expires_at"] as const;
 
@@ -105,6 +106,8 @@ function buildPaymentPatch(
   if ("amount_total" in patch)
     out.amount_total = patch.amount_total === "" || patch.amount_total == null ? null : asNumber(patch.amount_total);
   if ("amount_paid" in patch) out.amount_paid = asNumber(patch.amount_paid);
+  if ("journey_kind" in patch)
+    out.journey_kind = patch.journey_kind === "one_day" ? "one_day" : "integrated";
   if ("delivery_type" in patch)
     out.delivery_type =
       patch.delivery_type === "recorded" || patch.delivery_type === "interactive"
@@ -187,8 +190,12 @@ export async function updatePayment(
       .single();
     if (error) throw new Error(error.message);
 
+    const [withFlags] = await applyAutoFlags(admin, [
+      mapPayment(updated as Record<string, unknown>),
+    ]);
+
     refresh();
-    return { success: true, data: mapPayment(updated as Record<string, unknown>) };
+    return { success: true, data: withFlags };
   } catch (error) {
     return fail(error);
   }
@@ -227,8 +234,12 @@ export async function createPayment(
       .single();
     if (error) throw new Error(error.message);
 
+    const [withFlags] = await applyAutoFlags(admin, [
+      mapPayment(data as Record<string, unknown>),
+    ]);
+
     refresh();
-    return { success: true, data: mapPayment(data as Record<string, unknown>) };
+    return { success: true, data: withFlags };
   } catch (error) {
     return fail(error);
   }
@@ -370,55 +381,237 @@ export async function saveExchangeRate(
 
 /* ============================ المصروفات ============================ */
 
+const CATEGORIES: ExpenseCategory[] = ["ads", "platform", "other"];
+const PERIODS: BillingPeriod[] = ["daily", "monthly", "yearly"];
+
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
 function buildExpense(
   input: Record<string, unknown>,
   rates: FinanceRates,
 ): Record<string, unknown> {
+  const payee = asText(input.payee) ?? "مصروف";
+  const guess = classifyExpense(payee);
+
   const months = Math.max(1, Math.round(asNumber(input.months_count, 1)));
   const monthly = asNumber(input.monthly_amount);
   const currency = normalizeCurrency(input.currency);
-  const total = Math.round(monthly * months * 100) / 100;
+  const category = CATEGORIES.includes(input.category as ExpenseCategory)
+    ? (input.category as ExpenseCategory)
+    : guess.category;
+  const period = PERIODS.includes(input.billing_period as BillingPeriod)
+    ? (input.billing_period as BillingPeriod)
+    : guess.period;
+  const start = asDate(input.start_month) ?? todayIso();
+  const running = input.is_running === true;
+
+  // المستمر: يُحسب تلقائيًا حتى اليوم. المتوقف: العدد المخزَّن.
+  const totals = computeExpenseTotals(
+    {
+      start,
+      period,
+      amount: monthly,
+      currency,
+      running,
+      fixedCount: running ? null : months,
+    },
+    todayIso(),
+    rates,
+  );
+
   return {
-    payee: asText(input.payee) ?? "مصروف",
-    start_month: asDate(input.start_month) ?? new Date().toISOString().slice(0, 10),
-    end_month: asDate(input.end_month),
-    months_count: months,
+    payee,
+    start_month: start,
+    end_month: running ? null : asDate(input.end_month),
+    months_count: running ? Math.max(1, totals.count) : months,
     currency,
     monthly_amount: monthly,
-    total_amount: total,
-    total_egp: toEgp(total, currency, rates),
+    total_amount: totals.totalAmount,
+    total_egp: totals.totalEgp,
     notes: asText(input.notes),
+    category,
+    billing_period: period,
+    is_running: running,
   };
 }
 
 export async function saveExpense(
   id: string | null,
   input: Record<string, unknown>,
-): Promise<FinanceActionResult<FinanceExpense>> {
+): Promise<FinanceActionResult<{ id: string }>> {
   try {
     await requireAdmin();
     const admin = createAdminClient();
     const rates = await loadRates(admin);
 
-    let base = input;
+    let base: Record<string, unknown> = input;
     if (id) {
       const { data: current } = await admin
         .from("finance_expenses")
         .select("*")
         .eq("id", id)
         .maybeSingle();
+
+      if (current?.service_id) {
+        // الصف مرتبط بخدمة: يُعدَّل من جدول الخدمات، ونسمح هنا بالملاحظات والفئة فقط.
+        const allowed: Record<string, unknown> = {};
+        if ("notes" in input) allowed.notes = asText(input.notes);
+        if (CATEGORIES.includes(input.category as ExpenseCategory))
+          allowed.category = input.category;
+        if (Object.keys(allowed).length === 0)
+          throw new Error("هذا الصف مرتبط بخدمة؛ عدّليه من جدول الخدمات أسفل الصفحة.");
+        const { error } = await admin
+          .from("finance_expenses")
+          .update(allowed)
+          .eq("id", id);
+        if (error) throw new Error(error.message);
+        refresh();
+        return { success: true, data: { id } };
+      }
+
       base = { ...(current ?? {}), ...input };
+
+      // إيقاف/تشغيل: عند الإيقاف نثبّت عدد مرات الصرف حتى اليوم.
+      if ("is_running" in input && current) {
+        if (input.is_running === true) {
+          base.end_month = null;
+        } else if (current.is_running === true) {
+          const frozen = computeExpenseTotals(
+            {
+              start: String(current.start_month),
+              period: (current.billing_period as BillingPeriod) ?? "monthly",
+              amount: asNumber(current.monthly_amount),
+              currency: String(current.currency),
+              running: true,
+            },
+            todayIso(),
+            rates,
+          );
+          base.months_count = Math.max(1, frozen.count);
+          base.end_month = todayIso();
+        }
+      }
     }
     const row = buildExpense(base, rates);
 
     const query = id
       ? admin.from("finance_expenses").update(row).eq("id", id)
       : admin.from("finance_expenses").insert(row);
-    const { data, error } = await query.select("*").single();
+    const { data, error } = await query.select("id").single();
     if (error) throw new Error(error.message);
 
     refresh();
-    return { success: true, data: data as unknown as FinanceExpense };
+    return { success: true, data: { id: String(data.id) } };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/* ============================ خدمات المنصة ومواعيد التجديد ============================ */
+
+export async function saveService(
+  id: string | null,
+  input: Record<string, unknown>,
+): Promise<FinanceActionResult<{ id: string }>> {
+  try {
+    await requireAdmin();
+    const admin = createAdminClient();
+
+    let current: Record<string, unknown> = {};
+    if (id) {
+      const { data } = await admin
+        .from("finance_services")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+      current = (data ?? {}) as Record<string, unknown>;
+    }
+    const m = { ...current, ...input };
+
+    const row: Record<string, unknown> = {
+      name: asText(m.name) ?? "خدمة جديدة",
+      category: CATEGORIES.includes(m.category as ExpenseCategory)
+        ? m.category
+        : "platform",
+      amount: m.amount === "" || m.amount == null ? null : asNumber(m.amount),
+      currency: normalizeCurrency(m.currency),
+      billing_period: PERIODS.includes(m.billing_period as BillingPeriod)
+        ? m.billing_period
+        : "monthly",
+      started_on: asDate(m.started_on),
+      stopped_on: asDate(m.stopped_on),
+      is_running: m.is_running === true,
+      next_renewal: asDate(m.next_renewal),
+      next_renewal_note: asText(m.next_renewal_note),
+      last_payment_note: asText(m.last_payment_note),
+      notes: asText(m.notes),
+    };
+
+    // مستمر ⇐ يبدأ الصرف من تاريخ البداية (أو اليوم) ويُلغى تاريخ التوقف؛ متوقف ⇐ يتوقف اليوم.
+    if ("is_running" in input) {
+      if (row.is_running) {
+        row.started_on = row.started_on ?? todayIso();
+        row.stopped_on = null;
+      } else if (current.is_running === true) {
+        row.stopped_on = todayIso();
+      }
+    }
+
+    let serviceId = id;
+    if (id) {
+      const { error } = await admin.from("finance_services").update(row).eq("id", id);
+      if (error) throw new Error(error.message);
+    } else {
+      const { data, error } = await admin
+        .from("finance_services")
+        .insert({ ...row, sort_order: 100 })
+        .select("id")
+        .single();
+      if (error) throw new Error(error.message);
+      serviceId = String(data.id);
+    }
+
+    // كل خدمة لها صف مصروف مرتبط بها (يُنشأ تلقائيًا إن لم يوجد)،
+    // فيتحدث الصرف كلما تغيّر سعرها أو حالتها.
+    const { data: linked } = await admin
+      .from("finance_expenses")
+      .select("id")
+      .eq("service_id", serviceId)
+      .limit(1);
+
+    if (!linked || linked.length === 0) {
+      const { error: expenseError } = await admin.from("finance_expenses").insert({
+        payee: row.name,
+        start_month: (row.started_on as string | null) ?? todayIso(),
+        months_count: 1,
+        currency: row.currency,
+        monthly_amount: row.amount ?? 0,
+        total_amount: 0,
+        total_egp: 0,
+        category: row.category,
+        billing_period: row.billing_period,
+        is_running: row.is_running,
+        service_id: serviceId,
+      });
+      if (expenseError) throw new Error(expenseError.message);
+    }
+
+    refresh();
+    return { success: true, data: { id: String(serviceId) } };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export async function deleteService(id: string): Promise<FinanceActionResult> {
+  try {
+    await requireAdmin();
+    const admin = createAdminClient();
+    await admin.from("finance_expenses").delete().eq("service_id", id);
+    const { error } = await admin.from("finance_services").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    refresh();
+    return { success: true };
   } catch (error) {
     return fail(error);
   }
@@ -448,11 +641,15 @@ function buildIncome(
   const currency = normalizeCurrency(input.currency);
   const amount = asNumber(input.amount);
   const extra = asNumber(input.extra_profit);
-  // الإجمالي بالجنيه = المبلغ المحوَّل + الربح الإضافي (بالجنيه)
+  // الإجمالي بالجنيه = نسبتي (بعملة الدفع) محوَّلة للجنيه + الربح الإضافي (بالجنيه)
+  const myPercent =
+    input.my_percent === "" || input.my_percent == null
+      ? 0
+      : asNumber(input.my_percent);
   const totalEgp =
     input.total_egp !== undefined && input.total_egp !== "" && input.__manualTotal
       ? asNumber(input.total_egp)
-      : Math.round((toEgp(amount, currency, rates) + extra) * 100) / 100;
+      : Math.round((toEgp(myPercent, currency, rates) + extra) * 100) / 100;
   return {
     received_from: asText(input.received_from),
     for_what: asText(input.for_what),
@@ -656,6 +853,9 @@ export async function createPaymentForEnrollment(
       amount_paid: price,
       amount_egp: toEgp(price, currency, rates),
       payment_status: price ? "paid" : "unpaid",
+      journey_kind: ["workshop", "one_day", "one_day_journey"].includes(journey)
+        ? "one_day"
+        : "integrated",
       paid_at: new Date().toISOString().slice(0, 10),
       followup_date: followupDate,
       followup_reason: followupReason,
@@ -739,10 +939,8 @@ export async function commitFinanceImport(
         ...clean,
         currency,
         amount_paid: paid,
-        amount_egp:
-          raw.amount_egp !== undefined && raw.amount_egp !== null && raw.amount_egp !== ""
-            ? asNumber(raw.amount_egp)
-            : toEgp(paid, currency, rates),
+        // نحسب المبلغ بالجنيه من بيانات الدفع وأسعار الصرف، لا من رقم الإكسل.
+        amount_egp: toEgp(paid, currency, rates),
         payment_status:
           (clean.payment_status as PaymentStatus | undefined) ??
           derivePaymentStatus(total, paid),
@@ -797,12 +995,8 @@ export async function commitFinanceImport(
     );
     const expRows: Array<Record<string, unknown>> = [];
     for (const raw of expenses) {
-      const row = buildExpense(raw, rates);
-      // نحافظ على الإجماليات كما هي في الإكسل إن وُجدت
-      if (raw.total_amount !== undefined && raw.total_amount !== null)
-        row.total_amount = asNumber(raw.total_amount);
-      if (raw.total_egp !== undefined && raw.total_egp !== null)
-        row.total_egp = asNumber(raw.total_egp);
+      // المستورد: متوقف (يحافظ على عدد المرات من الإكسل) ومصنّف تلقائيًا من الاسم.
+      const row = buildExpense({ ...raw, is_running: false }, rates);
       const key = `${row.payee}|${row.start_month}|${row.total_amount}`;
       if (expSeen.has(key)) {
         result.expensesSkipped += 1;
@@ -829,8 +1023,6 @@ export async function commitFinanceImport(
     const incRows: Array<Record<string, unknown>> = [];
     for (const raw of income) {
       const row = buildIncome(raw, rates);
-      if (raw.total_egp !== undefined && raw.total_egp !== null)
-        row.total_egp = asNumber(raw.total_egp);
       const key = `${row.for_what}|${row.month}|${row.amount}`;
       if (incSeen.has(key)) {
         result.incomeSkipped += 1;

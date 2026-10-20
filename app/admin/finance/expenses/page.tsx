@@ -13,7 +13,7 @@ export default async function ExpensesPage() {
         title="المصروفات"
         description="مصروفات المنصة: الاشتراكات والخدمات والإعلانات والرواتب."
       />
-      <ExpensesManager initial={data.expenses} />
+      <ExpensesManager initial={data.expenses} services={data.services} />
     </>
   );
 }

@@ -1,15 +1,24 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 
 import {
   deleteExpense,
   saveExpense,
+  saveService,
 } from "@/lib/actions/admin/finance";
-import type { FinanceExpense } from "@/lib/finance/shared";
+import {
+  BILLING_PERIOD_LABELS,
+  EXPENSE_CATEGORY_LABELS,
+  type ExpenseCategory,
+  type FinanceExpense,
+  type FinanceService,
+} from "@/lib/finance/shared";
 
-import EditableCell, { type CellType } from "./EditableCell";
+import EditableCell from "./EditableCell";
+import ServicesManager from "./ServicesManager";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n);
@@ -20,100 +29,135 @@ const CURRENCIES = [
   { value: "USD", label: "دولار $" },
 ];
 
-const COLS: Array<{
-  key: keyof FinanceExpense;
-  label: string;
-  type: CellType;
-  width: number;
-  options?: Array<{ value: string; label: string }>;
-  readOnly?: boolean;
-}> = [
-  { key: "payee", label: "مدفوع إلى", type: "text", width: 280 },
-  { key: "start_month", label: "من", type: "date", width: 130 },
-  { key: "end_month", label: "إلى", type: "date", width: 130 },
-  { key: "months_count", label: "عدد الأشهر", type: "number", width: 80 },
-  { key: "currency", label: "العملة", type: "select", width: 110, options: CURRENCIES },
-  { key: "monthly_amount", label: "المصروف الشهري", type: "number", width: 110 },
-  { key: "total_amount", label: "الإجمالي", type: "number", width: 100, readOnly: true },
-  { key: "total_egp", label: "الإجمالي (جنيه)", type: "number", width: 110, readOnly: true },
-  { key: "notes", label: "ملاحظات", type: "text", width: 220 },
-];
+const CATEGORY_OPTIONS = (
+  Object.keys(EXPENSE_CATEGORY_LABELS) as ExpenseCategory[]
+).map((k) => ({ value: k, label: EXPENSE_CATEGORY_LABELS[k] }));
+
+const PERIOD_OPTIONS = (
+  Object.keys(BILLING_PERIOD_LABELS) as Array<keyof typeof BILLING_PERIOD_LABELS>
+).map((k) => ({ value: k, label: BILLING_PERIOD_LABELS[k] }));
+
+type Tab = "all" | ExpenseCategory;
 
 export default function ExpensesManager({
   initial,
+  services,
 }: {
   initial: FinanceExpense[];
+  services: FinanceService[];
 }) {
+  const router = useRouter();
   const [rows, setRows] = useState(initial);
+  const [tab, setTab] = useState<Tab>("all");
   const [message, setMessage] = useState("");
 
-  const total = useMemo(
-    () => rows.reduce((s, r) => s + r.total_egp, 0),
-    [rows],
-  );
-
-  const year = new Date().getFullYear().toString();
-  const yearTotal = useMemo(
-    () =>
-      rows
-        .filter((r) => r.start_month.startsWith(year))
-        .reduce((s, r) => s + r.total_egp, 0),
-    [rows, year],
-  );
+  useEffect(() => setRows(initial), [initial]);
 
   const flash = (m: string) => {
     setMessage(m);
     setTimeout(() => setMessage(""), 4000);
   };
 
+  const totals = useMemo(() => {
+    const t: Record<Tab, { count: number; egp: number }> = {
+      all: { count: 0, egp: 0 },
+      ads: { count: 0, egp: 0 },
+      platform: { count: 0, egp: 0 },
+      other: { count: 0, egp: 0 },
+    };
+    for (const r of rows) {
+      t.all.count += 1;
+      t.all.egp += r.total_egp;
+      t[r.category].count += 1;
+      t[r.category].egp += r.total_egp;
+    }
+    return t;
+  }, [rows]);
+
+  const visible = rows.filter((r) => tab === "all" || r.category === tab);
+
   const save = async (
     id: string,
     key: string,
     value: string | number | boolean | null,
   ) => {
-    // "إلى" اختياري، أما غيره فنمنع تفريغه
     const result = await saveExpense(id, { [key]: value });
-    if (!result.success || !result.data) {
+    if (!result.success) {
       flash(result.message || "تعذر الحفظ");
       return false;
     }
-    setRows((prev) => prev.map((r) => (r.id === id ? result.data! : r)));
+    router.refresh();
     return true;
+  };
+
+  const toggle = async (r: FinanceExpense) => {
+    const result = r.service_id
+      ? await saveService(r.service_id, { is_running: !r.is_running })
+      : await saveExpense(r.id, { is_running: !r.is_running });
+    if (!result.success) return flash(result.message || "تعذر التغيير");
+    router.refresh();
   };
 
   const add = async () => {
     const result = await saveExpense(null, {
       payee: "مصروف جديد",
-      months_count: 1,
+      category: tab === "all" ? "other" : tab,
       monthly_amount: 0,
       currency: "EGP",
+      billing_period: "monthly",
+      months_count: 1,
     });
-    if (!result.success || !result.data) return flash(result.message || "تعذر الإضافة");
-    setRows((prev) => [result.data!, ...prev]);
+    if (!result.success) return flash(result.message || "تعذر الإضافة");
+    router.refresh();
   };
 
-  const remove = async (id: string) => {
+  const remove = async (r: FinanceExpense) => {
+    if (r.service_id) {
+      return flash("احذفي الخدمة من جدول الخدمات أسفل الصفحة لحذف صرفها.");
+    }
     if (!window.confirm("حذف هذا المصروف نهائيًا؟")) return;
-    const result = await deleteExpense(id);
+    const result = await deleteExpense(r.id);
     if (!result.success) return flash(result.message || "تعذر الحذف");
-    setRows((prev) => prev.filter((r) => r.id !== id));
+    router.refresh();
   };
+
+  const tabs: Array<{ key: Tab; label: string }> = [
+    { key: "all", label: "إجمالي المصروفات" },
+    { key: "ads", label: EXPENSE_CATEGORY_LABELS.ads },
+    { key: "platform", label: EXPENSE_CATEGORY_LABELS.platform },
+    { key: "other", label: EXPENSE_CATEGORY_LABELS.other },
+  ];
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <div className="rounded-2xl border border-[#F7B548] bg-[#07152E] p-4 text-white">
-          <p className="text-xs font-bold text-[#F7B548]">إجمالي المصروفات (جنيه)</p>
-          <p className="mt-1.5 text-2xl font-black">{fmt(total)}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-xs font-bold text-slate-500">مصروفات {year}</p>
-          <p className="mt-1.5 text-2xl font-black text-[#07152E]">{fmt(yearTotal)}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-xs font-bold text-slate-500">عدد البنود</p>
-          <p className="mt-1.5 text-2xl font-black text-[#07152E]">{rows.length}</p>
-        </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            className={`rounded-2xl border p-4 text-right transition ${
+              tab === t.key
+                ? "border-[#F7B548] bg-[#07152E] text-white"
+                : "border-slate-200 bg-white hover:border-[#F7B548]/60"
+            }`}
+          >
+            <p
+              className={`text-xs font-bold ${
+                tab === t.key ? "text-[#F7B548]" : "text-slate-500"
+              }`}
+            >
+              {t.label}
+            </p>
+            <p className="mt-1.5 text-2xl font-black">
+              {fmt(totals[t.key].egp)}
+              <span className="mr-1 text-xs font-bold opacity-60">جنيه</span>
+            </p>
+            <p className="mt-0.5 text-[11px] opacity-60">
+              {totals[t.key].count} بند
+            </p>
+          </button>
+        ))}
       </div>
 
       {message ? (
@@ -125,7 +169,8 @@ export default function ExpensesManager({
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-200 p-3">
           <p className="text-sm font-black text-[#07152E]">
-            جدول المصروفات — اضغط على أي خلية لتعديلها (الإجمالي يُحسب تلقائيًا)
+            جدول المصروفات ({visible.length}) — المصروف «المستمر» يزيد تلقائيًا
+            حسب دورته (يومي / شهري / سنوي) حتى تُوقفيه
           </p>
           <button
             type="button"
@@ -140,54 +185,185 @@ export default function ExpensesManager({
         <div className="overflow-auto">
           <table className="w-max min-w-full text-right">
             <thead className="bg-slate-50">
-              <tr className="border-b border-slate-200">
-                {COLS.map((c) => (
-                  <th key={c.key} className="whitespace-nowrap px-2 py-3 text-[11px] font-black text-slate-500">
-                    {c.label}
+              <tr className="border-b border-slate-200 text-[11px] font-black text-slate-500">
+                {[
+                  "الحالة",
+                  "الفئة",
+                  "مدفوع إلى",
+                  "الدورة",
+                  "المبلغ لكل دورة",
+                  "العملة",
+                  "من",
+                  "إلى",
+                  "عدد مرات الصرف",
+                  "الإجمالي",
+                  "الإجمالي (جنيه)",
+                  "ملاحظات",
+                ].map((h) => (
+                  <th key={h} className="whitespace-nowrap px-2 py-3">
+                    {h}
                   </th>
                 ))}
                 <th />
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 ? (
+              {visible.length === 0 ? (
                 <tr>
-                  <td colSpan={COLS.length + 1} className="p-10 text-center text-sm text-slate-400">
-                    لا توجد مصروفات بعد. يمكنك استيرادها من ملف الإكسل في صفحة المدفوعات.
+                  <td colSpan={13} className="p-10 text-center text-sm text-slate-400">
+                    لا توجد مصروفات في هذا التبويب.
                   </td>
                 </tr>
               ) : (
-                rows.map((r) => (
-                  <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50/60">
-                    {COLS.map((c) => (
-                      <td key={c.key} className="px-1 py-1">
-                        {c.readOnly ? (
-                          <span className="block px-1.5 text-xs font-bold text-[#07152E]">
-                            {fmt(Number(r[c.key] ?? 0))}
+                visible.map((r) => {
+                  const linked = Boolean(r.service_id);
+                  const ro = (v: string) => (
+                    <span className="block whitespace-nowrap px-1.5 text-xs font-semibold text-slate-600">
+                      {v}
+                    </span>
+                  );
+                  return (
+                    <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50/60">
+                      <td className="px-2 py-1">
+                        <button
+                          type="button"
+                          onClick={() => toggle(r)}
+                          className={`rounded-full px-3 py-1 text-[11px] font-black ${
+                            r.is_running
+                              ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                              : "bg-slate-200 text-slate-600 hover:bg-slate-300"
+                          }`}
+                          title="اضغطي للتبديل بين مستمر ومتوقف"
+                        >
+                          {r.is_running ? "● مستمر" : "■ متوقف"}
+                        </button>
+                      </td>
+                      <td className="px-1 py-1">
+                        <EditableCell
+                          value={r.category}
+                          type="select"
+                          options={CATEGORY_OPTIONS}
+                          width={130}
+                          onSave={(v) => save(r.id, "category", v)}
+                        />
+                      </td>
+                      <td className="px-1 py-1">
+                        {linked ? (
+                          <span className="block whitespace-nowrap px-1.5 text-xs font-black text-[#07152E]">
+                            {r.payee}{" "}
+                            <span className="rounded bg-amber-100 px-1 text-[10px] text-amber-800">
+                              من جدول الخدمات
+                            </span>
                           </span>
                         ) : (
                           <EditableCell
-                            value={r[c.key] as string | number | null}
-                            type={c.type}
-                            options={c.options}
-                            width={c.width}
-                            onSave={(v) => save(r.id, c.key, v)}
+                            value={r.payee}
+                            width={260}
+                            onSave={(v) => save(r.id, "payee", v)}
                           />
                         )}
                       </td>
-                    ))}
-                    <td className="px-2">
-                      <button type="button" onClick={() => remove(r.id)} className="text-slate-300 hover:text-red-600">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                      <td className="px-1 py-1">
+                        {linked ? (
+                          ro(BILLING_PERIOD_LABELS[r.billing_period])
+                        ) : (
+                          <EditableCell
+                            value={r.billing_period}
+                            type="select"
+                            options={PERIOD_OPTIONS}
+                            width={90}
+                            onSave={(v) => save(r.id, "billing_period", v)}
+                          />
+                        )}
+                      </td>
+                      <td className="px-1 py-1">
+                        {linked ? (
+                          ro(fmt(r.monthly_amount))
+                        ) : (
+                          <EditableCell
+                            value={r.monthly_amount}
+                            type="number"
+                            width={90}
+                            onSave={(v) => save(r.id, "monthly_amount", v)}
+                          />
+                        )}
+                      </td>
+                      <td className="px-1 py-1">
+                        {linked ? (
+                          ro(r.currency)
+                        ) : (
+                          <EditableCell
+                            value={r.currency}
+                            type="select"
+                            options={CURRENCIES}
+                            width={105}
+                            onSave={(v) => save(r.id, "currency", v)}
+                          />
+                        )}
+                      </td>
+                      <td className="px-1 py-1">
+                        {linked ? (
+                          ro(r.start_month)
+                        ) : (
+                          <EditableCell
+                            value={r.start_month}
+                            type="date"
+                            width={130}
+                            onSave={(v) => save(r.id, "start_month", v)}
+                          />
+                        )}
+                      </td>
+                      <td className="px-1 py-1">
+                        {r.is_running
+                          ? ro("مستمر حتى اليوم")
+                          : linked
+                            ? ro("متوقف")
+                            : ro(r.end_month ?? "—")}
+                      </td>
+                      <td className="px-1 py-1">
+                        {r.is_running || linked ? (
+                          ro(String(r.months_count))
+                        ) : (
+                          <EditableCell
+                            value={r.months_count}
+                            type="number"
+                            width={70}
+                            onSave={(v) => save(r.id, "months_count", v)}
+                          />
+                        )}
+                      </td>
+                      <td className="px-2 py-1 text-xs font-bold text-[#07152E]">
+                        {fmt(r.total_amount)} {r.currency}
+                      </td>
+                      <td className="px-2 py-1 text-xs font-black text-[#07152E]">
+                        {fmt(r.total_egp)}
+                      </td>
+                      <td className="px-1 py-1">
+                        <EditableCell
+                          value={r.notes}
+                          width={200}
+                          onSave={(v) => save(r.id, "notes", v)}
+                        />
+                      </td>
+                      <td className="px-2">
+                        <button
+                          type="button"
+                          onClick={() => remove(r)}
+                          className="text-slate-300 hover:text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
       </section>
+
+      <ServicesManager services={services} />
     </div>
   );
 }

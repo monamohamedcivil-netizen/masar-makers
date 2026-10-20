@@ -39,15 +39,53 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
     for (const c of p.courses) titleByCode.set(c.code, c.title);
 
   /* ---------- مؤشرات ---------- */
-  const income = payments.reduce((s, p) => s + p.amount_egp, 0);
+  const incomeOf = (rows: typeof payments) =>
+    rows.reduce((s, p) => s + p.amount_egp, 0);
+
+  const integrated = payments.filter((p) => p.journey_kind !== "one_day");
+  const oneDay = payments.filter((p) => p.journey_kind === "one_day");
+  const integratedIncome = incomeOf(integrated);
+  const oneDayIncome = incomeOf(oneDay);
+  const income = integratedIncome + oneDayIncome;
   const expensesTotal = expenses.reduce((s, e) => s + e.total_egp, 0);
   const otherTotal = otherIncome.reduce((s, i) => s + i.total_egp, 0);
   const profit = income + otherTotal - expensesTotal;
+
+  const expenseByCategory = (cat: string) =>
+    expenses.filter((e) => e.category === cat).reduce((s, e) => s + e.total_egp, 0);
+
+  const yearIncome = (y: string) =>
+    payments
+      .filter((p) => (p.paid_at ?? "").startsWith(y))
+      .reduce((s, p) => s + p.amount_egp, 0) +
+    otherIncome
+      .filter((i) => i.month.startsWith(y))
+      .reduce((s, i) => s + i.total_egp, 0);
+  const yearExpenses = (y: string) => data.expensesByYear[y] ?? 0;
+  const yearProfit = (y: string) => yearIncome(y) - yearExpenses(y);
+
+  const pctChange = (cur: number, prev: number) =>
+    prev === 0 ? null : ((cur - prev) / Math.abs(prev)) * 100;
+  const fmtPct = (v: number | null) =>
+    v === null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)}%`;
+  const profitChange = pctChange(yearProfit(thisYear), yearProfit(lastYear));
+  const expensesChange = pctChange(yearExpenses(thisYear), yearExpenses(lastYear));
+
   const people = new Set(
     payments.map((p) => (p.email ?? p.student_name ?? p.id).split(/[\s,&;]+/)[0].toLowerCase()),
   ).size;
   const paidRows = payments.filter((p) => p.amount_egp > 0);
   const avgPrice = paidRows.length ? income / paidRows.length : 0;
+
+  // متوسط الدخل الشهري = صافي الربح ÷ عدد الشهور من يناير 2026 حتى الشهر الحالي (شاملًا).
+  // يتغير مرة واحدة فقط عند بداية كل شهر، ولا يُحسب إلا عند فتح الصفحة.
+  const nowDate = new Date();
+  const elapsedMonths = Math.max(
+    1,
+    (nowDate.getUTCFullYear() - 2026) * 12 + nowDate.getUTCMonth() + 1,
+  );
+  const avgMonthly = profit / elapsedMonths;
+  const sarRate = data.rates.SAR || 13.5;
 
   const byMonth = new Map<string, { income: number; count: number }>();
   const byCourse = new Map<string, { income: number; count: number }>();
@@ -74,11 +112,6 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
   }
 
   const months = [...byMonth.keys()].filter((k) => k !== "—").sort();
-  const monthsWorked = months.length || 1;
-  const yearIncome = (y: string) =>
-    payments
-      .filter((p) => (p.paid_at ?? "").startsWith(y))
-      .reduce((s, p) => s + p.amount_egp, 0);
 
   const maxMonth = Math.max(1, ...months.map((k) => byMonth.get(k)!.income));
   const courses = [...byCourse.entries()].sort((a, b) => b[1].income - a[1].income);
@@ -99,21 +132,74 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
     <div className="space-y-6">
       {/* مؤشرات رئيسية */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi label="إجمالي دخل الاشتراكات" value={fmt(income)} unit="جنيه" accent />
+        <Kpi
+          label="دخل اشتراكات الرحلات المتكاملة"
+          value={fmt(integratedIncome)}
+          unit="جنيه"
+          note={`${integrated.length} اشتراك`}
+          accent
+        />
+        <Kpi
+          label="دخل اشتراكات رحلات اليوم الواحد"
+          value={fmt(oneDayIncome)}
+          unit="جنيه"
+          note={`${oneDay.length} اشتراك`}
+        />
+        <Kpi
+          label="دخل البرامج"
+          value={fmt(otherTotal)}
+          unit="جنيه"
+          note={`${otherIncome.length} عملية بيع`}
+        />
+        <Kpi
+          label="صافي الربح"
+          value={fmt(profit)}
+          unit="جنيه"
+          note="الاشتراكات + البرامج − المصروفات"
+          good={profit >= 0}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi label="إجمالي المصروفات" value={fmt(expensesTotal)} unit="جنيه" />
-        <Kpi label="صافي الربح (اشتراكات + برامج − مصروفات)" value={fmt(profit)} unit="جنيه" good={profit >= 0} />
-        <Kpi label="دخل بيع نسخ البرامج" value={fmt(otherTotal)} unit="جنيه" />
+        <Kpi label="مصروفات الإعلانات المدفوعة" value={fmt(expenseByCategory("ads"))} unit="جنيه" />
+        <Kpi label="مصروفات خدمات المنصة" value={fmt(expenseByCategory("platform"))} unit="جنيه" />
+        <Kpi label="مصروفات أخرى" value={fmt(expenseByCategory("other"))} unit="جنيه" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi label={`دخل ${thisYear} (السنة الحالية)`} value={fmt(yearIncome(thisYear))} unit="جنيه" />
+        <Kpi label={`دخل ${lastYear} (السنة السابقة)`} value={fmt(yearIncome(lastYear))} unit="جنيه" />
+        <Kpi
+          label="نسبة تغير الربح"
+          value={fmtPct(profitChange)}
+          note={
+            profitChange === null
+              ? `لا توجد بيانات ${lastYear} للمقارنة`
+              : `${thisYear} مقابل ${lastYear}`
+          }
+          good={profitChange === null ? undefined : profitChange >= 0}
+        />
+        <Kpi
+          label="نسبة تغير المصروفات"
+          value={fmtPct(expensesChange)}
+          note={
+            expensesChange === null
+              ? `لا توجد مصروفات ${lastYear} للمقارنة`
+              : `${thisYear} مقابل ${lastYear}`
+          }
+          good={expensesChange === null ? undefined : expensesChange <= 0}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi label="عدد الاشتراكات" value={String(payments.length)} />
         <Kpi label="عدد الأشخاص" value={String(people)} />
-        <Kpi label="متوسط الدخل الشهري" value={fmt(income / monthsWorked)} unit="جنيه" />
         <Kpi label="متوسط سعر الاشتراك" value={fmt(avgPrice)} unit="جنيه" />
-        <Kpi label={`دخل ${thisYear}`} value={fmt(yearIncome(thisYear))} unit="جنيه" />
-        <Kpi label={`دخل ${lastYear}`} value={fmt(yearIncome(lastYear))} unit="جنيه" />
-        <Kpi label="عدد الأشهر" value={String(monthsWorked)} />
         <Kpi
-          label="الربح قبل بيع البرامج"
-          value={fmt(income - expensesTotal)}
-          unit="جنيه"
+          label="متوسط الدخل الشهري"
+          value={`${fmt(avgMonthly)} جنيه`}
+          note={`≈ ${fmt(avgMonthly / sarRate)} ريال · عدد الشهور: ${elapsedMonths} (من يناير 2026 حتى ${monthLabel(today.slice(0, 7))})`}
         />
       </div>
 
@@ -285,12 +371,14 @@ function Kpi({
   unit,
   accent,
   good,
+  note,
 }: {
   label: string;
   value: string;
   unit?: string;
   accent?: boolean;
   good?: boolean;
+  note?: string;
 }) {
   return (
     <div
@@ -307,6 +395,11 @@ function Kpi({
         {value}
         {unit ? <span className="mr-1 text-xs font-bold opacity-60">{unit}</span> : null}
       </p>
+      {note ? (
+        <p className={`mt-1 text-[11px] leading-4 ${accent ? "text-white/60" : "text-slate-400"}`}>
+          {note}
+        </p>
+      ) : null}
     </div>
   );
 }

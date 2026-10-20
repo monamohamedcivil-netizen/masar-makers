@@ -48,7 +48,20 @@ export interface FinancePayment {
   certificate_issued: boolean;
   survey_done: boolean;
   source: "enrollment" | "import" | "manual";
+  journey_kind: "integrated" | "one_day";
   created_at: string;
+  /** يُحسب تلقائيًا: none = لم يسجّل بالمنصة، registered = له حساب بلا اشتراك نشط بالكورس، enrolled = مشترك. */
+  account_status?: "none" | "registered" | "enrolled";
+}
+
+export type CourseStage = "fundamental" | "advanced" | "other";
+
+/** مرحلة الاشتراك من رمز الإصدار: C3D-F1 / CSD-F2 أساسيات، CSD-A1 متقدم. */
+export function stageOfEdition(edition: string | null | undefined): CourseStage {
+  const code = String(edition ?? "").toUpperCase();
+  if (/-F/.test(code)) return "fundamental";
+  if (/-A/.test(code)) return "advanced";
+  return "other";
 }
 
 export interface FinanceOffer {
@@ -69,17 +82,56 @@ export interface FinancePriceItem {
   sort_order: number;
 }
 
+export type ExpenseCategory = "ads" | "platform" | "other";
+export type BillingPeriod = "daily" | "monthly" | "yearly";
+
+export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
+  ads: "إعلانات مدفوعة",
+  platform: "خدمات المنصة",
+  other: "مصروفات أخرى",
+};
+
+export const BILLING_PERIOD_LABELS: Record<BillingPeriod, string> = {
+  daily: "يومي",
+  monthly: "شهري",
+  yearly: "سنوي",
+};
+
 export interface FinanceExpense {
   id: string;
   payee: string;
   start_month: string;
   end_month: string | null;
+  /** عدد مرات الصرف (للمتوقف: المخزَّن، وللمستمر: يُحسب تلقائيًا حتى اليوم) */
   months_count: number;
   currency: string;
   monthly_amount: number;
   total_amount: number;
   total_egp: number;
   notes: string | null;
+  category: ExpenseCategory;
+  billing_period: BillingPeriod;
+  is_running: boolean;
+  service_id: string | null;
+  /** يُملأ للصفوف المرتبطة بخدمة: اسم الخدمة */
+  service_name?: string | null;
+}
+
+export interface FinanceService {
+  id: string;
+  name: string;
+  category: ExpenseCategory;
+  amount: number | null;
+  currency: string;
+  billing_period: BillingPeriod;
+  started_on: string | null;
+  stopped_on: string | null;
+  is_running: boolean;
+  next_renewal: string | null;
+  next_renewal_note: string | null;
+  last_payment_note: string | null;
+  notes: string | null;
+  sort_order: number;
 }
 
 export interface FinanceOtherIncome {
@@ -135,4 +187,18 @@ export function courseCodeFromEdition(edition: string | null | undefined) {
 
 export function monthKey(date: string | null | undefined) {
   return date ? date.slice(0, 7) : "";
+}
+
+/** تصنيف مصروف مستورد من اسم المستلم (إعلانات / خدمات المنصة / أخرى) ودورة الصرف. */
+export function classifyExpense(payee: string): {
+  category: ExpenseCategory;
+  period: BillingPeriod;
+} {
+  const name = payee.toLowerCase();
+  if (/meta|إعلان|اعلان|ads/.test(name)) return { category: "ads", period: "daily" };
+  if (/namecheap|domain|دوماين|دومين/.test(name))
+    return { category: "platform", period: "yearly" };
+  if (/zoom|cloudways|chatgpt|openai|bunny|digitalocean|cloud|claude|resend|سيرفر/.test(name))
+    return { category: "platform", period: "monthly" };
+  return { category: "other", period: "monthly" };
 }

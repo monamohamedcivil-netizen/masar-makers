@@ -52,6 +52,11 @@ const navigationGroups: NavigationGroup[] = [
         href: "/admin/dashboard",
         icon: LayoutDashboard,
       },
+      {
+        title: "التقارير",
+        href: "/admin/reports",
+        icon: ChartNoAxesCombined,
+      },
     ],
   },
   {
@@ -156,11 +161,6 @@ const navigationGroups: NavigationGroup[] = [
         title: "السحب الشهري",
         href: "/admin/content/monthly-draw",
         icon: Gift,
-      },
-      {
-        title: "التقارير",
-        href: "/admin/reports",
-        icon: ChartNoAxesCombined,
       },
       {
         title: "الإعدادات",

@@ -8,6 +8,7 @@ import {
   commitFinanceImport,
   type ImportResult,
 } from "@/lib/actions/admin/finance";
+import { DEFAULT_RATES, toEgp } from "@/lib/finance/shared";
 import {
   parseFinanceWorkbook,
   type ParsedImport,
@@ -59,7 +60,11 @@ export default function ExcelImportPanel() {
   };
 
   const totalEgp = parsed
-    ? parsed.payments.reduce((s, p) => s + (Number(p.amount_egp) || 0), 0)
+    ? parsed.payments.reduce(
+        (s, p) =>
+          s + toEgp(Number(p.amount_paid) || 0, String(p.currency), DEFAULT_RATES),
+        0,
+      )
     : 0;
 
   return (
@@ -76,7 +81,7 @@ export default function ExcelImportPanel() {
       {open ? (
         <div className="mt-4 space-y-4 text-sm">
           <p className="text-xs leading-6 text-slate-500">
-            اختر ملف الإكسل، سأعرض لك معاينة بما سيُضاف قبل أي حفظ. السجلات الموجودة
+            اختر ملف الإكسل، سأعرض لك معاينة بما سيُضاف قبل أي حفظ. يُستورد بيانات الطلاب والأسعار فقط، وتُحسب كل الإحصائيات والإجماليات تلقائيًا من الجدول. السجلات الموجودة
             بالفعل لا تتكرر، والاستيراد يضيف الناقص فقط.
           </p>
 
@@ -94,7 +99,7 @@ export default function ExcelImportPanel() {
             <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
               <p className="font-black text-amber-900">معاينة: {fileName}</p>
               <ul className="space-y-1 text-xs font-semibold text-slate-700">
-                <li>• اشتراكات: {parsed.payments.length} (إجمالي المدفوع بالجنيه: {fmt(totalEgp)})</li>
+                <li>• اشتراكات: {parsed.payments.length} (إجمالي المدفوع بالجنيه بأسعار الصرف الحالية: {fmt(totalEgp)})</li>
                 <li>• مصروفات: {parsed.expenses.length}</li>
                 <li>• دخل بيع نسخ البرامج: {parsed.otherIncome.length}</li>
               </ul>
@@ -121,7 +126,9 @@ export default function ExcelImportPanel() {
                         <td className="p-1.5">
                           {String(p.amount_paid ?? "")} {String(p.currency ?? "")}
                         </td>
-                        <td className="p-1.5">{String(p.amount_egp ?? "")}</td>
+                        <td className="p-1.5">
+                          {fmt(toEgp(Number(p.amount_paid) || 0, String(p.currency), DEFAULT_RATES))}
+                        </td>
                         <td className="p-1.5">{String(p.paid_at ?? "")}</td>
                       </tr>
                     ))}

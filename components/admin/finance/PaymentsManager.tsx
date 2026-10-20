@@ -17,6 +17,7 @@ import {
 import type { FinanceData } from "@/lib/finance/queries";
 import {
   PAYMENT_STATUS_LABELS,
+  stageOfEdition,
   type FinanceOffer,
   type FinanceOtherIncome,
   type FinancePayment,
@@ -47,6 +48,8 @@ type Col = {
   options?: Array<{ value: string; label: string }>;
   readOnly?: boolean;
   offers?: boolean;
+  auto?: boolean;
+  csdOnly?: boolean;
 };
 
 const COLUMNS: Col[] = [
@@ -57,6 +60,16 @@ const COLUMNS: Col[] = [
   { key: "nationality", label: "الجنسية", type: "text", width: 90 },
   { key: "country", label: "بلد الإقامة", type: "text", width: 90 },
   { key: "edition_code", label: "الإصدار", type: "text", width: 90 },
+  {
+    key: "journey_kind",
+    label: "نوع الرحلة",
+    type: "select",
+    width: 120,
+    options: [
+      { value: "integrated", label: "متكاملة" },
+      { value: "one_day", label: "يوم واحد" },
+    ],
+  },
   {
     key: "delivery_type",
     label: "النوع",
@@ -80,11 +93,11 @@ const COLUMNS: Col[] = [
   { key: "followup_date", label: "موعد المتابعة", type: "date", width: 130 },
   { key: "followup_reason", label: "سبب المتابعة", type: "text", width: 180 },
   { key: "followup_done", label: "تمت المتابعة", type: "bool", width: 70 },
-  { key: "activation_key", label: "مفتاح التفعيل", type: "text", width: 130 },
-  { key: "email_sent", label: "أُرسل الإيميل", type: "bool", width: 70 },
-  { key: "expires_at", label: "تاريخ الانتهاء", type: "date", width: 130 },
-  { key: "certificate_issued", label: "الشهادة", type: "bool", width: 70 },
-  { key: "survey_done", label: "الاستبيان", type: "bool", width: 70 },
+  { key: "activation_key", label: "مفتاح التفعيل", type: "text", width: 130, csdOnly: true },
+  { key: "email_sent", label: "أُرسل الإيميل", type: "bool", width: 70, csdOnly: true },
+  { key: "expires_at", label: "تاريخ الانتهاء", type: "date", width: 130, csdOnly: true },
+  { key: "certificate_issued", label: "الشهادة (تلقائي)", type: "bool", width: 70, auto: true },
+  { key: "survey_done", label: "الاستبيان (تلقائي)", type: "bool", width: 70, auto: true },
 ];
 
 type Props = Pick<
@@ -101,6 +114,7 @@ export default function PaymentsManager(props: Props) {
 
   const [tab, setTab] = useState<string>(props.paths[0]?.id ?? "other");
   const [courseTab, setCourseTab] = useState<string>("all");
+  const [stageFilter, setStageFilter] = useState<"all" | "fundamental" | "advanced">("all");
   const [showPricing, setShowPricing] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -142,14 +156,25 @@ export default function PaymentsManager(props: Props) {
     if (tab === "unassigned") return unassigned;
     if (!activePath) return [];
     const codes = activePath.courses.map((c) => c.code);
-    return payments.filter(
-      (p) =>
-        p.course_code &&
-        (courseTab === "all"
-          ? codes.includes(p.course_code)
-          : p.course_code === courseTab),
-    );
-  }, [tab, activePath, courseTab, payments, unassigned]);
+    const activeCourse = activePath.courses.find((c) => c.code === courseTab);
+    return payments.filter((p) => {
+      if (!p.course_code) return false;
+      if (courseTab === "all" ? !codes.includes(p.course_code) : p.course_code !== courseTab)
+        return false;
+      // كورس بمرحلتين: فلتر الأساسيات / المتقدم
+      if (activeCourse?.split && stageFilter !== "all") {
+        return stageOfEdition(p.edition_code) === stageFilter;
+      }
+      return true;
+    });
+  }, [tab, activePath, courseTab, stageFilter, payments, unassigned]);
+
+  const notRegistered = rows.filter((p) => p.account_status === "none").length;
+
+  // أعمدة مفتاح التفعيل والإيميل وتاريخ الانتهاء تخص كورس CSD فقط.
+  const columns = COLUMNS.filter(
+    (c) => !c.csdOnly || (Boolean(activePath) && courseTab === "CSD"),
+  );
 
   /* ---------- العمليات ---------- */
   const flash = (text: string) => {
@@ -236,16 +261,46 @@ export default function PaymentsManager(props: Props) {
       {/* تبويبات الكورسات داخل المسار */}
       {activePath ? (
         <div className="flex flex-wrap gap-1.5">
-          <SubTab active={courseTab === "all"} onClick={() => setCourseTab("all")}>
+          <SubTab
+            active={courseTab === "all"}
+            onClick={() => {
+              setCourseTab("all");
+              setStageFilter("all");
+            }}
+          >
             الكل
           </SubTab>
           {activePath.courses.map((c) => (
             <SubTab
               key={c.id}
               active={courseTab === c.code}
-              onClick={() => setCourseTab(c.code)}
+              onClick={() => {
+                setCourseTab(c.code);
+                setStageFilter("all");
+              }}
             >
               {c.title}
+            </SubTab>
+          ))}
+        </div>
+      ) : null}
+
+      {activePath?.courses.find((c) => c.code === courseTab)?.split ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs font-bold text-slate-500">المرحلة:</span>
+          {(
+            [
+              ["all", "الاثنتان"],
+              ["fundamental", "الأساسيات"],
+              ["advanced", "المتقدم"],
+            ] as const
+          ).map(([key, label]) => (
+            <SubTab
+              key={key}
+              active={stageFilter === key}
+              onClick={() => setStageFilter(key)}
+            >
+              {label}
             </SubTab>
           ))}
         </div>
@@ -258,6 +313,11 @@ export default function PaymentsManager(props: Props) {
           <div className="flex items-center justify-between border-b border-slate-200 p-3">
             <p className="text-sm font-black text-[#07152E]">
               المشتركون ({rows.length}) — اضغط على أي خلية لتعديلها
+              {notRegistered > 0 ? (
+                <span className="mr-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-black text-amber-800">
+                  {notRegistered} لم يسجّل في المنصة بعد
+                </span>
+              ) : null}
             </p>
             <button
               type="button"
@@ -274,7 +334,10 @@ export default function PaymentsManager(props: Props) {
               <thead className="sticky top-0 z-10 bg-slate-50">
                 <tr className="border-b border-slate-200">
                   <th className="px-2 py-3 text-[11px] font-black text-slate-500">#</th>
-                  {COLUMNS.map((c) => (
+                  <th className="whitespace-nowrap px-2 py-3 text-[11px] font-black text-slate-500">
+                    في المنصة
+                  </th>
+                  {columns.map((c) => (
                     <th
                       key={c.key}
                       className="whitespace-nowrap px-2 py-3 text-[11px] font-black text-slate-500"
@@ -289,7 +352,7 @@ export default function PaymentsManager(props: Props) {
                 {rows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={COLUMNS.length + 2}
+                      colSpan={columns.length + 3}
                       className="p-10 text-center text-sm text-slate-400"
                     >
                       لا توجد اشتراكات هنا بعد.
@@ -299,12 +362,36 @@ export default function PaymentsManager(props: Props) {
                   rows.map((p, idx) => (
                     <tr
                       key={p.id}
-                      className="border-b border-slate-100 hover:bg-slate-50/60"
+                      className={`border-b border-slate-100 hover:bg-slate-50/60 ${
+                        p.account_status === "none" ? "bg-amber-50/70" : ""
+                      }`}
                     >
                       <td className="px-2 py-1 text-xs text-slate-400">{idx + 1}</td>
-                      {COLUMNS.map((c) => (
+                      <td className="whitespace-nowrap px-2 py-1">
+                        {p.account_status === "none" ? (
+                          <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-black text-amber-900">
+                            ⚠ لم يسجّل بعد
+                          </span>
+                        ) : p.account_status === "registered" ? (
+                          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-black text-slate-700">
+                            حساب بلا اشتراك
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-800">
+                            مشترك ✓
+                          </span>
+                        )}
+                      </td>
+                      {columns.map((c) => (
                         <td key={c.key} className="px-1 py-1">
-                          {c.readOnly ? (
+                          {c.auto ? (
+                            <span
+                              className="block px-1.5 text-center text-sm font-black text-emerald-600"
+                              title="يُحسب تلقائيًا من بيانات المنصة"
+                            >
+                              {p[c.key] ? "✓" : ""}
+                            </span>
+                          ) : c.readOnly ? (
                             <span className="block px-1.5 text-xs font-bold text-[#07152E]">
                               {fmt(Number(p[c.key] ?? 0))}
                             </span>
