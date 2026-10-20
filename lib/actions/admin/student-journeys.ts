@@ -16,6 +16,8 @@ export interface StudentJourneyRow {
   courseId: string;
   courseTitle: string;
   courseCode: string | null;
+  /** اسم المحاضرة المطلوبة (لرحلات اليوم الواحد والمجانية). */
+  lessonTitle?: string | null;
   stationTitle: string | null;
   journeyType: string;
   enrollmentSource: StudentJourneySource;
@@ -1007,6 +1009,55 @@ export async function getStudentJourneys(
       updatedAt:
         enrollment.updated_at,
     });
+  }
+
+  // اسم المحاضرة لرحلات اليوم الواحد والمجانية (action_key = workshop|free:lesson:ID).
+  const requestedLessonIdOf = (key: string | null) => {
+    const match = /^(?:workshop|free):lesson:([0-9a-f-]{36})$/i.exec(
+      key?.trim() ?? "",
+    );
+    return match ? match[1] : null;
+  };
+
+  const requestedLessonIds = Array.from(
+    new Set(
+      enrollments
+        .map((item) => requestedLessonIdOf(item.action_key))
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+
+  if (requestedLessonIds.length > 0) {
+    const { data: titleRows } = await supabase
+      .from("lessons")
+      .select("id,title,title_ar")
+      .in("id", requestedLessonIds);
+
+    const titleById = new Map(
+      (titleRows ?? []).map((row) => [
+        String(row.id),
+        (typeof row.title_ar === "string" && row.title_ar.trim()) ||
+          (typeof row.title === "string" && row.title.trim()) ||
+          "",
+      ]),
+    );
+
+    const lessonIdByEnrollment = new Map(
+      enrollments.map((item) => [
+        item.id,
+        requestedLessonIdOf(item.action_key),
+      ]),
+    );
+
+    for (const journey of journeys) {
+      const lessonId = lessonIdByEnrollment.get(
+        journey.id.split(":")[0],
+      );
+
+      if (lessonId) {
+        journey.lessonTitle = titleById.get(lessonId) || null;
+      }
+    }
   }
 
   /*

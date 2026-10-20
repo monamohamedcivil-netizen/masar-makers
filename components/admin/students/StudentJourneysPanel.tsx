@@ -325,6 +325,12 @@ export default function StudentJourneysPanel({
                             }
                           </p>
 
+                          {journey.lessonTitle ? (
+                            <p className="mt-1 text-[11px] font-bold text-slate-600">
+                              {journey.lessonTitle}
+                            </p>
+                          ) : null}
+
                           {journey.courseCode ? (
                             <p className="mt-1 text-[10px] font-black text-[#C88712]">
                               {
