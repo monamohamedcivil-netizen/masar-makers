@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, Search, Send } from "lucide-react";
 
+import { getBroadcastAudienceCount } from "@/lib/admin/announcement-broadcast";
 import {
   getEmailQuota,
   listEmailPickerStudents,
@@ -129,7 +130,7 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
     });
   }
 
-  function submit() {
+  async function submit() {
     setFeedback(null);
 
     if (!subject.trim() || !body.trim()) {
@@ -150,9 +151,19 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
       return;
     }
 
+    let allLabel = "كل الطلاب (لا يشمل الحسابات الموقوفة)";
+    if (mode === "all") {
+      try {
+        const a = await getBroadcastAudienceCount();
+        allLabel = `${a.count} حساب${a.teamCount > 0 ? ` (منهم ${a.teamCount} من حسابات الفريق)` : ""}، ولا يشمل الحسابات الموقوفة`;
+      } catch {
+        /* نستخدم الصياغة العامة */
+      }
+    }
+
     const target =
       mode === "all"
-        ? "كل الطلاب"
+        ? allLabel
         : mode === "selected"
           ? `${selected.size} طالب`
           : "حسابك أنتِ فقط (تجربة)";

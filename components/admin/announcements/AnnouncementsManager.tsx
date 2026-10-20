@@ -242,6 +242,7 @@ export default function AnnouncementsManager({
       if (wantsBroadcast) {
         // تأكيد قبل أي إرسال جماعي (الإيميل لا يمكن التراجع عنه).
         let audienceCount = 0;
+        let teamCount = 0;
         let emailWarning = "";
 
         try {
@@ -249,6 +250,7 @@ export default function AnnouncementsManager({
             await getBroadcastAudienceCount();
 
           audienceCount = audience.count;
+          teamCount = audience.teamCount;
 
           if (form.emailStudents) {
             if (!audience.emailConfigured) {
@@ -280,7 +282,7 @@ export default function AnnouncementsManager({
 
         if (
           !window.confirm(
-            `سيتم حفظ الإعلان وإرساله الآن إلى ${audienceCount} طالب (${channels}).\nالإيميل لا يمكن التراجع عنه بعد إرساله.${emailWarning}\n\nهل تريد المتابعة؟`,
+            `سيتم حفظ الإعلان وإرساله الآن إلى ${audienceCount} حساب (${channels}).${teamCount > 0 ? `\n(منهم ${teamCount} من حسابات الفريق، ولا يشمل الحسابات الموقوفة.)` : "\n(لا يشمل الحسابات الموقوفة.)"}\nالإيميل لا يمكن التراجع عنه بعد إرساله.${emailWarning}\n\nهل تريد المتابعة؟`,
           )
         ) {
           return;
