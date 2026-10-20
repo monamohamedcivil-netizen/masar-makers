@@ -42,6 +42,107 @@ export function mapPayment(row: Record<string, unknown>): FinancePayment {
   };
 }
 
+const EMAIL_RE = /[^\s,&;]+@[^\s,&;]+\.[^\s,&;]+/g;
+
+/**
+ * يحدد تلقائيًا (من بيانات المنصة) هل صدرت شهادة للطالب في هذا الكورس،
+ * وهل أنجز الاستبيان؛ بالمطابقة عبر حساب الطالب (أو بريده) والكورس.
+ */
+export async function applyAutoFlags(
+  admin: ReturnType<typeof createAdminClient>,
+  rows: FinancePayment[],
+): Promise<FinancePayment[]> {
+  if (rows.length === 0) return rows;
+
+  const enrollmentIds = rows
+    .map((r) => r.enrollment_id)
+    .filter((v): v is string => Boolean(v));
+
+  const [certRes, surveyRes, profileRes, courseRes, enrollRes] =
+    await Promise.all([
+      admin
+        .from("certificates")
+        .select("user_id,course_id,student_email,status,revoked_at")
+        .eq("status", "issued")
+        .is("revoked_at", null)
+        .limit(5000),
+      admin
+        .from("student_surveys")
+        .select(
+          "user_id,course_id,student_email,rating,general_survey_completed,detailed_survey_completed",
+        )
+        .limit(5000),
+      admin.from("profiles").select("id,email").limit(5000),
+      admin.from("courses").select("id,course_code"),
+      enrollmentIds.length
+        ? admin.from("enrollments").select("id,user_id").in("id", enrollmentIds)
+        : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
+    ]);
+
+  const lower = (v: unknown) => String(v ?? "").trim().toLowerCase();
+
+  const certKeys = new Set<string>();
+  for (const c of (certRes.data ?? []) as Array<Record<string, unknown>>) {
+    if (c.user_id) certKeys.add(`u:${c.user_id}|${c.course_id}`);
+    if (c.student_email) certKeys.add(`e:${lower(c.student_email)}|${c.course_id}`);
+  }
+
+  const surveyKeys = new Set<string>();
+  for (const sv of (surveyRes.data ?? []) as Array<Record<string, unknown>>) {
+    const done =
+      sv.rating != null ||
+      sv.general_survey_completed === true ||
+      sv.detailed_survey_completed === true;
+    if (!done) continue;
+    if (sv.user_id) surveyKeys.add(`u:${sv.user_id}|${sv.course_id}`);
+    if (sv.student_email)
+      surveyKeys.add(`e:${lower(sv.student_email)}|${sv.course_id}`);
+  }
+
+  const userByEmail = new Map<string, string>();
+  for (const pr of (profileRes.data ?? []) as Array<Record<string, unknown>>) {
+    if (pr.email) userByEmail.set(lower(pr.email), String(pr.id));
+  }
+
+  const courseByCode = new Map<string, string>();
+  for (const c of (courseRes.data ?? []) as Array<Record<string, unknown>>) {
+    if (c.course_code) courseByCode.set(String(c.course_code), String(c.id));
+  }
+
+  const userByEnrollment = new Map<string, string>();
+  for (const e of (enrollRes.data ?? []) as Array<Record<string, unknown>>) {
+    userByEnrollment.set(String(e.id), String(e.user_id));
+  }
+
+  return rows.map((p) => {
+    const courseId =
+      p.course_id ?? (p.course_code ? courseByCode.get(p.course_code) : undefined);
+    if (!courseId) return { ...p, certificate_issued: false, survey_done: false };
+
+    const emails = (p.email ?? "").toLowerCase().match(EMAIL_RE) ?? [];
+    const userIds = new Set<string>();
+    const direct =
+      (p.enrollment_id ? userByEnrollment.get(p.enrollment_id) : undefined) ??
+      (p as FinancePayment & { user_id?: string | null }).user_id;
+    if (direct) userIds.add(direct);
+    for (const em of emails) {
+      const uid = userByEmail.get(em);
+      if (uid) userIds.add(uid);
+    }
+
+    const keys = [
+      ...[...userIds].map((u) => `u:${u}|${courseId}`),
+      ...emails.map((em) => `e:${em}|${courseId}`),
+    ];
+
+    return {
+      ...p,
+      certificate_issued: keys.some((k) => certKeys.has(k)),
+      survey_done: keys.some((k) => surveyKeys.has(k)),
+    };
+  });
+}
+
 export async function getFinanceData(): Promise<FinanceData> {
   await requireAdmin();
   const admin = createAdminClient();
@@ -102,8 +203,11 @@ export async function getFinanceData(): Promise<FinanceData> {
 
   return {
     paths,
-    payments: ((paymentsRes.data ?? []) as Array<Record<string, unknown>>).map(
-      mapPayment,
+    payments: await applyAutoFlags(
+      admin,
+      ((paymentsRes.data ?? []) as Array<Record<string, unknown>>).map(
+        mapPayment,
+      ),
     ),
     offers: ((offersRes.data ?? []) as Array<Record<string, unknown>>).map(
       (o) => ({

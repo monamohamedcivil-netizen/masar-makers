@@ -47,6 +47,8 @@ type Col = {
   options?: Array<{ value: string; label: string }>;
   readOnly?: boolean;
   offers?: boolean;
+  auto?: boolean;
+  csdOnly?: boolean;
 };
 
 const COLUMNS: Col[] = [
@@ -80,11 +82,11 @@ const COLUMNS: Col[] = [
   { key: "followup_date", label: "موعد المتابعة", type: "date", width: 130 },
   { key: "followup_reason", label: "سبب المتابعة", type: "text", width: 180 },
   { key: "followup_done", label: "تمت المتابعة", type: "bool", width: 70 },
-  { key: "activation_key", label: "مفتاح التفعيل", type: "text", width: 130 },
-  { key: "email_sent", label: "أُرسل الإيميل", type: "bool", width: 70 },
-  { key: "expires_at", label: "تاريخ الانتهاء", type: "date", width: 130 },
-  { key: "certificate_issued", label: "الشهادة", type: "bool", width: 70 },
-  { key: "survey_done", label: "الاستبيان", type: "bool", width: 70 },
+  { key: "activation_key", label: "مفتاح التفعيل", type: "text", width: 130, csdOnly: true },
+  { key: "email_sent", label: "أُرسل الإيميل", type: "bool", width: 70, csdOnly: true },
+  { key: "expires_at", label: "تاريخ الانتهاء", type: "date", width: 130, csdOnly: true },
+  { key: "certificate_issued", label: "الشهادة (تلقائي)", type: "bool", width: 70, auto: true },
+  { key: "survey_done", label: "الاستبيان (تلقائي)", type: "bool", width: 70, auto: true },
 ];
 
 type Props = Pick<
@@ -150,6 +152,11 @@ export default function PaymentsManager(props: Props) {
           : p.course_code === courseTab),
     );
   }, [tab, activePath, courseTab, payments, unassigned]);
+
+  // أعمدة مفتاح التفعيل والإيميل وتاريخ الانتهاء تخص كورس CSD فقط.
+  const columns = COLUMNS.filter(
+    (c) => !c.csdOnly || (Boolean(activePath) && courseTab === "CSD"),
+  );
 
   /* ---------- العمليات ---------- */
   const flash = (text: string) => {
@@ -274,7 +281,7 @@ export default function PaymentsManager(props: Props) {
               <thead className="sticky top-0 z-10 bg-slate-50">
                 <tr className="border-b border-slate-200">
                   <th className="px-2 py-3 text-[11px] font-black text-slate-500">#</th>
-                  {COLUMNS.map((c) => (
+                  {columns.map((c) => (
                     <th
                       key={c.key}
                       className="whitespace-nowrap px-2 py-3 text-[11px] font-black text-slate-500"
@@ -289,7 +296,7 @@ export default function PaymentsManager(props: Props) {
                 {rows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={COLUMNS.length + 2}
+                      colSpan={columns.length + 2}
                       className="p-10 text-center text-sm text-slate-400"
                     >
                       لا توجد اشتراكات هنا بعد.
@@ -302,9 +309,16 @@ export default function PaymentsManager(props: Props) {
                       className="border-b border-slate-100 hover:bg-slate-50/60"
                     >
                       <td className="px-2 py-1 text-xs text-slate-400">{idx + 1}</td>
-                      {COLUMNS.map((c) => (
+                      {columns.map((c) => (
                         <td key={c.key} className="px-1 py-1">
-                          {c.readOnly ? (
+                          {c.auto ? (
+                            <span
+                              className="block px-1.5 text-center text-sm font-black text-emerald-600"
+                              title="يُحسب تلقائيًا من بيانات المنصة"
+                            >
+                              {p[c.key] ? "✓" : ""}
+                            </span>
+                          ) : c.readOnly ? (
                             <span className="block px-1.5 text-xs font-bold text-[#07152E]">
                               {fmt(Number(p[c.key] ?? 0))}
                             </span>

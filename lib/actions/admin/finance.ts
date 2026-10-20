@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/server";
-import { mapPayment } from "@/lib/finance/queries";
+import { applyAutoFlags, mapPayment } from "@/lib/finance/queries";
 import {
   DEFAULT_RATES,
   derivePaymentStatus,
@@ -81,12 +81,8 @@ const PAYMENT_TEXT_FIELDS = [
   "activation_key",
 ] as const;
 
-const PAYMENT_BOOL_FIELDS = [
-  "email_sent",
-  "certificate_issued",
-  "survey_done",
-  "followup_done",
-] as const;
+// الشهادة والاستبيان يُحسبان تلقائيًا من بيانات المنصة ولا يُعدَّلان يدويًا.
+const PAYMENT_BOOL_FIELDS = ["email_sent", "followup_done"] as const;
 
 const PAYMENT_DATE_FIELDS = ["paid_at", "followup_date", "expires_at"] as const;
 
@@ -187,8 +183,12 @@ export async function updatePayment(
       .single();
     if (error) throw new Error(error.message);
 
+    const [withFlags] = await applyAutoFlags(admin, [
+      mapPayment(updated as Record<string, unknown>),
+    ]);
+
     refresh();
-    return { success: true, data: mapPayment(updated as Record<string, unknown>) };
+    return { success: true, data: withFlags };
   } catch (error) {
     return fail(error);
   }
@@ -227,8 +227,12 @@ export async function createPayment(
       .single();
     if (error) throw new Error(error.message);
 
+    const [withFlags] = await applyAutoFlags(admin, [
+      mapPayment(data as Record<string, unknown>),
+    ]);
+
     refresh();
-    return { success: true, data: mapPayment(data as Record<string, unknown>) };
+    return { success: true, data: withFlags };
   } catch (error) {
     return fail(error);
   }
