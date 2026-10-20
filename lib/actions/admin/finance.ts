@@ -552,7 +552,7 @@ export async function saveService(
       if (row.is_running) {
         row.started_on = row.started_on ?? todayIso();
         row.stopped_on = null;
-      } else if (current.is_running === true) {
+      } else if (current.is_running === true && !("stopped_on" in input)) {
         row.stopped_on = todayIso();
       }
     }

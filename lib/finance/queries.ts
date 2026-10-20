@@ -313,7 +313,9 @@ export async function getFinanceData(): Promise<FinanceData> {
       id: String(e.id),
       payee: service ? service.name : String(e.payee),
       start_month: base.start,
-      end_month: (e.end_month as string | null) ?? null,
+      end_month: service
+        ? service.stopped_on
+        : ((e.end_month as string | null) ?? null),
       months_count: totals.count,
       currency: base.currency,
       monthly_amount: base.amount,

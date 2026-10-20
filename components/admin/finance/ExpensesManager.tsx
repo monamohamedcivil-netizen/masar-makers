@@ -17,6 +17,7 @@ import {
   type FinanceService,
 } from "@/lib/finance/shared";
 
+import { chargeDate } from "@/lib/finance/expense-calc";
 import EditableCell from "./EditableCell";
 import ServicesManager from "./ServicesManager";
 
@@ -82,6 +83,42 @@ export default function ExpensesManager({
     value: string | number | boolean | null,
   ) => {
     const result = await saveExpense(id, { [key]: value });
+    if (!result.success) {
+      flash(result.message || "تعذر الحفظ");
+      return false;
+    }
+    router.refresh();
+    return true;
+  };
+
+  // تعديل صف مرتبط بخدمة: يُكتب في جدول الخدمات فيتحدث الصرف تلقائيًا.
+  const saveLinked = async (
+    r: FinanceExpense,
+    key: string,
+    value: string | number | boolean | null,
+  ) => {
+    if (!r.service_id) return save(r.id, key, value);
+
+    let patch: Record<string, unknown>;
+    if (key === "months_count") {
+      const n = Math.max(1, Math.floor(Number(value) || 1));
+      patch = {
+        is_running: false,
+        stopped_on: chargeDate(r.start_month, n - 1, r.billing_period),
+      };
+    } else {
+      const map: Record<string, string> = {
+        payee: "name",
+        monthly_amount: "amount",
+        start_month: "started_on",
+        billing_period: "billing_period",
+        currency: "currency",
+        category: "category",
+      };
+      patch = { [map[key] ?? key]: value };
+    }
+
+    const result = await saveService(r.service_id, patch);
     if (!result.success) {
       flash(result.message || "تعذر الحفظ");
       return false;
@@ -244,91 +281,69 @@ export default function ExpensesManager({
                           type="select"
                           options={CATEGORY_OPTIONS}
                           width={130}
-                          onSave={(v) => save(r.id, "category", v)}
+                          onSave={(v) => saveLinked(r, "category", v)}
                         />
                       </td>
                       <td className="px-1 py-1">
-                        {linked ? (
-                          <span className="block whitespace-nowrap px-1.5 text-xs font-black text-[#07152E]">
-                            {r.payee}{" "}
-                            <span className="rounded bg-amber-100 px-1 text-[10px] text-amber-800">
-                              من جدول الخدمات
-                            </span>
+                        <EditableCell
+                          value={r.payee}
+                          width={260}
+                          onSave={(v) => saveLinked(r, "payee", v)}
+                        />
+                        {linked && (
+                          <span className="mt-0.5 inline-block rounded bg-amber-100 px-1 text-[10px] text-amber-800">
+                            مرتبط بجدول الخدمات
                           </span>
-                        ) : (
-                          <EditableCell
-                            value={r.payee}
-                            width={260}
-                            onSave={(v) => save(r.id, "payee", v)}
-                          />
                         )}
                       </td>
                       <td className="px-1 py-1">
-                        {linked ? (
-                          ro(BILLING_PERIOD_LABELS[r.billing_period])
-                        ) : (
-                          <EditableCell
+                        <EditableCell
                             value={r.billing_period}
                             type="select"
                             options={PERIOD_OPTIONS}
                             width={90}
-                            onSave={(v) => save(r.id, "billing_period", v)}
+                            onSave={(v) => saveLinked(r, "billing_period", v)}
                           />
-                        )}
                       </td>
                       <td className="px-1 py-1">
-                        {linked ? (
-                          ro(fmt(r.monthly_amount))
-                        ) : (
-                          <EditableCell
+                        <EditableCell
                             value={r.monthly_amount}
                             type="number"
                             width={90}
-                            onSave={(v) => save(r.id, "monthly_amount", v)}
+                            onSave={(v) => saveLinked(r, "monthly_amount", v)}
                           />
-                        )}
                       </td>
                       <td className="px-1 py-1">
-                        {linked ? (
-                          ro(r.currency)
-                        ) : (
-                          <EditableCell
+                        <EditableCell
                             value={r.currency}
                             type="select"
                             options={CURRENCIES}
                             width={105}
-                            onSave={(v) => save(r.id, "currency", v)}
+                            onSave={(v) => saveLinked(r, "currency", v)}
                           />
-                        )}
                       </td>
                       <td className="px-1 py-1">
-                        {linked ? (
-                          ro(r.start_month)
-                        ) : (
-                          <EditableCell
+                        <EditableCell
                             value={r.start_month}
                             type="date"
                             width={130}
-                            onSave={(v) => save(r.id, "start_month", v)}
+                            onSave={(v) => saveLinked(r, "start_month", v)}
                           />
-                        )}
                       </td>
                       <td className="px-1 py-1">
                         {r.is_running
                           ? ro("مستمر حتى اليوم")
-                          : linked
-                            ? ro("متوقف")
-                            : ro(r.end_month ?? "—")}
+                          : ro(r.end_month ?? "متوقف")}
                       </td>
                       <td className="px-1 py-1">
-                        {r.is_running || linked ? (
+                        {r.is_running ? (
                           ro(String(r.months_count))
                         ) : (
                           <EditableCell
                             value={r.months_count}
                             type="number"
                             width={70}
-                            onSave={(v) => save(r.id, "months_count", v)}
+                            onSave={(v) => saveLinked(r, "months_count", v)}
                           />
                         )}
                       </td>
