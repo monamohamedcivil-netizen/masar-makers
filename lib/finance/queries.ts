@@ -95,7 +95,7 @@ export async function applyAutoFlags(
       admin
         .from("enrollments")
         .select("user_id,course_id,status")
-        .in("status", ["active", "approved"])
+        .in("status", ["active", "completed", "expired", "suspended"])
         .limit(5000),
     ]);
 
