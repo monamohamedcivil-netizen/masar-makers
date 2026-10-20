@@ -52,6 +52,11 @@ const navigationGroups: NavigationGroup[] = [
         href: "/admin/dashboard",
         icon: LayoutDashboard,
       },
+      {
+        title: "التقارير",
+        href: "/admin/reports",
+        icon: ChartNoAxesCombined,
+      },
     ],
   },
   {
@@ -146,11 +151,6 @@ const navigationGroups: NavigationGroup[] = [
         title: "المصروفات",
         href: "/admin/finance/expenses",
         icon: Receipt,
-      },
-      {
-        title: "التقارير",
-        href: "/admin/reports",
-        icon: ChartNoAxesCombined,
       },
       {
         title: "الإعلانات",

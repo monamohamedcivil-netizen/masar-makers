@@ -77,11 +77,12 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
   const paidRows = payments.filter((p) => p.amount_egp > 0);
   const avgPrice = paidRows.length ? income / paidRows.length : 0;
 
-  // متوسط الدخل الشهري = صافي الربح ÷ عدد الشهور من 1 يناير 2026 حتى اليوم (يتغير يوميًا).
-  const START = new Date("2026-01-01T00:00:00Z").getTime();
+  // متوسط الدخل الشهري = صافي الربح ÷ عدد الشهور من يناير 2026 حتى الشهر الحالي (شاملًا).
+  // يتغير مرة واحدة فقط عند بداية كل شهر، ولا يُحسب إلا عند فتح الصفحة.
+  const nowDate = new Date();
   const elapsedMonths = Math.max(
-    0.1,
-    (Date.now() - START) / (1000 * 60 * 60 * 24 * 30.4375),
+    1,
+    (nowDate.getUTCFullYear() - 2026) * 12 + nowDate.getUTCMonth() + 1,
   );
   const avgMonthly = profit / elapsedMonths;
   const sarRate = data.rates.SAR || 13.5;
@@ -198,7 +199,7 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
         <Kpi
           label="متوسط الدخل الشهري"
           value={`${fmt(avgMonthly)} جنيه`}
-          note={`≈ ${fmt(avgMonthly / sarRate)} ريال · عدد الشهور: ${elapsedMonths.toFixed(1)} (من 1 يناير 2026 حتى اليوم)`}
+          note={`≈ ${fmt(avgMonthly / sarRate)} ريال · عدد الشهور: ${elapsedMonths} (من يناير 2026 حتى ${monthLabel(today.slice(0, 7))})`}
         />
       </div>
 
