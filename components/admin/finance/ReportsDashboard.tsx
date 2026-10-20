@@ -42,7 +42,7 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
   const income = payments.reduce((s, p) => s + p.amount_egp, 0);
   const expensesTotal = expenses.reduce((s, e) => s + e.total_egp, 0);
   const otherTotal = otherIncome.reduce((s, i) => s + i.total_egp, 0);
-  const profit = income - expensesTotal;
+  const profit = income + otherTotal - expensesTotal;
   const people = new Set(
     payments.map((p) => (p.email ?? p.student_name ?? p.id).split(/[\s,&;]+/)[0].toLowerCase()),
   ).size;
@@ -101,7 +101,7 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi label="إجمالي دخل الاشتراكات" value={fmt(income)} unit="جنيه" accent />
         <Kpi label="إجمالي المصروفات" value={fmt(expensesTotal)} unit="جنيه" />
-        <Kpi label="صافي الربح" value={fmt(profit)} unit="جنيه" good={profit >= 0} />
+        <Kpi label="صافي الربح (اشتراكات + برامج − مصروفات)" value={fmt(profit)} unit="جنيه" good={profit >= 0} />
         <Kpi label="دخل بيع نسخ البرامج" value={fmt(otherTotal)} unit="جنيه" />
         <Kpi label="عدد الاشتراكات" value={String(payments.length)} />
         <Kpi label="عدد الأشخاص" value={String(people)} />
@@ -111,8 +111,8 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
         <Kpi label={`دخل ${lastYear}`} value={fmt(yearIncome(lastYear))} unit="جنيه" />
         <Kpi label="عدد الأشهر" value={String(monthsWorked)} />
         <Kpi
-          label="الربح شاملاً بيع البرامج"
-          value={fmt(profit + otherTotal)}
+          label="الربح قبل بيع البرامج"
+          value={fmt(income - expensesTotal)}
           unit="جنيه"
         />
       </div>
