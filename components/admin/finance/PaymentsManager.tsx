@@ -61,6 +61,16 @@ const COLUMNS: Col[] = [
   { key: "country", label: "بلد الإقامة", type: "text", width: 90 },
   { key: "edition_code", label: "الإصدار", type: "text", width: 90 },
   {
+    key: "journey_kind",
+    label: "نوع الرحلة",
+    type: "select",
+    width: 120,
+    options: [
+      { value: "integrated", label: "متكاملة" },
+      { value: "one_day", label: "يوم واحد" },
+    ],
+  },
+  {
     key: "delivery_type",
     label: "النوع",
     type: "select",

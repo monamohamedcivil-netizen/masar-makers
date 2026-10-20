@@ -148,6 +148,11 @@ const navigationGroups: NavigationGroup[] = [
         icon: Receipt,
       },
       {
+        title: "التقارير",
+        href: "/admin/reports",
+        icon: ChartNoAxesCombined,
+      },
+      {
         title: "الإعلانات",
         href: "/admin/content/announcements",
         icon: Megaphone,
@@ -156,11 +161,6 @@ const navigationGroups: NavigationGroup[] = [
         title: "السحب الشهري",
         href: "/admin/content/monthly-draw",
         icon: Gift,
-      },
-      {
-        title: "التقارير",
-        href: "/admin/reports",
-        icon: ChartNoAxesCombined,
       },
       {
         title: "الإعدادات",

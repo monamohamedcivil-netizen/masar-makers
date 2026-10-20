@@ -30,6 +30,9 @@ export interface FinanceData {
   priceItems: FinancePriceItem[];
   rates: FinanceRates;
   expenses: FinanceExpense[];
+  services: FinanceService[];
+  /** مصروفات كل سنة بالجنيه (محسوبة تلقائيًا حتى اليوم) */
+  expensesByYear: Record<string, number>;
   otherIncome: FinanceOtherIncome[];
 }
 
@@ -41,6 +44,7 @@ const num = (v: unknown) => {
 export function mapPayment(row: Record<string, unknown>): FinancePayment {
   return {
     ...(row as unknown as FinancePayment),
+    journey_kind: row.journey_kind === "one_day" ? "one_day" : "integrated",
     list_price: row.list_price == null ? null : num(row.list_price),
     amount_total: row.amount_total == null ? null : num(row.amount_total),
     amount_paid: num(row.amount_paid),
@@ -197,6 +201,7 @@ export async function getFinanceData(): Promise<FinanceData> {
     ratesRes,
     expensesRes,
     incomeRes,
+    servicesRes,
   ] = await Promise.all([
     admin
       .from("career_paths")
@@ -221,6 +226,7 @@ export async function getFinanceData(): Promise<FinanceData> {
       .from("finance_other_income")
       .select("*")
       .order("month", { ascending: false }),
+    admin.from("finance_services").select("*").order("sort_order"),
   ]);
 
   const courses = (coursesRes.data ?? []) as Array<Record<string, unknown>>;
@@ -244,6 +250,80 @@ export async function getFinanceData(): Promise<FinanceData> {
   for (const r of (ratesRes.data ?? []) as Array<Record<string, unknown>>) {
     rates[String(r.currency)] = num(r.rate_to_egp) || 1;
   }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const services: FinanceService[] = (
+    (servicesRes.data ?? []) as Array<Record<string, unknown>>
+  ).map((sv) => ({
+    id: String(sv.id),
+    name: String(sv.name),
+    category: (sv.category as ExpenseCategory) ?? "platform",
+    amount: sv.amount == null ? null : num(sv.amount),
+    currency: String(sv.currency ?? "USD"),
+    billing_period: (sv.billing_period as BillingPeriod) ?? "monthly",
+    started_on: (sv.started_on as string | null) ?? null,
+    stopped_on: (sv.stopped_on as string | null) ?? null,
+    is_running: sv.is_running === true,
+    next_renewal: (sv.next_renewal as string | null) ?? null,
+    next_renewal_note: (sv.next_renewal_note as string | null) ?? null,
+    last_payment_note: (sv.last_payment_note as string | null) ?? null,
+    notes: (sv.notes as string | null) ?? null,
+    sort_order: num(sv.sort_order),
+  }));
+  const serviceById = new Map(services.map((sv) => [sv.id, sv]));
+
+  const expensesByYear: Record<string, number> = {};
+  const expenses: FinanceExpense[] = (
+    (expensesRes.data ?? []) as Array<Record<string, unknown>>
+  ).map((e) => {
+    const service = e.service_id ? serviceById.get(String(e.service_id)) : null;
+
+    const base = service
+      ? {
+          start: service.started_on ?? (e.start_month as string),
+          period: service.billing_period,
+          amount: service.amount ?? 0,
+          currency: service.currency,
+          running: service.is_running,
+          fixedCount: null,
+          stoppedOn: service.stopped_on,
+        }
+      : {
+          start: e.start_month as string,
+          period: ((e.billing_period as BillingPeriod) ?? "monthly") as BillingPeriod,
+          amount: num(e.monthly_amount),
+          currency: String(e.currency ?? "EGP"),
+          running: e.is_running === true,
+          fixedCount: num(e.months_count) || 1,
+          stoppedOn: null,
+        };
+
+    const totals = computeExpenseTotals(base, today, rates);
+    for (const [y, v] of Object.entries(totals.byYear)) {
+      expensesByYear[y] = Math.round(((expensesByYear[y] ?? 0) + v) * 100) / 100;
+    }
+
+    return {
+      id: String(e.id),
+      payee: service ? service.name : String(e.payee),
+      start_month: base.start,
+      end_month: (e.end_month as string | null) ?? null,
+      months_count: totals.count,
+      currency: base.currency,
+      monthly_amount: base.amount,
+      total_amount: totals.totalAmount,
+      total_egp: totals.totalEgp,
+      notes: (e.notes as string | null) ?? null,
+      category: service
+        ? service.category
+        : ((e.category as ExpenseCategory) ?? "other"),
+      billing_period: base.period,
+      is_running: base.running,
+      service_id: service ? service.id : null,
+      service_name: service ? service.name : null,
+    };
+  });
 
   return {
     paths,
@@ -274,15 +354,9 @@ export async function getFinanceData(): Promise<FinanceData> {
       sort_order: num(p.sort_order),
     })),
     rates,
-    expenses: ((expensesRes.data ?? []) as Array<Record<string, unknown>>).map(
-      (e) => ({
-        ...(e as unknown as FinanceExpense),
-        months_count: num(e.months_count) || 1,
-        monthly_amount: num(e.monthly_amount),
-        total_amount: num(e.total_amount),
-        total_egp: num(e.total_egp),
-      }),
-    ),
+    expenses,
+    services,
+    expensesByYear,
     otherIncome: ((incomeRes.data ?? []) as Array<Record<string, unknown>>).map(
       (i) => ({
         ...(i as unknown as FinanceOtherIncome),
