@@ -4,6 +4,7 @@ import { FormEvent, useMemo, useState, useTransition } from "react";
 import {
   CalendarClock,
   CheckCircle2,
+  Copy,
   Edit3,
   Megaphone,
   Plus,
@@ -101,6 +102,9 @@ export default function AnnouncementsManager({
   const [editingId, setEditingId] =
     useState<string | null>(null);
 
+  const [templateTitle, setTemplateTitle] =
+    useState<string | null>(null);
+
   const [message, setMessage] =
     useState("");
 
@@ -120,14 +124,54 @@ export default function AnnouncementsManager({
 
   function resetForm() {
     setEditingId(null);
+    setTemplateTitle(null);
     setForm(EMPTY_FORM);
     setError("");
     setMessage("");
   }
 
+  // استخدام إعلان قديم كقالب: تُنسخ بياناته إلى النموذج لإنشاء إعلان جديد
+  // دون المساس بالإعلان الأصلي.
+  function copyAsTemplate(
+    item: PlatformAnnouncement,
+  ) {
+    setEditingId(null);
+    setTemplateTitle(item.title);
+    setForm({
+      type: item.type,
+      title: item.title,
+      titleEn: item.title_en ?? "",
+      description:
+        item.description ?? "",
+      descriptionEn:
+        item.description_en ?? "",
+      buttonText:
+        item.button_text || "التفاصيل",
+      buttonTextEn:
+        item.button_text_en || "Details",
+      href: item.href || "#",
+      isActive: true,
+      displayOrder:
+        item.display_order ?? 0,
+      startsAt: "",
+      endsAt: "",
+      notifyStudents: false,
+      emailStudents: false,
+    });
+
+    setError("");
+    setMessage("");
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }
+
   function editAnnouncement(
     item: PlatformAnnouncement,
   ) {
+    setTemplateTitle(null);
     setEditingId(item.id);
     setForm({
       type: item.type,
@@ -390,16 +434,21 @@ export default function AnnouncementsManager({
                 ? "تعديل بيانات الإعلان"
                 : "إضافة إعلان إلى شريط المنصة"}
             </h2>
+            {templateTitle ? (
+              <p className="mt-1 text-[11px] font-bold text-emerald-700">
+                نموذج منسوخ من «{templateTitle}» — عدّل ما تريد ثم انشر؛ الإعلان القديم يبقى كما هو.
+              </p>
+            ) : null}
           </div>
 
-          {editingId ? (
+          {editingId || templateTitle ? (
             <button
               type="button"
               onClick={resetForm}
               className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-[10px] font-black text-slate-600"
             >
               <X size={14} />
-              إلغاء التعديل
+              {editingId ? "إلغاء التعديل" : "إلغاء القالب"}
             </button>
           ) : (
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FFF4DF] text-[#C88712]">
@@ -821,6 +870,15 @@ export default function AnnouncementsManager({
                   </div>
 
                   <div className="flex items-center gap-2">
+                    <ActionButton
+                      title="استخدام كقالب لإعلان جديد"
+                      onClick={() =>
+                        copyAsTemplate(item)
+                      }
+                    >
+                      <Copy size={14} />
+                    </ActionButton>
+
                     <ActionButton
                       title="تعديل"
                       onClick={() =>
