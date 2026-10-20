@@ -397,7 +397,12 @@ export default function LessonContentManager({
   stations,
   lessonJourneys,
   lessonStats = {},
+  courseEnrollmentCounts = {},
 }: {
+  courseEnrollmentCounts?: Record<
+    string,
+    { professional: number; oneDay: number; free: number }
+  >;
   lessonStats?: Record<string, { plays: number; students: number }>;
   initialLessons: Row[];
   courses: Row[];
@@ -1423,6 +1428,36 @@ export default function LessonContentManager({
                             0,
                           );
 
+                        // عدد المشتركين في كورسات المحطة حسب نوع الرحلة.
+                        const stationEnrollment = Array.from(
+                          new Set(
+                            stationNode.sections.map(
+                              (section: any) => section.course.id,
+                            ),
+                          ),
+                        ).reduce(
+                          (
+                            total: {
+                              professional: number;
+                              oneDay: number;
+                              free: number;
+                            },
+                            courseId: any,
+                          ) => {
+                            const counts =
+                              courseEnrollmentCounts[String(courseId)];
+                            return {
+                              professional:
+                                total.professional +
+                                (counts?.professional ?? 0),
+                              oneDay:
+                                total.oneDay + (counts?.oneDay ?? 0),
+                              free: total.free + (counts?.free ?? 0),
+                            };
+                          },
+                          { professional: 0, oneDay: 0, free: 0 },
+                        );
+
                         return (
                           <section
                             key={
@@ -1459,9 +1494,29 @@ export default function LessonContentManager({
                                 </div>
                               </div>
 
-                              <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-[9px] font-black text-slate-600">
-                                {stationLessonCount} محاضرة
-                              </span>
+                              <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                                <span
+                                  title="طلاب مشتركون في الرحلة المتكاملة (احتراف)"
+                                  className="rounded-full bg-sky-50 px-2.5 py-1 text-[9px] font-black text-sky-700"
+                                >
+                                  احتراف: {stationEnrollment.professional}
+                                </span>
+                                <span
+                                  title="طلاب مشتركون في رحلات اليوم الواحد"
+                                  className="rounded-full bg-amber-50 px-2.5 py-1 text-[9px] font-black text-amber-700"
+                                >
+                                  يوم واحد: {stationEnrollment.oneDay}
+                                </span>
+                                <span
+                                  title="طلاب مشتركون في الرحلات المجانية"
+                                  className="rounded-full bg-emerald-50 px-2.5 py-1 text-[9px] font-black text-emerald-700"
+                                >
+                                  مجانية: {stationEnrollment.free}
+                                </span>
+                                <span className="rounded-full bg-slate-100 px-3 py-1 text-[9px] font-black text-slate-600">
+                                  {stationLessonCount} محاضرة
+                                </span>
+                              </div>
                             </button>
 
                             {stationOpen ? (
