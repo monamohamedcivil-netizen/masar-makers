@@ -7,6 +7,7 @@ import {
   sendAnnouncementEmails,
   type AnnouncementRecipient,
 } from "@/lib/email/announcement-email";
+import { INTERNAL_ACCOUNT_EMAILS } from "@/lib/admin/internal-accounts";
 import {
   getRemainingDailyEmails,
   loadAudience,
@@ -29,6 +30,7 @@ type BroadcastResult = {
 
 export async function getBroadcastAudienceCount(): Promise<{
   count: number;
+  teamCount: number;
   emailCap: number;
   emailConfigured: boolean;
 }> {
@@ -37,8 +39,11 @@ export async function getBroadcastAudienceCount(): Promise<{
   const audience = await loadAudience();
   const quota = await getRemainingDailyEmails(createAdminClient());
 
+  const team = new Set(INTERNAL_ACCOUNT_EMAILS);
+
   return {
     count: audience.length,
+    teamCount: audience.filter((a) => team.has(a.email.toLowerCase())).length,
     // الرصيد المتبقي اليوم (الحد اليومي ناقص ما أُرسل في آخر 24 ساعة).
     emailCap: quota.remaining,
     emailConfigured: isAnnouncementEmailConfigured(),
