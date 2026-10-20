@@ -682,39 +682,51 @@ export default function MasarLanding() {
               className="h-[50px] w-auto object-contain sm:h-[75px]"
             />
 
-            <div className="hidden md:block">
-              <p className="text-[24px] font-black leading-none lg:text-[28px]">
-                {locale === "ar" ? (
-                  <>
+            <div
+              data-masar-no-translate
+              className="hidden md:block"
+            >
+              {locale === "ar" ? (
+                <>
+                  <p className="text-[24px] font-black leading-none lg:text-[28px]">
                     صناع{" "}
                     <span className="text-[#F7B548]">
                       المسار
                     </span>
-                  </>
-                ) : (
-                  <>
+                  </p>
+
+                  <p
+                    dir="ltr"
+                    className="mt-1 text-right text-[12px] font-bold tracking-[.18em] text-[#F7B548] lg:text-[14px]"
+                  >
+                    Masar{" "}
+                    <span className="text-white">
+                      Makers
+                    </span>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p
+                    dir="ltr"
+                    className="text-[24px] font-black leading-none lg:text-[28px]"
+                  >
                     Masar{" "}
                     <span className="text-[#F7B548]">
                       Makers
                     </span>
-                  </>
-                )}
-              </p>
+                  </p>
 
-              {locale === "ar" ? (
-                <p className="mt-1 text-[12px] font-bold tracking-[.18em] text-[#F7B548] lg:text-[14px]">
-                  Masar{" "}
-                  <span className="text-white">
-                    Makers
-                  </span>
-                </p>
-              ) : (
-                <p className="mt-1 text-[13px] font-bold text-[#F7B548] lg:text-[15px]">
-                  صناع{" "}
-                  <span className="text-white">
-                    المسار
-                  </span>
-                </p>
+                  <p
+                    dir="rtl"
+                    className="mt-1 text-left text-[13px] font-bold text-[#F7B548] lg:text-[15px]"
+                  >
+                    صناع{" "}
+                    <span className="text-white">
+                      المسار
+                    </span>
+                  </p>
+                </>
               )}
             </div>
           </Link>
@@ -917,7 +929,7 @@ export default function MasarLanding() {
 />
 
             {locale === "ar" ? (
-              <div className="text-right">
+              <div data-masar-no-translate className="text-right">
                 <p className="whitespace-nowrap text-[20px] font-black leading-none text-white">
                   صناع <span className="text-[#F7B548]">المسار</span>
                 </p>
@@ -926,7 +938,7 @@ export default function MasarLanding() {
                 </p>
               </div>
             ) : (
-              <div className="text-left">
+              <div data-masar-no-translate className="text-left">
                 <p className="whitespace-nowrap text-[18px] font-black leading-none text-white">
                   Masar <span className="text-[#F7B548]">Makers</span>
                 </p>
