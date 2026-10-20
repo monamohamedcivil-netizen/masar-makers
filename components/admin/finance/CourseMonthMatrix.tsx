@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+import { JOURNEY_ORDER, journeyLabelOf, type JourneyLabel } from "@/lib/finance/shared";
+
 export interface MatrixRow {
   course_code: string | null;
   edition_code: string | null;
@@ -32,23 +34,6 @@ const monthLabel = (key: string) => {
   const [y, m] = key.split("-");
   return `${MONTHS[Number(m) - 1] ?? m} ${y}`;
 };
-
-type JourneyLabel = "أساسيات" | "متقدم" | "رحلة يوم واحد" | "كورس كامل";
-
-const JOURNEY_ORDER: JourneyLabel[] = [
-  "أساسيات",
-  "متقدم",
-  "كورس كامل",
-  "رحلة يوم واحد",
-];
-
-function journeyOf(r: MatrixRow): JourneyLabel {
-  if (r.journey_kind === "one_day") return "رحلة يوم واحد";
-  const code = String(r.edition_code ?? "").toUpperCase();
-  if (/-F/.test(code)) return "أساسيات";
-  if (/-A/.test(code)) return "متقدم";
-  return "كورس كامل";
-}
 
 const selectClass =
   "rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-[#07152E] outline-none focus:border-[#F7B548]";
@@ -100,7 +85,7 @@ export default function CourseMonthMatrix({
 
     for (const r of filtered) {
       const course = r.course_code ?? "—";
-      const journey = journeyOf(r);
+      const journey = journeyLabelOf(r);
       const rowKey = `${course}|${journey}`;
       const mk = r.paid_at!.slice(0, 7);
 
@@ -163,12 +148,6 @@ export default function CourseMonthMatrix({
   }, [filtered]);
 
   const courseName = (code: string) => titles[code] ?? code;
-
-  const avgRows = JOURNEY_ORDER.filter((j) => model.journeyTotals.has(j)).map((j) => {
-    const t = model.journeyTotals.get(j)!;
-    return { journey: j, avg: t.income / t.count, count: t.count };
-  });
-  const maxAvg = Math.max(1, ...avgRows.map((a) => a.avg));
 
   return (
     <div className="space-y-6">
@@ -305,38 +284,6 @@ export default function CourseMonthMatrix({
                 </tr>
               </tfoot>
             </table>
-          </div>
-        )}
-      </section>
-
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="mb-1 text-sm font-black text-[#07152E]">
-          متوسط سعر الاشتراك لكل نوع رحلة (جنيه)
-        </h3>
-        <p className="mb-4 text-xs text-slate-500">
-          يتبع نفس فلتر السنة والشهر أعلاه.
-        </p>
-
-        {avgRows.length === 0 ? (
-          <p className="py-6 text-center text-sm text-slate-400">لا توجد بيانات.</p>
-        ) : (
-          <div className="space-y-3">
-            {avgRows.map((a) => (
-              <div key={a.journey}>
-                <div className="mb-1 flex items-center justify-between text-xs">
-                  <span className="font-black text-[#07152E]">{a.journey}</span>
-                  <span className="font-semibold text-slate-500">
-                    متوسط {fmt(a.avg)} جنيه · {a.count} اشتراك
-                  </span>
-                </div>
-                <div className="h-3 overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className="h-full rounded-full bg-[#07152E]"
-                    style={{ width: `${(a.avg / maxAvg) * 100}%` }}
-                  />
-                </div>
-              </div>
-            ))}
           </div>
         )}
       </section>

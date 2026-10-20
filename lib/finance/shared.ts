@@ -64,6 +64,27 @@ export function stageOfEdition(edition: string | null | undefined): CourseStage 
   return "other";
 }
 
+export type JourneyLabel = "أساسيات" | "متقدم" | "رحلة يوم واحد" | "كورس كامل";
+
+export const JOURNEY_ORDER: JourneyLabel[] = [
+  "أساسيات",
+  "متقدم",
+  "كورس كامل",
+  "رحلة يوم واحد",
+];
+
+/** نوع الرحلة للدفعة: أساسيات / متقدم / يوم واحد / كورس كامل (للكورسات غير المنقسمة). */
+export function journeyLabelOf(r: {
+  journey_kind: string | null;
+  edition_code: string | null;
+}): JourneyLabel {
+  if (r.journey_kind === "one_day") return "رحلة يوم واحد";
+  const stage = stageOfEdition(r.edition_code);
+  if (stage === "fundamental") return "أساسيات";
+  if (stage === "advanced") return "متقدم";
+  return "كورس كامل";
+}
+
 export interface FinanceOffer {
   id: string;
   name: string;

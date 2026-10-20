@@ -1,7 +1,11 @@
 import Link from "next/link";
 
 import type { FinanceData } from "@/lib/finance/queries";
-import { PAYMENT_STATUS_LABELS } from "@/lib/finance/shared";
+import {
+  PAYMENT_STATUS_LABELS,
+  journeyLabelOf,
+  type JourneyLabel,
+} from "@/lib/finance/shared";
 
 import CourseMonthMatrix from "./CourseMonthMatrix";
 import FollowupDoneButton from "./FollowupDoneButton";
@@ -115,6 +119,20 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
 
   const courseName = (code: string) => titleByCode.get(code) ?? code;
 
+  const cjMap = new Map<string, { key: string; course: string; journey: JourneyLabel; income: number; count: number }>();
+  for (const p of payments) {
+    if (!(p.amount_egp > 0)) continue;
+    const course = p.course_code ?? "—";
+    const journey = journeyLabelOf(p);
+    const key = `${course}|${journey}`;
+    const cur = cjMap.get(key) ?? { key, course, journey, income: 0, count: 0 };
+    cur.income += p.amount_egp;
+    cur.count += 1;
+    cjMap.set(key, cur);
+  }
+  const courseJourneys = [...cjMap.values()].sort((a, b) => b.income - a.income);
+  const maxCourseJourney = Math.max(1, ...courseJourneys.map((v) => v.income));
+
   /* ---------- جدول المتابعة ---------- */
   const followups = payments
     .filter((p) => !p.followup_done && p.followup_date)
@@ -221,16 +239,18 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
         )}
       </Card>
 
-      {/* الدخل لكل كورس */}
-      <Card title="الدخل وعدد المشتركين ومتوسط السعر لكل كورس">
-        {courses.length === 0 ? (
+      {/* الدخل لكل كورس ونوع رحلة */}
+      <Card title="الدخل وعدد المشتركين ومتوسط السعر لكل كورس ونوع رحلة">
+        {courseJourneys.length === 0 ? (
           <Empty />
         ) : (
           <div className="space-y-3">
-            {courses.map(([code, v]) => (
-              <div key={code}>
+            {courseJourneys.map((v) => (
+              <div key={v.key}>
                 <div className="mb-1 flex items-center justify-between text-xs">
-                  <span className="font-black text-[#07152E]">{courseName(code)}</span>
+                  <span className="font-black text-[#07152E]">
+                    {courseName(v.course)} — {v.journey}
+                  </span>
                   <span className="font-semibold text-slate-500">
                     {fmt(v.income)} جنيه · {v.count} اشتراك · متوسط {fmt(v.income / v.count)}
                   </span>
@@ -238,7 +258,7 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
                 <div className="h-3 overflow-hidden rounded-full bg-slate-100">
                   <div
                     className="h-full rounded-full bg-[#F7B548]"
-                    style={{ width: `${(v.income / maxCourse) * 100}%` }}
+                    style={{ width: `${(v.income / maxCourseJourney) * 100}%` }}
                   />
                 </div>
               </div>
