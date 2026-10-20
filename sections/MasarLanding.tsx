@@ -701,12 +701,21 @@ export default function MasarLanding() {
                 )}
               </p>
 
-              <p className="mt-1 text-[12px] font-bold tracking-[.18em] text-[#F7B548] lg:text-[14px]">
-                Masar{" "}
-                <span className="text-white">
-                  Makers
-                </span>
-              </p>
+              {locale === "ar" ? (
+                <p className="mt-1 text-[12px] font-bold tracking-[.18em] text-[#F7B548] lg:text-[14px]">
+                  Masar{" "}
+                  <span className="text-white">
+                    Makers
+                  </span>
+                </p>
+              ) : (
+                <p className="mt-1 text-[13px] font-bold text-[#F7B548] lg:text-[15px]">
+                  صناع{" "}
+                  <span className="text-white">
+                    المسار
+                  </span>
+                </p>
+              )}
             </div>
           </Link>
 
@@ -851,7 +860,7 @@ export default function MasarLanding() {
                 key={`mobile-traffic-${item.title}`}
                 course={item}
                 active={active}
-                left={locale === "en" ? Math.max(pos.left, 24) : pos.left}
+                left={pos.left}
                 top={pos.top}
                 compactLabel={locale === "en"}
                 onSelect={() => selectCourseManually(1, courseIndex)}
@@ -880,7 +889,7 @@ export default function MasarLanding() {
                 key={`mobile-road-${item.title}`}
                 course={item}
                 active={active}
-                left={locale === "en" ? Math.min(pos.left, 74) : pos.left}
+                left={pos.left}
                 top={pos.top}
                 compactLabel={locale === "en"}
                 onSelect={() => selectCourseManually(0, courseIndex)}
@@ -907,14 +916,25 @@ export default function MasarLanding() {
   className="-mr-1 h-[64px] w-auto object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,.45)]"
 />
 
-            <div className="text-right">
-              <p className="whitespace-nowrap text-[20px] font-black leading-none text-white">
-                صناع <span className="text-[#F7B548]">المسار</span>
-              </p>
-              <p className="mt-1 whitespace-nowrap text-[11px] font-bold tracking-[.12em] text-[#F7B548]">
-                Masar <span className="text-white">Makers</span>
-              </p>
-            </div>
+            {locale === "ar" ? (
+              <div className="text-right">
+                <p className="whitespace-nowrap text-[20px] font-black leading-none text-white">
+                  صناع <span className="text-[#F7B548]">المسار</span>
+                </p>
+                <p className="mt-1 whitespace-nowrap text-[11px] font-bold tracking-[.12em] text-[#F7B548]">
+                  Masar <span className="text-white">Makers</span>
+                </p>
+              </div>
+            ) : (
+              <div className="text-left">
+                <p className="whitespace-nowrap text-[18px] font-black leading-none text-white">
+                  Masar <span className="text-[#F7B548]">Makers</span>
+                </p>
+                <p className="mt-1 whitespace-nowrap text-[13px] font-bold text-[#F7B548]">
+                  صناع <span className="text-white">المسار</span>
+                </p>
+              </div>
+            )}
           </div>
 
           <Link
@@ -1756,9 +1776,9 @@ function StationPin({
         style={
           compactLabel
             ? {
-                maxWidth: `calc(${
+                maxWidth: `max(56px, calc(${
                   labelSide === "outside-left" ? left : 100 - left
-                }vw - 36px)`,
+                }vw - 34px))`,
               }
             : undefined
         }
@@ -1768,7 +1788,7 @@ function StationPin({
           w-max
           ${
             compactLabel
-              ? "whitespace-normal text-[10px] md:max-w-none md:whitespace-nowrap"
+              ? "whitespace-normal text-[9.5px] md:max-w-none md:whitespace-nowrap"
               : "max-w-none whitespace-nowrap"
           }
           text-[11px] font-black leading-[1.05]
