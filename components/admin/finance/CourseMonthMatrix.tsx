@@ -194,14 +194,14 @@ export default function CourseMonthMatrix({
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-center text-xs">
+            <table className="w-max text-center text-xs">
               <thead>
                 <tr className="text-[11px] font-black text-slate-500">
-                  <th className="p-2 text-right">الكورس</th>
-                  <th className="p-2">الرحلة</th>
-                  <th className="p-2">الإجمالي</th>
+                  <th className="min-w-[170px] p-2 text-right">الكورس</th>
+                  <th className="min-w-[90px] p-2">الرحلة</th>
+                  <th className="min-w-[90px] p-2">الإجمالي</th>
                   {model.monthKeys.map((k) => (
-                    <th key={k} className="p-2">
+                    <th key={k} className="min-w-[90px] p-2">
                       {monthLabel(k)}
                     </th>
                   ))}
