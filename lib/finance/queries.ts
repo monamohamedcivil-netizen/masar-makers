@@ -14,7 +14,13 @@ import {
 export interface FinancePathTab {
   id: string;
   title: string;
-  courses: Array<{ id: string; code: string; title: string }>;
+  courses: Array<{
+    id: string;
+    code: string;
+    title: string;
+    /** كورس بمرحلتين (أساسيات ومتقدم) */
+    split: boolean;
+  }>;
 }
 
 export interface FinanceData {
@@ -58,11 +64,11 @@ export async function applyAutoFlags(
     .map((r) => r.enrollment_id)
     .filter((v): v is string => Boolean(v));
 
-  const [certRes, surveyRes, profileRes, courseRes, enrollRes] =
+  const [certRes, surveyRes, profileRes, courseRes, enrollRes, allEnrollRes] =
     await Promise.all([
       admin
         .from("certificates")
-        .select("user_id,course_id,student_email,status,revoked_at")
+        .select("user_id,course_id,student_email,status,revoked_at,certificate_type")
         .eq("status", "issued")
         .is("revoked_at", null)
         .limit(5000),
@@ -77,14 +83,30 @@ export async function applyAutoFlags(
       enrollmentIds.length
         ? admin.from("enrollments").select("id,user_id").in("id", enrollmentIds)
         : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
+      admin
+        .from("enrollments")
+        .select("user_id,course_id,status")
+        .in("status", ["active", "approved"])
+        .limit(5000),
     ]);
 
   const lower = (v: unknown) => String(v ?? "").trim().toLowerCase();
 
+  // مفاتيح الشهادات: على مستوى الكورس، ومع المرحلة (fundamental / advanced).
   const certKeys = new Set<string>();
   for (const c of (certRes.data ?? []) as Array<Record<string, unknown>>) {
-    if (c.user_id) certKeys.add(`u:${c.user_id}|${c.course_id}`);
-    if (c.student_email) certKeys.add(`e:${lower(c.student_email)}|${c.course_id}`);
+    const stage = lower(c.certificate_type);
+    const add = (base: string) => {
+      certKeys.add(base);
+      if (stage) certKeys.add(`${base}|${stage}`);
+    };
+    if (c.user_id) add(`u:${c.user_id}|${c.course_id}`);
+    if (c.student_email) add(`e:${lower(c.student_email)}|${c.course_id}`);
+  }
+
+  const enrolledKeys = new Set<string>();
+  for (const e of (allEnrollRes.data ?? []) as Array<Record<string, unknown>>) {
+    enrolledKeys.add(`${e.user_id}|${e.course_id}`);
   }
 
   const surveyKeys = new Set<string>();
@@ -117,7 +139,13 @@ export async function applyAutoFlags(
   return rows.map((p) => {
     const courseId =
       p.course_id ?? (p.course_code ? courseByCode.get(p.course_code) : undefined);
-    if (!courseId) return { ...p, certificate_issued: false, survey_done: false };
+    if (!courseId)
+      return {
+        ...p,
+        certificate_issued: false,
+        survey_done: false,
+        account_status: "none",
+      };
 
     const emails = (p.email ?? "").toLowerCase().match(EMAIL_RE) ?? [];
     const userIds = new Set<string>();
@@ -135,10 +163,23 @@ export async function applyAutoFlags(
       ...emails.map((em) => `e:${em}|${courseId}`),
     ];
 
+    // الكورس بمرحلتين: الشهادة تُقرأ للمرحلة نفسها (أساسيات / متقدم).
+    const stage = stageOfEdition(p.edition_code);
+    const certKeysToCheck =
+      stage === "other" ? keys : keys.map((k) => `${k}|${stage}`);
+
+    const accountStatus: FinancePayment["account_status"] =
+      userIds.size === 0
+        ? "none"
+        : [...userIds].some((u) => enrolledKeys.has(`${u}|${courseId}`))
+          ? "enrolled"
+          : "registered";
+
     return {
       ...p,
-      certificate_issued: keys.some((k) => certKeys.has(k)),
+      certificate_issued: certKeysToCheck.some((k) => certKeys.has(k)),
       survey_done: keys.some((k) => surveyKeys.has(k)),
+      account_status: accountStatus,
     };
   });
 }
@@ -161,7 +202,9 @@ export async function getFinanceData(): Promise<FinanceData> {
       .from("career_paths")
       .select("id,title,title_ar,display_order,is_active")
       .order("display_order"),
-    admin.from("courses").select("id,course_code,title,title_ar,career_path_id"),
+    admin
+      .from("courses")
+      .select("id,course_code,title,title_ar,career_path_id,level"),
     admin
       .from("finance_payments")
       .select("*")
@@ -193,6 +236,7 @@ export async function getFinanceData(): Promise<FinanceData> {
         id: String(c.id),
         code: String(c.course_code),
         title: String(c.title_ar || c.title || c.course_code),
+        split: c.level === "split",
       })),
   }));
 

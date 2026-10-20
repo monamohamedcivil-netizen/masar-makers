@@ -151,7 +151,6 @@ export async function parseFinanceWorkbook(file: File): Promise<ParsedImport> {
         currency,
         amount_total: toNumber(at(row, idx.total)),
         amount_paid: paid,
-        amount_egp: toNumber(at(row, idx.egp)),
         payment_status: status,
         paid_at: toIsoDate(at(row, idx.date)),
         notes,
@@ -198,8 +197,6 @@ export async function parseFinanceWorkbook(file: File): Promise<ParsedImport> {
           months_count: toNumber(row[c0 + 3]) ?? 1,
           currency: normalizeCurrency(row[c0 + 4]),
           monthly_amount: toNumber(row[c0 + 5]) ?? 0,
-          total_amount: toNumber(row[c0 + 6]) ?? 0,
-          total_egp: toNumber(row[c0 + 7]) ?? 0,
         });
       }
     } else {
@@ -224,7 +221,6 @@ export async function parseFinanceWorkbook(file: File): Promise<ParsedImport> {
           notes: toText(row[c0 + 6]),
           extra_profit: toNumber(row[c0 + 7]) ?? 0,
           extra_reason: toText(row[c0 + 8]),
-          total_egp: toNumber(row[c0 + 9]) ?? 0,
         });
       }
     } else {

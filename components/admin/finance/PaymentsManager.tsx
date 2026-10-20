@@ -17,6 +17,7 @@ import {
 import type { FinanceData } from "@/lib/finance/queries";
 import {
   PAYMENT_STATUS_LABELS,
+  stageOfEdition,
   type FinanceOffer,
   type FinanceOtherIncome,
   type FinancePayment,
@@ -103,6 +104,7 @@ export default function PaymentsManager(props: Props) {
 
   const [tab, setTab] = useState<string>(props.paths[0]?.id ?? "other");
   const [courseTab, setCourseTab] = useState<string>("all");
+  const [stageFilter, setStageFilter] = useState<"all" | "fundamental" | "advanced">("all");
   const [showPricing, setShowPricing] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -144,14 +146,20 @@ export default function PaymentsManager(props: Props) {
     if (tab === "unassigned") return unassigned;
     if (!activePath) return [];
     const codes = activePath.courses.map((c) => c.code);
-    return payments.filter(
-      (p) =>
-        p.course_code &&
-        (courseTab === "all"
-          ? codes.includes(p.course_code)
-          : p.course_code === courseTab),
-    );
-  }, [tab, activePath, courseTab, payments, unassigned]);
+    const activeCourse = activePath.courses.find((c) => c.code === courseTab);
+    return payments.filter((p) => {
+      if (!p.course_code) return false;
+      if (courseTab === "all" ? !codes.includes(p.course_code) : p.course_code !== courseTab)
+        return false;
+      // كورس بمرحلتين: فلتر الأساسيات / المتقدم
+      if (activeCourse?.split && stageFilter !== "all") {
+        return stageOfEdition(p.edition_code) === stageFilter;
+      }
+      return true;
+    });
+  }, [tab, activePath, courseTab, stageFilter, payments, unassigned]);
+
+  const notRegistered = rows.filter((p) => p.account_status === "none").length;
 
   // أعمدة مفتاح التفعيل والإيميل وتاريخ الانتهاء تخص كورس CSD فقط.
   const columns = COLUMNS.filter(
@@ -243,16 +251,46 @@ export default function PaymentsManager(props: Props) {
       {/* تبويبات الكورسات داخل المسار */}
       {activePath ? (
         <div className="flex flex-wrap gap-1.5">
-          <SubTab active={courseTab === "all"} onClick={() => setCourseTab("all")}>
+          <SubTab
+            active={courseTab === "all"}
+            onClick={() => {
+              setCourseTab("all");
+              setStageFilter("all");
+            }}
+          >
             الكل
           </SubTab>
           {activePath.courses.map((c) => (
             <SubTab
               key={c.id}
               active={courseTab === c.code}
-              onClick={() => setCourseTab(c.code)}
+              onClick={() => {
+                setCourseTab(c.code);
+                setStageFilter("all");
+              }}
             >
               {c.title}
+            </SubTab>
+          ))}
+        </div>
+      ) : null}
+
+      {activePath?.courses.find((c) => c.code === courseTab)?.split ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs font-bold text-slate-500">المرحلة:</span>
+          {(
+            [
+              ["all", "الاثنتان"],
+              ["fundamental", "الأساسيات"],
+              ["advanced", "المتقدم"],
+            ] as const
+          ).map(([key, label]) => (
+            <SubTab
+              key={key}
+              active={stageFilter === key}
+              onClick={() => setStageFilter(key)}
+            >
+              {label}
             </SubTab>
           ))}
         </div>
@@ -265,6 +303,11 @@ export default function PaymentsManager(props: Props) {
           <div className="flex items-center justify-between border-b border-slate-200 p-3">
             <p className="text-sm font-black text-[#07152E]">
               المشتركون ({rows.length}) — اضغط على أي خلية لتعديلها
+              {notRegistered > 0 ? (
+                <span className="mr-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-black text-amber-800">
+                  {notRegistered} لم يسجّل في المنصة بعد
+                </span>
+              ) : null}
             </p>
             <button
               type="button"
@@ -281,6 +324,9 @@ export default function PaymentsManager(props: Props) {
               <thead className="sticky top-0 z-10 bg-slate-50">
                 <tr className="border-b border-slate-200">
                   <th className="px-2 py-3 text-[11px] font-black text-slate-500">#</th>
+                  <th className="whitespace-nowrap px-2 py-3 text-[11px] font-black text-slate-500">
+                    في المنصة
+                  </th>
                   {columns.map((c) => (
                     <th
                       key={c.key}
@@ -296,7 +342,7 @@ export default function PaymentsManager(props: Props) {
                 {rows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={columns.length + 2}
+                      colSpan={columns.length + 3}
                       className="p-10 text-center text-sm text-slate-400"
                     >
                       لا توجد اشتراكات هنا بعد.
@@ -306,9 +352,26 @@ export default function PaymentsManager(props: Props) {
                   rows.map((p, idx) => (
                     <tr
                       key={p.id}
-                      className="border-b border-slate-100 hover:bg-slate-50/60"
+                      className={`border-b border-slate-100 hover:bg-slate-50/60 ${
+                        p.account_status === "none" ? "bg-amber-50/70" : ""
+                      }`}
                     >
                       <td className="px-2 py-1 text-xs text-slate-400">{idx + 1}</td>
+                      <td className="whitespace-nowrap px-2 py-1">
+                        {p.account_status === "none" ? (
+                          <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-black text-amber-900">
+                            ⚠ لم يسجّل بعد
+                          </span>
+                        ) : p.account_status === "registered" ? (
+                          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-black text-slate-700">
+                            حساب بلا اشتراك
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-800">
+                            مشترك ✓
+                          </span>
+                        )}
+                      </td>
                       {columns.map((c) => (
                         <td key={c.key} className="px-1 py-1">
                           {c.auto ? (

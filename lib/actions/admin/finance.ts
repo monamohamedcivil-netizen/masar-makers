@@ -452,11 +452,15 @@ function buildIncome(
   const currency = normalizeCurrency(input.currency);
   const amount = asNumber(input.amount);
   const extra = asNumber(input.extra_profit);
-  // الإجمالي بالجنيه = المبلغ المحوَّل + الربح الإضافي (بالجنيه)
+  // الإجمالي بالجنيه = نسبتي (بعملة الدفع) محوَّلة للجنيه + الربح الإضافي (بالجنيه)
+  const myPercent =
+    input.my_percent === "" || input.my_percent == null
+      ? 0
+      : asNumber(input.my_percent);
   const totalEgp =
     input.total_egp !== undefined && input.total_egp !== "" && input.__manualTotal
       ? asNumber(input.total_egp)
-      : Math.round((toEgp(amount, currency, rates) + extra) * 100) / 100;
+      : Math.round((toEgp(myPercent, currency, rates) + extra) * 100) / 100;
   return {
     received_from: asText(input.received_from),
     for_what: asText(input.for_what),
@@ -743,10 +747,8 @@ export async function commitFinanceImport(
         ...clean,
         currency,
         amount_paid: paid,
-        amount_egp:
-          raw.amount_egp !== undefined && raw.amount_egp !== null && raw.amount_egp !== ""
-            ? asNumber(raw.amount_egp)
-            : toEgp(paid, currency, rates),
+        // نحسب المبلغ بالجنيه من بيانات الدفع وأسعار الصرف، لا من رقم الإكسل.
+        amount_egp: toEgp(paid, currency, rates),
         payment_status:
           (clean.payment_status as PaymentStatus | undefined) ??
           derivePaymentStatus(total, paid),
@@ -802,11 +804,6 @@ export async function commitFinanceImport(
     const expRows: Array<Record<string, unknown>> = [];
     for (const raw of expenses) {
       const row = buildExpense(raw, rates);
-      // نحافظ على الإجماليات كما هي في الإكسل إن وُجدت
-      if (raw.total_amount !== undefined && raw.total_amount !== null)
-        row.total_amount = asNumber(raw.total_amount);
-      if (raw.total_egp !== undefined && raw.total_egp !== null)
-        row.total_egp = asNumber(raw.total_egp);
       const key = `${row.payee}|${row.start_month}|${row.total_amount}`;
       if (expSeen.has(key)) {
         result.expensesSkipped += 1;
@@ -833,8 +830,6 @@ export async function commitFinanceImport(
     const incRows: Array<Record<string, unknown>> = [];
     for (const raw of income) {
       const row = buildIncome(raw, rates);
-      if (raw.total_egp !== undefined && raw.total_egp !== null)
-        row.total_egp = asNumber(raw.total_egp);
       const key = `${row.for_what}|${row.month}|${row.amount}`;
       if (incSeen.has(key)) {
         result.incomeSkipped += 1;

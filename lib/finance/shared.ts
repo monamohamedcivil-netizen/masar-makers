@@ -49,6 +49,18 @@ export interface FinancePayment {
   survey_done: boolean;
   source: "enrollment" | "import" | "manual";
   created_at: string;
+  /** يُحسب تلقائيًا: none = لم يسجّل بالمنصة، registered = له حساب بلا اشتراك نشط بالكورس، enrolled = مشترك. */
+  account_status?: "none" | "registered" | "enrolled";
+}
+
+export type CourseStage = "fundamental" | "advanced" | "other";
+
+/** مرحلة الاشتراك من رمز الإصدار: C3D-F1 / CSD-F2 أساسيات، CSD-A1 متقدم. */
+export function stageOfEdition(edition: string | null | undefined): CourseStage {
+  const code = String(edition ?? "").toUpperCase();
+  if (/-F/.test(code)) return "fundamental";
+  if (/-A/.test(code)) return "advanced";
+  return "other";
 }
 
 export interface FinanceOffer {
