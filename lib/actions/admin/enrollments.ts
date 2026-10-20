@@ -343,6 +343,40 @@ export async function getEnrollmentRequests(): Promise<
     ]),
   );
 
+  // اسم المحاضرة المطلوبة (action_key بصيغة workshop:lesson:ID أو free:lesson:ID).
+  const lessonIdOf = (key: string | null) => {
+    const match = /^(?:workshop|free):lesson:([0-9a-f-]{36})$/i.exec(
+      key?.trim() ?? "",
+    );
+    return match ? match[1] : null;
+  };
+
+  const lessonIds = Array.from(
+    new Set(
+      enrollments
+        .map((item) => lessonIdOf(item.action_key))
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+
+  const { data: lessonRows } = lessonIds.length
+    ? await supabase
+        .from("lessons")
+        .select("id,title,title_ar")
+        .in("id", lessonIds)
+    : { data: [] as Record<string, unknown>[] };
+
+  const lessonTitleById = new Map(
+    (lessonRows ?? []).map((lesson) => {
+      const row = lesson as Record<string, unknown>;
+      const title =
+        (typeof row.title_ar === "string" && row.title_ar.trim()) ||
+        (typeof row.title === "string" && row.title.trim()) ||
+        "";
+      return [String(row.id), title];
+    }),
+  );
+
   return enrollments.map((enrollment) => {
     const profile = profilesMap.get(enrollment.user_id);
     const course = coursesMap.get(enrollment.course_id);
@@ -363,7 +397,10 @@ export async function getEnrollmentRequests(): Promise<
 
       journeyType: enrollment.journey_type?.trim() || "career_path",
       actionKey: enrollment.action_key?.trim() || null,
-      actionTitle: enrollment.action_title?.trim() || null,
+      actionTitle:
+        lessonTitleById.get(lessonIdOf(enrollment.action_key) ?? "") ||
+        enrollment.action_title?.trim() ||
+        null,
       enrollmentSource: normalizeEnrollmentSource(
         enrollment.enrollment_source,
       ),

@@ -509,18 +509,6 @@ export default function EnrollmentRequestsTable({
                           "—"}
                       </p>
 
-                      {request.actionKey ? (
-                        <p
-                          className="mt-1 max-w-[260px] truncate font-mono text-[10px] text-slate-400"
-                          title={
-                            request.actionKey
-                          }
-                        >
-                          {
-                            request.actionKey
-                          }
-                        </p>
-                      ) : null}
                     </td>
 
                     <td className="px-5 py-4 text-sm text-slate-600">
