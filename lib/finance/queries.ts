@@ -1,8 +1,13 @@
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/server";
 
+import { computeExpenseTotals } from "./expense-calc";
 import {
   DEFAULT_RATES,
+  stageOfEdition,
+  type BillingPeriod,
+  type ExpenseCategory,
+  type FinanceService,
   type FinanceExpense,
   type FinanceOffer,
   type FinanceOtherIncome,
