@@ -49,6 +49,10 @@ export interface FinancePayment {
   survey_done: boolean;
   source: "enrollment" | "import" | "manual";
   journey_kind: "integrated" | "one_day";
+  /** اشتراك مكافأة (مثل جائزة السحب الشهري) بلا دفع */
+  is_reward?: boolean;
+  reward_reason?: string | null;
+  reward_date?: string | null;
   created_at: string;
   /** يُحسب تلقائيًا: none = لم يسجّل بالمنصة، registered = له حساب بلا اشتراك نشط بالكورس، enrolled = مشترك. */
   account_status?: "none" | "registered" | "enrolled";

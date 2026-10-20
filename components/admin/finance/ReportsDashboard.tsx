@@ -95,8 +95,8 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
   const byMonth = new Map<string, { income: number; count: number }>();
   const byCourse = new Map<string, { income: number; count: number }>();
 
+  // كل الاشتراكات تُحسب في الأعداد (حتى لو المدفوع 0 كالمكافآت).
   for (const p of payments) {
-    if (!(p.amount_egp > 0)) continue;
     const month = (p.paid_at ?? "").slice(0, 7) || "—";
     const course = p.course_code ?? "—";
 
@@ -119,15 +119,15 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
 
   const courseName = (code: string) => titleByCode.get(code) ?? code;
 
-  const cjMap = new Map<string, { key: string; course: string; journey: JourneyLabel; income: number; count: number }>();
+  const cjMap = new Map<string, { key: string; course: string; journey: JourneyLabel; income: number; count: number; paidCount: number }>();
   for (const p of payments) {
-    if (!(p.amount_egp > 0)) continue;
     const course = p.course_code ?? "—";
     const journey = journeyLabelOf(p);
     const key = `${course}|${journey}`;
-    const cur = cjMap.get(key) ?? { key, course, journey, income: 0, count: 0 };
+    const cur = cjMap.get(key) ?? { key, course, journey, income: 0, count: 0, paidCount: 0 };
     cur.income += p.amount_egp;
     cur.count += 1;
+    if (p.amount_egp > 0) cur.paidCount += 1;
     cjMap.set(key, cur);
   }
   const courseJourneys = [...cjMap.values()].sort((a, b) => b.income - a.income);
@@ -252,7 +252,7 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
                     {courseName(v.course)} — {v.journey}
                   </span>
                   <span className="font-semibold text-slate-500">
-                    {fmt(v.income)} جنيه · {v.count} اشتراك · متوسط {fmt(v.income / v.count)}
+                    {fmt(v.income)} جنيه · {v.count} اشتراك · متوسط {fmt(v.paidCount ? v.income / v.paidCount : 0)}
                   </span>
                 </div>
                 <div className="h-3 overflow-hidden rounded-full bg-slate-100">

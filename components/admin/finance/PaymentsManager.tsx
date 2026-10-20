@@ -385,6 +385,14 @@ export default function PaymentsManager(props: Props) {
                             مشترك ✓
                           </span>
                         )}
+                        {p.is_reward && (
+                          <span
+                            className="mr-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black text-violet-800"
+                            title={`${p.reward_reason ?? "مكافأة"}${p.reward_date ? ` — ${p.reward_date}` : ""}`}
+                          >
+                            🎁 مكافأة{p.reward_date ? ` · ${p.reward_date}` : ""}
+                          </span>
+                        )}
                       </td>
                       {columns.map((c) => (
                         <td

@@ -54,7 +54,7 @@ export default function CourseMonthMatrix({
   const [month, setMonth] = useState("all");
 
   const dated = useMemo(
-    () => rows.filter((r) => r.amount_egp > 0 && r.paid_at),
+    () => rows.filter((r) => r.paid_at),
     [rows],
   );
 
