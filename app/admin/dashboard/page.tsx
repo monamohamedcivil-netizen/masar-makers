@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   Award,
+  Bell,
   BookOpen,
   CheckCircle2,
   ClipboardList,
@@ -15,7 +16,7 @@ import {
 
 import AdminPageHeader from "@/components/admin/layout/AdminPageHeader";
 import { getAdminDashboardStats } from "@/lib/queries/admin-dashboard";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,27 @@ export default async function DashboardPage() {
       .eq("mode", "human");
 
   const now = Date.now();
+
+  // متابعات الدفعات المعلّقة (من جدول المدفوعات).
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const { data: followupRows } = await createAdminClient()
+    .from("finance_payments")
+    .select("id,student_name,course_code,followup_date,followup_reason")
+    .eq("followup_done", false)
+    .not("followup_date", "is", null)
+    .order("followup_date", { ascending: true })
+    .limit(200);
+  const followups = (followupRows ?? []) as Array<{
+    id: string;
+    student_name: string | null;
+    course_code: string | null;
+    followup_date: string;
+    followup_reason: string | null;
+  }>;
+  const dueFollowups = followups.filter((f) => f.followup_date <= todayIso);
+  const followupPeople = new Set(
+    followups.map((f) => (f.student_name ?? f.id).trim()),
+  ).size;
 
   const whatsappSupportRequests =
     (humanSessions ?? []).filter(
@@ -66,6 +88,30 @@ export default async function DashboardPage() {
         }
       />
 
+      {dueFollowups.length > 0 && (
+        <section className="rounded-3xl border border-red-200 bg-red-50 p-5 shadow-sm">
+          <h2 className="text-base font-black text-red-800">
+            🔔 حان موعد متابعة {dueFollowups.length} من الدفعات
+          </h2>
+          <ul className="mt-3 space-y-2 text-sm text-red-900">
+            {dueFollowups.map((f) => (
+              <li key={f.id} className="rounded-xl bg-white/70 px-4 py-2">
+                <span className="font-black">{f.student_name ?? "طالب"}</span>
+                {f.course_code ? ` (${f.course_code})` : ""} — موعد المتابعة{" "}
+                {f.followup_date}
+                {f.followup_reason ? ` — الملاحظة: ${f.followup_reason}` : ""}
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="/admin/reports"
+            className="mt-3 inline-block text-sm font-black text-red-800 underline"
+          >
+            فتح جدول المتابعة
+          </Link>
+        </section>
+      )}
+
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="إجمالي الطلاب"
@@ -82,7 +128,7 @@ export default async function DashboardPage() {
         />
 
         <StatCard
-          title="الاشتراكات النشطة"
+          title="الاشتراكات النشطة (المدفوعة)"
           value={stats.activeEnrollments}
           icon={GraduationCap}
           tone="blue"
@@ -107,7 +153,16 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+          <AttentionCard
+            href="/admin/reports"
+            title="متابعة دفعات"
+            value={followupPeople}
+            subtitle={`أشخاص يجب متابعتهم${dueFollowups.length ? ` (${dueFollowups.length} مستحقة الآن)` : ""}`}
+            icon={Bell}
+            tone="red"
+          />
+
           <AttentionCard
             href="/admin/whatsapp-sales"
             title="خدمة عملاء WhatsApp"
