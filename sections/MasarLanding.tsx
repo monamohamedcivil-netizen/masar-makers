@@ -337,6 +337,12 @@ const mobileRoadStations = {
   ],
 };
 
+// الإنجليزية على الموبايل: إزاحة طفيفة للمحطات الطرفية لإفساح مساحة لأسمائها الأطول.
+const mobileEnLeft = {
+  road: [80, 80, 77, 70, 60],
+  traffic: [20, 20, 20, 29, 40],
+};
+
 const AUTO_ROTATE_MS = 8000;
 const MANUAL_PAUSE_MS = 12000;
 
@@ -872,7 +878,7 @@ export default function MasarLanding() {
                 key={`mobile-traffic-${item.title}`}
                 course={item}
                 active={active}
-                left={pos.left}
+                left={locale === "en" ? mobileEnLeft.traffic[visualIndex] : pos.left}
                 top={pos.top}
                 compactLabel={locale === "en"}
                 onSelect={() => selectCourseManually(1, courseIndex)}
@@ -901,7 +907,7 @@ export default function MasarLanding() {
                 key={`mobile-road-${item.title}`}
                 course={item}
                 active={active}
-                left={pos.left}
+                left={locale === "en" ? mobileEnLeft.road[visualIndex] : pos.left}
                 top={pos.top}
                 compactLabel={locale === "en"}
                 onSelect={() => selectCourseManually(0, courseIndex)}
@@ -917,19 +923,19 @@ export default function MasarLanding() {
         </div>
 
         {/* Mobile centered brand + CTAs between the two paths */}
-        <div className="absolute left-1/2 top-[39.5%] z-30 flex -translate-x-1/2 flex-col items-center gap-1.5 md:hidden">
-          <div className="flex items-center justify-center gap-0 px-0 py-0">
+        <div className="absolute left-1/2 top-[39.5%] z-30 flex w-max -translate-x-1/2 flex-col items-center gap-1.5 md:hidden">
+          <div className="flex flex-nowrap items-center justify-center gap-0 px-0 py-0">
             <Image
   src="/images/logo/masar-makers-mark.png"
   alt="Masar Makers"
   width={140}
   height={140}
   sizes="70px"
-  className="-mr-1 h-[64px] w-auto object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,.45)]"
+  className="-mr-1 h-[60px] w-auto shrink-0 object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,.45)]"
 />
 
             {locale === "ar" ? (
-              <div data-masar-no-translate className="text-right">
+              <div data-masar-no-translate className="shrink-0 text-right">
                 <p className="whitespace-nowrap text-[20px] font-black leading-none text-white">
                   صناع <span className="text-[#F7B548]">المسار</span>
                 </p>
@@ -938,9 +944,9 @@ export default function MasarLanding() {
                 </p>
               </div>
             ) : (
-              <div data-masar-no-translate className="text-left">
-                <p className="whitespace-nowrap text-[18px] font-black leading-none text-white">
-                  Masar <span className="text-[#F7B548]">Makers</span>
+              <div data-masar-no-translate className="shrink-0 text-left">
+                <p className="whitespace-nowrap text-[17px] font-black leading-none text-white">
+                  Masar&nbsp;<span className="text-[#F7B548]">Makers</span>
                 </p>
                 <p className="mt-1 whitespace-nowrap text-[13px] font-bold text-[#F7B548]">
                   صناع <span className="text-white">المسار</span>
@@ -1788,7 +1794,7 @@ function StationPin({
         style={
           compactLabel
             ? {
-                maxWidth: `max(56px, calc(${
+                maxWidth: `max(50px, calc(${
                   labelSide === "outside-left" ? left : 100 - left
                 }vw - 34px))`,
               }
@@ -1800,7 +1806,7 @@ function StationPin({
           w-max
           ${
             compactLabel
-              ? "whitespace-normal text-[9.5px] md:max-w-none md:whitespace-nowrap"
+              ? "whitespace-normal [overflow-wrap:normal] text-[9px] md:max-w-none md:whitespace-nowrap"
               : "max-w-none whitespace-nowrap"
           }
           text-[11px] font-black leading-[1.05]
