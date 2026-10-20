@@ -1,4 +1,8 @@
-import { createClient } from "@/lib/supabase/server";
+import {
+  createAdminClient,
+  createClient,
+} from "@/lib/supabase/server";
+import { sendEnrollmentActivatedEmail } from "@/lib/email/send-enrollment-activated-email";
 import type { EnrollmentStatus } from "@/lib/actions/enroll";
 
 type WorkflowSupabaseClient = Awaited<ReturnType<typeof createClient>>;
@@ -77,6 +81,48 @@ export async function activateEnrollmentWorkflow(
       success: false,
       message: updateError.message,
     };
+  }
+
+  // إيميل التهنئة: لا يوقف الاعتماد لو فشل الإرسال.
+  try {
+    const admin = createAdminClient();
+
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("email,full_name")
+      .eq("id", enrollment.user_id)
+      .maybeSingle();
+
+    if (profile?.email) {
+      const result = await sendEnrollmentActivatedEmail({
+        email: String(profile.email),
+        studentName:
+          typeof profile.full_name === "string"
+            ? profile.full_name
+            : null,
+        journeyType: enrollment.journey_type,
+        journeyTitle: enrollment.journey_title,
+        courseTitle: enrollment.course_title,
+        stationTitle: enrollment.station_title,
+        actionTitle: enrollment.action_title,
+      });
+
+      if (
+        result &&
+        "error" in result &&
+        result.error
+      ) {
+        console.error(
+          "ENROLLMENT ACTIVATED EMAIL ERROR:",
+          result.error,
+        );
+      }
+    }
+  } catch (emailError) {
+    console.error(
+      "ENROLLMENT ACTIVATED EMAIL FAILED:",
+      emailError,
+    );
   }
 
   return {
