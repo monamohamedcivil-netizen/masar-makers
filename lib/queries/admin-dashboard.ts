@@ -77,6 +77,7 @@ async function countRows(
   table: string,
   filters: Array<[string, string]> = [],
   exclusion?: Exclusion,
+  options: { paidOnly?: boolean } = {},
 ): Promise<number> {
   const admin = createAdminClient();
 
@@ -89,6 +90,11 @@ async function countRows(
 
   for (const [column, value] of filters) {
     query = query.eq(column, value);
+  }
+
+  // الاشتراكات المجانية (journey_type = free) لا تُحتسب ضمن الاشتراكات.
+  if (table === "enrollments" && options.paidOnly) {
+    query = query.or("journey_type.is.null,journey_type.neq.free");
   }
 
   if (exclusion) {
@@ -174,6 +180,7 @@ Promise<AdminDashboardStats> {
       "enrollments",
       [["status", "active"]],
       exclusion,
+      { paidOnly: true },
     ),
 
     countRows(

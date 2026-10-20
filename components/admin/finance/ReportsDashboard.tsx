@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { FinanceData } from "@/lib/finance/queries";
 import { PAYMENT_STATUS_LABELS } from "@/lib/finance/shared";
 
+import CourseMonthMatrix from "./CourseMonthMatrix";
 import FollowupDoneButton from "./FollowupDoneButton";
 
 const fmt = (n: number) =>
@@ -89,7 +90,6 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
 
   const byMonth = new Map<string, { income: number; count: number }>();
   const byCourse = new Map<string, { income: number; count: number }>();
-  const matrix = new Map<string, Map<string, number>>();
 
   for (const p of payments) {
     if (!(p.amount_egp > 0)) continue;
@@ -105,10 +105,6 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
     c.income += p.amount_egp;
     c.count += 1;
     byCourse.set(course, c);
-
-    const row = matrix.get(course) ?? new Map<string, number>();
-    row.set(month, (row.get(month) ?? 0) + p.amount_egp);
-    matrix.set(course, row);
   }
 
   const months = [...byMonth.keys()].filter((k) => k !== "—").sort();
@@ -116,10 +112,6 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
   const maxMonth = Math.max(1, ...months.map((k) => byMonth.get(k)!.income));
   const courses = [...byCourse.entries()].sort((a, b) => b[1].income - a[1].income);
   const maxCourse = Math.max(1, ...courses.map(([, v]) => v.income));
-  const maxCell = Math.max(
-    1,
-    ...[...matrix.values()].flatMap((r) => [...r.values()]),
-  );
 
   const courseName = (code: string) => titleByCode.get(code) ?? code;
 
@@ -255,53 +247,17 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
         )}
       </Card>
 
-      {/* كورس × شهر */}
-      <Card title="الدخل لكل كورس في كل شهر (جنيه)">
-        {months.length === 0 ? (
-          <Empty />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] text-center text-xs">
-              <thead>
-                <tr className="text-[11px] font-black text-slate-500">
-                  <th className="p-2 text-right">الكورس</th>
-                  {months.map((k) => (
-                    <th key={k} className="p-2">{monthLabel(k)}</th>
-                  ))}
-                  <th className="p-2">الإجمالي</th>
-                </tr>
-              </thead>
-              <tbody>
-                {courses.map(([code]) => {
-                  const row = matrix.get(code)!;
-                  return (
-                    <tr key={code} className="border-t border-slate-100">
-                      <td className="p-2 text-right font-black text-[#07152E]">{courseName(code)}</td>
-                      {months.map((k) => {
-                        const val = row.get(k) ?? 0;
-                        return (
-                          <td
-                            key={k}
-                            className="p-2 font-semibold"
-                            style={{
-                              backgroundColor: val
-                                ? `rgba(247,181,72,${0.12 + (val / maxCell) * 0.6})`
-                                : undefined,
-                            }}
-                          >
-                            {val ? fmt(val) : "—"}
-                          </td>
-                        );
-                      })}
-                      <td className="p-2 font-black">{fmt(byCourse.get(code)!.income)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      {/* كورس × رحلة × شهر + متوسط السعر لكل رحلة */}
+      <CourseMonthMatrix
+        rows={payments.map((p) => ({
+          course_code: p.course_code,
+          edition_code: p.edition_code,
+          journey_kind: p.journey_kind,
+          paid_at: p.paid_at,
+          amount_egp: p.amount_egp,
+        }))}
+        titles={Object.fromEntries(titleByCode)}
+      />
 
       {/* جدول المتابعة */}
       <Card title={`جدول متابعة الدفعات (${followups.length})`}>
