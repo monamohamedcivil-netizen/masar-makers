@@ -78,6 +78,33 @@ export async function updateSession(
 
   const pathname = request.nextUrl.pathname;
 
+  /*
+    حساب موقوف: نُخرجه فورًا حتى لو كانت جلسته ما زالت صالحة،
+    ويُمنع من الدخول مجددًا حتى تُعاد تفعيل الحساب.
+  */
+  const bannedUntil = (user as { banned_until?: string | null } | null)
+    ?.banned_until;
+
+  if (
+    user &&
+    bannedUntil &&
+    new Date(bannedUntil).getTime() > Date.now() &&
+    pathname !== "/login"
+  ) {
+    await supabase.auth.signOut();
+
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    loginUrl.search = "?suspended=1";
+
+    const redirect = NextResponse.redirect(loginUrl);
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirect.cookies.set(cookie);
+    });
+
+    return redirect;
+  }
+
   if (
     !user &&
     isProtectedRoute(pathname)
