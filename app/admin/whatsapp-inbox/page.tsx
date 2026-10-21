@@ -6,8 +6,13 @@ import { getInboxSnapshot } from "@/lib/actions/whatsapp-inbox";
 
 export const dynamic = "force-dynamic";
 
-export default async function WhatsAppInboxPage() {
+export default async function WhatsAppInboxPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ phone?: string }>;
+}) {
   const initial = await getInboxSnapshot();
+  const { phone } = await searchParams;
 
   return (
     <div className="space-y-6">
@@ -22,7 +27,7 @@ export default async function WhatsAppInboxPage() {
           </div>
         }
       />
-      <WhatsAppInbox initial={initial} />
+      <WhatsAppInbox initial={initial} initialPhone={phone ?? null} />
     </div>
   );
 }

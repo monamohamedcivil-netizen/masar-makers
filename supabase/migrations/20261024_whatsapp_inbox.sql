@@ -42,3 +42,29 @@ alter table public.whatsapp_bot_settings
   add column if not exists quota_stop_at integer not null default 980,
   add column if not exists quota_warned_month text,
   add column if not exists quota_paused_month text;
+
+-- Routing: test mode, known contacts, manual hand-off to the bot.
+alter table public.whatsapp_bot_settings
+  add column if not exists bot_mode text not null default 'test' check (bot_mode in ('off', 'test', 'live')),
+  add column if not exists test_numbers text[] not null default '{}';
+
+alter table public.whatsapp_bot_sessions
+  add column if not exists always_human boolean not null default false,
+  add column if not exists bot_forced boolean not null default false;
+
+-- Web Push subscriptions for admin phones/laptops (inbox notifications).
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  user_agent text,
+  created_at timestamptz not null default now(),
+  last_success_at timestamptz
+);
+alter table public.push_subscriptions enable row level security;
+
+-- Numbers Mona already talks to (imported list). New conversations from them are never answered by the bot.
+alter table public.whatsapp_bot_settings
+  add column if not exists known_numbers text[] not null default '{}';

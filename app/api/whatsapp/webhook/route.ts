@@ -11,6 +11,9 @@ import {
   logOutgoingMessage,
 } from "@/lib/whatsapp/inbox";
 import { enforceQuota } from "@/lib/whatsapp/quota";
+import { decideBotReply, isKnownNumber, isPlatformStudent, isTestNumber } from "@/lib/whatsapp/routing";
+import { describeIncomingMessage } from "@/lib/whatsapp/inbox";
+import { notifyAdminDevices } from "@/lib/push/notify";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,6 +74,8 @@ type SessionRow = {
   current_track?: string | null;
   human_mode_until?: string | null;
   updated_at?: string | null;
+  always_human?: boolean | null;
+  bot_forced?: boolean | null;
 };
 
 function cleanText(value: unknown) {
@@ -1605,6 +1610,7 @@ async function enterHumanMode(
     mode: "human",
     current_menu_key: "human_support",
     human_mode_until: until,
+    bot_forced: false,
   });
 
   await notifyAdminsOfHumanSupport(
@@ -2032,6 +2038,7 @@ async function handleIncomingMessage(
   supabase: SupabaseClient,
   message: AnyRow,
   settings: AnyRow | null,
+  isNewOverride?: boolean,
 ) {
   const phone =
     cleanText(message?.from);
@@ -2110,7 +2117,7 @@ async function handleIncomingMessage(
   }
 
   const isNewConversation =
-    !session;
+    isNewOverride ?? !session;
 
   if (!session) {
     await patchSession(
@@ -2310,19 +2317,50 @@ export async function POST(request: NextRequest) {
 
     // Process sequentially so session state remains deterministic.
     for (const message of messages) {
-      await logIncomingMessage(
-        supabase,
-        message,
-        contactNames.get(String(message?.from ?? "")) ?? null,
-      );
+      const phone = cleanText(message?.from);
+      const contactName = contactNames.get(phone) ?? null;
+      const existing = phone ? await getSession(supabase, phone) : null;
+      const isNew = !existing;
+
+      await logIncomingMessage(supabase, message, contactName);
+
+      // A brand-new conversation from an existing platform student → Mona answers, not the bot.
+      if (
+        isNew &&
+        phone &&
+        !isTestNumber(settings, phone) &&
+        (isKnownNumber(settings, phone) || (await isPlatformStudent(supabase, phone)))
+      ) {
+        await patchSession(supabase, phone, { always_human: true });
+      }
+
+      const session = phone ? await getSession(supabase, phone) : null;
+      const decision = decideBotReply(settings, session as AnyRow | null, phone);
+      const humanActive =
+        session?.mode === "human" &&
+        (!session.human_mode_until || new Date(session.human_mode_until).getTime() > Date.now());
+      const botWillReply = decision.reply && !humanActive && !quota?.botPaused && botIsEnabled(settings);
+
+      // Phone notification for every new incoming message.
+      await notifyAdminDevices(supabase, {
+        title: `${contactName || "+" + phone}${botWillReply ? " 🤖" : " ✋"}`,
+        body: cut(describeIncomingMessage(message), 140) || "رسالة جديدة",
+        url: `/admin/whatsapp-inbox?phone=${encodeURIComponent(phone)}`,
+        tag: `wa-${phone}`,
+      });
 
       if (quota?.botPaused) {
         console.log(`WhatsApp free tier reached (${quota.used}/${quota.free}); bot stays silent.`);
         continue;
       }
 
+      if (!decision.reply) {
+        console.log(`Bot silent for ${phone}: ${decision.reason}.`);
+        continue;
+      }
+
       try {
-        await handleIncomingMessage(supabase, message, settings);
+        await handleIncomingMessage(supabase, message, settings, isNew);
       } catch (messageError) {
         console.error("Failed to process WhatsApp message:", messageError);
       }

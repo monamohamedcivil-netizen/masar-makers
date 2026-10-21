@@ -11,6 +11,8 @@ import {
   MessageCircle,
   Search,
   Send,
+  Settings2,
+  ShieldCheck,
   Smartphone,
   TriangleAlert,
   UserRound,
@@ -29,10 +31,14 @@ import {
   getInboxSnapshot,
   sendAdminReply,
   setConversationMode,
+  setKnownContact,
+  updateRouting,
   type InboxConversation,
   type InboxMessage,
   type InboxSnapshot,
 } from "@/lib/actions/whatsapp-inbox";
+
+import PushToggle from "./PushToggle";
 
 const POLL_MS = 4000;
 
@@ -65,9 +71,17 @@ function StatusTicks({ status }: { status: string | null }) {
   return <Check className="h-3.5 w-3.5 text-slate-400" />;
 }
 
-export default function WhatsAppInbox({ initial }: { initial: InboxSnapshot }) {
+export default function WhatsAppInbox({ initial, initialPhone = null }: { initial: InboxSnapshot; initialPhone?: string | null }) {
   const [snapshot, setSnapshot] = useState<InboxSnapshot>(initial);
   const [selected, setSelected] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [routingDraft, setRoutingDraft] = useState({
+    mode: initial.routing.mode,
+    testNumbers: initial.routing.testNumbers.join("\n"),
+    knownNumbers: initial.routing.knownNumbers.join("\n"),
+  });
+  const [routingNote, setRoutingNote] = useState<string | null>(null);
+  const [sendMenuOnHandoff, setSendMenuOnHandoff] = useState(true);
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [loadingThread, setLoadingThread] = useState(false);
   const [draft, setDraft] = useState("");
@@ -124,6 +138,12 @@ export default function WhatsAppInbox({ initial }: { initial: InboxSnapshot }) {
     void refreshList();
   };
 
+  // Opened from a phone notification: /admin/whatsapp-inbox?phone=...
+  useEffect(() => {
+    if (initialPhone) void openConversation(initialPhone.replace(/\D/g, ""));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPhone]);
+
   const current: InboxConversation | undefined = useMemo(
     () => snapshot.conversations.find((c) => c.phone === selected),
     [snapshot, selected],
@@ -161,23 +181,55 @@ export default function WhatsAppInbox({ initial }: { initial: InboxSnapshot }) {
     if (!selected) return;
     setError(null);
     startTransition(async () => {
-      const result = await setConversationMode(selected, mode);
+      const result = await setConversationMode(selected, mode, { sendMenu: mode === "bot" && sendMenuOnHandoff });
+      if (!result.ok) setError(result.error);
+      await Promise.all([refreshList(), refreshThread(selected)]);
+    });
+  };
+
+  const toggleKnown = (known: boolean) => {
+    if (!selected) return;
+    startTransition(async () => {
+      const result = await setKnownContact(selected, known);
       if (!result.ok) setError(result.error);
       await refreshList();
     });
   };
+
+  const saveRouting = () => {
+    setRoutingNote(null);
+    startTransition(async () => {
+      const result = await updateRouting(routingDraft);
+      setRoutingNote(result.ok ? "تم الحفظ ✅" : result.error);
+      await refreshList();
+    });
+  };
+
+  const modeLabel = { off: "البوت متوقف للجميع", test: "وضع التجربة: البوت يرد على أرقام التجربة فقط", live: "البوت يرد تلقائيًا على الرسائل الجديدة" } as const;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <span
           className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-bold ${
-            snapshot.botEnabled ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+            !snapshot.botEnabled || snapshot.routing.mode === "off"
+              ? "bg-red-50 text-red-700"
+              : snapshot.routing.mode === "test"
+                ? "bg-sky-50 text-sky-700"
+                : "bg-emerald-50 text-emerald-700"
           }`}
         >
           <Bot className="h-4 w-4" />
-          {snapshot.botEnabled ? "البوت مفعّل" : "البوت متوقف بالكامل (من إعدادات WhatsApp Sales)"}
+          {!snapshot.botEnabled ? "البوت متوقف بالكامل (من إعدادات WhatsApp Sales)" : modeLabel[snapshot.routing.mode]}
         </span>
+        <button
+          type="button"
+          onClick={() => setShowSettings((v) => !v)}
+          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1 font-bold text-slate-700 hover:bg-slate-50"
+        >
+          <Settings2 className="h-4 w-4" />
+          إعدادات البوت
+        </button>
         <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 font-bold text-amber-700">
           <Hand className="h-4 w-4" />
           {waitingCount} محادثة بيدك الآن
@@ -199,9 +251,67 @@ export default function WhatsAppInbox({ initial }: { initial: InboxSnapshot }) {
           </span>
         )}
         <span className="text-slate-500">
-          عند ردّك يتوقف البوت لهذا العميل {snapshot.humanHours} ساعة ثم يعود تلقائيًا، ويمكنك إعادته يدويًا في أي وقت.
+          عند ردّك يتوقف البوت لهذا العميل {snapshot.humanHours} ساعة. الجهات المعروفة لا يرد عليها البوت أبدًا إلا إذا حوّلتِها له.
         </span>
       </div>
+
+      <PushToggle />
+
+      {showSettings && (
+        <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
+          <div className="font-black text-[#07152E]">من يرد على الرسائل الجديدة؟</div>
+          <div className="flex flex-wrap gap-2">
+            {(["off", "test", "live"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setRoutingDraft((d) => ({ ...d, mode: m }))}
+                className={`rounded-xl border px-3 py-2 font-bold ${
+                  routingDraft.mode === m ? "border-[#07152E] bg-[#07152E] text-white" : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                {m === "off" ? "البوت متوقف للجميع" : m === "test" ? "تجربة على أرقام محددة" : "تشغيل للجميع"}
+              </button>
+            ))}
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="block space-y-1">
+              <span className="font-bold text-slate-700">أرقام التجربة (البوت يرد عليها فقط في وضع التجربة)</span>
+              <textarea
+                dir="ltr"
+                rows={4}
+                value={routingDraft.testNumbers}
+                onChange={(e) => setRoutingDraft((d) => ({ ...d, testNumbers: e.target.value }))}
+                placeholder={"201xxxxxxxxx\n9665xxxxxxxx"}
+                className="w-full rounded-xl border border-slate-200 p-2 font-mono text-xs outline-none focus:border-[#07152E]"
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="font-bold text-slate-700">جهات معروفة (محادثات قديمة — أنتِ ترد عليها دائمًا)</span>
+              <textarea
+                dir="ltr"
+                rows={4}
+                value={routingDraft.knownNumbers}
+                onChange={(e) => setRoutingDraft((d) => ({ ...d, knownNumbers: e.target.value }))}
+                placeholder="الصقي الأرقام هنا، رقم في كل سطر"
+                className="w-full rounded-xl border border-slate-200 p-2 font-mono text-xs outline-none focus:border-[#07152E]"
+              />
+              <span className="text-xs text-slate-500">طلاب المنصة يُعتبرون جهات معروفة تلقائيًا (من أرقام الحسابات والمدفوعات).</span>
+            </label>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={saveRouting}
+              disabled={pending}
+              className="rounded-xl bg-[#07152E] px-4 py-2 font-bold text-white disabled:opacity-60"
+            >
+              حفظ الإعدادات
+            </button>
+            {routingNote && <span className="text-xs text-slate-600">{routingNote}</span>}
+          </div>
+        </div>
+      )}
 
       <div className="grid h-[72vh] min-h-[520px] overflow-hidden rounded-2xl border border-slate-200 bg-white md:grid-cols-[340px_1fr]">
         {/* Conversation list */}
@@ -265,6 +375,9 @@ export default function WhatsAppInbox({ initial }: { initial: InboxSnapshot }) {
                           البوت
                         </span>
                       )}
+                      {conversation.alwaysHuman && (
+                        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-700">معروف</span>
+                      )}
                       {conversation.unread > 0 && (
                         <span className="rounded-full bg-[#F7B548] px-2 py-0.5 text-[11px] font-black text-[#07152E]">
                           {conversation.unread} جديدة
@@ -305,33 +418,45 @@ export default function WhatsAppInbox({ initial }: { initial: InboxSnapshot }) {
                   </div>
                 </div>
 
-                {current.mode === "human" ? (
-                  <>
-                    <span className="inline-flex items-center gap-1 text-xs text-amber-700">
-                      <Clock className="h-3.5 w-3.5" />
-                      البوت متوقف حتى {formatTime(current.humanModeUntil)}
-                    </span>
+                <div className="flex flex-col items-end gap-1.5">
+                  <div className="inline-flex overflow-hidden rounded-xl border border-slate-200 text-sm font-bold" role="group" aria-label="من يرد الآن">
                     <button
                       type="button"
                       disabled={pending}
-                      onClick={() => toggleMode("bot")}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
+                      onClick={() => current.mode !== "human" && toggleMode("human")}
+                      className={`inline-flex items-center gap-1.5 px-3 py-2 ${current.mode === "human" ? "bg-amber-500 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
+                    >
+                      <Hand className="h-4 w-4" />
+                      أنا أرد
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => current.mode !== "bot" && toggleMode("bot")}
+                      className={`inline-flex items-center gap-1.5 px-3 py-2 ${current.mode === "bot" ? "bg-emerald-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
                     >
                       <Bot className="h-4 w-4" />
-                      إعادة تشغيل البوت
+                      البوت يرد
                     </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => toggleMode("human")}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-2 text-sm font-bold text-white hover:bg-amber-600 disabled:opacity-60"
-                  >
-                    <Hand className="h-4 w-4" />
-                    إيقاف البوت لهذا العميل
-                  </button>
-                )}
+                  </div>
+                  <div className="flex flex-wrap items-center justify-end gap-3 text-[11px] text-slate-500">
+                    {current.mode === "human" && current.humanModeUntil && !current.alwaysHuman && (
+                      <span className="inline-flex items-center gap-1 text-amber-700">
+                        <Clock className="h-3.5 w-3.5" />
+                        يعود البوت {formatTime(current.humanModeUntil)}
+                      </span>
+                    )}
+                    <label className="inline-flex cursor-pointer items-center gap-1">
+                      <input type="checkbox" checked={sendMenuOnHandoff} onChange={(e) => setSendMenuOnHandoff(e.target.checked)} />
+                      أرسل زر القائمة عند التحويل للبوت
+                    </label>
+                    <label className="inline-flex cursor-pointer items-center gap-1">
+                      <input type="checkbox" checked={current.alwaysHuman} disabled={pending} onChange={(e) => toggleKnown(e.target.checked)} />
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      جهة معروفة (أنا أرد دائمًا)
+                    </label>
+                  </div>
+                </div>
               </header>
 
               <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-[#F4F1EA] px-4 py-4">
