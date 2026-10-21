@@ -1,5 +1,6 @@
 "use client";
 
+import { isWebChatEnabled, openMasarChat } from "@/lib/webchat/client";
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
@@ -94,9 +95,11 @@ export default function CourseActionButton({
      * Reactivation does not require opening WhatsApp/payment again.
      * Normal paid enrollment requests keep the existing WhatsApp flow.
      */
+    const chatEnabled = isWebChatEnabled();
     const whatsappWindow =
       mode === "enrollment" &&
-      !isReactivationRequest
+      !isReactivationRequest &&
+      !chatEnabled
         ? window.open("", "_blank")
         : null;
 
@@ -174,7 +177,9 @@ export default function CourseActionButton({
       }
 
       setSuccessMessage(
-        "تم تسجيل طلبك بنجاح، وسيتم فتح واتساب لاستكمال إجراءات التسجيل والدفع.",
+        chatEnabled
+          ? "تم تسجيل طلبك بنجاح ✅ أكمل مع المساعد في نافذة المحادثة."
+          : "تم تسجيل طلبك بنجاح، وسيتم فتح واتساب لاستكمال إجراءات التسجيل والدفع.",
       );
 
       const whatsapp = result.whatsapp;
@@ -203,7 +208,18 @@ export default function CourseActionButton({
           whatsapp.number,
         )}?text=${encodeURIComponent(message)}`;
 
-        if (whatsappWindow) {
+        if (
+          chatEnabled &&
+          openMasarChat({
+            source: "enrollment",
+            text: message,
+            courseHint: whatsapp.courseTitle,
+            botLead: `تم تسجيل طلب اشتراكك بنجاح ✅ (رقم الطلب ${whatsapp.requestNumber}).\nلإتمام الدفع والتفعيل اضغط «اشترك الآن» وسيتم تحويلك لواتساب برسالة جاهزة.`,
+            handoffText: message,
+          })
+        ) {
+          // website chat handles it (test mode); WhatsApp opens only on hand-off
+        } else if (whatsappWindow) {
           whatsappWindow.location.href = whatsappUrl;
         } else {
           window.open(whatsappUrl, "_blank", "noopener,noreferrer");

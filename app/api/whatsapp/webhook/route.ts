@@ -2179,6 +2179,62 @@ async function handleIncomingMessage(
 }
 
 /* =========================================================
+   Website chat hand-off (code MM-XXXXX in the first WhatsApp message)
+========================================================= */
+
+const WEB_CHAT_CODE = /MM-[A-HJ-NP-Z2-9]{5}/;
+
+async function linkWebChatHandoff(
+  supabase: SupabaseClient,
+  phone: string,
+  message: AnyRow,
+  settings: AnyRow | null,
+  contactName: string | null,
+): Promise<boolean> {
+  const text = cleanText(message?.text?.body);
+  const code = text.match(WEB_CHAT_CODE)?.[0];
+  if (!code) return false;
+
+  const { data: chat } = await supabase
+    .from("web_chat_sessions")
+    .select("id, code, source, handoff_reason, handed_off_at, whatsapp_phone, context")
+    .eq("code", code)
+    .maybeSingle();
+  if (!chat) return false;
+
+  await supabase
+    .from("web_chat_sessions")
+    .update({
+      whatsapp_phone: phone,
+      handed_off_at: chat.handed_off_at ?? new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", chat.id);
+
+  const until = new Date(Date.now() + getHumanHours(settings) * 60 * 60 * 1000).toISOString();
+  await patchSession(supabase, phone, {
+    mode: "human",
+    current_menu_key: "human_support",
+    human_mode_until: until,
+    bot_forced: false,
+  });
+
+  const reason = chat.handoff_reason === "subscribe" ? "subscribe" : "human_support";
+  await notifyAdminsOfHumanSupport(supabase, phone, reason).catch(() => null);
+
+  const course = cleanText((chat.context as AnyRow | null)?.courseHint);
+  await notifyAdminDevices(supabase, {
+    title: `🌐 ${contactName || "+" + phone} — ${reason === "subscribe" ? "طلب اشتراك" : "دعم"} من شات الموقع`,
+    body: cut(course ? `${code} • ${course}` : `${code} • ${describeIncomingMessage(message)}`, 140),
+    url: `/admin/whatsapp-inbox?phone=${encodeURIComponent(phone)}`,
+    tag: `wa-${phone}`,
+  });
+
+  console.log(`Web chat ${code} handed off to WhatsApp ${phone}; human mode.`);
+  return true;
+}
+
+/* =========================================================
    Optional Meta signature verification
 ========================================================= */
 
@@ -2323,6 +2379,12 @@ export async function POST(request: NextRequest) {
       const isNew = !existing;
 
       await logIncomingMessage(supabase, message, contactName);
+
+      // Hand-off from the website chat: the prefilled message carries "MM-XXXXX".
+      // The student already chose subscribe/support there → Mona answers, the bot stays silent.
+      if (phone && (await linkWebChatHandoff(supabase, phone, message, settings, contactName))) {
+        continue;
+      }
 
       // A brand-new conversation from an existing platform student → Mona answers, not the bot.
       if (
