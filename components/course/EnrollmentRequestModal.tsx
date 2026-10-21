@@ -199,11 +199,10 @@ export default function EnrollmentRequestModal({
       if (
         openMasarChat({
           source: "enrollment",
-          text: message,
+          text: `أرغب في التسجيل في ${courseTitle} — ${journeyTitle}`,
           courseHint: courseTitle,
-          botLead:
-            "تم استلام طلب التسجيل بنجاح ✅\nلإتمام الدفع والتفعيل اضغط «اشترك الآن» وسيتم تحويلك لواتساب برسالة جاهزة.",
-          handoffText: message,
+          actionLabel: journeyTitle,
+          journeyLabel: journeyTypeLabel,
         })
       ) {
         onClose();

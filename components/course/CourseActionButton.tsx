@@ -212,10 +212,11 @@ export default function CourseActionButton({
           chatEnabled &&
           openMasarChat({
             source: "enrollment",
-            text: message,
+            text: `أرغب في الاشتراك في ${whatsapp.courseTitle}${itemTitle ? ` — ${itemTitle}` : ""}`,
             courseHint: whatsapp.courseTitle,
-            botLead: `تم تسجيل طلب اشتراكك بنجاح ✅ (رقم الطلب ${whatsapp.requestNumber}).\nلإتمام الدفع والتفعيل اضغط «اشترك الآن» وسيتم تحويلك لواتساب برسالة جاهزة.`,
-            handoffText: message,
+            actionLabel: actionTitle ?? itemTitle,
+            journeyLabel: getJourneyLabel(whatsapp.journeyType),
+            requestNumber: String(whatsapp.requestNumber ?? ""),
           })
         ) {
           // website chat handles it (test mode); WhatsApp opens only on hand-off

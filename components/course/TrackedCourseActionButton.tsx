@@ -97,9 +97,9 @@ export default function TrackedCourseActionButton({
       if (
         openMasarChat({
           source: "course_action",
-          text: message,
+          text: `${label} — ${sourceTitle}`,
           courseHint: `${sourceTitle} ${label}`,
-          handoffText: message,
+          actionLabel: label,
         })
       ) {
         return;

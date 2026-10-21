@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Suspense,
   useEffect,
   useState,
 } from "react";
@@ -194,7 +195,9 @@ export default function RootClientShell({
 
       {!pathname.startsWith("/admin") &&
       !isCleanCertificateRoute(pathname) ? (
-        <WebChatWidget />
+        <Suspense fallback={null}>
+          <WebChatWidget />
+        </Suspense>
       ) : null}
     </BuilderProvider>
   );
