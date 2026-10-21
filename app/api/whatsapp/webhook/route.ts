@@ -2,6 +2,15 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
+import {
+  applyStatusUpdate,
+  getBusinessAppEchoes,
+  getContactNames,
+  handleBusinessAppEcho,
+  logIncomingMessage,
+  logOutgoingMessage,
+} from "@/lib/whatsapp/inbox";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -195,6 +204,13 @@ async function sendWhatsApp(payload: AnyRow) {
       `WhatsApp API error ${response.status}: ${JSON.stringify(data)}`,
     );
   }
+
+  // Live inbox: keep a copy of every automatic reply.
+  await logOutgoingMessage(getSupabase(), {
+    payload,
+    response: data,
+    sender: "bot",
+  });
 
   console.log(
     "WhatsApp send success:",
@@ -1508,7 +1524,7 @@ async function notifyAdminsOfHumanSupport(
         type:
           "admin_whatsapp_human_support",
         action_url:
-          "/admin/whatsapp-sales",
+          "/admin/whatsapp-inbox",
       })
       .select("id")
       .single();
@@ -2261,16 +2277,41 @@ export async function POST(request: NextRequest) {
       }),
     );
 
-    // Delivery/read/failed callbacks contain no incoming customer message.
-    if (!messages.length) {
+    const echoes = getBusinessAppEchoes(body);
+
+    if (!messages.length && !statuses.length && !echoes.length) {
       return NextResponse.json({ received: true });
     }
 
     const supabase = getSupabase();
+
+    // Delivery/read/failed callbacks → update the inbox ticks.
+    for (const status of statuses) {
+      await applyStatusUpdate(supabase, status);
+    }
+
+    if (!messages.length && !echoes.length) {
+      return NextResponse.json({ received: true });
+    }
+
     const settings = await getSettings(supabase);
+
+    // Replies Mona sent from the WhatsApp Business app (coexistence):
+    // log them and pause the bot for that customer.
+    for (const echo of echoes) {
+      await handleBusinessAppEcho(supabase, echo, settings);
+    }
+
+    const contactNames = getContactNames(body);
 
     // Process sequentially so session state remains deterministic.
     for (const message of messages) {
+      await logIncomingMessage(
+        supabase,
+        message,
+        contactNames.get(String(message?.from ?? "")) ?? null,
+      );
+
       try {
         await handleIncomingMessage(supabase, message, settings);
       } catch (messageError) {

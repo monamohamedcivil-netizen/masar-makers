@@ -16,6 +16,7 @@ import {
   House,
   LayoutDashboard,
   Megaphone,
+  Inbox,
   MessageCircle,
   Receipt,
   Route,
@@ -142,6 +143,11 @@ const navigationGroups: NavigationGroup[] = [
   href: "/admin/whatsapp-sales",
   icon: MessageCircle,
 },
+      {
+        title: "صندوق واتساب",
+        href: "/admin/whatsapp-inbox",
+        icon: Inbox,
+      },
       {
         title: "المدفوعات",
         href: "/admin/finance/payments",

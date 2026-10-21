@@ -1,0 +1,405 @@
+"use client";
+
+import {
+  Bot,
+  Check,
+  CheckCheck,
+  ChevronRight,
+  Clock,
+  Hand,
+  Loader2,
+  MessageCircle,
+  Search,
+  Send,
+  Smartphone,
+  TriangleAlert,
+  UserRound,
+} from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
+
+import {
+  getConversationMessages,
+  getInboxSnapshot,
+  sendAdminReply,
+  setConversationMode,
+  type InboxConversation,
+  type InboxMessage,
+  type InboxSnapshot,
+} from "@/lib/actions/whatsapp-inbox";
+
+const POLL_MS = 4000;
+
+function formatTime(value: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  const today = new Date();
+  const sameDay = date.toDateString() === today.toDateString();
+  return new Intl.DateTimeFormat("ar-EG", sameDay
+    ? { hour: "numeric", minute: "2-digit" }
+    : { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" },
+  ).format(date);
+}
+
+function displayPhone(phone: string) {
+  return `+${phone}`;
+}
+
+const SENDER_LABEL: Record<InboxMessage["sender"], string> = {
+  customer: "العميل",
+  bot: "البوت",
+  admin: "أنتِ (من المنصة)",
+  admin_phone: "أنتِ (من الجوال)",
+};
+
+function StatusTicks({ status }: { status: string | null }) {
+  if (status === "read") return <CheckCheck className="h-3.5 w-3.5 text-sky-500" />;
+  if (status === "delivered") return <CheckCheck className="h-3.5 w-3.5 text-slate-400" />;
+  if (status === "failed") return <TriangleAlert className="h-3.5 w-3.5 text-red-500" />;
+  return <Check className="h-3.5 w-3.5 text-slate-400" />;
+}
+
+export default function WhatsAppInbox({ initial }: { initial: InboxSnapshot }) {
+  const [snapshot, setSnapshot] = useState<InboxSnapshot>(initial);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [messages, setMessages] = useState<InboxMessage[]>([]);
+  const [loadingThread, setLoadingThread] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [query, setQuery] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const lastCountRef = useRef(0);
+
+  const refreshList = useCallback(async () => {
+    try {
+      setSnapshot(await getInboxSnapshot());
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  const refreshThread = useCallback(async (phone: string) => {
+    try {
+      const rows = await getConversationMessages(phone);
+      setMessages(rows);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  // Live updates: poll list + open conversation.
+  useEffect(() => {
+    const tick = () => {
+      if (document.visibilityState !== "visible") return;
+      void refreshList();
+      if (selected) void refreshThread(selected);
+    };
+    const id = window.setInterval(tick, POLL_MS);
+    return () => window.clearInterval(id);
+  }, [selected, refreshList, refreshThread]);
+
+  // Scroll to newest message when the thread grows.
+  useEffect(() => {
+    if (messages.length !== lastCountRef.current) {
+      lastCountRef.current = messages.length;
+      bottomRef.current?.scrollIntoView({ block: "end" });
+    }
+  }, [messages]);
+
+  const openConversation = async (phone: string) => {
+    setSelected(phone);
+    setError(null);
+    setDraft("");
+    setLoadingThread(true);
+    lastCountRef.current = 0;
+    await refreshThread(phone);
+    setLoadingThread(false);
+    void refreshList();
+  };
+
+  const current: InboxConversation | undefined = useMemo(
+    () => snapshot.conversations.find((c) => c.phone === selected),
+    [snapshot, selected],
+  );
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return snapshot.conversations;
+    return snapshot.conversations.filter(
+      (c) =>
+        c.phone.includes(q.replace(/[^\d]/g, "") || "~") ||
+        (c.contactName ?? "").toLowerCase().includes(q) ||
+        (c.lastMessage ?? "").toLowerCase().includes(q),
+    );
+  }, [snapshot, query]);
+
+  const waitingCount = snapshot.conversations.filter((c) => c.mode === "human").length;
+
+  const send = () => {
+    if (!selected || !draft.trim()) return;
+    const text = draft;
+    setError(null);
+    startTransition(async () => {
+      const result = await sendAdminReply(selected, text);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setDraft("");
+      await Promise.all([refreshThread(selected), refreshList()]);
+    });
+  };
+
+  const toggleMode = (mode: "bot" | "human") => {
+    if (!selected) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await setConversationMode(selected, mode);
+      if (!result.ok) setError(result.error);
+      await refreshList();
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-bold ${
+            snapshot.botEnabled ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+          }`}
+        >
+          <Bot className="h-4 w-4" />
+          {snapshot.botEnabled ? "البوت مفعّل" : "البوت متوقف بالكامل (من إعدادات WhatsApp Sales)"}
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 font-bold text-amber-700">
+          <Hand className="h-4 w-4" />
+          {waitingCount} محادثة بيدك الآن
+        </span>
+        <span className="text-slate-500">
+          عند ردّك يتوقف البوت لهذا العميل {snapshot.humanHours} ساعة ثم يعود تلقائيًا، ويمكنك إعادته يدويًا في أي وقت.
+        </span>
+      </div>
+
+      <div className="grid h-[72vh] min-h-[520px] overflow-hidden rounded-2xl border border-slate-200 bg-white md:grid-cols-[340px_1fr]">
+        {/* Conversation list */}
+        <aside
+          className={`flex min-h-0 flex-col border-slate-200 md:border-l ${
+            selected ? "hidden md:flex" : "flex"
+          }`}
+        >
+          <div className="border-b border-slate-200 p-3">
+            <label className="flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2">
+              <Search className="h-4 w-4 text-slate-400" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="بحث بالاسم أو الرقم أو الرسالة"
+                className="w-full bg-transparent text-sm outline-none"
+              />
+            </label>
+          </div>
+
+          <ul className="min-h-0 flex-1 overflow-y-auto">
+            {filtered.length === 0 && (
+              <li className="p-6 text-center text-sm text-slate-500">
+                لا توجد محادثات بعد. ستظهر هنا أول رسالة تصل للرقم.
+              </li>
+            )}
+            {filtered.map((conversation) => (
+              <li key={conversation.phone}>
+                <button
+                  type="button"
+                  onClick={() => void openConversation(conversation.phone)}
+                  className={`flex w-full items-start gap-3 border-b border-slate-100 px-3 py-3 text-right transition hover:bg-slate-50 ${
+                    selected === conversation.phone ? "bg-slate-100" : ""
+                  }`}
+                >
+                  <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#07152E] text-white">
+                    <UserRound className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="truncate font-black text-[#07152E]">
+                        {conversation.contactName || displayPhone(conversation.phone)}
+                      </span>
+                      <span className="shrink-0 text-xs text-slate-400">
+                        {formatTime(conversation.lastMessageAt)}
+                      </span>
+                    </span>
+                    <span className="mt-0.5 flex items-center gap-2">
+                      <span className="truncate text-sm text-slate-500">
+                        {conversation.lastSender && conversation.lastSender !== "customer" ? "↩ " : ""}
+                        {conversation.lastMessage ?? "—"}
+                      </span>
+                    </span>
+                    <span className="mt-1 flex items-center gap-1.5">
+                      {conversation.mode === "human" ? (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                          بيدك
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">
+                          البوت
+                        </span>
+                      )}
+                      {conversation.unread > 0 && (
+                        <span className="rounded-full bg-[#F7B548] px-2 py-0.5 text-[11px] font-black text-[#07152E]">
+                          {conversation.unread} جديدة
+                        </span>
+                      )}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </aside>
+
+        {/* Thread */}
+        <section className={`min-h-0 flex-col ${selected ? "flex" : "hidden md:flex"}`}>
+          {!selected || !current ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center text-slate-500">
+              <MessageCircle className="h-10 w-10 text-slate-300" />
+              اختاري محادثة لعرض الرسائل والرد عليها.
+            </div>
+          ) : (
+            <>
+              <header className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => setSelected(null)}
+                  className="rounded-lg p-1 text-slate-500 hover:bg-slate-100 md:hidden"
+                  aria-label="رجوع"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-black text-[#07152E]">
+                    {current.contactName || displayPhone(current.phone)}
+                  </div>
+                  <div className="text-xs text-slate-500" dir="ltr">
+                    {displayPhone(current.phone)}
+                  </div>
+                </div>
+
+                {current.mode === "human" ? (
+                  <>
+                    <span className="inline-flex items-center gap-1 text-xs text-amber-700">
+                      <Clock className="h-3.5 w-3.5" />
+                      البوت متوقف حتى {formatTime(current.humanModeUntil)}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => toggleMode("bot")}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
+                    >
+                      <Bot className="h-4 w-4" />
+                      إعادة تشغيل البوت
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => toggleMode("human")}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-2 text-sm font-bold text-white hover:bg-amber-600 disabled:opacity-60"
+                  >
+                    <Hand className="h-4 w-4" />
+                    إيقاف البوت لهذا العميل
+                  </button>
+                )}
+              </header>
+
+              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-[#F4F1EA] px-4 py-4">
+                {loadingThread && (
+                  <div className="flex justify-center py-6 text-slate-500">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  </div>
+                )}
+                {messages.map((message) => {
+                  const mine = message.direction === "out";
+                  const human = message.sender === "admin" || message.sender === "admin_phone";
+                  return (
+                    <div key={message.id} className={`flex ${mine ? "justify-start" : "justify-end"}`}>
+                      <div
+                        className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm shadow-sm ${
+                          !mine
+                            ? "bg-white text-slate-800"
+                            : human
+                              ? "bg-[#07152E] text-white"
+                              : "bg-[#DCF8C6] text-slate-800"
+                        }`}
+                      >
+                        <div className={`mb-0.5 flex items-center gap-1 text-[11px] font-bold ${mine && human ? "text-[#F7B548]" : "text-slate-500"}`}>
+                          {message.sender === "bot" && <Bot className="h-3 w-3" />}
+                          {message.sender === "admin_phone" && <Smartphone className="h-3 w-3" />}
+                          {SENDER_LABEL[message.sender]}
+                        </div>
+                        <div className="whitespace-pre-wrap break-words">{message.body}</div>
+                        <div className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${mine && human ? "text-slate-300" : "text-slate-400"}`}>
+                          {formatTime(message.createdAt)}
+                          {mine && <StatusTicks status={message.status} />}
+                        </div>
+                        {message.statusError && (
+                          <div className="mt-1 text-[11px] text-red-500">{message.statusError}</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                <div ref={bottomRef} />
+              </div>
+
+              <footer className="border-t border-slate-200 p-3">
+                {!current.windowOpen && (
+                  <div className="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    مرّ أكثر من 24 ساعة على آخر رسالة من العميل؛ واتساب لا يسمح بالرد الحر الآن إلا بقالب معتمد. سيُفتح الرد مجددًا عندما يراسلك العميل.
+                  </div>
+                )}
+                {error && (
+                  <div className="mb-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>
+                )}
+                <div className="flex items-end gap-2">
+                  <textarea
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        send();
+                      }
+                    }}
+                    rows={2}
+                    disabled={!current.windowOpen || pending}
+                    placeholder="اكتبي ردّك… (Enter للإرسال، Shift+Enter لسطر جديد)"
+                    className="min-h-[48px] flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#07152E] disabled:bg-slate-50"
+                  />
+                  <button
+                    type="button"
+                    onClick={send}
+                    disabled={!current.windowOpen || pending || !draft.trim()}
+                    className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#07152E] text-white hover:bg-[#0d2550] disabled:opacity-50"
+                    aria-label="إرسال"
+                  >
+                    {pending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                  </button>
+                </div>
+                <p className="mt-1.5 text-[11px] text-slate-400">
+                  إرسال رد من هنا يوقف البوت لهذا العميل تلقائيًا.
+                </p>
+              </footer>
+            </>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
