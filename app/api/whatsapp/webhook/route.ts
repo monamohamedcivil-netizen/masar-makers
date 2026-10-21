@@ -1618,6 +1618,15 @@ async function enterHumanMode(
     to,
     reason,
   );
+
+  const session = await getSession(supabase, to).catch(() => null);
+  const name = cleanText(session?.contact_name) || "+" + to;
+  await notifyAdminDevices(supabase, {
+    title: reason === "subscribe" ? `🟢 طلب اشتراك — ${name}` : `🆘 ${reason === "other_currency" ? "سعر بعملة أخرى" : "خدمة العملاء"} — ${name}`,
+    body: "البوت توقف في هذه المحادثة وبانتظار ردك.",
+    url: `/admin/whatsapp-inbox?phone=${encodeURIComponent(to)}`,
+    tag: `wa-handoff-${to}`,
+  }).catch(() => null);
 }
 
 /* =========================================================
@@ -2341,13 +2350,20 @@ export async function POST(request: NextRequest) {
         (!session.human_mode_until || new Date(session.human_mode_until).getTime() > Date.now());
       const botWillReply = decision.reply && !humanActive && !quota?.botPaused && botIsEnabled(settings);
 
-      // Phone notification for every new incoming message.
-      await notifyAdminDevices(supabase, {
-        title: `${contactName || "+" + phone}${botWillReply ? " 🤖" : " ✋"}`,
-        body: cut(describeIncomingMessage(message), 140) || "رسالة جديدة",
-        url: `/admin/whatsapp-inbox?phone=${encodeURIComponent(phone)}`,
-        tag: `wa-${phone}`,
-      });
+      // Phone notification only for the first message of a conversation
+      // (new contact, or first message after 24h of silence). Messages in the
+      // middle are followed from the platform inbox; subscribe/support hand-offs
+      // send their own notification (enterHumanMode / web chat hand-off).
+      const lastInbound = existing?.last_inbound_at ? new Date(existing.last_inbound_at).getTime() : 0;
+      const firstOfConversation = isNew || !lastInbound || Date.now() - lastInbound > 24 * 60 * 60 * 1000;
+      if (firstOfConversation) {
+        await notifyAdminDevices(supabase, {
+          title: `💬 ${contactName || "+" + phone}${botWillReply ? " — البوت يرد 🤖" : " — بانتظار ردك ✋"}`,
+          body: cut(describeIncomingMessage(message), 140) || "رسالة جديدة",
+          url: `/admin/whatsapp-inbox?phone=${encodeURIComponent(phone)}`,
+          tag: `wa-${phone}`,
+        });
+      }
 
       if (quota?.botPaused) {
         console.log(`WhatsApp free tier reached (${quota.used}/${quota.free}); bot stays silent.`);
