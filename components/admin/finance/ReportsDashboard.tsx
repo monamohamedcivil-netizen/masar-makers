@@ -144,6 +144,7 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi
           label="دخل اشتراكات الرحلات المتكاملة"
+          href="/admin/finance/payments"
           value={fmt(integratedIncome)}
           unit="جنيه"
           note={`${integrated.length} اشتراك`}
@@ -151,18 +152,21 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
         />
         <Kpi
           label="دخل اشتراكات رحلات اليوم الواحد"
+          href="/admin/finance/payments"
           value={fmt(oneDayIncome)}
           unit="جنيه"
           note={`${oneDay.length} اشتراك`}
         />
         <Kpi
           label="دخل البرامج"
+          href="/admin/finance/payments"
           value={fmt(otherTotal)}
           unit="جنيه"
           note={`${otherIncome.length} عملية بيع`}
         />
         <Kpi
           label="صافي الربح"
+          href="/admin/finance/payments"
           value={fmt(profit)}
           unit="جنيه"
           note="الاشتراكات + البرامج − المصروفات"
@@ -171,17 +175,24 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi label="إجمالي المصروفات" value={fmt(expensesTotal)} unit="جنيه" />
-        <Kpi label="مصروفات الإعلانات المدفوعة" value={fmt(expenseByCategory("ads"))} unit="جنيه" />
-        <Kpi label="مصروفات خدمات المنصة" value={fmt(expenseByCategory("platform"))} unit="جنيه" />
-        <Kpi label="مصروفات أخرى" value={fmt(expenseByCategory("other"))} unit="جنيه" />
+        <Kpi label="إجمالي المصروفات"
+          href="/admin/finance/expenses" value={fmt(expensesTotal)} unit="جنيه" />
+        <Kpi label="مصروفات الإعلانات المدفوعة"
+          href="/admin/finance/expenses?tab=ads" value={fmt(expenseByCategory("ads"))} unit="جنيه" />
+        <Kpi label="مصروفات خدمات المنصة"
+          href="/admin/finance/expenses?tab=platform" value={fmt(expenseByCategory("platform"))} unit="جنيه" />
+        <Kpi label="مصروفات أخرى"
+          href="/admin/finance/expenses?tab=other" value={fmt(expenseByCategory("other"))} unit="جنيه" />
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi label={`دخل ${thisYear} (السنة الحالية)`} value={fmt(yearIncome(thisYear))} unit="جنيه" />
-        <Kpi label={`دخل ${lastYear} (السنة السابقة)`} value={fmt(yearIncome(lastYear))} unit="جنيه" />
+        <Kpi label={`دخل ${thisYear} (السنة الحالية)`}
+          href="/admin/finance/payments" value={fmt(yearIncome(thisYear))} unit="جنيه" />
+        <Kpi label={`دخل ${lastYear} (السنة السابقة)`}
+          href="/admin/finance/payments" value={fmt(yearIncome(lastYear))} unit="جنيه" />
         <Kpi
           label="نسبة تغير الربح"
+          href="/admin/finance/payments"
           value={fmtPct(profitChange)}
           note={
             profitChange === null
@@ -192,6 +203,7 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
         />
         <Kpi
           label="نسبة تغير المصروفات"
+          href="/admin/finance/expenses"
           value={fmtPct(expensesChange)}
           note={
             expensesChange === null
@@ -203,11 +215,15 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi label="عدد الاشتراكات" value={String(payments.length)} />
-        <Kpi label="عدد الأشخاص" value={String(people)} />
-        <Kpi label="متوسط سعر الاشتراك" value={fmt(avgPrice)} unit="جنيه" />
+        <Kpi label="عدد الاشتراكات"
+          href="/admin/finance/payments" value={String(payments.length)} />
+        <Kpi label="عدد الأشخاص"
+          href="/admin/finance/payments" value={String(people)} />
+        <Kpi label="متوسط سعر الاشتراك"
+          href="/admin/finance/payments" value={fmt(avgPrice)} unit="جنيه" />
         <Kpi
           label="متوسط الدخل الشهري"
+          href="/admin/finance/payments"
           value={`${fmt(avgMonthly)} جنيه`}
           note={`≈ ${fmt(avgMonthly / sarRate)} ريال · عدد الشهور: ${elapsedMonths} (من يناير 2026 حتى ${monthLabel(today.slice(0, 7))})`}
         />
@@ -348,7 +364,9 @@ function Kpi({
   accent,
   good,
   note,
+  href,
 }: {
+  href?: string;
   label: string;
   value: string;
   unit?: string;
@@ -356,12 +374,12 @@ function Kpi({
   good?: boolean;
   note?: string;
 }) {
-  return (
-    <div
-      className={`rounded-2xl border p-4 ${
-        accent ? "border-[#F7B548] bg-[#07152E] text-white" : "border-slate-200 bg-white"
-      }`}
-    >
+  const boxClass = `rounded-2xl border p-4 ${
+    accent ? "border-[#F7B548] bg-[#07152E] text-white" : "border-slate-200 bg-white"
+  }`;
+
+  const inner = (
+    <>
       <p className={`text-xs font-bold ${accent ? "text-[#F7B548]" : "text-slate-500"}`}>{label}</p>
       <p
         className={`mt-1.5 text-2xl font-black ${
@@ -376,7 +394,19 @@ function Kpi({
           {note}
         </p>
       ) : null}
-    </div>
+    </>
+  );
+
+  return href ? (
+    <Link
+      href={href}
+      title="فتح الصفحة المصدر لهذا الرقم"
+      className={`block transition hover:-translate-y-0.5 hover:shadow-md ${boxClass}`}
+    >
+      {inner}
+    </Link>
+  ) : (
+    <div className={boxClass}>{inner}</div>
   );
 }
 

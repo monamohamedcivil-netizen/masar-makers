@@ -4,7 +4,14 @@ import { getFinanceData } from "@/lib/finance/queries";
 
 export const dynamic = "force-dynamic";
 
-export default async function ExpensesPage() {
+export default async function ExpensesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab } = await searchParams;
+  const initialTab =
+    tab === "ads" || tab === "platform" || tab === "other" ? tab : "all";
   const data = await getFinanceData();
 
   return (
@@ -13,7 +20,11 @@ export default async function ExpensesPage() {
         title="المصروفات"
         description="مصروفات المنصة: الاشتراكات والخدمات والإعلانات والرواتب."
       />
-      <ExpensesManager initial={data.expenses} services={data.services} />
+      <ExpensesManager
+        initial={data.expenses}
+        services={data.services}
+        initialTab={initialTab}
+      />
     </>
   );
 }

@@ -40,16 +40,100 @@ const PERIOD_OPTIONS = (
 
 type Tab = "all" | ExpenseCategory;
 
+const ROW_TONE: Record<ExpenseCategory, string> = {
+  ads: "bg-orange-50 hover:bg-orange-100/70 border-r-4 border-r-orange-400",
+  platform: "bg-sky-50 hover:bg-sky-100/70 border-r-4 border-r-sky-400",
+  other: "bg-emerald-50 hover:bg-emerald-100/70 border-r-4 border-r-emerald-400",
+};
+
+const LEGEND_DOT: Record<ExpenseCategory, string> = {
+  ads: "bg-orange-400",
+  platform: "bg-sky-400",
+  other: "bg-emerald-400",
+};
+
+type FilterKey =
+  | "status"
+  | "category"
+  | "payee"
+  | "period"
+  | "amount"
+  | "currency"
+  | "from"
+  | "to"
+  | "count"
+  | "total"
+  | "egp"
+  | "notes";
+
+const FILTER_COLUMNS: Array<{
+  key: FilterKey;
+  label: string;
+  options?: Array<{ value: string; label: string }>;
+}> = [
+  {
+    key: "status",
+    label: "الحالة",
+    options: [
+      { value: "running", label: "مستمر" },
+      { value: "stopped", label: "متوقف" },
+    ],
+  },
+  { key: "category", label: "الفئة", options: CATEGORY_OPTIONS },
+  { key: "payee", label: "مدفوع إلى" },
+  { key: "period", label: "الدورة", options: PERIOD_OPTIONS },
+  { key: "amount", label: "المبلغ لكل دورة" },
+  { key: "currency", label: "العملة", options: CURRENCIES },
+  { key: "from", label: "من" },
+  { key: "to", label: "إلى" },
+  { key: "count", label: "عدد مرات الصرف" },
+  { key: "total", label: "الإجمالي" },
+  { key: "egp", label: "الإجمالي (جنيه)" },
+  { key: "notes", label: "ملاحظات" },
+];
+
+function filterValue(r: FinanceExpense, key: FilterKey): string {
+  switch (key) {
+    case "status":
+      return r.is_running ? "running" : "stopped";
+    case "category":
+      return r.category;
+    case "payee":
+      return r.payee ?? "";
+    case "period":
+      return r.billing_period;
+    case "amount":
+      return String(r.monthly_amount ?? "");
+    case "currency":
+      return r.currency;
+    case "from":
+      return r.start_month ?? "";
+    case "to":
+      return r.is_running ? "مستمر" : (r.end_month ?? "");
+    case "count":
+      return String(r.months_count ?? "");
+    case "total":
+      return `${fmt(r.total_amount)} ${r.currency}`;
+    case "egp":
+      return fmt(r.total_egp);
+    case "notes":
+      return r.notes ?? "";
+  }
+}
+
 export default function ExpensesManager({
   initial,
   services,
+  initialTab = "all",
 }: {
   initial: FinanceExpense[];
   services: FinanceService[];
+  initialTab?: Tab;
 }) {
   const router = useRouter();
   const [rows, setRows] = useState(initial);
-  const [tab, setTab] = useState<Tab>("all");
+  const [tab, setTab] = useState<Tab>(initialTab);
+  const [filters, setFilters] = useState<Partial<Record<FilterKey, string>>>({});
   const [message, setMessage] = useState("");
 
   useEffect(() => setRows(initial), [initial]);
@@ -75,7 +159,17 @@ export default function ExpensesManager({
     return t;
   }, [rows]);
 
-  const visible = rows.filter((r) => tab === "all" || r.category === tab);
+  const visible = rows.filter((r) => {
+    if (tab !== "all" && r.category !== tab) return false;
+    for (const col of FILTER_COLUMNS) {
+      const f = (filters[col.key] ?? "").trim().toLowerCase();
+      if (!f) continue;
+      const v = filterValue(r, col.key).toLowerCase();
+      if (col.options ? v !== f : !v.includes(f)) return false;
+    }
+    return true;
+  });
+  const activeFilters = Object.values(filters).filter((v) => v && v.trim()).length;
 
   const save = async (
     id: string,
@@ -219,6 +313,24 @@ export default function ExpensesManager({
           </button>
         </div>
 
+        <div className="flex flex-wrap items-center gap-4 border-b border-slate-100 px-3 py-2 text-[11px] font-bold text-slate-600">
+          {(Object.keys(EXPENSE_CATEGORY_LABELS) as ExpenseCategory[]).map((c) => (
+            <span key={c} className="inline-flex items-center gap-1.5">
+              <span className={`h-3 w-3 rounded-full ${LEGEND_DOT[c]}`} />
+              {EXPENSE_CATEGORY_LABELS[c]}
+            </span>
+          ))}
+          {activeFilters > 0 && (
+            <button
+              type="button"
+              onClick={() => setFilters({})}
+              className="mr-auto rounded-full bg-red-50 px-3 py-1 text-red-700 hover:bg-red-100"
+            >
+              مسح الفلاتر ({activeFilters})
+            </button>
+          )}
+        </div>
+
         <div className="overflow-auto">
           <table className="w-max min-w-full text-right">
             <thead className="bg-slate-50">
@@ -243,6 +355,38 @@ export default function ExpensesManager({
                 ))}
                 <th />
               </tr>
+              <tr className="border-b border-slate-200 bg-white">
+                {FILTER_COLUMNS.map((col) => (
+                  <th key={col.key} className="px-1 py-1.5 font-normal">
+                    {col.options ? (
+                      <select
+                        value={filters[col.key] ?? ""}
+                        onChange={(e) =>
+                          setFilters((f) => ({ ...f, [col.key]: e.target.value }))
+                        }
+                        className="w-full min-w-[80px] rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[11px] text-slate-700"
+                      >
+                        <option value="">الكل</option>
+                        {col.options.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        value={filters[col.key] ?? ""}
+                        onChange={(e) =>
+                          setFilters((f) => ({ ...f, [col.key]: e.target.value }))
+                        }
+                        placeholder="بحث…"
+                        className="w-full min-w-[80px] rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[11px] text-slate-700 placeholder:text-slate-300"
+                      />
+                    )}
+                  </th>
+                ))}
+                <th />
+              </tr>
             </thead>
             <tbody>
               {visible.length === 0 ? (
@@ -260,7 +404,7 @@ export default function ExpensesManager({
                     </span>
                   );
                   return (
-                    <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50/60">
+                    <tr key={r.id} className={`border-b border-white ${ROW_TONE[r.category]}`}>
                       <td className="px-2 py-1">
                         <button
                           type="button"
