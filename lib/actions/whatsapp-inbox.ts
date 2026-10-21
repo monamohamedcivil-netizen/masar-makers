@@ -7,6 +7,7 @@ import {
   pauseBotForCustomer,
   resumeBotForCustomer,
 } from "@/lib/whatsapp/inbox";
+import { getQuotaState, type QuotaState } from "@/lib/whatsapp/quota";
 
 /* =========================================================
    WhatsApp live inbox — admin server actions
@@ -40,6 +41,7 @@ export type InboxMessage = {
 export type InboxSnapshot = {
   botEnabled: boolean;
   humanHours: number;
+  quota: QuotaState | null;
   conversations: InboxConversation[];
 };
 
@@ -150,9 +152,12 @@ export async function getInboxSnapshot(): Promise<InboxSnapshot> {
     };
   });
 
+  const quota = await getQuotaState(db, settings).catch(() => null);
+
   return {
     botEnabled: settings?.bot_enabled !== false,
     humanHours: humanModeHours(settings),
+    quota,
     conversations,
   };
 }
@@ -218,6 +223,15 @@ export async function sendAdminReply(
         ok: false,
         error:
           "مرّ أكثر من 24 ساعة على آخر رسالة من العميل، وواتساب لا يسمح بالرد الحر بعدها إلا برسالة قالب (Template) معتمدة من Meta.",
+      };
+    }
+
+    const quotaSettings = await getSettings(db);
+    const quota = await getQuotaState(db, quotaSettings).catch(() => null);
+    if (quota?.hardLimitReached) {
+      return {
+        ok: false,
+        error: `تم استهلاك الرسائل المجانية لهذا الشهر (${quota.used}/${quota.free}). الإرسال من المنصة الآن سيُحاسب من Meta، لذلك تم إيقافه. ردّي من تطبيق واتساب على الجوال، أو انتظري بداية الشهر القادم.`,
       };
     }
 

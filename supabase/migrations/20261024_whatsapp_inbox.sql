@@ -34,3 +34,11 @@ alter table public.whatsapp_bot_sessions
   add column if not exists last_inbound_at timestamptz,
   add column if not exists last_message_at timestamptz,
   add column if not exists admin_last_read_at timestamptz;
+
+-- Free-tier guard (Meta: 1,000 free service messages per number per month since Oct 2026).
+alter table public.whatsapp_bot_settings
+  add column if not exists quota_monthly_free integer not null default 1000,
+  add column if not exists quota_warn_at integer not null default 800,
+  add column if not exists quota_stop_at integer not null default 980,
+  add column if not exists quota_warned_month text,
+  add column if not exists quota_paused_month text;

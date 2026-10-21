@@ -10,6 +10,7 @@ import {
   logIncomingMessage,
   logOutgoingMessage,
 } from "@/lib/whatsapp/inbox";
+import { enforceQuota } from "@/lib/whatsapp/quota";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -2304,6 +2305,9 @@ export async function POST(request: NextRequest) {
 
     const contactNames = getContactNames(body);
 
+    // Free-tier guard: never let automatic replies go past Meta's free monthly messages.
+    const quota = messages.length ? await enforceQuota(supabase, settings) : null;
+
     // Process sequentially so session state remains deterministic.
     for (const message of messages) {
       await logIncomingMessage(
@@ -2311,6 +2315,11 @@ export async function POST(request: NextRequest) {
         message,
         contactNames.get(String(message?.from ?? "")) ?? null,
       );
+
+      if (quota?.botPaused) {
+        console.log(`WhatsApp free tier reached (${quota.used}/${quota.free}); bot stays silent.`);
+        continue;
+      }
 
       try {
         await handleIncomingMessage(supabase, message, settings);

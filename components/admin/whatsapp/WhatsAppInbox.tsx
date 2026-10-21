@@ -182,6 +182,22 @@ export default function WhatsAppInbox({ initial }: { initial: InboxSnapshot }) {
           <Hand className="h-4 w-4" />
           {waitingCount} محادثة بيدك الآن
         </span>
+        {snapshot.quota && (
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-bold ${
+              snapshot.quota.botPaused
+                ? "bg-red-50 text-red-700"
+                : snapshot.quota.used >= snapshot.quota.warnAt
+                  ? "bg-amber-50 text-amber-700"
+                  : "bg-slate-100 text-slate-600"
+            }`}
+            title="الحد المجاني من Meta لرسائل الرد شهريًا"
+          >
+            <MessageCircle className="h-4 w-4" />
+            {snapshot.quota.used} / {snapshot.quota.free} رسالة مجانية هذا الشهر
+            {snapshot.quota.botPaused ? " — الرد الآلي متوقف حتى الشهر القادم" : ""}
+          </span>
+        )}
         <span className="text-slate-500">
           عند ردّك يتوقف البوت لهذا العميل {snapshot.humanHours} ساعة ثم يعود تلقائيًا، ويمكنك إعادته يدويًا في أي وقت.
         </span>
