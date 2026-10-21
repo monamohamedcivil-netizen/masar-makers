@@ -1,5 +1,7 @@
 "use client";
 
+import { openMasarChat } from "@/lib/webchat/client";
+
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -755,6 +757,7 @@ export default function MasarLanding() {
 
             <a
               href="https://wa.me/201031885659?text=السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار."
+            onClick={(event) => { if (openMasarChat({ source: "contact", text: "السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار." })) event.preventDefault(); }}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-[#25D366]/60 bg-[#0B502B]/60 px-3 text-[11px] font-black text-white transition hover:bg-[#25D366] sm:px-3 sm:text-[14px]"
@@ -972,6 +975,7 @@ export default function MasarLanding() {
 
           <a
             href="https://wa.me/201031885659?text=السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار."
+            onClick={(event) => { if (openMasarChat({ source: "contact", text: "السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار." })) event.preventDefault(); }}
             target="_blank"
             rel="noopener noreferrer"
             className={`inline-flex min-h-8 whitespace-nowrap ${locale === "en" ? "w-[150px]" : "w-[115px]"} items-center justify-center gap-1.5 rounded-lg border border-[#25D366]/70 bg-[#0B502B]/85 px-3 text-[12px] font-black text-white shadow-md`}

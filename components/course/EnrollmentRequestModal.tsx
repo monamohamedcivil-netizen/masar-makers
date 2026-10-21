@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
+import { openMasarChat } from "@/lib/webchat/client";
 
 type JourneyType =
   | "professional"
@@ -194,6 +195,19 @@ export default function EnrollmentRequestModal({
       const whatsappUrl =
         `https://wa.me/${adminWhatsAppNumber}` +
         `?text=${encodeURIComponent(message)}`;
+
+      if (
+        openMasarChat({
+          source: "enrollment",
+          text: `أرغب في التسجيل في ${courseTitle} — ${journeyTitle}`,
+          courseHint: courseTitle,
+          actionLabel: journeyTitle,
+          journeyLabel: journeyTypeLabel,
+        })
+      ) {
+        onClose();
+        return;
+      }
 
       window.open(
         whatsappUrl,

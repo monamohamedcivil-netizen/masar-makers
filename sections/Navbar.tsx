@@ -1,5 +1,7 @@
 "use client";
 
+import { openMasarChat } from "@/lib/webchat/client";
+
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Menu, X } from "lucide-react";
@@ -233,6 +235,7 @@ export default function Navbar({ activeItem }: NavbarProps) {
 
           <a
             href="https://wa.me/201031885659?text=السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار."
+            onClick={(event) => { if (openMasarChat({ source: "contact", text: "السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار." })) event.preventDefault(); }}
             target="_blank"
             rel="noopener noreferrer"
             className="hidden h-7 w-7 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition hover:scale-110 hover:shadow-[0_0_22px_rgba(37,211,102,.55)] xl:flex"

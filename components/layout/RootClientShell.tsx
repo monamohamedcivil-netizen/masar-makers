@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Suspense,
   useEffect,
   useState,
 } from "react";
@@ -15,6 +16,7 @@ import {
 
 import GlobalLocaleTranslator from "@/components/i18n/GlobalLocaleTranslator";
 import MonthlyDrawOverlay from "@/components/monthly-draw/MonthlyDrawOverlay";
+import WebChatWidget from "@/components/webchat/WebChatWidget";
 
 import {
   createClient,
@@ -189,6 +191,13 @@ export default function RootClientShell({
 
       {showMonthlyDraw ? (
         <MonthlyDrawOverlay />
+      ) : null}
+
+      {!pathname.startsWith("/admin") &&
+      !isCleanCertificateRoute(pathname) ? (
+        <Suspense fallback={null}>
+          <WebChatWidget />
+        </Suspense>
       ) : null}
     </BuilderProvider>
   );

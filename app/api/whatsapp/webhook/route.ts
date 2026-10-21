@@ -2,6 +2,18 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
+import {
+  applyStatusUpdate,
+  getBusinessAppEchoes,
+  getContactNames,
+  handleBusinessAppEcho,
+  logIncomingMessage,
+  logOutgoingMessage,
+} from "@/lib/whatsapp/inbox";
+import { enforceQuota } from "@/lib/whatsapp/quota";
+import { decideBotReply, isKnownNumber, isPlatformStudent, isTestNumber } from "@/lib/whatsapp/routing";
+import { describeIncomingMessage } from "@/lib/whatsapp/inbox";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -61,6 +73,8 @@ type SessionRow = {
   current_track?: string | null;
   human_mode_until?: string | null;
   updated_at?: string | null;
+  always_human?: boolean | null;
+  bot_forced?: boolean | null;
 };
 
 function cleanText(value: unknown) {
@@ -195,6 +209,13 @@ async function sendWhatsApp(payload: AnyRow) {
       `WhatsApp API error ${response.status}: ${JSON.stringify(data)}`,
     );
   }
+
+  // Live inbox: keep a copy of every automatic reply.
+  await logOutgoingMessage(getSupabase(), {
+    payload,
+    response: data,
+    sender: "bot",
+  });
 
   console.log(
     "WhatsApp send success:",
@@ -1508,7 +1529,7 @@ async function notifyAdminsOfHumanSupport(
         type:
           "admin_whatsapp_human_support",
         action_url:
-          "/admin/whatsapp-sales",
+          "/admin/whatsapp-inbox",
       })
       .select("id")
       .single();
@@ -1588,6 +1609,7 @@ async function enterHumanMode(
     mode: "human",
     current_menu_key: "human_support",
     human_mode_until: until,
+    bot_forced: false,
   });
 
   await notifyAdminsOfHumanSupport(
@@ -2015,6 +2037,7 @@ async function handleIncomingMessage(
   supabase: SupabaseClient,
   message: AnyRow,
   settings: AnyRow | null,
+  isNewOverride?: boolean,
 ) {
   const phone =
     cleanText(message?.from);
@@ -2093,7 +2116,7 @@ async function handleIncomingMessage(
   }
 
   const isNewConversation =
-    !session;
+    isNewOverride ?? !session;
 
   if (!session) {
     await patchSession(
@@ -2152,6 +2175,52 @@ async function handleIncomingMessage(
     session,
     greeting,
   );
+}
+
+/* =========================================================
+   Website chat hand-off (code MM-XXXXX in the first WhatsApp message)
+========================================================= */
+
+const WEB_CHAT_CODE = /MM-[A-HJ-NP-Z2-9]{5}/;
+
+async function linkWebChatHandoff(
+  supabase: SupabaseClient,
+  phone: string,
+  message: AnyRow,
+  settings: AnyRow | null,
+  contactName: string | null,
+): Promise<boolean> {
+  const text = cleanText(message?.text?.body);
+  const code = text.match(WEB_CHAT_CODE)?.[0];
+  if (!code) return false;
+
+  const { data: chat } = await supabase
+    .from("web_chat_sessions")
+    .select("id, code, source, handoff_reason, handed_off_at, whatsapp_phone, context")
+    .eq("code", code)
+    .maybeSingle();
+  if (!chat) return false;
+
+  await supabase
+    .from("web_chat_sessions")
+    .update({
+      whatsapp_phone: phone,
+      handed_off_at: chat.handed_off_at ?? new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", chat.id);
+
+  const until = new Date(Date.now() + getHumanHours(settings) * 60 * 60 * 1000).toISOString();
+  await patchSession(supabase, phone, {
+    mode: "human",
+    current_menu_key: "human_support",
+    human_mode_until: until,
+    bot_forced: false,
+  });
+
+  // No notification here: the platform chat already notified Mona when the student pressed the hand-off.
+  console.log(`Web chat ${code} handed off to WhatsApp ${phone}; human mode.`);
+  return true;
 }
 
 /* =========================================================
@@ -2261,18 +2330,75 @@ export async function POST(request: NextRequest) {
       }),
     );
 
-    // Delivery/read/failed callbacks contain no incoming customer message.
-    if (!messages.length) {
+    const echoes = getBusinessAppEchoes(body);
+
+    if (!messages.length && !statuses.length && !echoes.length) {
       return NextResponse.json({ received: true });
     }
 
     const supabase = getSupabase();
+
+    // Delivery/read/failed callbacks → update the inbox ticks.
+    for (const status of statuses) {
+      await applyStatusUpdate(supabase, status);
+    }
+
+    if (!messages.length && !echoes.length) {
+      return NextResponse.json({ received: true });
+    }
+
     const settings = await getSettings(supabase);
+
+    // Replies Mona sent from the WhatsApp Business app (coexistence):
+    // log them and pause the bot for that customer.
+    for (const echo of echoes) {
+      await handleBusinessAppEcho(supabase, echo, settings);
+    }
+
+    const contactNames = getContactNames(body);
+
+    // Free-tier guard: never let automatic replies go past Meta's free monthly messages.
+    const quota = messages.length ? await enforceQuota(supabase, settings) : null;
 
     // Process sequentially so session state remains deterministic.
     for (const message of messages) {
+      const phone = cleanText(message?.from);
+      const contactName = contactNames.get(phone) ?? null;
+      const existing = phone ? await getSession(supabase, phone) : null;
+      const isNew = !existing;
+
+      await logIncomingMessage(supabase, message, contactName);
+
+      // Hand-off from the website chat: the prefilled message carries "MM-XXXXX".
+      // The student already chose subscribe/support there → Mona answers, the bot stays silent.
+      if (phone && (await linkWebChatHandoff(supabase, phone, message, settings, contactName))) {
+        continue;
+      }
+
+      // A brand-new conversation from an existing platform student → Mona answers, not the bot.
+      if (
+        isNew &&
+        phone &&
+        !isTestNumber(settings, phone) &&
+        (isKnownNumber(settings, phone) || (await isPlatformStudent(supabase, phone)))
+      ) {
+        await patchSession(supabase, phone, { always_human: true });
+      }
+
+      const session = phone ? await getSession(supabase, phone) : null;
+      const decision = decideBotReply(settings, session as AnyRow | null, phone);
+      if (quota?.botPaused) {
+        console.log(`WhatsApp free tier reached (${quota.used}/${quota.free}); bot stays silent.`);
+        continue;
+      }
+
+      if (!decision.reply) {
+        console.log(`Bot silent for ${phone}: ${decision.reason}.`);
+        continue;
+      }
+
       try {
-        await handleIncomingMessage(supabase, message, settings);
+        await handleIncomingMessage(supabase, message, settings, isNew);
       } catch (messageError) {
         console.error("Failed to process WhatsApp message:", messageError);
       }
