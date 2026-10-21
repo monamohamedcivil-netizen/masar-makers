@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { openMasarChat } from "@/lib/webchat/client";
+
 import {
   trackCourseActionLead,
 } from "@/lib/actions/course-action-leads";
@@ -89,6 +91,17 @@ export default function TrackedCourseActionButton({
         if (link) {
           window.open(link, "_blank", "noopener,noreferrer");
         }
+        return;
+      }
+
+      if (
+        openMasarChat({
+          source: "course_action",
+          text: `${label} — ${sourceTitle}`,
+          courseHint: `${sourceTitle} ${label}`,
+          actionLabel: label,
+        })
+      ) {
         return;
       }
 
