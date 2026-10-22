@@ -1,3 +1,7 @@
+import {
+  INTERNAL_ACCOUNT_EMAILS,
+  getInternalAccountUserIds,
+} from "@/lib/admin/internal-accounts";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/server";
 
@@ -332,13 +336,25 @@ export async function getFinanceData(): Promise<FinanceData> {
     };
   });
 
+  // حسابات فريق العمل لا تظهر في المدفوعات ولا التقارير ولا الأعداد.
+  const internalIds = new Set(await getInternalAccountUserIds());
+  const internalEmails = new Set(
+    INTERNAL_ACCOUNT_EMAILS.map((e) => e.toLowerCase()),
+  );
+  const isInternalPayment = (row: Record<string, unknown>) => {
+    if (row.user_id && internalIds.has(String(row.user_id))) return true;
+    const emails =
+      String(row.email ?? "").toLowerCase().match(/[^\s,&;]+@[^\s,&;]+\.[^\s,&;]+/g) ?? [];
+    return emails.some((e) => internalEmails.has(e));
+  };
+
   return {
     paths,
     payments: await applyAutoFlags(
       admin,
-      ((paymentsRes.data ?? []) as Array<Record<string, unknown>>).map(
-        mapPayment,
-      ),
+      ((paymentsRes.data ?? []) as Array<Record<string, unknown>>)
+        .filter((row) => !isInternalPayment(row))
+        .map(mapPayment),
     ),
     offers: ((offersRes.data ?? []) as Array<Record<string, unknown>>).map(
       (o) => ({

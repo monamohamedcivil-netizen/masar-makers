@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { getInternalAccountUserIds } from "@/lib/admin/internal-accounts";
 import { createClient } from "@/lib/supabase/server";
 import type { EnrollmentStatus } from "@/lib/actions/enroll";
 import { getMasarPassport } from "@/lib/dashboard/masar-passport";
@@ -640,10 +641,16 @@ export async function approveEnrollment(
   ].includes(normalizeJourneyType(enrollment.journey_type));
   const missingPrice = !(Number(enrollment.subscription_price) > 0);
 
+  // حسابات فريق العمل لا تحتاج سعرًا ولا سبب متابعة.
+  const isTeamAccount = enrollment.user_id
+    ? (await getInternalAccountUserIds()).includes(String(enrollment.user_id))
+    : false;
+
   if (
     enrollmentSource === "paid" &&
     !isFreeJourney &&
     missingPrice &&
+    !isTeamAccount &&
     !(followup?.reason?.trim() && followup?.date)
   ) {
     return {

@@ -33,3 +33,9 @@ export async function getInternalAccountUserIds(): Promise<string[]> {
 
   return (data ?? []).map((row) => String(row.id));
 }
+
+/** هل هذا البريد لحساب داخلي (فريق العمل)؟ */
+export function isInternalEmail(email: unknown): boolean {
+  const e = String(email ?? "").trim().toLowerCase();
+  return e !== "" && INTERNAL_ACCOUNT_EMAILS.includes(e);
+}
