@@ -175,6 +175,15 @@ function buildWinnerCountMaps(
    READ
 ========================================================= */
 
+/** The form sends "YYYY-MM-DDTHH:mm" — read it as Riyadh time (UTC+3), not the server/browser timezone. */
+function parseRiyadhDateTime(value: string) {
+  const text = String(value ?? "").trim();
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(text)) {
+    return new Date(`${text.length === 16 ? `${text}:00` : text}+03:00`);
+  }
+  return new Date(text);
+}
+
 export async function getAdminMonthlyDraws(): Promise<
   MonthlyDraw[]
 > {
@@ -389,7 +398,7 @@ export async function createMonthlyDraw(
   }
 
   const scheduledDate =
-    new Date(input.scheduledAt);
+    parseRiyadhDateTime(input.scheduledAt);
 
   if (
     Number.isNaN(
@@ -524,7 +533,7 @@ export async function updateMonthlyDraw(
   }
 
   const scheduledDate =
-    new Date(input.scheduledAt);
+    parseRiyadhDateTime(input.scheduledAt);
 
   if (
     Number.isNaN(
