@@ -57,12 +57,14 @@ type DrawForm = {
 const INPUT =
   "h-[42px] w-full rounded-xl border border-slate-200 bg-[#FAFBFC] px-3 text-[11px] font-semibold text-[#07152E] outline-none transition focus:border-[#F7B548] focus:bg-white";
 
+// The draw always runs on Riyadh time (UTC+3, no DST) — whatever the admin's browser/device timezone is.
+const RIYADH_OFFSET_MS = 3 * 60 * 60 * 1000;
+
 function toLocalInput(value: string | null) {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 16);
+  return new Date(date.getTime() + RIYADH_OFFSET_MS).toISOString().slice(0, 16);
 }
 
 function initialMonth() {
@@ -72,8 +74,10 @@ function initialMonth() {
 
 function initialSchedule() {
   const now = new Date();
-  let date = new Date(now.getFullYear(), now.getMonth(), 1, 20, 0, 0);
-  if (date <= now) date = new Date(now.getFullYear(), now.getMonth() + 1, 1, 20, 0, 0);
+  const riyadh = new Date(now.getTime() + RIYADH_OFFSET_MS);
+  const at = (month: number) => new Date(Date.UTC(riyadh.getUTCFullYear(), month, 1, 20, 0, 0) - RIYADH_OFFSET_MS);
+  let date = at(riyadh.getUTCMonth());
+  if (date <= now) date = at(riyadh.getUTCMonth() + 1);
   return toLocalInput(date.toISOString());
 }
 
