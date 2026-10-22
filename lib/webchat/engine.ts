@@ -17,8 +17,17 @@ import { notifyWebChatAdmins } from "@/lib/webchat/notify";
 
 type AnyRow = Record<string, any>;
 
-export type ChatButton = { id: string; label: string; kind?: "action" | "link" | "handoff"; url?: string; sameTab?: boolean };
-export type ChatMessage = { from: "bot" | "visitor"; text: string; buttons?: ChatButton[] };
+export type Locale = "ar" | "en";
+export type ChatButton = { id: string; label: string; kind?: "action" | "link" | "handoff" | "video"; url?: string; sameTab?: boolean };
+export type ChatMessage = {
+  from: "bot" | "visitor";
+  text: string;
+  buttons?: ChatButton[];
+  /** Course-axes picture (opens enlarged on click). */
+  image?: string;
+  /** Video to pop up as soon as this reply arrives (also reachable from its "video" button). */
+  autoVideo?: string;
+};
 
 export type Viewer = {
   userId: string | null;
@@ -49,22 +58,25 @@ function isActiveOffer(price: AnyRow) {
   return true;
 }
 
-function shown(price: AnyRow, variant: AnyRow | null): ShownPrice {
+function shown(price: AnyRow, variant: AnyRow | null, en = false): ShownPrice {
   const current = Number(price.current_price);
   const original = price.original_price == null || price.original_price === "" ? null : Number(price.original_price);
   const offer = isActiveOffer(price) && original != null && original > current;
   return {
-    variant: variant ? clean(variant.title) : null,
+    variant: variant ? (en && clean(variant.title_en) ? clean(variant.title_en) : clean(variant.title)) : null,
     variantId: variant ? String(variant.id) : null,
     amount: offer ? current : original ?? current,
     original: offer ? original : null,
-    offer: offer ? clean(price.offer_label) || null : null,
+    offer: offer ? (en ? clean(price.offer_label_en) || (clean(price.offer_label) ? "Special offer" : "") : clean(price.offer_label)) || null : null,
   };
 }
 
-function priceLines(title: string, p: ShownPrice, label: string) {
+const CURRENCY_EN: Record<string, string> = { SAR: "Saudi riyal", EGP: "Egyptian pound", USD: "US dollar" };
+const CURRENCY_FLAG: Record<string, string> = { SAR: "🇸🇦", EGP: "🇪🇬", USD: "🇺🇸" };
+
+function priceLines(title: string, p: ShownPrice, label: string, en = false) {
   if (p.original != null) {
-    return [`*${title}*`, `${num(p.amount)} ${label}`, `بدلًا من ${num(p.original)} ${label}`, p.offer ? `🎁 ${p.offer}` : ""].filter(Boolean).join("\n");
+    return [`*${title}*`, `${num(p.amount)} ${label}`, `${en ? "instead of" : "بدلًا من"} ${num(p.original)} ${label}`, p.offer ? `🎁 ${p.offer}` : ""].filter(Boolean).join("\n");
   }
   return [`*${title}*`, `${num(p.amount)} ${label}`].join("\n");
 }
@@ -74,7 +86,27 @@ export class WebChatEngine {
     private db: SupabaseClient,
     private session: AnyRow,
     private viewer: Viewer,
+    private locale: Locale = "ar",
   ) {}
+
+  private get en() {
+    return this.locale === "en";
+  }
+
+  /** Arabic or English text. */
+  private t(ar: string, en: string) {
+    return this.en ? en : ar;
+  }
+
+  /** Row field in the visitor's language (falls back to the Arabic text when no English is saved). */
+  private f(row: AnyRow | null | undefined, field: string) {
+    if (!row) return "";
+    if (this.en) {
+      const value = clean(row[`${field}_en`]);
+      if (value) return value;
+    }
+    return clean(row[field]);
+  }
 
   private get isMember() {
     return Boolean(this.viewer.userId);
@@ -126,11 +158,12 @@ export class WebChatEngine {
   }
 
   async entryText(key: string) {
-    const { data } = await this.db.from("web_chat_entry_points").select("welcome_text,is_active").eq("entry_key", key).maybeSingle();
-    return data?.is_active === false ? "" : clean(data?.welcome_text);
+    const { data } = await this.db.from("web_chat_entry_points").select("*").eq("entry_key", key).maybeSingle();
+    return data?.is_active === false ? "" : this.f(data, "welcome_text");
   }
 
   private async currencyLabel(code: string) {
+    if (this.en && CURRENCY_EN[code]) return CURRENCY_EN[code];
     const { data } = await this.db.from("whatsapp_course_prices").select("currency_label").eq("currency_code", code).limit(1).maybeSingle();
     return clean(data?.currency_label) || code;
   }
@@ -188,7 +221,7 @@ export class WebChatEngine {
 
   async opening(entryKey: string, context: AnyRow): Promise<ChatMessage[]> {
     const welcome = fill(await this.entryText(entryKey), {
-      action: clean(context.actionLabel) || clean(context.courseHint) || "طلبك",
+      action: clean(context.actionLabel) || clean(context.courseHint) || this.t("طلبك", "your request"),
       course: clean(context.courseHint),
     });
     const course = context.courseHint ? await this.matchCourse(String(context.courseHint)) : null;
@@ -209,17 +242,17 @@ export class WebChatEngine {
 
   /* ---------- screens ---------- */
 
-  async mainMenu(prefix = ""): Promise<ChatMessage[]> {
+  async mainMenu(prefix = "", extra: ChatButton[] = [], autoVideo?: string): Promise<ChatMessage[]> {
     const menu = await this.menu("main_menu");
     const items = menu ? await this.items(menu.id) : [];
-    const text = [prefix, clean(menu?.body_text) || "اختر استفسارك من القائمة 👇"].filter(Boolean).join("\n\n");
-    return [{ from: "bot", text, buttons: items.slice(0, MAX_BUTTONS).map((i) => this.itemButton(i)) }];
+    const text = [prefix, this.f(menu, "body_text") || this.t("اختر استفسارك من القائمة 👇", "Choose your question from the menu 👇")].filter(Boolean).join("\n\n");
+    return [{ from: "bot", text, buttons: [...extra, ...items.slice(0, MAX_BUTTONS).map((i) => this.itemButton(i))], ...(autoVideo ? { autoVideo } : {}) }];
   }
 
   private itemButton(i: AnyRow): ChatButton {
     const locked = i.web_visibility === "members" && !this.isMember;
     const handoff = i.action_type === "subscribe" || i.action_type === "human_support";
-    return { id: `menuitem:${i.id}`, label: `${clean(i.label)}${locked ? " 🔒" : ""}`, kind: handoff && !locked ? "handoff" : "action" };
+    return { id: `menuitem:${i.id}`, label: `${this.f(i, "label")}${locked ? " 🔒" : ""}`, kind: handoff && !locked ? "handoff" : "action" };
   }
 
   async allCourses(): Promise<ChatMessage[]> {
@@ -230,17 +263,19 @@ export class WebChatEngine {
       .eq("whatsapp_visible", true)
       .order("sort_order", { ascending: true });
     const courses = (data ?? []) as AnyRow[];
-    if (!courses.length) return this.mainMenu("لا توجد كورسات متاحة حاليًا.");
-    const titles: Record<string, string> = { "Road Design": "🛣️ مسار تصميم الطرق", "Traffic Engineering": "🚦 مسار هندسة المرور" };
+    if (!courses.length) return this.mainMenu(this.t("لا توجد كورسات متاحة حاليًا.", "No courses are available right now."));
+    const titles: Record<string, string> = this.en
+      ? { "Road Design": "🛣️ Road Design track", "Traffic Engineering": "🚦 Traffic Engineering track" }
+      : { "Road Design": "🛣️ مسار تصميم الطرق", "Traffic Engineering": "🚦 مسار هندسة المرور" };
     const tracks = [...new Set(courses.map((c) => clean(c.track) || "Other"))];
-    const lines = tracks.map((t) => `*${titles[t] ?? t}*\n` + courses.filter((c) => (clean(c.track) || "Other") === t).map((c) => `• ${c.whatsapp_label || c.title} — ${clean(c.short_description)}`).join("\n"));
+    const lines = tracks.map((t) => `*${titles[t] ?? t}*\n` + courses.filter((c) => (clean(c.track) || "Other") === t).map((c) => `• ${c.whatsapp_label || c.title} — ${this.f(c, "short_description")}`).join("\n"));
     return [
       {
         from: "bot",
-        text: "📚 رحلات Masar Makers\nاختر الكورس اللي حابب تعرف عنه أكتر:\n\n" + lines.join("\n\n"),
+        text: this.t("📚 رحلات Masar Makers\nاختر الكورس اللي حابب تعرف عنه أكتر:\n\n", "📚 Masar Makers journeys\nChoose the course you'd like to know more about:\n\n") + lines.join("\n\n"),
         buttons: [
           ...courses.slice(0, MAX_BUTTONS - 1).map((c) => ({ id: `course:${c.id}`, label: clean(c.whatsapp_label || c.title) })),
-          { id: "main", label: "↩️ القائمة الرئيسية" },
+          { id: "main", label: this.t("↩️ القائمة الرئيسية", "↩️ Main menu") },
         ],
       },
     ];
@@ -253,12 +288,12 @@ export class WebChatEngine {
     for (const i of items) {
       if (i.action_type === "open_url") {
         const url = await this.courseUrl(course, i);
-        if (url) buttons.push({ id: `menuitem:${i.id}`, label: clean(i.label), kind: "link", url });
+        if (url) buttons.push({ id: `menuitem:${i.id}`, label: this.f(i, "label"), kind: "link", url });
         continue;
       }
       const b = this.itemButton(i);
       // Price button with a locked currency: say which currency.
-      if (clean(i.item_key) === "course_price" && this.isMember && this.currency) b.label = `${clean(i.label)} (${await this.currencyLabel(this.currency)})`;
+      if (clean(i.item_key) === "course_price" && this.isMember && this.currency) b.label = `${this.f(i, "label")} (${await this.currencyLabel(this.currency)})`;
       buttons.push(b);
     }
     return [{ from: "bot", text, buttons: buttons.slice(0, MAX_BUTTONS) }];
@@ -266,28 +301,34 @@ export class WebChatEngine {
 
   async openCourse(courseId: string, lead = ""): Promise<ChatMessage[]> {
     const course = await this.course(courseId);
-    if (!course) return this.mainMenu("هذا الكورس غير متاح حاليًا.");
+    if (!course) return this.mainMenu(this.t("هذا الكورس غير متاح حاليًا.", "This course isn't available right now."));
     await this.setCourse(course.id);
-    const text = [lead, `📘 *${course.whatsapp_label || course.title}*`, clean(course.short_description), "ماذا تريد أن تعرف عن هذا الكورس؟"].filter(Boolean).join("\n\n");
+    const text = [lead, `📘 *${course.whatsapp_label || course.title}*`, this.f(course, "short_description"), this.t("ماذا تريد أن تعرف عن هذا الكورس؟", "What would you like to know about this course?")].filter(Boolean).join("\n\n");
     return this.courseActions(course, text);
   }
 
   private async details(): Promise<ChatMessage[]> {
     const course = await this.course(this.session.current_course_id);
     if (!course) return this.mainMenu();
-    let text = `📘 *${course.whatsapp_label || course.title}*\n\n${clean(course.details) || clean(course.short_description)}`;
+    let text = `📘 *${course.whatsapp_label || course.title}*\n\n${this.f(course, "details") || this.f(course, "short_description")}`;
+    const images: ChatMessage[] = [];
     if (course.has_variants) {
       for (const v of await this.variants(course.id)) {
-        const d = clean(v.details) || clean(v.short_description);
-        if (d) text += `\n\n━━━━━━━━━━━━\n*${v.title}*\n${d}`;
+        const d = this.f(v, "details") || this.f(v, "short_description");
+        if (d) text += `\n\n━━━━━━━━━━━━\n*${this.f(v, "title")}*\n${d}`;
+        if (clean(v.syllabus_image_url)) images.push({ from: "bot", text: `🗺️ *${this.f(v, "title")}* — ${this.t("محاور الدورة", "course outline")}`, image: clean(v.syllabus_image_url) });
       }
     }
-    return this.courseActions(course, text);
+    const courseImage = clean(course.syllabus_image_url);
+    if (!courseImage && !images.length) return this.courseActions(course, text);
+    // Text (+ course outline picture), one picture per level, then the buttons.
+    const actions = await this.courseActions(course, this.t("ماذا تريد أن تعرف أيضًا؟", "What else would you like to know?"));
+    return [{ from: "bot", text, ...(courseImage ? { image: courseImage } : {}) }, ...images, ...actions];
   }
 
   /** Visitor pressed a members-only question. */
   async membersOnly(): Promise<ChatMessage[]> {
-    const text = (await this.entryText("members_only")) || "🔒 هذه المعلومة متاحة للمسجّلين على المنصة فقط. سجّل حسابك مجانًا وارجع هنا 👇";
+    const text = (await this.entryText("members_only")) || this.t("🔒 هذه المعلومة متاحة للمسجّلين على المنصة فقط. سجّل حسابك مجانًا وارجع هنا 👇", "🔒 This information is available to registered members only. Create your free account and come back here 👇");
     const page = clean(this.session.context?.page) || "/";
     const next = `${page}${page.includes("?") ? "&" : "?"}chat=${this.session.id}`;
     return [
@@ -295,9 +336,9 @@ export class WebChatEngine {
         from: "bot",
         text,
         buttons: [
-          { id: "nav:register", label: "📝 إنشاء حساب مجاني", kind: "link", url: "/register", sameTab: true },
-          { id: "nav:login", label: "🔑 لدي حساب — تسجيل الدخول", kind: "link", url: `/login?next=${encodeURIComponent(next)}`, sameTab: true },
-          { id: "main", label: "↩️ القائمة الرئيسية" },
+          { id: "nav:register", label: this.t("📝 إنشاء حساب مجاني", "📝 Create a free account"), kind: "link", url: "/register", sameTab: true },
+          { id: "nav:login", label: this.t("🔑 لدي حساب — تسجيل الدخول", "🔑 I have an account — log in"), kind: "link", url: `/login?next=${encodeURIComponent(next)}`, sameTab: true },
+          { id: "main", label: this.t("↩️ القائمة الرئيسية", "↩️ Main menu") },
         ],
       },
     ];
@@ -309,11 +350,39 @@ export class WebChatEngine {
     if (this.currency) return this.price(this.currency);
     const menu = await this.menu("currency_menu");
     const items = menu ? await this.items(menu.id) : [];
+
+    // Only currencies that are switched on for this course (add USD in the price editor → it appears here).
+    const courseId = this.session.current_course_id;
+    let pricesQuery = this.db.from("whatsapp_course_prices").select("currency_code,sort_order").eq("is_active", true);
+    if (courseId) pricesQuery = pricesQuery.eq("course_id", courseId);
+    const { data: priceRows } = await pricesQuery.order("sort_order", { ascending: true });
+    const enabled: string[] = [];
+    for (const r of (priceRows ?? []) as AnyRow[]) {
+      const code = clean(r.currency_code).toUpperCase();
+      if (code && !enabled.includes(code)) enabled.push(code);
+    }
+
+    const buttons: ChatButton[] = [];
+    const other: ChatButton[] = [];
+    for (const i of items) {
+      const code = clean(i.action_value).toUpperCase();
+      if (i.action_type === "show_price" && code) {
+        if (enabled.includes(code)) buttons.push(this.itemButton(i));
+        continue;
+      }
+      other.push(this.itemButton(i)); // "other currency" → customer service
+    }
+    for (const code of enabled) {
+      if (items.some((i) => i.action_type === "show_price" && clean(i.action_value).toUpperCase() === code)) continue;
+      const name = await this.currencyLabel(code);
+      buttons.push({ id: `price:${code}`, label: `${CURRENCY_FLAG[code] ?? "💱"} ${name}` });
+    }
+
     return [
       {
         from: "bot",
-        text: `${clean(menu?.body_text) || "اختر العملة:"}\n\nℹ️ هتتثبت العملة دي لكل الأسعار اللي هتظهرلك بعد كده.`,
-        buttons: items.map((i) => this.itemButton(i)),
+        text: `${this.f(menu, "body_text") || this.t("اختر العملة:", "Choose the currency:")}\n\n${this.t("ℹ️ هتتثبت العملة دي لكل الأسعار اللي هتظهرلك بعد كده.", "ℹ️ This currency will be used for all the prices you see from now on.")}`,
+        buttons: [...buttons, ...other],
       },
     ];
   }
@@ -340,20 +409,20 @@ export class WebChatEngine {
     if (course.has_variants) {
       for (const v of await this.variants(course.id)) {
         const { data } = await base().eq("variant_id", v.id).maybeSingle();
-        if (data) rows.push(shown(data, v));
+        if (data) rows.push(shown(data, v, this.en));
       }
     } else {
       const { data } = await base().is("variant_id", null).maybeSingle();
-      if (data) rows.push(shown(data, null));
+      if (data) rows.push(shown(data, null, this.en));
     }
     const title = clean(course.whatsapp_label || course.title);
     if (!rows.length) {
-      return this.courseActions(course, [lead, `السعر بعملة (${label}) غير متاح حاليًا لهذا الكورس. اختار «خدمة العملاء» وهنبلغك بالسعر.`].filter(Boolean).join("\n\n"));
+      return this.courseActions(course, [lead, this.t(`السعر بعملة (${label}) غير متاح حاليًا لهذا الكورس. اختار «خدمة العملاء» وهنبلغك بالسعر.`, `The price in (${label}) isn't available for this course right now. Choose “Customer service” and we'll let you know the price.`)].filter(Boolean).join("\n\n"));
     }
     await this.lockCurrency(code);
     const last: LastPrice = { course: title, courseId: String(course.id), currency: code, currencyLabel: label, rows };
     await this.patchSession({ last_price: last });
-    const text = [lead, `💰 *أسعار ${title}* (${label})`, ...rows.map((r) => priceLines(r.variant ?? title, r, label))].filter(Boolean).join("\n\n");
+    const text = [lead, this.t(`💰 *أسعار ${title}* (${label})`, `💰 *${title} prices* (${label})`), ...rows.map((r) => priceLines(r.variant ?? title, r, label, this.en))].filter(Boolean).join("\n\n");
     return this.courseActions(course, text);
   }
 
@@ -382,8 +451,8 @@ export class WebChatEngine {
         return [
           {
             from: "bot",
-            text: `🧩 اختار نوع الاشتراك في *${course.whatsapp_label || course.title}*:`,
-            buttons: [...variants.map((v) => ({ id: `variant:${v.id}`, label: clean(v.title) })), { id: `course:${course.id}`, label: "↩️ رجوع للكورس" }],
+            text: this.t(`🧩 اختار نوع الاشتراك في *${course.whatsapp_label || course.title}*:`, `🧩 Choose your subscription type for *${course.whatsapp_label || course.title}*:`),
+            buttons: [...variants.map((v) => ({ id: `variant:${v.id}`, label: this.f(v, "title") })), { id: `course:${course.id}`, label: this.t("↩️ رجوع للكورس", "↩️ Back to the course") }],
           },
         ];
       }
@@ -458,15 +527,15 @@ export class WebChatEngine {
 
     const lead =
       reason === "subscribe"
-        ? "ممتاز! 🎉 لإكمال الاشتراك والدفع هنحوّلك لفريقنا على واتساب، والرسالة جاهزة بملخص طلبك."
-        : "هنحوّلك لخدمة العملاء على واتساب، والرسالة جاهزة بملخص طلبك.";
+        ? this.t("ممتاز! 🎉 لإكمال الاشتراك والدفع هنحوّلك لفريقنا على واتساب، والرسالة جاهزة بملخص طلبك.", "Great! 🎉 To complete your subscription and payment we'll move you to our team on WhatsApp — the message is ready with a summary of your request.")
+        : this.t("هنحوّلك لخدمة العملاء على واتساب، والرسالة جاهزة بملخص طلبك.", "We'll move you to customer service on WhatsApp — the message is ready with a summary of your request.");
     return [
       {
         from: "bot",
-        text: `${lead}\nاضغط الزر وأرسل الرسالة كما هي 👇`,
+        text: `${lead}\n${this.t("اضغط الزر وأرسل الرسالة كما هي 👇", "Press the button and send the message as it is 👇")}`,
         buttons: [
-          { id: "whatsapp", label: "💬 المتابعة على واتساب", kind: "link", url },
-          { id: "main", label: "↩️ القائمة الرئيسية" },
+          { id: "whatsapp", label: this.t("💬 المتابعة على واتساب", "💬 Continue on WhatsApp"), kind: "link", url },
+          { id: "main", label: this.t("↩️ القائمة الرئيسية", "↩️ Main menu") },
         ],
       },
     ];
@@ -480,6 +549,7 @@ export class WebChatEngine {
     if (actionId.startsWith("course:")) return this.openCourse(actionId.slice(7));
     if (actionId === "handoff:subscribe") return this.subscribe();
     if (actionId === "handoff:support") return this.handoff("support");
+    if (/^price:[A-Za-z]{3}$/.test(actionId)) return this.price(actionId.slice(6));
     if (actionId.startsWith("variant:")) {
       if (!this.isMember) return this.membersOnly();
       await this.patchSession({ variant_id: actionId.slice(8) });
@@ -504,7 +574,13 @@ export class WebChatEngine {
       }
       case "show_answer": {
         const answer = await this.answer(item);
-        return this.mainMenu(clean(answer?.message_text) || "المعلومة غير متاحة حاليًا.");
+        const video = clean(answer?.video_url);
+        // A video answer ("Explore the platform") pops the video up right away; the button replays it.
+        return this.mainMenu(
+          this.f(answer, "message_text") || this.t("المعلومة غير متاحة حاليًا.", "This information isn't available right now."),
+          video ? [{ id: `video:${answer!.id}`, label: this.t("▶️ شاهد الفيديو", "▶️ Watch the video"), kind: "video", url: video }] : [],
+          video || undefined,
+        );
       }
       case "open_course":
         return this.openCourse(clean(item.action_value) || "");
