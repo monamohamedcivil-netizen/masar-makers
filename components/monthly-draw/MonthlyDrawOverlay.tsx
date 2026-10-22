@@ -1196,7 +1196,7 @@ export default function MonthlyDrawOverlay() {
 
                 <PointsRule
                   locale={locale}
-                  points="+20"
+                  points="+10"
                   title={isEnglish ? "Join a One-Day Journey" : "الاشتراك في رحلة اليوم الواحد"}
                   icon={<Plane size={18} />}
                 />

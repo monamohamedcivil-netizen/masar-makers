@@ -1188,7 +1188,7 @@ const referralCount =
     professionalCompletions * 20;
 
   const oneDayEnrollmentPoints =
-    oneDayEnrollments * 20;
+    oneDayEnrollments * 10;
 
   const freeJourneyPoints =
     viewedFreeJourneys * 5;
@@ -2045,7 +2045,7 @@ export async function getMasarPassportForRegistry(
     20;
 
   const oneDayEnrollmentPoints =
-    oneDayEnrollments * 20;
+    oneDayEnrollments * 10;
 
   const freeJourneyPoints =
     viewedFreeJourneys * 5;
