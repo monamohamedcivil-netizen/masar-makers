@@ -29,6 +29,7 @@ import {
   createMenuItem,
   returnCustomerToBot,
   savePrice,
+  setGlobalOffer,
   toggleMenuItem,
   updateAnswer,
   updateBotSettings,
@@ -374,7 +375,10 @@ export default function WhatsAppSalesManager(props: Props) {
       )}
 
       {tab === "prices" && (
-        <PricesTab {...props} selectedTrack={track} />
+        <>
+          <GlobalOfferPanel prices={props.prices} />
+          <PricesTab {...props} selectedTrack={track} />
+        </>
       )}
 
       {tab === "menus" && (
@@ -1080,6 +1084,84 @@ function PricesTab({
         <EmptyState text={`لا توجد أسعار لكورسات ${trackArabic(selectedTrack)}.`} />
       )}
     </div>
+  );
+}
+
+/* =====================================================
+   Global offer (all courses, one click)
+===================================================== */
+
+function GlobalOfferPanel({
+  prices,
+}: {
+  prices: Props["prices"];
+}) {
+  const active = prices.filter((p) => p.offer_active).length;
+  const first = prices.find((p) => p.offer_active);
+
+  return (
+    <section className={`${panel} mb-3 border-[#F7B548]/50 bg-[#FFFBF2] p-4`}>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-black text-[#07152E]">
+            العرض الشامل لكل الكورسات
+          </h3>
+          <p className="mt-0.5 text-[11px] font-bold text-slate-500">
+            يطبَّق على كل الأسعار دفعة واحدة، ويمكنك بعده تعديل عرض كورس بعينه من الأسفل.
+          </p>
+        </div>
+        <span className="rounded-lg bg-white px-2.5 py-1 text-[11px] font-black text-[#9A6711]">
+          {active > 0
+            ? `مفعّل على ${active} من ${prices.length} سعر`
+            : "لا يوجد عرض مفعّل"}
+        </span>
+      </div>
+
+      <ActionForm
+        action={setGlobalOffer}
+        successMessage="تم تطبيق العرض على كل الكورسات."
+      >
+        <div className="grid gap-3 md:grid-cols-3">
+          <Field
+            title="اسم العرض"
+            name="offer_label"
+            defaultValue={first?.offer_label ?? ""}
+            placeholder="مثال: عرض نهاية العام"
+          />
+          <Field
+            title="بداية العرض (اتركيها فارغة بلا تاريخ)"
+            name="offer_start"
+            type="datetime-local"
+            defaultValue={toLocalDateTime(first?.offer_start)}
+          />
+          <Field
+            title="نهاية العرض (اتركيها فارغة بلا تاريخ)"
+            name="offer_end"
+            type="datetime-local"
+            defaultValue={toLocalDateTime(first?.offer_end)}
+          />
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="submit"
+            name="mode"
+            value="enable"
+            className={primaryButton}
+          >
+            تفعيل العرض على كل الكورسات
+          </button>
+          <button
+            type="submit"
+            name="mode"
+            value="disable"
+            className="inline-flex h-10 items-center rounded-xl border border-red-200 bg-white px-4 text-xs font-black text-red-700 hover:bg-red-50"
+          >
+            إيقاف العرض على كل الكورسات
+          </button>
+        </div>
+      </ActionForm>
+    </section>
   );
 }
 
@@ -2030,7 +2112,7 @@ function SettingsTab({
 
         <ActionForm
           action={updateBotSettings}
-          successMessage="تم حفظ إعدادات WhatsApp Sales بنجاح."
+          successMessage="تم حفظ إعدادات قوائم الشات والأسعار بنجاح."
           className="grid gap-3 md:grid-cols-2"
         >
           {effectiveSettings?.id != null && (

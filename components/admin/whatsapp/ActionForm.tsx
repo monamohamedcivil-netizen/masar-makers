@@ -108,8 +108,17 @@ export default function ActionForm({
     const form =
       event.currentTarget;
 
+    // Keep the pressed button's name/value (e.g. enable/disable offer).
+    const submitter = (
+      event.nativeEvent as SubmitEvent
+    ).submitter as
+      | HTMLButtonElement
+      | null;
+
     const formData =
-      new FormData(form);
+      submitter?.name
+        ? new FormData(form, submitter)
+        : new FormData(form);
 
     setPending(true);
     setToast(null);

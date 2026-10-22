@@ -743,6 +743,56 @@ export async function savePrice(
   refresh();
 }
 
+/** One-click offer control for ALL courses (per-course offers stay editable in the price editor). */
+export async function setGlobalOffer(
+  formData: FormData,
+) {
+  const supabase =
+    await adminClient();
+
+  const mode =
+    text(formData, "mode");
+
+  if (mode !== "enable" && mode !== "disable") {
+    throw new Error("اختاري تفعيل أو إيقاف العرض.");
+  }
+
+  const patch: Record<string, unknown> = {
+    offer_active: mode === "enable",
+    updated_at: new Date().toISOString(),
+  };
+
+  if (mode === "enable") {
+    const label = text(formData, "offer_label");
+    if (label) patch.offer_label = label;
+
+    const start = text(formData, "offer_start");
+    const end = text(formData, "offer_end");
+    // Empty date = no date limit (clears an old one).
+    patch.offer_start = start ? new Date(start).toISOString() : null;
+    patch.offer_end = end ? new Date(end).toISOString() : null;
+
+    if (
+      start &&
+      end &&
+      new Date(end).getTime() <= new Date(start).getTime()
+    ) {
+      throw new Error("نهاية العرض يجب أن تكون بعد بدايته.");
+    }
+  }
+
+  const { error } = await supabase
+    .from("whatsapp_course_prices")
+    .update(patch)
+    .not("id", "is", null);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  refresh();
+}
+
 /* =========================
    ANSWERS
 ========================= */
