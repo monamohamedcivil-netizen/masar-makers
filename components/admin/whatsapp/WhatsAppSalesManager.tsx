@@ -70,7 +70,6 @@ type WhatsAppCourse = {
   short_description_en?: string | null;
   details_en?: string | null;
   variants_prompt_en?: string | null;
-  syllabus_image_url?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -90,7 +89,6 @@ type WhatsAppCourseVariant = {
   title_en?: string | null;
   short_description_en?: string | null;
   details_en?: string | null;
-  syllabus_image_url?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -578,12 +576,6 @@ function CoursesTab({
               className="md:col-span-2 xl:col-span-3"
             />
 
-            <Field
-              title="رابط صورة محاور الدورة (تظهر في تفاصيل الدورة وتتكبّر بالضغط)"
-              name="syllabus_image_url"
-              placeholder="https://..."
-              className="md:col-span-2 xl:col-span-3"
-            />
 
 
             <div className="flex flex-wrap items-center gap-5 md:col-span-2 xl:col-span-3">
@@ -760,13 +752,6 @@ function CoursesTab({
                       className="md:col-span-2 xl:col-span-3"
                     />
 
-                    <Field
-                      title="رابط صورة محاور الدورة (تظهر في تفاصيل الدورة وتتكبّر بالضغط)"
-                      name="syllabus_image_url"
-                      defaultValue={course.syllabus_image_url ?? ""}
-                      placeholder="https://..."
-                      className="md:col-span-2 xl:col-span-3"
-                    />
 
 
                     <Field
@@ -899,12 +884,6 @@ function CoursesTab({
                                 className="md:col-span-2 xl:col-span-3"
                               />
 
-                              <Field
-                                title="رابط صورة محاور هذا المستوى"
-                                name="syllabus_image_url"
-                                placeholder="https://..."
-                                className="md:col-span-2 xl:col-span-3"
-                              />
 
 
                               <Field
@@ -1046,13 +1025,6 @@ function VariantRow({ variant }: { variant: WhatsAppCourseVariant }) {
             className="md:col-span-2 xl:col-span-3"
           />
 
-          <Field
-            title="رابط صورة محاور هذا المستوى"
-            name="syllabus_image_url"
-            defaultValue={variant.syllabus_image_url ?? ""}
-            placeholder="https://..."
-            className="md:col-span-2 xl:col-span-3"
-          />
 
 
           <Field

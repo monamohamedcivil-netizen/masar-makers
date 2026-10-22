@@ -26,7 +26,6 @@ const UI = {
     code: "كود المحادثة:",
     pick: "اختار من القوائم 👆",
     unavailable: "المحادثة غير متاحة. سجّل الدخول بنفس الحساب أو ابدأ محادثة جديدة.",
-    zoom: "اضغط لتكبير الصورة",
     video: "فيديو المنصة",
   },
   en: {
@@ -39,7 +38,6 @@ const UI = {
     code: "Chat code:",
     pick: "Choose from the menus 👆",
     unavailable: "This chat isn't available. Log in with the same account or start a new chat.",
-    zoom: "Click to enlarge",
     video: "Platform video",
   },
 } as const;
@@ -92,23 +90,6 @@ function VideoModal({ url, onClose, closeLabel, title }: { url: string; onClose:
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function ImageLightbox({ src, onClose, closeLabel }: { src: string; onClose: () => void; closeLabel: string }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-  return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/85 p-3" onClick={onClose} role="dialog" aria-modal="true">
-      <button type="button" onClick={onClose} aria-label={closeLabel} className="absolute end-3 top-3 rounded-full bg-white/10 p-2 text-white hover:bg-white/20">
-        <X className="h-5 w-5" />
-      </button>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt="" className="max-h-full max-w-full rounded-xl object-contain shadow-2xl" onClick={(e) => e.stopPropagation()} />
     </div>
   );
 }
@@ -172,7 +153,6 @@ export default function WebChatWidget() {
   const [state, setState] = useState<Stored | null>(null);
   const [locale, setLocale] = useState<Locale>("ar");
   const [video, setVideo] = useState<string | null>(null);
-  const [zoom, setZoom] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const save = (next: Stored | null) => {
@@ -336,12 +316,6 @@ export default function WebChatWidget() {
                     }`}
                   >
                     <RichText text={m.text} />
-                    {m.image && (
-                      <button type="button" onClick={() => setZoom(m.image!)} title={ui.zoom} className="mt-2 block w-full overflow-hidden rounded-xl border border-slate-200">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={m.image} alt={ui.zoom} loading="lazy" className="max-h-56 w-full cursor-zoom-in object-cover" />
-                      </button>
-                    )}
                   </div>
                   {m.from === "bot" && i === lastBotIndex && m.buttons && m.buttons.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
@@ -406,7 +380,6 @@ export default function WebChatWidget() {
       </button>
 
       {video && <VideoModal url={video} onClose={() => setVideo(null)} closeLabel={ui.close} title={ui.video} />}
-      {zoom && <ImageLightbox src={zoom} onClose={() => setZoom(null)} closeLabel={ui.close} />}
     </div>
   );
 }

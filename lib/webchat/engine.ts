@@ -23,8 +23,6 @@ export type ChatMessage = {
   from: "bot" | "visitor";
   text: string;
   buttons?: ChatButton[];
-  /** Course-axes picture (opens enlarged on click). */
-  image?: string;
   /** Video to pop up as soon as this reply arrives (also reachable from its "video" button). */
   autoVideo?: string;
 };
@@ -311,19 +309,13 @@ export class WebChatEngine {
     const course = await this.course(this.session.current_course_id);
     if (!course) return this.mainMenu();
     let text = `📘 *${course.whatsapp_label || course.title}*\n\n${this.f(course, "details") || this.f(course, "short_description")}`;
-    const images: ChatMessage[] = [];
     if (course.has_variants) {
       for (const v of await this.variants(course.id)) {
         const d = this.f(v, "details") || this.f(v, "short_description");
         if (d) text += `\n\n━━━━━━━━━━━━\n*${this.f(v, "title")}*\n${d}`;
-        if (clean(v.syllabus_image_url)) images.push({ from: "bot", text: `🗺️ *${this.f(v, "title")}* — ${this.t("محاور الدورة", "course outline")}`, image: clean(v.syllabus_image_url) });
       }
     }
-    const courseImage = clean(course.syllabus_image_url);
-    if (!courseImage && !images.length) return this.courseActions(course, text);
-    // Text (+ course outline picture), one picture per level, then the buttons.
-    const actions = await this.courseActions(course, this.t("ماذا تريد أن تعرف أيضًا؟", "What else would you like to know?"));
-    return [{ from: "bot", text, ...(courseImage ? { image: courseImage } : {}) }, ...images, ...actions];
+    return this.courseActions(course, text);
   }
 
   /** Visitor pressed a members-only question. */

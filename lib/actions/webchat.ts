@@ -128,7 +128,7 @@ async function attachViewer(db: Db, session: AnyRow, userId: string | null) {
   return { userId: session.user_id ?? userId ?? null, contact };
 }
 
-async function log(db: Db, sessionId: string, rows: { sender: "visitor" | "bot"; body: string; action_id?: string | null; buttons?: ChatButton[] | null; image?: string | null }[]) {
+async function log(db: Db, sessionId: string, rows: { sender: "visitor" | "bot"; body: string; action_id?: string | null; buttons?: ChatButton[] | null }[]) {
   if (!rows.length) return;
   await db.from("web_chat_messages").insert(
     rows.map((r) => ({
@@ -137,7 +137,6 @@ async function log(db: Db, sessionId: string, rows: { sender: "visitor" | "bot";
       body: r.body.slice(0, 4000),
       action_id: r.action_id ?? null,
       buttons: r.buttons?.length ? r.buttons : null,
-      ...(r.image ? { image_url: r.image } : {}),
     })),
   );
   const { data } = await db.from("web_chat_sessions").select("message_count").eq("id", sessionId).maybeSingle();
@@ -193,7 +192,7 @@ export async function startWebChat(input: WebChatContext): Promise<WebChatStart>
 
     await log(db, session.id, [
       ...(ctx.text ? [{ sender: "visitor" as const, body: ctx.text }] : []),
-      ...messages.map((m) => ({ sender: "bot" as const, body: m.text, buttons: m.buttons, image: m.image })),
+      ...messages.map((m) => ({ sender: "bot" as const, body: m.text, buttons: m.buttons })),
     ]);
 
     // Notify Mona: new chat (who + which button).
@@ -259,7 +258,7 @@ export async function webChatAct(sessionId: string, token: string, actionId: str
     const messages = await new WebChatEngine(db, session, viewer, locale).act(id);
     await log(db, session.id, [
       { sender: "visitor", body: cut(label, 200) || id, action_id: id },
-      ...messages.map((m) => ({ sender: "bot" as const, body: m.text, buttons: m.buttons, image: m.image })),
+      ...messages.map((m) => ({ sender: "bot" as const, body: m.text, buttons: m.buttons })),
     ]);
     return { ok: true, messages };
   } catch (error) {
@@ -279,7 +278,7 @@ export async function loadWebChat(sessionId: string, token: string | null, markS
 
     const { data } = await db
       .from("web_chat_messages")
-      .select("*")
+      .select("sender,body,buttons,created_at")
       .eq("session_id", session.id)
       .order("created_at", { ascending: true })
       .limit(MAX_MESSAGES_PER_SESSION);
@@ -287,7 +286,6 @@ export async function loadWebChat(sessionId: string, token: string | null, markS
       from: m.sender === "visitor" ? "visitor" : "bot",
       text: String(m.body ?? ""),
       ...(Array.isArray(m.buttons) && m.buttons.length ? { buttons: m.buttons as ChatButton[] } : {}),
-      ...(m.image_url ? { image: String(m.image_url) } : {}),
     }));
     if (markSeen && session.has_unseen) await db.from("web_chat_sessions").update({ has_unseen: false }).eq("id", session.id);
     return { ok: true, sessionId: session.id, token: session.token, code: session.code, messages, hasUnseen: Boolean(session.has_unseen) };

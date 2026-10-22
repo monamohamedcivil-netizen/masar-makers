@@ -1,36 +1,40 @@
--- English version of the platform chat + platform video + course-axes image.
+-- English version of the platform chat + platform video.
 -- Arabic stays the default; every *_en column falls back to the Arabic text when empty.
 
 alter table public.whatsapp_menus            add column if not exists header_text_en text, add column if not exists body_text_en text, add column if not exists footer_text_en text;
 alter table public.whatsapp_menu_items       add column if not exists label_en text, add column if not exists description_en text;
 alter table public.whatsapp_answers          add column if not exists message_text_en text, add column if not exists video_url text;
-alter table public.whatsapp_courses          add column if not exists short_description_en text, add column if not exists details_en text, add column if not exists variants_prompt_en text, add column if not exists syllabus_image_url text;
-alter table public.whatsapp_course_variants  add column if not exists title_en text, add column if not exists short_description_en text, add column if not exists details_en text, add column if not exists syllabus_image_url text;
+alter table public.whatsapp_courses          add column if not exists short_description_en text, add column if not exists details_en text, add column if not exists variants_prompt_en text;
+alter table public.whatsapp_course_variants  add column if not exists title_en text, add column if not exists short_description_en text, add column if not exists details_en text;
 alter table public.whatsapp_course_prices    add column if not exists offer_label_en text;
 alter table public.web_chat_entry_points     add column if not exists welcome_text_en text;
 alter table public.web_chat_settings         add column if not exists followup_messages_en text[];
 alter table public.web_chat_sessions         add column if not exists locale text not null default 'ar';
-alter table public.web_chat_messages         add column if not exists image_url text;
 
--- ---------- English content ----------
+-- ---------- English content (matches the Arabic text saved on 2026-10-23) ----------
 update public.web_chat_entry_points set welcome_text_en = case entry_key
-  when 'contact' then E'Welcome to Masar Makers 👋\nI''m the platform assistant — I''ll help you find out everything about the platform, journeys and prices in seconds.'
-  when 'course_action' then E'Welcome 👋 We received your request about *{action}*.\nHere''s everything you need to know about the journey 👇'
-  when 'enrollment' then E'Your subscription request has been recorded ✅\nReview the subscription details and price, and when you''re ready press “Subscribe now” — we''ll complete the payment with you on WhatsApp.'
-  when 'launcher' then 'Welcome to Masar Makers 👋 Choose your question from the menu.'
-  when 'members_only' then E'🔒 Prices and subscription details are available to registered members only.\nCreate your free account in under a minute, then come back here and you''ll find all prices in your currency 👇'
+  when 'contact' then $q$Welcome to Masar Makers 👋
+I'm the platform assistant — I'll help you find out everything about the platform, journeys and prices in seconds.$q$
+  when 'course_action' then $q$Welcome 👋 We received your request about *{action}*.
+Here's everything you need to know about the journey 👇$q$
+  when 'enrollment' then $q$Your subscription request has been recorded ✅
+Review the subscription details and price, and when you're ready press “Subscribe now” — we'll complete the payment with you on WhatsApp.$q$
+  when 'launcher' then $q$Welcome to Masar Makers 👋 Choose your question from the menu.$q$
+  when 'members_only' then $q$🔒 Prices and subscription details are available to registered members only.
+Create your free account in under a minute, then come back here and you'll find all prices in your currency 👇$q$
   else welcome_text_en end;
 
 update public.whatsapp_menus set
   header_text_en = case menu_key when 'main_menu' then 'Masar Makers' when 'courses_menu' then 'Available courses' else header_text_en end,
   body_text_en = case menu_key
-    when 'main_menu' then E'Welcome to Masar Makers 👋\nChoose your question from the menu.'
+    when 'main_menu' then $q$Welcome to Masar Makers 👋
+Choose your question from the menu.$q$
     when 'course_actions' then 'What would you like to know about this course?'
     when 'courses_menu' then 'Choose the course you want to know more about.'
     when 'currency_menu' then 'Choose the currency you want to see the price in:'
     when 'tracks_menu' then 'Choose the track whose courses you want to explore:'
     else body_text_en end,
-  footer_text_en = case menu_key when 'main_menu' then 'Don''t just learn a course… build your career.' else footer_text_en end;
+  footer_text_en = case menu_key when 'main_menu' then $q$Don't just learn a course… build your career.$q$ else footer_text_en end;
 
 update public.whatsapp_menu_items set
   label_en = case item_key
@@ -60,12 +64,31 @@ update public.whatsapp_menu_items set
     else description_en end;
 
 update public.whatsapp_answers set message_text_en = case answer_key
-  when 'current_offer' then E'🎁 Current savings offer\n\n40% off the courses currently available throughout September.\n\nPick the right course from the Courses & prices list to see its price.'
-  when 'human_support' then E'👩‍💼 Your chat has been transferred to customer service.\n\nWe''ll reply to you directly as soon as possible.'
-  when 'login_help' then E'🔐 Trouble logging in?\n\n1️⃣ Log in here: https://masarmakers.com/login\n2️⃣ Make sure you use the same email you registered with.\n3️⃣ If you forgot your password: https://masarmakers.com/forgot-password — a reset link will be sent to your email (check Spam too).\n4️⃣ If the course isn''t showing after you log in, your subscription may still be being activated.\n\nIf the problem continues, choose “Customer service” and send us the email you registered with and a screenshot of the message you see.'
+  when 'current_offer' then $q$🎁 Special offer for a limited time
+Choose the right course from the Courses & prices list to see its price.$q$
+  when 'human_support' then $q$👩‍💼 Your chat has been transferred to customer service.
+We'll reply to you directly as soon as possible.$q$
+  when 'login_help' then $q$🔐 Trouble logging in?
+
+1️⃣ Log in here: https://masarmakers.com/login
+2️⃣ Make sure you use the same email you registered with.
+3️⃣ If you forgot your password: https://masarmakers.com/forgot-password — a reset link will be sent to your email (check Spam too).
+4️⃣ If the course isn't showing after you log in, your subscription may still be being activated.
+
+If the problem continues, choose “Customer service” and send us the email you registered with and a screenshot of the message you see.$q$
   when 'other_currency' then '🌍 To see the price in another currency, you will be transferred to customer service.'
-  when 'platform_info' then E'🛣️ Masar Makers\n\nA professional learning-journeys platform that helps engineers move from learning to applying and mastering the craft.\n\n🌐 https://masarmakers.com/\n\n🎥 Platform tour:\nhttps://youtu.be/zEnhTPW9xvQ'
-  when 'software_requirements' then E'💻 Course requirements\n\n• Software: [⚠️ Add the required software and version for each course, e.g. Civil 3D 20xx / CSD 20xx]\n• Computer: [⚠️ Suggested minimum specs]\n• Level: [⚠️ Does the course start from zero or need prior basics? Which course suits a beginner?]\n\nNot sure which course to start with? Choose “Customer service” and we''ll help you pick the right path 👌'
+  when 'platform_info' then $q$🛣️ Masar Makers
+A professional learning-journeys platform that helps engineers move from learning to applying and mastering the craft.
+
+🎥 Platform tour:
+https://youtu.be/zEnhTPW9xvQ$q$
+  when 'software_requirements' then $q$💻 Course requirements
+
+• Software: [⚠️ Add the required software and version for each course, e.g. Civil 3D 20xx / CSD 20xx]
+• Computer: [⚠️ Suggested minimum specs]
+• Level: [⚠️ Does the course start from zero or need prior basics? Which course suits a beginner?]
+
+Not sure which course to start with? Choose “Customer service” and we'll help you pick the right path 👌$q$
   else message_text_en end;
 
 update public.whatsapp_answers set video_url = 'https://youtu.be/zEnhTPW9xvQ' where answer_key = 'platform_info' and video_url is null;
@@ -80,12 +103,63 @@ update public.whatsapp_courses set
     when 'cube' then 'A specialized program for traffic engineering and traffic demand modeling.'
     else short_description_en end,
   details_en = case course_key
-    when 'Civil 3D' then 'Hands-on application on a project from start to finish to master the fundamentals of the software and present the design professionally. Covers project setup, Alignments, Profiles, Assemblies, Corridors, Surfaces, Grading, Intersections, and extracting reports and quantities.'
-    when 'csd' then 'Choose the level that suits you: Fundamentals, Advanced, or the Integrated course.'
-    when 'bim' then 'Explains the steps of converting a project designed in Civil 3D or CSD into Navisworks, extracting solids, surfaces and design layers, choosing materials, and creating markings, signs and road furniture such as lighting poles, trees and speed humps.'
-    when 'vehicle_tracking' then 'Covers vehicle movement simulation, parking design, roundabout design, validating the design and running checks, designing roundabout levels and geometric elements, and creating 3D videos of vehicle movement.'
-    when 'spd' then 'Covers General Plan, Road Details, Cross Sections for both Civil 3D and CSD, Profiles, Plan / Profile and Plan Cuts.'
-    when 'cube' then 'A specialized program for traffic engineering, traffic demand modeling and strategic planning.'
+    when 'Civil 3D' then $q$Choose the level that suits you: Fundamentals, Advanced, or the Integrated course.$q$
+    when 'csd' then $q$Choose the level that suits you: Fundamentals, Advanced, or the Integrated course.$q$
+    when 'bim' then $q$Convert all road elements into a 3D BIM model in Navisworks (whether you designed in Civil 3D or CSD).
+The journey includes:
+1- Converting the road Corridor with its design layers and choosing the different Materials,
+2- The different design surfaces,
+3- Road Marking in its various colors and shapes,
+4- Signs: building traffic signs from scratch and converting them from 2D to 3D,
+5- Road furniture such as lighting poles, trees, speed humps and bus stops.
+
+Plus the journey gifts, which include:
+1- The complete recorded lectures,
+2- An accredited certificate,
+3- 3D Roads Corridor Workflow
+4- 3D Roads Marking Workflow
+5- 3D Roads Signs Workflow
+6- 3D Roadsblocks Workflow
+7- Add a New Property
+8- CSD-Working
+9- 2D & 3D Signs and Road Blocks
+10- 3D Roadblocks
+11- Lisps
+12- MM-Signs obj$q$
+    when 'vehicle_tracking' then $q$The journey includes:
+1- Vehicle movement simulation,
+2- Parking Design,
+3- Roundabout Design (Geometric & Levels & Checks),
+4- Validating the design and producing Checks Reports,
+5- Creating 3D videos of vehicle movement.
+
+Plus the journey gifts, which include:
+1- The complete recorded lectures,
+2- An accredited certificate,
+3- MM-Parking Standard.ATS$q$
+    when 'spd' then $q$The journey covers extracting many types of road sheets with all their details:
+1- General Plan sheet,
+2- Road Details sheet,
+3- Cross Sections sheet (in both Civil 3D and CSD),
+4- Profiles sheet (in both Civil 3D and CSD),
+5- Plan / Profile sheet (in both Civil 3D and CSD),
+6- Plan Cuts sheet (Setting-Out - Marking & Signs - Road Levels).
+
+Plus the journey gifts, which include:
+1- The complete recorded lectures,
+2- An accredited certificate,
+3- 3D Blocks
+4- C3D-Templates
+5- CSD-Plotting Styles
+6- LISPs
+7- MM-Project Deliverables Workflow
+8- Xref$q$
+    when 'cube' then $q$A specialized program for traffic engineering, traffic demand modeling and strategic planning.
+
+
+Plus the journey gifts, which include:
+1- The complete recorded lectures,
+2- An accredited certificate,$q$
     else details_en end,
   variants_prompt_en = case when variants_prompt like 'اختر نوع الرحلة التي%' then 'Choose the journey type you want details about:' when variants_prompt is not null then 'Choose the journey type:' else variants_prompt_en end;
 
@@ -99,21 +173,108 @@ update public.whatsapp_course_variants v set
     when v.title = 'المتكامل' then 'The integrated course: Fundamentals + Advanced.'
     else v.short_description_en end,
   details_en = case
-    when c.course_key = 'Civil 3D' and v.title = 'الأساسيات' then 'Hands-on application on a project from start to finish to master the fundamentals and present the design professionally. Covers project setup, Alignments, Profiles, Assemblies, Corridors, Surfaces, and extracting quantities.'
-    when c.course_key = 'Civil 3D' and v.title = 'المتقدم' then 'Covers Data Shortcuts, Profiles, Daylight Conditions, Grading & Feature Lines, Road Levels, Superelevation, Cross Sections, Roundabout Design and Grading Intersections.'
-    when c.course_key = 'Civil 3D' and v.title = 'المتكامل' then 'Includes the complete Fundamentals and Advanced levels, with recorded lectures.'
-    when c.course_key = 'csd' and v.title = 'الأساسيات' then 'Hands-on application on a project from start to finish to master the fundamentals and present the design in 3D. Covers project setup, Templates, Data Design Form, Profiles, Grading Intersections, Cul-De-Sac, building the model and extracting reports and quantities.'
-    when c.course_key = 'csd' and v.title = 'المتقدم' then 'Covers Data Shortcuts & Data Share, advanced Profiles, Intelligent Sections and Daylight Conditions, Model Builder and Auto Grading, Road Levels, Superelevation, Cross Sections, Knuckle Design, Roundabout Design and Marking.'
-    when c.course_key = 'csd' and v.title = 'المتكامل' then 'Includes the complete Fundamentals and Advanced levels, recorded lectures, a 90-day trial version of the software, an accredited certificate, a 5% discount on buying the software for subscribers, and the option to buy Corridor EZ for 3 months at a reduced price as needed.'
+    when c.course_key = 'Civil 3D' and v.title = 'الأساسيات' then $q$Hands-on application on a project from start to finish to master the fundamentals of the software and present the design and project deliverables professionally.
+The journey includes:
+1- Getting to know the software and its features (Introduction),
+2- Project Settings,
+3- Project data and Points,
+4- Surfaces,
+5- Alignments,
+6- Profiles,
+7- Assemblies,
+8- Corridors,
+9- Superelevation,
+10- Cross Sections,
+11- Final Output.
+
+Plus the journey gifts, which include:
+1- Civil 3D Base File,
+2- The complete recorded lectures,
+3- An accredited certificate,$q$
+    when c.course_key = 'Civil 3D' and v.title = 'المتقدم' then $q$The journey includes:
+1- Project Explorer
+2- Advanced Superelevation
+3- Intersections
+4- CUL-DE-SAC
+5- Roundabout
+6- Advanced Assemblies & Conditional Design
+7- Grading Tools & Feature Lines
+8- Data Shortcuts
+9- Plan Production
+10- Reports & Quantities
+
+Plus the journey gifts, which include:
+1- Civil 3D Base File,
+2- The complete recorded lectures,
+3- An accredited certificate,$q$
+    when c.course_key = 'Civil 3D' and v.title = 'المتكامل' then $q$The journey includes (the complete Fundamentals and Advanced levels),
+
+Plus the journey gifts, which include:
+1- Civil 3D Base File,
+2- The complete recorded lectures,
+3- An accredited certificate,$q$
+    when c.course_key = 'csd' and v.title = 'الأساسيات' then $q$Hands-on application on a project from start to finish to master the fundamentals of the software and present the design in 3D.
+The journey includes:
+1- Getting to know the software and its features (Introduction),
+2- Project Setting,
+3- Road model: Create Templates,
+4- Data Design Form,
+5- Create Profiles,
+6- Grading Intersections,
+7- Designing road ends: Grading Cul-De-Sac (Dead End),
+8- Create 3D Model,
+9- Extracting reports and quantities (Final Output)
+
+Plus the journey gifts, which include:
+1- CSD Base File,
+2- The complete recorded lectures,
+3- A 90-day trial version of the software,
+4- An accredited certificate,
+5- Activation of the Green Track discount offer when buying the software,
+6- Activation of the monthly installments offer leading to owning the software.$q$
+    when c.course_key = 'csd' and v.title = 'المتقدم' then $q$Hands-on application on a large project (divided into areas across several files) and learning how to link the files professionally.
+The journey includes:
+1- Data Shortcuts & Data Share,
+2- Advanced Profiles,
+3- Intelligent Sections
+4- and Daylight Conditions,
+5- Model Builder
+6- and Auto Grading,
+7- Road Levels,
+8- Superelevation,
+9- Cross Sections,
+10- Knuckle Design,
+11- Roundabout Design
+12- Marking,
+13- BIM Model.
+
+Plus the journey gifts, which include:
+1- CSD Base File,
+2- The complete recorded lectures,
+3- A 90-day trial version of the software,
+4- An accredited certificate,
+5- Activation of the Green Track discount offer when buying the software,
+6- Activation of the monthly installments offer leading to owning the software.$q$
+    when c.course_key = 'csd' and v.title = 'المتكامل' then $q$The journey includes (the complete Fundamentals and Advanced levels),
+- Fundamentals level: hands-on application on a project from start to finish to master the fundamentals of the software and present the design in 3D,
+- Advanced level: hands-on application on a large project (divided into areas across several files) and learning how to link the files professionally.
+
+Plus the journey gifts, which include:
+1- CSD Base File,
+2- The complete recorded lectures,
+3- A 90-day trial version of the software,
+4- An accredited certificate,
+5- Activation of the Green Track discount offer when buying the software,
+6- Activation of the monthly installments offer leading to owning the software.$q$
     else v.details_en end
 from public.whatsapp_courses c where c.id = v.course_id;
 
 update public.whatsapp_course_prices set offer_label_en = case offer_label when 'عرض التوفير' then 'Savings offer' when 'عرض خاص' then 'Special offer' else offer_label_en end where offer_label is not null;
 
 update public.web_chat_settings set followup_messages_en = array[
-  '👋 Welcome back! You were asking about *{course}*. If you''re still interested you can continue your subscription from here, or check the details and price again 👇',
-  '📌 Reminder: your spot in *{course}* is still open. If you have any question before subscribing, choose “Customer service” and we''ll reply.',
-  '⏳ Last reminder about *{course}*. If you''d like to continue, press “Subscribe now” 👇 — we won''t bother you again after that.'
+  $q$👋 Welcome back! You were asking about *{course}*. If you're still interested you can continue your subscription from here, or check the details and price again 👇$q$,
+  $q$📌 Reminder: your spot in *{course}* is still open. If you have any question before subscribing, choose “Customer service” and we'll reply.$q$,
+  $q$⏳ Last reminder about *{course}*. If you'd like to continue, press “Subscribe now” 👇 — we won't bother you again after that.$q$
 ] where id = 1 and followup_messages_en is null;
 
 -- ---------- scheduled follow-ups follow the chat language ----------
