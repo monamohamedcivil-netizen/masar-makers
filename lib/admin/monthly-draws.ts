@@ -29,6 +29,8 @@ export type MonthlyDraw = {
 
   prize_title: string | null;
   prize_description: string | null;
+  prize_title_en?: string | null;
+  prize_description_en?: string | null;
   prize_image_url: string | null;
 
   scheduled_at: string;
@@ -344,6 +346,8 @@ export async function createMonthlyDraw(
     title?: string;
     prizeTitle: string;
     prizeDescription?: string;
+    prizeTitleEn?: string;
+    prizeDescriptionEn?: string;
     prizeImageUrl?: string;
     scheduledAt: string;
     winnerMode: MonthlyDrawWinnerMode;
@@ -414,6 +418,14 @@ export async function createMonthlyDraw(
         input.prizeDescription?.trim() ||
         null,
 
+      prize_title_en:
+        input.prizeTitleEn?.trim() ||
+        null,
+
+      prize_description_en:
+        input.prizeDescriptionEn?.trim() ||
+        null,
+
       prize_image_url:
         input.prizeImageUrl?.trim() ||
         null,
@@ -480,6 +492,8 @@ export async function updateMonthlyDraw(
     title?: string;
     prizeTitle: string;
     prizeDescription?: string;
+    prizeTitleEn?: string;
+    prizeDescriptionEn?: string;
     prizeImageUrl?: string;
     scheduledAt: string;
     winnerMode: MonthlyDrawWinnerMode;
@@ -568,6 +582,14 @@ export async function updateMonthlyDraw(
 
       prize_description:
         input.prizeDescription?.trim() ||
+        null,
+
+      prize_title_en:
+        input.prizeTitleEn?.trim() ||
+        null,
+
+      prize_description_en:
+        input.prizeDescriptionEn?.trim() ||
         null,
 
       prize_image_url:

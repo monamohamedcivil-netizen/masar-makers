@@ -34,6 +34,10 @@ export type PublicMonthlyDrawState = {
   title: string;
   prizeTitle: string | null;
   prizeDescription: string | null;
+  /** English prize text typed in the admin (empty → the built-in translation / the Arabic text). */
+  prizeTitleEn: string | null;
+  prizeDescriptionEn: string | null;
+  nextPrizeTitleEn: string | null;
   prizeImageUrl: string | null;
 
   phase: PublicDrawStatus;
@@ -73,6 +77,8 @@ type DrawRow = {
   title: string;
   prize_title: string | null;
   prize_description: string | null;
+  prize_title_en?: string | null;
+  prize_description_en?: string | null;
   prize_image_url: string | null;
   scheduled_at: string;
   status: string;
@@ -1389,6 +1395,7 @@ function toPublicState(
   nextDrawAt?: string,
   nextPrizeTitle?: string | null,
   currentWinnerName?: string | null,
+  nextPrizeTitleEn?: string | null,
 ): PublicMonthlyDrawState {
   const scheduledAt =
     new Date(draw.scheduled_at);
@@ -1455,6 +1462,12 @@ function toPublicState(
       draw.prize_title,
     prizeDescription:
       draw.prize_description,
+    prizeTitleEn:
+      draw.prize_title_en?.trim() || null,
+    prizeDescriptionEn:
+      draw.prize_description_en?.trim() || null,
+    nextPrizeTitleEn:
+      nextPrizeTitleEn?.trim() || null,
     prizeImageUrl:
       draw.prize_image_url,
 
@@ -1695,6 +1708,9 @@ export async function getPublicMonthlyDrawState(): Promise<
         dueDraw.prize_title ??
         DEFAULT_MONTHLY_PRIZE_TITLE,
       currentWinnerName,
+      nextUpcomingDraw?.prize_title != null
+        ? nextUpcomingDraw.prize_title_en
+        : dueDraw.prize_title_en,
     );
   }
 
@@ -1737,5 +1753,8 @@ export async function getPublicMonthlyDrawState(): Promise<
       latestCompleted.prize_title ??
       DEFAULT_MONTHLY_PRIZE_TITLE,
     currentWinnerName,
+    nextUpcomingDraw?.prize_title != null
+      ? nextUpcomingDraw.prize_title_en
+      : latestCompleted.prize_title_en,
   );
 }

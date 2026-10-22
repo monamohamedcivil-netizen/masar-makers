@@ -123,9 +123,16 @@ export default function HomeMonthlyDrawStatus({
     draw?.prizeTitle?.trim() ||
     "---";
 
+  // English: the prize text typed in the admin first, then the built-in translation.
+  const rawPrizeTitleEn =
+    (draw?.nextPrizeTitle?.trim()
+      ? draw?.nextPrizeTitleEn
+      : draw?.prizeTitleEn)?.trim();
+
   const prizeTitle =
     locale === "en"
-      ? translatePrizeTitleToEnglish(
+      ? rawPrizeTitleEn ||
+        translatePrizeTitleToEnglish(
           rawPrizeTitle,
         )
       : rawPrizeTitle;

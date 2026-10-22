@@ -42,6 +42,8 @@ type DrawForm = {
   title: string;
   prizeTitle: string;
   prizeDescription: string;
+  prizeTitleEn: string;
+  prizeDescriptionEn: string;
   prizeImageUrl: string;
   scheduledAt: string;
   winnerMode: MonthlyDrawWinnerMode;
@@ -80,6 +82,8 @@ const EMPTY_DRAW: DrawForm = {
   title: "سحب مكافآت Masar Makers الشهري",
   prizeTitle: "",
   prizeDescription: "",
+  prizeTitleEn: "",
+  prizeDescriptionEn: "",
   prizeImageUrl: "",
   scheduledAt: initialSchedule(),
   winnerMode: "random",
@@ -159,6 +163,8 @@ export default function MonthlyDrawManager({
       title: draw.title,
       prizeTitle: draw.prize_title ?? "",
       prizeDescription: draw.prize_description ?? "",
+      prizeTitleEn: draw.prize_title_en ?? "",
+      prizeDescriptionEn: draw.prize_description_en ?? "",
       prizeImageUrl: draw.prize_image_url ?? "",
       scheduledAt: toLocalInput(draw.scheduled_at),
       winnerMode: draw.winner_mode,
@@ -204,6 +210,8 @@ export default function MonthlyDrawManager({
         title: drawForm.title,
         prizeTitle: drawForm.prizeTitle,
         prizeDescription: drawForm.prizeDescription,
+        prizeTitleEn: drawForm.prizeTitleEn,
+        prizeDescriptionEn: drawForm.prizeDescriptionEn,
         prizeImageUrl: drawForm.prizeImageUrl,
         scheduledAt: drawForm.scheduledAt,
         winnerMode: drawForm.winnerMode,
@@ -445,6 +453,18 @@ function prepareParticipants(draw: MonthlyDraw) {
             />
           </Field>
 
+          <Field label="جائزة الشهر بالإنجليزية (تظهر عند تحويل المنصة للإنجليزية)">
+            <input
+              value={drawForm.prizeTitleEn}
+              onChange={(e) =>
+                setDrawForm((s) => ({ ...s, prizeTitleEn: e.target.value }))
+              }
+              dir="ltr"
+              className={`${INPUT} text-left`}
+              placeholder="e.g. 90% off the Integrated Professional Journey"
+            />
+          </Field>
+
           <Field label="رابط صورة الجائزة">
             <input
               value={drawForm.prizeImageUrl}
@@ -468,6 +488,21 @@ function prepareParticipants(draw: MonthlyDraw) {
                 }))
               }
               className={`${INPUT} h-auto min-h-[76px] py-3`}
+            />
+          </Field>
+
+          <Field label="وصف الجائزة بالإنجليزية" className="md:col-span-2">
+            <textarea
+              rows={2}
+              value={drawForm.prizeDescriptionEn}
+              onChange={(e) =>
+                setDrawForm((s) => ({
+                  ...s,
+                  prizeDescriptionEn: e.target.value,
+                }))
+              }
+              dir="ltr"
+              className={`${INPUT} h-auto min-h-[76px] py-3 text-left`}
             />
           </Field>
 

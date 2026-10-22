@@ -914,14 +914,14 @@ export default function MonthlyDrawOverlay() {
                             {isEnglish ? "This Month's Prize" : "الجائزة لهذا الشهر"}
                           </p>
                           <p className="mt-0.5 line-clamp-2 text-[13px] font-black leading-5 text-[#07152E]">
-                            {isEnglish ? translatePrizeTitleToEnglish(currentDraw.prizeTitle) : currentDraw.prizeTitle}
+                            {isEnglish ? currentDraw.prizeTitleEn?.trim() || translatePrizeTitleToEnglish(currentDraw.prizeTitle) : currentDraw.prizeTitle}
                           </p>
                         </div>
                       </div>
 
                       {currentDraw.prizeDescription ? (
                         <p className="mt-1.5 line-clamp-2 text-[9px] font-semibold leading-4 text-[#07152E]/60">
-                          {isEnglish ? translatePrizeDescriptionToEnglish(currentDraw.prizeDescription) : currentDraw.prizeDescription}
+                          {isEnglish ? currentDraw.prizeDescriptionEn?.trim() || translatePrizeDescriptionToEnglish(currentDraw.prizeDescription) : currentDraw.prizeDescription}
                         </p>
                       ) : null}
                     </div>
@@ -1076,14 +1076,14 @@ export default function MonthlyDrawOverlay() {
                           </p>
 
                           <p className="mt-1 text-[18px] font-black leading-7 text-[#07152E]">
-                            {isEnglish ? translatePrizeTitleToEnglish(currentDraw.prizeTitle) : currentDraw.prizeTitle}
+                            {isEnglish ? currentDraw.prizeTitleEn?.trim() || translatePrizeTitleToEnglish(currentDraw.prizeTitle) : currentDraw.prizeTitle}
                           </p>
                         </div>
                       </div>
 
                       {currentDraw.prizeDescription ? (
                         <p className="mt-2 text-[11px] font-semibold leading-6 text-[#07152E]/65">
-                          {isEnglish ? translatePrizeDescriptionToEnglish(currentDraw.prizeDescription) : currentDraw.prizeDescription}
+                          {isEnglish ? currentDraw.prizeDescriptionEn?.trim() || translatePrizeDescriptionToEnglish(currentDraw.prizeDescription) : currentDraw.prizeDescription}
                         </p>
                       ) : null}
                     </div>
