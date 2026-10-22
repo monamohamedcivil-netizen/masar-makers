@@ -84,7 +84,7 @@ const journeyPointsRules = [
     key: "one-day-enrollment",
     label: "الاشتراك في رحلة اليوم الواحد",
     labelEn: "Enroll in a One-Day Journey",
-    points: 20,
+    points: 10,
     icon: Plane,
   },
   {
