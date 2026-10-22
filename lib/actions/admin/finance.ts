@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { isInternalEmail } from "@/lib/admin/internal-accounts";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/server";
 import { applyAutoFlags, mapPayment } from "@/lib/finance/queries";
@@ -829,6 +830,14 @@ export async function createPaymentForEnrollment(
       rewardReason = mk
         ? `مكافأة السحب الشهري لشهر ${Number(m)}-${y}`
         : "مكافأة بطاقة المكافآت";
+    }
+
+    // اشتراكات فريق العمل لا تُسجَّل في المدفوعات.
+    if (
+      isInternalEmail((profile as Record<string, unknown> | null)?.email) ||
+      isInternalEmail(enrollment.student_email)
+    ) {
+      return { success: true, data: { created: false } };
     }
 
     const price = !isReward && enrollment.subscription_price
