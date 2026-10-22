@@ -67,6 +67,9 @@ type WhatsAppCourse = {
   sort_order: number;
   has_variants: boolean;
   variants_prompt: string | null;
+  short_description_en?: string | null;
+  details_en?: string | null;
+  variants_prompt_en?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -83,6 +86,9 @@ type WhatsAppCourseVariant = {
   is_active: boolean;
   whatsapp_visible: boolean;
   sort_order: number;
+  title_en?: string | null;
+  short_description_en?: string | null;
+  details_en?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -96,6 +102,7 @@ type WhatsAppCoursePrice = {
   current_price: number;
   original_price: number | null;
   offer_label: string | null;
+  offer_label_en?: string | null;
   offer_active: boolean;
   offer_start: string | null;
   offer_end: string | null;
@@ -108,6 +115,8 @@ type WhatsAppAnswer = {
   answer_key: string;
   admin_name: string;
   message_text: string;
+  message_text_en?: string | null;
+  video_url?: string | null;
   is_active: boolean;
 };
 
@@ -119,6 +128,9 @@ type WhatsAppMenu = {
   header_text: string | null;
   body_text: string | null;
   footer_text: string | null;
+  header_text_en?: string | null;
+  body_text_en?: string | null;
+  footer_text_en?: string | null;
   open_button_text: string | null;
   sort_order: number;
   is_active: boolean;
@@ -130,6 +142,8 @@ type WhatsAppMenuItem = {
   item_key: string | null;
   label: string;
   description: string | null;
+  label_en?: string | null;
+  description_en?: string | null;
   action_type: string;
   target_menu_id: string | null;
   answer_id: string | null;
@@ -550,6 +564,20 @@ function CoursesTab({
               className="md:col-span-2 xl:col-span-3"
             />
 
+            <TextAreaField
+              title="Short description (English)"
+              name="short_description_en"
+              className="md:col-span-2 xl:col-span-3"
+            />
+
+            <TextAreaField
+              title="Course details (English)"
+              name="details_en"
+              className="md:col-span-2 xl:col-span-3"
+            />
+
+
+
             <div className="flex flex-wrap items-center gap-5 md:col-span-2 xl:col-span-3">
               <CheckField name="is_active" labelText="نشط" defaultChecked />
               <CheckField
@@ -710,12 +738,35 @@ function CoursesTab({
                       className="md:col-span-2 xl:col-span-3"
                     />
 
+                    <TextAreaField
+                      title="Short description (English)"
+                      name="short_description_en"
+                      defaultValue={course.short_description_en ?? ""}
+                      className="md:col-span-2 xl:col-span-3"
+                    />
+
+                    <TextAreaField
+                      title="Course details (English)"
+                      name="details_en"
+                      defaultValue={course.details_en ?? ""}
+                      className="md:col-span-2 xl:col-span-3"
+                    />
+
+
+
                     <Field
                       title="عنوان الأنواع في الإدارة"
                       name="variants_prompt"
                       defaultValue={course.variants_prompt ?? ""}
                       placeholder="اختر المستوى"
                     />
+
+                    <Field
+                      title="Variants prompt (English)"
+                      name="variants_prompt_en"
+                      defaultValue={course.variants_prompt_en ?? ""}
+                    />
+
 
                     <div className="flex flex-wrap items-center gap-5 md:col-span-2 xl:col-span-3">
                       <CheckField
@@ -815,6 +866,25 @@ function CoursesTab({
                                 name="details"
                                 className="md:col-span-2 xl:col-span-3"
                               />
+
+                              <Field
+                                title="Title (English)"
+                                name="title_en"
+                              />
+
+                              <TextAreaField
+                                title="Short description (English)"
+                                name="short_description_en"
+                                className="md:col-span-2 xl:col-span-3"
+                              />
+
+                              <TextAreaField
+                                title="Details (English)"
+                                name="details_en"
+                                className="md:col-span-2 xl:col-span-3"
+                              />
+
+
 
                               <Field
                                 title="رابط أول محاضرة"
@@ -934,6 +1004,28 @@ function VariantRow({ variant }: { variant: WhatsAppCourseVariant }) {
             defaultValue={variant.details ?? ""}
             className="md:col-span-2 xl:col-span-3"
           />
+
+          <Field
+            title="Title (English)"
+            name="title_en"
+            defaultValue={variant.title_en ?? ""}
+          />
+
+          <TextAreaField
+            title="Short description (English)"
+            name="short_description_en"
+            defaultValue={variant.short_description_en ?? ""}
+            className="md:col-span-2 xl:col-span-3"
+          />
+
+          <TextAreaField
+            title="Details (English)"
+            name="details_en"
+            defaultValue={variant.details_en ?? ""}
+            className="md:col-span-2 xl:col-span-3"
+          />
+
+
 
           <Field
             title="رابط أول محاضرة"
@@ -1128,6 +1220,14 @@ function GlobalOfferPanel({
             defaultValue={first?.offer_label ?? ""}
             placeholder="مثال: عرض نهاية العام"
           />
+
+          <Field
+            title="Offer name (English)"
+            name="offer_label_en"
+            defaultValue={first?.offer_label_en ?? ""}
+            placeholder="Year-end offer"
+          />
+
           <Field
             title="بداية العرض (اتركيها فارغة بلا تاريخ)"
             name="offer_start"
@@ -1217,6 +1317,12 @@ function PriceGroup({
   );
 }
 
+const CURRENCY_OPTIONS = [
+  { code: "SAR", label: "ريال سعودي" },
+  { code: "EGP", label: "جنيه مصري" },
+  { code: "USD", label: "دولار أمريكي" },
+] as const;
+
 function PriceEditor({
   courseId,
   variantId,
@@ -1229,6 +1335,12 @@ function PriceEditor({
   const currencyTitle = price
     ? `${price.currency_label} (${price.currency_code})`
     : "عملة جديدة";
+  const [currencyCode, setCurrencyCode] = useState<string>(
+    CURRENCY_OPTIONS[0].code,
+  );
+  const [currencyName, setCurrencyName] = useState<string>(
+    price?.currency_label ?? CURRENCY_OPTIONS[0].label,
+  );
 
   return (
     <ActionForm
@@ -1264,22 +1376,48 @@ function PriceEditor({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field
-          title="كود العملة"
-          name="currency_code"
-          defaultValue={price?.currency_code ?? ""}
-          placeholder="SAR"
-          required
-          readOnly={Boolean(price)}
-        />
+        {price ? (
+          <Field
+            title="كود العملة"
+            name="currency_code"
+            defaultValue={price.currency_code}
+            required
+            readOnly
+          />
+        ) : (
+          <label>
+            <span className={label}>العملة</span>
+            <select
+              name="currency_code"
+              value={currencyCode}
+              onChange={(e) => {
+                setCurrencyCode(e.target.value);
+                const known = CURRENCY_OPTIONS.find((c) => c.code === e.target.value);
+                if (known) setCurrencyName(known.label);
+              }}
+              className={input}
+              required
+            >
+              {CURRENCY_OPTIONS.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.label} ({c.code})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
-        <Field
-          title="اسم العملة"
-          name="currency_label"
-          defaultValue={price?.currency_label ?? ""}
-          placeholder="ريال سعودي"
-          required
-        />
+        <label>
+          <span className={label}>اسم العملة</span>
+          <input
+            name="currency_label"
+            value={currencyName}
+            onChange={(e) => setCurrencyName(e.target.value)}
+            placeholder="دولار أمريكي"
+            required
+            className={input}
+          />
+        </label>
 
         <Field
           title="السعر الحالي"
@@ -1312,6 +1450,14 @@ function PriceEditor({
           defaultValue={price?.offer_label ?? ""}
           placeholder="عرض التوفير"
         />
+
+        <Field
+          title="Offer name (English)"
+          name="offer_label_en"
+          defaultValue={price?.offer_label_en ?? ""}
+          placeholder="Savings offer"
+        />
+
 
         <Field
           title="الترتيب"
@@ -1654,6 +1800,26 @@ function MenuForm({
       />
 
       <Field
+        title="Header (English)"
+        name="header_text_en"
+        defaultValue={menu?.header_text_en ?? ""}
+      />
+
+      <TextAreaField
+        title="Message text (English)"
+        name="body_text_en"
+        defaultValue={menu?.body_text_en ?? ""}
+        className="md:col-span-2 xl:col-span-3"
+      />
+
+      <Field
+        title="Footer (English)"
+        name="footer_text_en"
+        defaultValue={menu?.footer_text_en ?? ""}
+      />
+
+
+      <Field
         title="Footer"
         name="footer_text"
         defaultValue={menu?.footer_text ?? ""}
@@ -1815,6 +1981,19 @@ function MenuItemForm({
         />
 
         <Field
+          title="Visible text (English)"
+          name="label_en"
+          defaultValue={item?.label_en ?? ""}
+        />
+
+        <Field
+          title="Short description (English)"
+          name="description_en"
+          defaultValue={item?.description_en ?? ""}
+        />
+
+
+        <Field
           title="الوصف القصير"
           name="description"
           defaultValue={item?.description ?? ""}
@@ -1955,6 +2134,22 @@ function AnswerForm({
         required
         className="md:col-span-2"
       />
+
+      <TextAreaField
+        title="Reply text (English)"
+        name="message_text_en"
+        defaultValue={answer?.message_text_en ?? ""}
+        className="md:col-span-2"
+      />
+
+      <Field
+        title="رابط فيديو (يفتح كشاشة منبثقة في شات المنصة)"
+        name="video_url"
+        defaultValue={answer?.video_url ?? ""}
+        placeholder="https://youtu.be/..."
+        className="md:col-span-2"
+      />
+
 
       <div className="md:col-span-2">
         <CheckField

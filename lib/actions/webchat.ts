@@ -3,7 +3,7 @@
 import { randomBytes } from "crypto";
 
 import { createAdminClient, createClient } from "@/lib/supabase/server";
-import { WebChatEngine, type ChatButton, type ChatMessage } from "@/lib/webchat/engine";
+import { WebChatEngine, type ChatButton, type ChatMessage, type Locale } from "@/lib/webchat/engine";
 import { notifyWebChatAdmins } from "@/lib/webchat/notify";
 
 /* =========================================================
@@ -24,7 +24,17 @@ export type WebChatContext = {
   requestNumber?: string; // enrollment request number
   page?: string;          // page path (to come back after login)
   visitorId?: string;     // anonymous browser id
+  locale?: string;        // "ar" | "en" — the platform language
 };
+
+const toLocale = (v: unknown): Locale => (String(v ?? "").toLowerCase().startsWith("en") ? "en" : "ar");
+
+/** Remember the chat language on the session (used by the scheduled follow-ups). Ignored if the column is not there yet. */
+async function saveLocale(db: Db, session: AnyRow, locale: Locale) {
+  if (session.locale === locale) return;
+  const { error } = await db.from("web_chat_sessions").update({ locale }).eq("id", session.id);
+  if (!error) session.locale = locale;
+}
 
 export type WebChatStart = { ok: true; sessionId: string; token: string; code: string; messages: ChatMessage[] } | { ok: false; error: string };
 export type WebChatReply = { ok: true; messages: ChatMessage[] } | { ok: false; error: string };
@@ -121,7 +131,13 @@ async function attachViewer(db: Db, session: AnyRow, userId: string | null) {
 async function log(db: Db, sessionId: string, rows: { sender: "visitor" | "bot"; body: string; action_id?: string | null; buttons?: ChatButton[] | null }[]) {
   if (!rows.length) return;
   await db.from("web_chat_messages").insert(
-    rows.map((r) => ({ session_id: sessionId, sender: r.sender, body: r.body.slice(0, 4000), action_id: r.action_id ?? null, buttons: r.buttons?.length ? r.buttons : null })),
+    rows.map((r) => ({
+      session_id: sessionId,
+      sender: r.sender,
+      body: r.body.slice(0, 4000),
+      action_id: r.action_id ?? null,
+      buttons: r.buttons?.length ? r.buttons : null,
+    })),
   );
   const { data } = await db.from("web_chat_sessions").select("message_count").eq("id", sessionId).maybeSingle();
   await db
@@ -156,7 +172,7 @@ export async function startWebChat(input: WebChatContext): Promise<WebChatStart>
         .single();
       session = data;
     }
-    if (!session) return { ok: false, error: "تعذّر بدء المحادثة." };
+    if (!session) return { ok: false, error: toLocale(input?.locale) === "en" ? "Couldn't start the chat." : "تعذّر بدء المحادثة." };
 
     // One follow-up per student: a new chat replaces the older ones.
     if (contact?.id) {
@@ -169,7 +185,9 @@ export async function startWebChat(input: WebChatContext): Promise<WebChatStart>
     }
 
     const entryKey = ENTRY_KEYS.has(ctx.source!) ? ctx.source! : "launcher";
-    const engine = new WebChatEngine(db, session, { userId, contact });
+    const locale = toLocale(input?.locale);
+    await saveLocale(db, session, locale);
+    const engine = new WebChatEngine(db, session, { userId, contact }, locale);
     const messages = await engine.opening(entryKey, ctx);
 
     await log(db, session.id, [
@@ -194,7 +212,7 @@ export async function startWebChat(input: WebChatContext): Promise<WebChatStart>
     return { ok: true, sessionId: session.id, token, code: session.code, messages };
   } catch (error) {
     console.error("startWebChat failed:", error);
-    return { ok: false, error: "تعذّر بدء المحادثة. حاول مرة أخرى." };
+    return { ok: false, error: toLocale(input?.locale) === "en" ? "Couldn't start the chat. Please try again." : "تعذّر بدء المحادثة. حاول مرة أخرى." };
   }
 }
 
@@ -206,13 +224,13 @@ async function ownedSession(db: Db, sessionId: string, token: string | null, use
   return null;
 }
 
-export async function webChatAct(sessionId: string, token: string, actionId: string, label: string): Promise<WebChatReply> {
+export async function webChatAct(sessionId: string, token: string, actionId: string, label: string, localeInput?: string): Promise<WebChatReply> {
   try {
     const db = createAdminClient();
     const userId = await currentUserId();
     const session = await ownedSession(db, sessionId, token, userId);
-    if (!session) return { ok: false, error: "انتهت المحادثة. ابدأ محادثة جديدة." };
-    if (Number(session.message_count) > MAX_MESSAGES_PER_SESSION) return { ok: false, error: "تم الوصول للحد الأقصى لهذه المحادثة." };
+    if (!session) return { ok: false, error: toLocale(localeInput) === "en" ? "This chat has ended. Start a new chat." : "انتهت المحادثة. ابدأ محادثة جديدة." };
+    if (Number(session.message_count) > MAX_MESSAGES_PER_SESSION) return { ok: false, error: toLocale(localeInput) === "en" ? "This chat reached its maximum length." : "تم الوصول للحد الأقصى لهذه المحادثة." };
 
     const viewer = await attachViewer(db, session, userId);
 
@@ -235,7 +253,9 @@ export async function webChatAct(sessionId: string, token: string, actionId: str
     Object.assign(session, patch);
 
     const id = cut(actionId, 80);
-    const messages = await new WebChatEngine(db, session, viewer).act(id);
+    const locale = toLocale(localeInput);
+    await saveLocale(db, session, locale);
+    const messages = await new WebChatEngine(db, session, viewer, locale).act(id);
     await log(db, session.id, [
       { sender: "visitor", body: cut(label, 200) || id, action_id: id },
       ...messages.map((m) => ({ sender: "bot" as const, body: m.text, buttons: m.buttons })),
@@ -243,7 +263,7 @@ export async function webChatAct(sessionId: string, token: string, actionId: str
     return { ok: true, messages };
   } catch (error) {
     console.error("webChatAct failed:", error);
-    return { ok: false, error: "حدث خطأ، حاول مرة أخرى." };
+    return { ok: false, error: toLocale(localeInput) === "en" ? "Something went wrong, please try again." : "حدث خطأ، حاول مرة أخرى." };
   }
 }
 
