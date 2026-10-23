@@ -1293,6 +1293,7 @@ pdfUrl:
 
   // No Supabase request here: each attachment gets a local signed ticket for the viewer;
   // the real download link is created only when the student presses «تحميل».
+  const viewerUserId = user.id;
   const signedResourceRows = resourceRows.map((row) => {
     const filePath = row.file_path?.trim();
     if (!filePath) return null;
@@ -1303,7 +1304,7 @@ pdfUrl:
         id: row.id,
         title: row.title?.trim() || "مرفق",
         resourceType: row.resource_type ?? null,
-        downloadToken: createResourceDownloadToken(row.id, user.id),
+        downloadToken: createResourceDownloadToken(row.id, viewerUserId),
       } satisfies StudentDownloadResource,
     };
   });
