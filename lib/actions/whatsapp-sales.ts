@@ -763,6 +763,97 @@ export async function savePrice(
   refresh();
 }
 
+/** One-day journey price: the course's general price (no lesson_id) or a special price for one lecture. */
+export async function saveOneDayPrice(
+  formData: FormData,
+) {
+  const supabase =
+    await adminClient();
+
+  const courseId = text(formData, "course_id");
+  const lessonId = nullable(formData, "lesson_id");
+  const currencyCode = text(formData, "currency_code").toUpperCase();
+
+  if (!courseId || !currencyCode) {
+    throw new Error("اختاري الكورس والعملة.");
+  }
+
+  let existingQuery = supabase
+    .from("whatsapp_oneday_prices")
+    .select("id")
+    .eq("course_id", courseId)
+    .eq("currency_code", currencyCode);
+
+  existingQuery = lessonId
+    ? existingQuery.eq("lesson_id", lessonId)
+    : existingQuery.is("lesson_id", null);
+
+  const { data: existing, error: lookupError } =
+    await existingQuery.maybeSingle();
+
+  if (lookupError) {
+    throw new Error(
+      /whatsapp_oneday_prices/.test(lookupError.message)
+        ? "جدول أسعار اليوم الواحد غير موجود بعد — يجب تطبيق ملف الترحيل 20261028_web_chat_oneday_prices.sql أولًا."
+        : lookupError.message,
+    );
+  }
+
+  const originalText = text(formData, "original_price");
+  const offerStart = text(formData, "offer_start");
+  const offerEnd = text(formData, "offer_end");
+
+  const payload = {
+    course_id: courseId,
+    lesson_id: lessonId,
+    currency_code: currencyCode,
+    currency_label: text(formData, "currency_label"),
+    current_price: number(formData, "current_price"),
+    original_price: originalText ? Number(originalText) : null,
+    offer_label: nullable(formData, "offer_label"),
+    ...extra(formData, ["offer_label_en"]),
+    offer_active: checked(formData, "offer_active"),
+    offer_start: offerStart ? new Date(offerStart).toISOString() : null,
+    offer_end: offerEnd ? new Date(offerEnd).toISOString() : null,
+    is_active: checked(formData, "is_active"),
+    sort_order: number(formData, "sort_order", 100),
+    updated_at: new Date().toISOString(),
+  };
+
+  const result = existing
+    ? await supabase.from("whatsapp_oneday_prices").update(payload).eq("id", existing.id)
+    : await supabase.from("whatsapp_oneday_prices").insert(payload);
+
+  if (result.error) {
+    throw new Error(result.error.message);
+  }
+
+  refresh();
+}
+
+/** Removes a lecture's special one-day price (the lecture goes back to the course's general price). */
+export async function deleteOneDayPrice(
+  formData: FormData,
+) {
+  const supabase =
+    await adminClient();
+
+  const id = text(formData, "id");
+  if (!id) throw new Error("السعر غير موجود.");
+
+  const { error } = await supabase
+    .from("whatsapp_oneday_prices")
+    .delete()
+    .eq("id", id)
+    .not("lesson_id", "is", null);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  refresh();
+}
+
 /** One-click offer control for ALL courses (per-course offers stay editable in the price editor). */
 export async function setGlobalOffer(
   formData: FormData,
