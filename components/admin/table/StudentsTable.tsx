@@ -12,6 +12,8 @@ import {
 import {
   Award,
   BookOpenCheck,
+  ChevronLeft,
+  ChevronRight,
   Eye,
   ExternalLink,
   FileImage,
@@ -500,7 +502,7 @@ useEffect(() => {
 
   const journeyHeaderRow = (
     <tr>
-            <TableHead>الطالب</TableHead>
+            <TableHead sticky>الطالب</TableHead>
             <TableHead>احتراف</TableHead>
             <TableHead>يوم واحد</TableHead>
             <TableHead>مجانية</TableHead>
@@ -564,6 +566,41 @@ useEffect(() => {
         </div>
       )}
 
+      {/* تنقل سريع بين أعمدة الجدول العريض (عمود الطالب يبقى ثابتًا) */}
+      <div className="flex items-center justify-end gap-2 border-b border-slate-100 bg-white px-4 py-2">
+        <span className="text-[11px] font-bold text-slate-400">
+          التنقل بين الأعمدة
+        </span>
+        <div className="flex overflow-hidden rounded-lg border border-slate-200">
+          <button
+            type="button"
+            onClick={() =>
+              tableWrapRef.current?.scrollBy({
+                left: tableWrapRef.current.clientWidth * 0.6,
+                behavior: "smooth",
+              })
+            }
+            title="الأعمدة السابقة"
+            className="flex h-8 w-9 items-center justify-center bg-white text-slate-600 hover:bg-slate-50"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              tableWrapRef.current?.scrollBy({
+                left: -tableWrapRef.current.clientWidth * 0.6,
+                behavior: "smooth",
+              })
+            }
+            title="الأعمدة التالية"
+            className="flex h-8 w-9 items-center justify-center border-r border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
       <div
         ref={tableWrapRef}
         dir="ltr"
@@ -583,7 +620,7 @@ useEffect(() => {
               key={student.userId}
               className="border-t border-slate-100 transition hover:bg-slate-50/70"
             >
-              <td className="px-4 py-4">
+              <td className="sticky right-0 z-10 bg-white px-4 py-4 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.2)]">
                 <StudentIdentity
                   student={student}
                 />
@@ -796,11 +833,20 @@ function TabButton({
 
 function TableHead({
   children,
+  sticky = false,
 }: {
   children: React.ReactNode;
+  /** عمود ثابت أثناء التمرير الأفقي (عمود الطالب) */
+  sticky?: boolean;
 }) {
   return (
-    <th className="whitespace-nowrap px-2 py-3 text-center text-[11px] font-black text-[#07152E]">
+    <th
+      className={`whitespace-nowrap px-2 py-3 text-center text-[11px] font-black text-[#07152E] ${
+        sticky
+          ? "sticky right-0 z-20 bg-slate-50 shadow-[4px_0_6px_-4px_rgba(0,0,0,0.2)]"
+          : ""
+      }`}
+    >
       {children}
     </th>
   );
