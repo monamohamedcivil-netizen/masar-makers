@@ -1,6 +1,6 @@
 "use server";
 
-import { getMasarPassport } from "@/lib/dashboard/masar-passport";
+import { getMasarPassportForAdminList } from "@/lib/dashboard/masar-passport";
 import { revalidatePath } from "next/cache";
 
 import {
@@ -843,7 +843,7 @@ lastRewardRedeemedAt: null,
     rows.map(async (student) => {
       try {
         const passport =
-          await getMasarPassport(
+          await getMasarPassportForAdminList(
             student.userId,
           );
 

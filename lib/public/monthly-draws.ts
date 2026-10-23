@@ -57,6 +57,8 @@ export type PublicMonthlyDrawState = {
 
   resultPopupActive: boolean;
   nextDrawAt: string;
+  /** Earliest moment the popup should check again (next scheduled draw or next automatic monthly slot). */
+  nextCheckAt?: string | null;
   nextPrizeTitle: string;
 };
 
@@ -1287,6 +1289,43 @@ function getMonthEndIso(
   ).toISOString();
 }
 
+/*
+ * Next moment a visitor's popup needs fresh data: the next scheduled draw,
+ * or the next automatic monthly slot (from the settings) — whichever is first.
+ * Used only to space out the background polling; it never changes the draw itself.
+ */
+function getNextCheckAt(
+  nextDrawAt: string | null,
+  settings: SettingsRow,
+): string | null {
+  const now = Date.now();
+  const candidates: number[] = [];
+
+  if (nextDrawAt) {
+    const t = new Date(nextDrawAt).getTime();
+    if (Number.isFinite(t) && t > now) candidates.push(t);
+  }
+
+  const thisMonth = getMonthKeyInRiyadh(new Date(now));
+  const thisSlot = getScheduledAtForMonth(thisMonth, settings).getTime();
+
+  if (Number.isFinite(thisSlot) && thisSlot > now) {
+    candidates.push(thisSlot);
+  } else {
+    const [y, m] = thisMonth.split("-").map(Number);
+    const nextKey =
+      m === 12
+        ? `${y + 1}-01`
+        : `${y}-${String(m + 1).padStart(2, "0")}`;
+    const nextSlot = getScheduledAtForMonth(nextKey, settings).getTime();
+    if (Number.isFinite(nextSlot) && nextSlot > now) candidates.push(nextSlot);
+  }
+
+  return candidates.length
+    ? new Date(Math.min(...candidates)).toISOString()
+    : null;
+}
+
 function getDerivedNextDrawAt(
   monthKey: string,
   settings: SettingsRow,
@@ -1555,6 +1594,12 @@ function toPublicState(
       nextDrawAt ??
       getDerivedNextDrawAt(
         draw.month_key,
+        settings,
+      ),
+
+    nextCheckAt:
+      getNextCheckAt(
+        nextDrawAt ?? null,
         settings,
       ),
 

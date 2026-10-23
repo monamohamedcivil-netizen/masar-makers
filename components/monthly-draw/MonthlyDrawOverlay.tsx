@@ -20,6 +20,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -33,6 +34,8 @@ type Locale = "ar" | "en";
 
 const LIVE_POLL_MS = 1000;
 const COMPLETED_POLL_MS = 60 * 1000;
+// No draw running: check every 5 minutes (and exactly at the next draw time), not every minute.
+const IDLE_POLL_MS = 5 * 60 * 1000;
 
 function resultSeenKey(drawId: string) {
   return `masar-monthly-draw-result-seen:${drawId}`;
@@ -69,6 +72,12 @@ export default function MonthlyDrawOverlay() {
     useState<PublicMonthlyDrawState | null>(
       null,
     );
+
+  // Latest state for the polling timer (avoids restarting the timer on every update).
+  const drawRef = useRef<PublicMonthlyDrawState | null>(null);
+  useEffect(() => {
+    drawRef.current = draw;
+  }, [draw]);
 
   const [open, setOpen] =
     useState(false);
@@ -125,6 +134,7 @@ export default function MonthlyDrawOverlay() {
         const next =
           await getPublicMonthlyDrawState();
 
+        drawRef.current = next;
         setDraw(next);
 
         if (!next) {
@@ -175,23 +185,77 @@ export default function MonthlyDrawOverlay() {
     let timer:
       | number
       | undefined;
+    let lastLoadAt = 0;
+
+    // Live draw (countdown/running): every second, exactly as before.
+    // Otherwise: wake at the next draw time, else every 5 minutes.
+    function nextDelay() {
+      const current = drawRef.current;
+
+      if (current && current.phase !== "completed") {
+        return LIVE_POLL_MS;
+      }
+
+      if (!current) {
+        return IDLE_POLL_MS;
+      }
+
+      const target = current.nextCheckAt
+        ? new Date(current.nextCheckAt).getTime()
+        : Number.NaN;
+
+      if (Number.isFinite(target)) {
+        const until = target - Date.now();
+
+        if (until > 0 && until <= IDLE_POLL_MS) {
+          return until + 1500;
+        }
+
+        // Just after the draw time: keep the old 1-minute check for 15 minutes.
+        if (until <= 0 && until > -15 * 60 * 1000) {
+          return COMPLETED_POLL_MS;
+        }
+      }
+
+      return IDLE_POLL_MS;
+    }
 
     async function poll() {
       if (cancelled) return;
 
-      await loadDraw();
+      const live =
+        drawRef.current &&
+        drawRef.current.phase !== "completed";
+
+      // Background tab and no live draw: skip the request (it reloads when the tab is shown again).
+      if (
+        live ||
+        document.visibilityState !== "hidden"
+      ) {
+        lastLoadAt = Date.now();
+        await loadDraw();
+      }
 
       if (cancelled) return;
 
       timer =
         window.setTimeout(
           poll,
-          draw?.phase ===
-            "completed"
-            ? COMPLETED_POLL_MS
-            : LIVE_POLL_MS,
+          nextDelay(),
         );
     }
+
+    function handleVisible() {
+      if (
+        document.visibilityState === "visible" &&
+        Date.now() - lastLoadAt > 30 * 1000
+      ) {
+        if (timer) window.clearTimeout(timer);
+        void poll();
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisible);
 
     void poll();
 
@@ -203,6 +267,7 @@ export default function MonthlyDrawOverlay() {
           timer,
         );
       }
+      document.removeEventListener("visibilitychange", handleVisible);
     };
   }, [
     loadDraw,
