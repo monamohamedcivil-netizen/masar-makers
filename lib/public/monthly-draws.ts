@@ -1330,6 +1330,75 @@ function getNextCheckAt(
     : null;
 }
 
+/*
+ * A month without any row gets an automatic random draw at the settings time
+ * (see ensureAutomaticDueDraw). A month with a row (even cancelled/unpublished)
+ * follows that row only.
+ */
+async function resolveNextDraw(
+  nextUpcomingDraw: DrawRow | null,
+  settings: SettingsRow,
+): Promise<{
+  at: string;
+  prizeTitle: string | null;
+  prizeTitleEn: string | null;
+} | null> {
+  const now = Date.now();
+
+  const fromRow = nextUpcomingDraw
+    ? {
+        at: nextUpcomingDraw.scheduled_at,
+        prizeTitle: nextUpcomingDraw.prize_title,
+        prizeTitleEn: nextUpcomingDraw.prize_title_en ?? null,
+      }
+    : null;
+
+  const { data: monthRows, error } = await createAdminClient()
+    .from("monthly_draws")
+    .select("month_key");
+
+  if (error) {
+    console.error("NEXT AUTOMATIC DRAW ERROR:", error.message);
+    return fromRow;
+  }
+
+  const monthsWithRow = new Set(
+    (monthRows ?? []).map((row) => String(row.month_key)),
+  );
+
+  let monthKey = getMonthKeyInRiyadh(new Date(now));
+  let automatic: string | null = null;
+
+  for (let i = 0; i < 13 && !automatic; i += 1) {
+    const slot = getScheduledAtForMonth(monthKey, settings).getTime();
+
+    if (Number.isFinite(slot) && slot > now && !monthsWithRow.has(monthKey)) {
+      automatic = new Date(slot).toISOString();
+    }
+
+    const [y, m] = monthKey.split("-").map(Number);
+    monthKey =
+      m === 12
+        ? `${y + 1}-01`
+        : `${y}-${String(m + 1).padStart(2, "0")}`;
+  }
+
+  if (
+    automatic &&
+    (!fromRow ||
+      new Date(automatic).getTime() <
+        new Date(fromRow.at).getTime())
+  ) {
+    return {
+      at: automatic,
+      prizeTitle: DEFAULT_MONTHLY_PRIZE_TITLE,
+      prizeTitleEn: null,
+    };
+  }
+
+  return fromRow;
+}
+
 function getDerivedNextDrawAt(
   monthKey: string,
   settings: SettingsRow,
@@ -1726,6 +1795,14 @@ async function loadPublicMonthlyDrawState(): Promise<
           ).getTime(),
       )[0] ?? null;
 
+  // The next draw shown to visitors: the admin's next row, or the automatic
+  // monthly draw of a month that has no row yet — whichever comes first.
+  const nextDraw =
+    await resolveNextDraw(
+      nextUpcomingDraw,
+      settings,
+    );
+
   /*
    * First priority: a draw whose scheduled time has arrived
    * and which is not completed yet.
@@ -1775,13 +1852,13 @@ async function loadPublicMonthlyDrawState(): Promise<
       advanced,
       settings,
       entries,
-      nextUpcomingDraw?.scheduled_at,
-      nextUpcomingDraw?.prize_title ??
+      nextDraw?.at,
+      nextDraw?.prizeTitle ??
         dueDraw.prize_title ??
         DEFAULT_MONTHLY_PRIZE_TITLE,
       currentWinnerName,
-      nextUpcomingDraw?.prize_title != null
-        ? nextUpcomingDraw.prize_title_en
+      nextDraw
+        ? nextDraw.prizeTitleEn
         : dueDraw.prize_title_en,
     );
   }
@@ -1820,13 +1897,13 @@ async function loadPublicMonthlyDrawState(): Promise<
     latestCompleted,
     settings,
     entries,
-    nextUpcomingDraw?.scheduled_at,
-    nextUpcomingDraw?.prize_title ??
+    nextDraw?.at,
+    nextDraw?.prizeTitle ??
       latestCompleted.prize_title ??
       DEFAULT_MONTHLY_PRIZE_TITLE,
     currentWinnerName,
-    nextUpcomingDraw?.prize_title != null
-      ? nextUpcomingDraw.prize_title_en
+    nextDraw
+      ? nextDraw.prizeTitleEn
       : latestCompleted.prize_title_en,
   );
 }
