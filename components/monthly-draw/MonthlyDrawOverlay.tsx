@@ -20,19 +20,30 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
+
+import Link from "next/link";
 
 import {
   getPublicMonthlyDrawState,
   type PublicMonthlyDrawState,
 } from "@/lib/public/monthly-draws";
+import { createClient } from "@/lib/supabase/client";
 
 type Locale = "ar" | "en";
 
 const LIVE_POLL_MS = 1000;
 const COMPLETED_POLL_MS = 60 * 1000;
+
+/*
+ * نافذة نتيجة السحب لا تظهر فور فتح الصفحة،
+ * بل بعد لحظات حتى يرى الزائر المنصة أولًا.
+ * السحب المباشر (العد التنازلي / الدوران) يظهر فورًا.
+ */
+const RESULT_POPUP_DELAY_MS = 1800;
 
 function resultSeenKey(drawId: string) {
   return `masar-monthly-draw-result-seen:${drawId}`;
@@ -90,6 +101,37 @@ export default function MonthlyDrawOverlay() {
 
   const [locale, setLocale] = useState<Locale>("ar");
 
+  const [isGuest, setIsGuest] =
+    useState(false);
+
+  const autoOpenTimerRef =
+    useRef<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    createClient()
+      .auth.getSession()
+      .then(({ data }) => {
+        if (!cancelled) {
+          setIsGuest(!data.session);
+        }
+      })
+      .catch(() => {
+        // Ignore auth errors: keep the regular popup.
+      });
+
+    return () => {
+      cancelled = true;
+
+      if (autoOpenTimerRef.current) {
+        window.clearTimeout(
+          autoOpenTimerRef.current,
+        );
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const savedLocale = window.localStorage.getItem("masar-locale");
     if (savedLocale === "ar" || savedLocale === "en") {
@@ -144,9 +186,13 @@ export default function MonthlyDrawOverlay() {
 
           if (
             next.resultPopupActive &&
-            !alreadySeen
+            !alreadySeen &&
+            !autoOpenTimerRef.current
           ) {
-            setOpen(true);
+            autoOpenTimerRef.current =
+              window.setTimeout(() => {
+                setOpen(true);
+              }, RESULT_POPUP_DELAY_MS);
           }
 
           return;
@@ -729,11 +775,42 @@ export default function MonthlyDrawOverlay() {
     weightedNames,
   ]);
 
+  const closeOnEscapeRef =
+    useRef<() => void>(() => {});
+
+  useEffect(() => {
+    if (!open || showPointsModal) {
+      return;
+    }
+
+    function handleKeyDown(
+      event: KeyboardEvent,
+    ) {
+      if (event.key === "Escape") {
+        closeOnEscapeRef.current();
+      }
+    }
+
+    window.addEventListener(
+      "keydown",
+      handleKeyDown,
+    );
+
+    return () =>
+      window.removeEventListener(
+        "keydown",
+        handleKeyDown,
+      );
+  }, [open, showPointsModal]);
+
   if (!draw) {
     return null;
   }
 
   const currentDraw = draw;
+
+  closeOnEscapeRef.current =
+    closeOverlay;
 
   function closeOverlay() {
     setOpen(false);
@@ -804,9 +881,17 @@ export default function MonthlyDrawOverlay() {
       {open ? (
         <div
           dir={isEnglish ? "ltr" : "rtl"}
-          className="fixed inset-0 z-[400] flex items-start justify-center overflow-y-auto bg-[#020817]/88 p-2 backdrop-blur-md sm:p-4 lg:items-center"
+          onClick={(event) => {
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
+              closeOverlay();
+            }
+          }}
+          className="fixed inset-0 z-[400] flex items-center justify-center overflow-y-auto bg-[#020817]/75 p-3 backdrop-blur-sm animate-in fade-in duration-500 sm:p-4"
         >
-          <div className="relative my-2 w-[94vw] max-w-[430px] overflow-hidden rounded-[20px] sm:w-[92vw] sm:max-w-[620px] lg:w-full lg:max-w-[1040px] lg:rounded-[30px] border border-[#F7B548]/35 bg-[#061127] shadow-[0_30px_90px_rgba(0,0,0,0.58)] sm:rounded-[26px] lg:my-0 lg:rounded-[30px]">
+          <div className="relative my-auto w-[94vw] animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-500 max-w-[430px] overflow-hidden rounded-[20px] sm:w-[92vw] sm:max-w-[620px] lg:w-full lg:max-w-[1040px] lg:rounded-[30px] border border-[#F7B548]/35 bg-[#061127] shadow-[0_30px_90px_rgba(0,0,0,0.58)] sm:rounded-[26px] lg:my-0 lg:rounded-[30px]">
             <button
               type="button"
               onClick={closeOverlay}
@@ -835,7 +920,7 @@ export default function MonthlyDrawOverlay() {
                       {isEnglish ? "Monthly Draw" : "السحب الشهري"}
                     </h2>
 
-                    <p className="mt-1 text-[10px] font-black text-[#F7B548]">
+                    <p className="mt-1 text-[11px] font-black text-[#F7B548]">
                       {currentDraw.phase === "countdown"
                         ? (isEnglish ? "Get ready... the draw starts now" : "استعدوا... السحب يبدأ الآن")
                         : spinning
@@ -873,7 +958,7 @@ export default function MonthlyDrawOverlay() {
                   </div>
                 )}
 
-                <p className="mt-1 text-center text-[10px] font-black text-white/80">
+                <p className="mt-1 text-center text-[11px] font-black text-white/80">
                   {isEnglish ? "✨ More points, more chances to win ✨" : "✨ كلما زادت نقاطك زادت فرصتك في الفوز ✨"}
                 </p>
               </section>
@@ -893,10 +978,10 @@ export default function MonthlyDrawOverlay() {
                     />
                   ) : (
                     <div className="rounded-[14px] border border-[#E7C36E] bg-white/85 px-3 py-2.5 text-center shadow-sm">
-                      <p className="text-[10px] font-black text-[#C88712]">
+                      <p className="text-[11px] font-black text-[#C88712]">
                         {isEnglish ? "Waiting for the winner" : "بانتظار إعلان الفائز"}
                       </p>
-                      <p className="mt-1 text-[9px] font-semibold leading-4 text-[#07152E]/60">
+                      <p className="mt-1 text-[11px] font-semibold leading-4 text-[#07152E]/60">
                         {isEnglish ? "Follow the draw to the end to see the winner." : "تابع السحب حتى النهاية لمعرفة اسم الفائز."}
                       </p>
                     </div>
@@ -910,7 +995,7 @@ export default function MonthlyDrawOverlay() {
                         </span>
 
                         <div className="min-w-0">
-                          <p className="text-[9px] font-black text-[#C88712]">
+                          <p className="text-[11px] font-black text-[#C88712]">
                             {isEnglish ? "This Month's Prize" : "الجائزة لهذا الشهر"}
                           </p>
                           <p className="mt-0.5 line-clamp-2 text-[13px] font-black leading-5 text-[#07152E]">
@@ -920,7 +1005,7 @@ export default function MonthlyDrawOverlay() {
                       </div>
 
                       {currentDraw.prizeDescription ? (
-                        <p className="mt-1.5 line-clamp-2 text-[9px] font-semibold leading-4 text-[#07152E]/60">
+                        <p className="mt-1.5 line-clamp-2 text-[11px] font-semibold leading-4 text-[#07152E]/60">
                           {isEnglish ? translatePrizeDescriptionToEnglish(currentDraw.prizeDescription) : currentDraw.prizeDescription}
                         </p>
                       ) : null}
@@ -930,7 +1015,7 @@ export default function MonthlyDrawOverlay() {
                   <div className="rounded-[14px] border border-[#E5BE62] bg-[#FFFDF8] px-3 py-2.5 shadow-sm">
                     <div className="mb-2 flex items-center justify-center gap-1.5">
                       <CalendarClock size={14} className="text-[#C88712]" />
-                      <p className="text-[10px] font-black text-[#C88712]">
+                      <p className="text-[11px] font-black text-[#C88712]">
                         {isEnglish ? "Next draw in" : "السحب القادم بعد"}
                       </p>
                     </div>
@@ -942,10 +1027,21 @@ export default function MonthlyDrawOverlay() {
                     </div>
                   </div>
 
+                  {isGuest ? (
+                    <JoinDrawCta
+                      locale={locale}
+                      onNavigate={closeOverlay}
+                    />
+                  ) : null}
+
                   <button
                     type="button"
                     onClick={() => setShowPointsModal(true)}
-                    className="flex h-9 w-full items-center justify-center rounded-xl bg-[#F7B548] text-[12px] font-black text-[#07152E] shadow-sm transition hover:bg-[#ffc45d]"
+                    className={`flex h-10 w-full items-center justify-center rounded-xl text-[13px] font-black shadow-sm transition ${
+                      isGuest
+                        ? "border border-[#E5BE62] bg-white text-[#07152E] hover:bg-[#FFFDF8]"
+                        : "bg-[#F7B548] text-[#07152E] hover:bg-[#ffc45d]"
+                    }`}
                   >
                     {isEnglish ? "How do I earn points?" : "كيف أزيد نقاطي؟"}
                   </button>
@@ -1122,13 +1218,24 @@ export default function MonthlyDrawOverlay() {
                     </div>
                   </div>
 
-                  <div className="mt-5">
+                  <div className="mt-5 space-y-2.5">
+                    {isGuest ? (
+                      <JoinDrawCta
+                        locale={locale}
+                        onNavigate={closeOverlay}
+                      />
+                    ) : null}
+
                     <button
                       type="button"
                       onClick={() =>
                         setShowPointsModal(true)
                       }
-                      className="flex h-10 w-full items-center justify-center rounded-xl bg-[#F7B548] text-[14px] font-black text-[#07152E] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#ffc45d]"
+                      className={`flex h-11 w-full items-center justify-center rounded-xl text-[14px] font-black shadow-sm transition hover:-translate-y-0.5 ${
+                        isGuest
+                          ? "border border-[#E5BE62] bg-white text-[#07152E] hover:bg-[#FFFDF8]"
+                          : "bg-[#F7B548] text-[#07152E] hover:bg-[#ffc45d]"
+                      }`}
                     >
                       {isEnglish ? "How do I earn points?" : "كيف أزيد نقاطي؟"}
                     </button>
@@ -1245,11 +1352,11 @@ export default function MonthlyDrawOverlay() {
               </PointsSection>
 
               <div className="rounded-xl border border-[#F7B548]/40 bg-[#FFF8E8] px-2.5 py-2 text-center sm:rounded-2xl sm:px-4 sm:py-3 lg:px-5 lg:py-4">
-                <p className="text-[10px] font-black text-[#C88712] sm:text-[12px] lg:text-[14px]">
+                <p className="text-[11px] font-black text-[#C88712] sm:text-[12px] lg:text-[14px]">
                   {isEnglish ? "Every 100 points = 1 extra monthly draw entry" : "كل 100 نقطة = فرصة إضافية في السحب الشهري"}
                 </p>
 
-                <p className="mt-0.5 text-[7.5px] font-bold text-slate-500 sm:mt-1 sm:text-[9px] lg:text-[10px]">
+                <p className="mt-0.5 text-[7.5px] font-bold text-slate-500 sm:mt-1 sm:text-[11px] lg:text-[10px]">
                   {isEnglish ? "More points mean more chances to win" : "كلما زادت نقاطك زادت فرصك في الفوز"}
                 </p>
               </div>
@@ -1450,7 +1557,7 @@ function DrumReel({
                             ? "text-[12px] sm:text-[16px] lg:text-[21px]"
                             : distance === 2
                               ? "text-[10px] sm:text-[14px] lg:text-[18px]"
-                              : "text-[9px] sm:text-[12px] lg:text-[16px]"
+                              : "text-[11px] sm:text-[12px] lg:text-[16px]"
                       }
                     `}
                   >
@@ -1514,7 +1621,7 @@ function DrumReel({
         />
       </div>
 
-      <p className="mt-0 text-center text-[10px] font-black text-white sm:mt-0.5 sm:text-[12px] lg:text-[14px]">
+      <p className="mt-0 text-center text-[11px] font-black text-white sm:mt-0.5 sm:text-[12px] lg:text-[14px]">
         {spinning
           ? (locale === "en" ? "Selecting the winner..." : "جاري اختيار الفائز...")
           : winnerName
@@ -1629,6 +1736,42 @@ function WinnerSummary({
   );
 }
 
+function JoinDrawCta({
+  locale,
+  onNavigate,
+}: {
+  locale: Locale;
+  onNavigate: () => void;
+}) {
+  const isEnglish = locale === "en";
+
+  return (
+    <Link
+      href="/register"
+      onClick={onNavigate}
+      className="group flex w-full items-center justify-center gap-2 rounded-xl bg-[#07152E] px-3 py-2.5 text-center text-white shadow-[0_10px_24px_rgba(7,21,46,.22)] transition hover:-translate-y-0.5 hover:bg-[#0B2146]"
+    >
+      <UserPlus
+        size={18}
+        className="shrink-0 text-[#F7B548]"
+      />
+
+      <span className="leading-tight">
+        <span className="block text-[14px] font-black">
+          {isEnglish
+            ? "Join free & enter the next draw"
+            : "سجّل مجانًا وادخل السحب القادم"}
+        </span>
+        <span className="block text-[11px] font-semibold text-white/65">
+          {isEnglish
+            ? "Every journey you join adds points to your chances"
+            : "كل رحلة تشترك بها تزيد نقاطك وفرصتك في الفوز"}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
 function TimeBox({
   value,
   label,
@@ -1645,7 +1788,7 @@ function TimeBox({
         )}
       </p>
 
-      <p className="mt-1 text-[10px] font-black text-[#C88712] sm:text-[12px] lg:mt-2 lg:text-[14px]">
+      <p className="mt-1 text-[11px] font-black text-[#C88712] sm:text-[12px] lg:mt-2 lg:text-[14px]">
         {label}
       </p>
     </div>

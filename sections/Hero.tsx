@@ -32,7 +32,14 @@ const heroText = {
   },
 } as const;
 
-export default function Hero() {
+type HeroProps = {
+  /* نسخة أقصر من الغلاف أثناء التمرير داخل أقسام /home */
+  compact?: boolean;
+};
+
+export default function Hero({
+  compact = false,
+}: HeroProps) {
   const [locale, setLocale] =
     useState<Locale>("ar");
 
@@ -90,16 +97,17 @@ export default function Hero() {
 
       <section
         dir={locale === "ar" ? "rtl" : "ltr"}
-        className="
+        className={`
           relative
-          h-[10svh]
-          min-h-[100px]
-          max-h-[155px]
+          ${compact ? "h-[84px]" : "h-[112px]"}
           w-full
           overflow-hidden
           bg-[#07152E]
+          transition-[height]
+          duration-500
+          ease-out
           lg:hidden
-        "
+        `}
       >
         {/* Decorative glow */}
         <div
@@ -161,8 +169,8 @@ export default function Hero() {
           className="
             absolute
             inset-y-0
-            left-[90px]
-            right-[110px]
+            left-[68px]
+            right-[116px]
             z-20
             flex
             items-center
@@ -174,8 +182,8 @@ export default function Hero() {
               className="
                 text-[13px]
                 font-black
-                leading-[1.35]
-                sm:text-[14px]
+                leading-[1.4]
+                sm:text-[16px]
               "
             >
               {locale === "ar" ? (
@@ -202,26 +210,30 @@ export default function Hero() {
             <p
               className="
                 mx-auto
-                mt-0
-                line-clamp-1
-                max-w-[260px]
-                text-[7.5px]
+                mt-0.5
+                hidden
+                max-w-[420px]
+                text-[11px]
                 font-semibold
-                leading-3
+                leading-4
                 text-white/75
+                sm:line-clamp-1
               "
             >
               {text.description}
             </p>
 
             <div
-              className="
-                mt-1
+              className={`
                 flex
                 items-center
                 justify-center
-                gap-1
-              "
+                gap-1.5
+                overflow-hidden
+                transition-all
+                duration-500
+                ${compact ? "mt-0 max-h-0 opacity-0" : "mt-1.5 max-h-10 opacity-100"}
+              `}
             >
               <AuthLink href="/dashboard">
                 <button
@@ -233,15 +245,15 @@ export default function Hero() {
                     rounded-lg
                     bg-[#F7B548]
                     px-2
-                    py-1
-                    text-[8px]
+                    py-1.5
+                    text-[10px]
                     font-black
                     text-[#07152E]
                   "
                 >
                   {text.start}
 
-                  <ArrowLeft size={10} />
+                  <ArrowLeft size={12} className="hidden sm:block" />
                 </button>
               </AuthLink>
 
@@ -257,15 +269,15 @@ export default function Hero() {
                     border-white/25
                     bg-white/5
                     px-2
-                    py-1
-                    text-[8px]
+                    py-1.5
+                    text-[10px]
                     font-black
                     text-white
                   "
                 >
                   {text.explore}
 
-                  <Compass size={10} />
+                  <Compass size={12} className="hidden sm:block" />
                 </button>
               </AuthLink>
             </div>
@@ -280,7 +292,7 @@ export default function Hero() {
             right-2
             top-1/2
             z-30
-            w-[90px]
+            w-[100px]
                         -translate-y-1/2
           "
         >
@@ -299,13 +311,16 @@ export default function Hero() {
       ====================================================== */}
 
       <section
-        className="
+        className={`
           relative
           hidden
-          h-[200px]
+          ${compact ? "h-[152px]" : "h-[200px]"}
           overflow-hidden
+          transition-[height]
+          duration-500
+          ease-out
           lg:block
-        "
+        `}
       >
         <div className="absolute inset-0 overflow-hidden">
           <Image

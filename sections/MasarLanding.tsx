@@ -9,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
 } from "react";
 import {
   ArrowLeft,
@@ -24,6 +25,7 @@ Maximize2,
 import { FaWhatsapp } from "react-icons/fa";
 
 import { createClient } from "@/lib/supabase/client";
+import LanguageSwitch from "@/components/i18n/LanguageSwitch";
 
 type Locale = "ar" | "en";
 
@@ -339,10 +341,10 @@ const mobileRoadStations = {
   ],
 };
 
-// الإنجليزية على الموبايل: إزاحة طفيفة للمحطات الطرفية لإفساح مساحة لأسمائها الأطول.
+// الموبايل (بالعربي والإنجليزي): إزاحة طفيفة للمحطات الطرفية لإفساح مساحة لأسماء البرامج.
 const mobileEnLeft = {
   road: [80, 80, 77, 70, 60],
-  traffic: [20, 20, 20, 29, 40],
+  traffic: [18, 20, 20, 29, 40],
 };
 
 const AUTO_ROTATE_MS = 8000;
@@ -696,11 +698,9 @@ export default function MasarLanding() {
             >
               {locale === "ar" ? (
                 <>
-                  <p className="text-[24px] font-black leading-none lg:text-[28px]">
-                    صناع{" "}
-                    <span className="text-[#F7B548]">
-                      المسار
-                    </span>
+                  <p className="whitespace-nowrap text-[24px] font-black leading-none lg:text-[28px]">
+                    <span className="text-white">صناعــ</span>
+                    <span className="ms-2 text-[#F7B548]">ــالمسار</span>
                   </p>
 
                   <p
@@ -739,17 +739,19 @@ export default function MasarLanding() {
             </div>
           </Link>
 
-          <div className="flex gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">
+            <LanguageSwitch />
+
             <Link
               href="/login"
-              className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[#F7B548] px-4 text-[12px] font-black text-[#07152E] shadow-lg transition hover:-translate-y-0.5 hover:bg-[#FFD06A] sm:text-[14px]"
+              className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-2xl bg-[#F7B548] px-3 text-[13px] font-black text-[#07152E] shadow-lg transition hover:-translate-y-0.5 hover:bg-[#FFD06A] lg:px-4 lg:text-[14px]"
             >
               {text.login}
             </Link>
 
             <Link
               href="/home"
-              className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-[#F7B548] px-3 text-[12px] font-black text-[#07152E] shadow-lg transition hover:-translate-y-0.5 sm:px-3 sm:text-[14px]"
+              className="inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-2xl bg-[#F7B548] px-3 text-[13px] font-black text-[#07152E] shadow-lg transition hover:-translate-y-0.5 lg:text-[14px]"
             >
               {text.explore}
               <ArrowIcon className="h-3.5 w-3.5" />
@@ -760,10 +762,11 @@ export default function MasarLanding() {
             onClick={(event) => { if (openMasarChat({ source: "contact", text: "السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار." })) event.preventDefault(); }}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-[#25D366]/60 bg-[#0B502B]/60 px-3 text-[11px] font-black text-white transition hover:bg-[#25D366] sm:px-3 sm:text-[14px]"
+              aria-label={text.contact}
+              className="inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-2xl border border-[#25D366]/60 bg-[#0B502B]/60 px-3 text-[13px] font-black text-white transition hover:bg-[#25D366] lg:text-[14px]"
             >
-              <FaWhatsapp className="h-6 w-6 sm:h-5 sm:w-5" />
-              <span className="hidden sm:inline">
+              <FaWhatsapp className="h-5 w-5" />
+              <span className="hidden lg:inline">
                 {text.contact}
               </span>
             </a>
@@ -780,7 +783,7 @@ export default function MasarLanding() {
           bg-[length:100%_100%]
           bg-center bg-no-repeat
           sm:min-h-[1050px]
-          md:min-h-[700px]
+          md:min-h-[max(800px,calc(100svh-150px))]
           lg:min-h-[900px]
           xl:min-h-[950px]
         "
@@ -791,7 +794,7 @@ export default function MasarLanding() {
           <h1 className={`mx-auto text-[clamp(17px,4.6vw,22px)] font-black leading-[1.05] sm:max-w-[88%] md:max-w-none md:whitespace-nowrap md:text-[clamp(24px,3.2vw,42px)] ${
               locale === "en"
                 ? "max-w-[94%] text-[clamp(15px,4.2vw,20px)]"
-                : "max-w-[82%] whitespace-nowrap"
+                : "max-w-[96%] whitespace-nowrap text-[clamp(14px,4vw,22px)]"
             }`}>
             <span>{text.heroBefore}</span>{" "}
             <span className="text-[#F7B548]">
@@ -817,7 +820,7 @@ export default function MasarLanding() {
           <div className="mx-auto mt-2 h-0.5 w-[clamp(55px,7vw,120px)] bg-[#F7B548]" />
         </div>
 
-        <div className="absolute right-[3%] top-[12%] z-20 hidden text-center text-[#F7B548] md:block md:right-[7%] lg:right-[10%]">
+        <div className="absolute right-[3%] top-[12%] z-20 hidden text-center text-[#F7B548] md:block md:right-[5%] lg:right-[6%]">
           <p className="text-[13px] font-black sm:text-lg lg:text-3xl">
             {tracks[0].title[locale]}
           </p>
@@ -881,9 +884,9 @@ export default function MasarLanding() {
                 key={`mobile-traffic-${item.title}`}
                 course={item}
                 active={active}
-                left={locale === "en" ? mobileEnLeft.traffic[visualIndex] : pos.left}
+                left={mobileEnLeft.traffic[visualIndex]}
                 top={pos.top}
-                compactLabel={locale === "en"}
+                compactLabel
                 onSelect={() => selectCourseManually(1, courseIndex)}
                 onHoverStart={() => {
                   setHoverPaused(true);
@@ -910,9 +913,9 @@ export default function MasarLanding() {
                 key={`mobile-road-${item.title}`}
                 course={item}
                 active={active}
-                left={locale === "en" ? mobileEnLeft.road[visualIndex] : pos.left}
+                left={mobileEnLeft.road[visualIndex]}
                 top={pos.top}
-                compactLabel={locale === "en"}
+                compactLabel
                 onSelect={() => selectCourseManually(0, courseIndex)}
                 onHoverStart={() => {
                   setHoverPaused(true);
@@ -934,13 +937,14 @@ export default function MasarLanding() {
   width={140}
   height={140}
   sizes="70px"
-  className="-mr-1 h-[60px] w-auto shrink-0 object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,.45)]"
+  className="-mr-1 h-[52px] w-auto shrink-0 object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,.45)]"
 />
 
             {locale === "ar" ? (
               <div data-masar-no-translate className="shrink-0 text-right">
-                <p className="whitespace-nowrap text-[20px] font-black leading-none text-white">
-                  صناع <span className="text-[#F7B548]">المسار</span>
+                <p className="whitespace-nowrap text-[18px] font-black leading-none text-white">
+                  <span>صناعــ</span>
+                  <span className="ms-1.5 text-[#F7B548]">ــالمسار</span>
                 </p>
                 <p className="mt-1 whitespace-nowrap text-[11px] font-bold tracking-[.12em] text-[#F7B548]">
                   Masar <span className="text-white">Makers</span>
@@ -983,6 +987,11 @@ export default function MasarLanding() {
             <FaWhatsapp className="h-4 w-4" />
             {text.contact}
           </a>
+
+          <LanguageSwitch
+            compact
+            className={`${locale === "en" ? "w-[150px]" : "w-[115px]"} !rounded-lg`}
+          />
         </div>
 
         {/* Desktop stations */}
@@ -1079,7 +1088,7 @@ export default function MasarLanding() {
             className={`
               relative whitespace-nowrap
               px-8 py-4
-              ${locale === "en" ? "text-[19px]" : "text-[30px]"} font-black
+              ${locale === "en" ? "text-[19px]" : "text-[24px]"} font-black
               text-[#FFF7E7]
               sm:text-[30px]
               lg:text-[40px]
@@ -1104,11 +1113,18 @@ export default function MasarLanding() {
           </div>
         </div>
 
+        {/*
+          * على الموبايل: بطاقات تُسحب أفقيًا بعرض مريح للقراءة.
+          * من التابلت وأكبر: ثلاث بطاقات جنبًا إلى جنب.
+          */}
         <div
           className="
-            absolute inset-x-[3%] top-[78%] z-20 md:inset-x-[4%] md:top-auto md:bottom-[10%]
-            grid grid-cols-3
-            gap-2 sm:gap-4 lg:gap-20
+            absolute inset-x-0 top-[77%] z-20
+            flex snap-x snap-mandatory gap-3 overflow-x-auto px-[6%] pb-2
+            [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
+            sm:inset-x-[3%] sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-0 sm:pb-0
+            md:inset-x-[4%] md:top-auto md:bottom-[5%]
+            lg:bottom-[8%] lg:gap-20
           "
         >
           {modes.map((mode) => (
@@ -1307,7 +1323,7 @@ function PromoShowcase({
         bg-[#07152E]/96
         md:top-[15%]
         md:h-[31%] md:min-h-[190px]
-        md:w-[48%] md:max-w-[820px]
+        md:w-[54%] md:max-w-[820px]
         md:rounded-[18px]
         md:border md:border-[#F7B548]/85
         md:shadow-[0_18px_55px_rgba(0,0,0,.40),0_0_26px_rgba(247,181,72,.12)]
@@ -1319,8 +1335,8 @@ function PromoShowcase({
         <div
           className={`grid h-full min-h-0 grid-cols-1 grid-rows-[58px_minmax(0,1fr)_20px] md:grid-rows-1 ${
             locale === "ar"
-              ? "md:grid-cols-[32%_68%]"
-              : "md:grid-cols-[68%_32%]"
+              ? "md:grid-cols-[38%_62%] lg:grid-cols-[32%_68%]"
+              : "md:grid-cols-[62%_38%] lg:grid-cols-[68%_32%]"
           }`}
         >
           {/* Course info column */}
@@ -1352,13 +1368,13 @@ function PromoShowcase({
                 <p className="truncate text-[8px] font-black text-[#F7B548] sm:text-[10px]">
                   {trackTitle}
                 </p>
-                <h2 className="break-words text-[12px] font-black leading-tight sm:text-[16px] lg:text-[20px]">
+                <h2 className="text-[12px] font-black leading-tight [overflow-wrap:normal] sm:text-[15px] lg:text-[20px]">
                   {course.title}
                 </h2>
               </div>
             </div>
 
-            <p className="hidden line-clamp-3 text-[8px] font-semibold leading-4 text-slate-200 md:block sm:text-[10px] lg:mt-3 lg:text-[12px] lg:leading-6">
+            <p className="hidden line-clamp-3 text-[11px] font-semibold leading-5 text-slate-200 md:block lg:mt-3 lg:text-[12px] lg:leading-6">
               {course.description[locale]}
             </p>
 {slides.length > 0 && (
@@ -1385,7 +1401,7 @@ function PromoShowcase({
           })}
         </div>
       )}
-            <div className="mt-auto hidden items-center gap-2 text-[8px] font-bold text-slate-400 md:flex sm:text-[10px]">
+            <div className="mt-auto hidden items-center gap-2 text-[10px] font-bold text-slate-400 md:flex lg:text-[11px]">
               <span
                 className={`h-2 w-2 rounded-full ${
                   autoPaused
@@ -1653,12 +1669,12 @@ function LearningModeCard({
   return (
     <article
       className={`
-        relative mt-6
-        min-h-[150px]
+        relative mt-7
+        min-h-[140px] w-[74%] shrink-0 snap-center
         rounded-[18px] border
-        px-2 pb-3 pt-8 text-center
+        px-4 pb-4 pt-8 text-center
         backdrop-blur-md
-        sm:min-h-[120px]
+        sm:mt-6 sm:w-auto sm:shrink sm:min-h-[120px]
         sm:rounded-[24px]
         sm:px-4 sm:pb-0 sm:pt-8
         ${cardClasses}
@@ -1710,7 +1726,7 @@ function LearningModeCard({
         }`}
       />
 
-      <p className="mx-auto mt-3 max-w-sm text-[8px] font-semibold leading-4 text-white/95 sm:mt-3 sm:text-[12px] sm:leading-4 lg:text-[14px]">
+      <p className="mx-auto mt-3 max-w-sm text-[12px] font-semibold leading-5 text-white/95 sm:mt-3 sm:text-[12px] sm:leading-5 lg:text-[14px] lg:leading-6">
         {description}
       </p>
     </article>
@@ -1796,23 +1812,24 @@ function StationPin({
       <span
         dir="ltr"
         style={
-          compactLabel
-            ? {
-                maxWidth: `max(50px, calc(${
-                  labelSide === "outside-left" ? left : 100 - left
-                }vw - 34px))`,
-              }
-            : undefined
+          {
+            /*
+             * المساحة المتاحة بين المحطة وحافة الشاشة،
+             * حتى لا يُقص اسم البرنامج على الموبايل والتابلت.
+             */
+            "--label-max": `max(50px, calc(${
+              labelSide === "outside-left" ? left : 100 - left
+            }vw - 40px))`,
+          } as CSSProperties
         }
         className={`
           absolute top-[80%]
           -translate-y-1/2
           w-max
-          ${
-            compactLabel
-              ? "whitespace-normal [overflow-wrap:normal] text-[9px] md:max-w-none md:whitespace-nowrap"
-              : "max-w-none whitespace-nowrap"
-          }
+          max-w-[var(--label-max)]
+          whitespace-normal [overflow-wrap:normal]
+          xl:max-w-none xl:whitespace-nowrap
+          ${compactLabel ? "text-[9px]" : ""}
           text-[11px] font-black leading-[1.05]
           drop-shadow-[0_2px_6px_rgba(0,0,0,.9)]
           sm:text-[12px]

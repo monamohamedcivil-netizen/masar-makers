@@ -138,7 +138,7 @@ export default function WhyMasar() {
 
         {/* Inner content aligned exactly with cards */}
         <div className="relative z-10 mx-auto max-w-[1580px] px-3 sm:px-4 md:px-5 lg:px-6">
-          <div className="flex items-center justify-between gap-3 sm:gap-4 lg:gap-8">
+          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 lg:gap-8">
             <div
               className={`min-w-0 flex-1 max-w-[980px] ${
                 isArabic ? "text-right" : "text-left"
@@ -178,7 +178,7 @@ export default function WhyMasar() {
 
             <Link
               href="/about"
-              className="flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#F7B548] px-3 py-2 text-[9.5px] font-black text-[#07152E] shadow-[0_10px_24px_rgba(247,181,72,0.2)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_14px_30px_rgba(247,181,72,0.3)] sm:gap-2 sm:px-4 sm:py-2.5 sm:text-[10.5px] md:text-[11px] lg:rounded-2xl lg:px-5 lg:text-[13px] xl:px-6 xl:text-[14px]"
+              className="flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#F7B548] px-4 py-2 text-[12px] font-black text-[#07152E] shadow-[0_10px_24px_rgba(247,181,72,0.2)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_14px_30px_rgba(247,181,72,0.3)] sm:gap-2 sm:px-4 sm:py-2.5 sm:text-[10.5px] md:text-[11px] lg:rounded-2xl lg:px-5 lg:text-[13px] xl:px-6 xl:text-[14px]"
             >
               {text.button}
               <ButtonArrow className="h-3.5 w-3.5 sm:h-4 sm:w-4 lg:h-[17px] lg:w-[17px]" />
@@ -217,7 +217,7 @@ export default function WhyMasar() {
                     </h3>
                   </div>
 
-                  <span className="shrink-0 text-[24px] font-black leading-none text-[#07152E]/7 transition duration-500 group-hover:text-[#F7B548]/30 sm:text-[26px] xl:text-[28px]">
+                  <span className="hidden shrink-0 text-[24px] font-black leading-none sm:block text-[#07152E]/7 transition duration-500 group-hover:text-[#F7B548]/30 sm:text-[26px] xl:text-[28px]">
                     {feature.number}
                   </span>
                 </div>
@@ -225,7 +225,7 @@ export default function WhyMasar() {
                 <div className="relative z-10 mt-1.5">
                   <div className="h-[2.5px] w-9 rounded-full bg-[#F7B548] transition-all duration-500 group-hover:w-14" />
 
-                  <p className="mt-1.5 text-[10.5px] font-medium leading-[1.5] text-slate-600 sm:text-[11px] lg:text-[11.5px] xl:text-[12px]">
+                  <p className="mt-1.5 text-[11.5px] font-medium leading-[1.6] text-slate-600 sm:text-[11px] lg:text-[11.5px] xl:text-[12px]">
                     {feature.description}
                   </p>
                 </div>

@@ -234,8 +234,8 @@ export default function CareerPaths() {
 
                     ${
                       locale === "en"
-                        ? "h-[250px] sm:h-[270px] lg:h-[265px]"
-                        : "h-[210px] sm:h-[270px] lg:h-[265px]"
+                        ? "h-auto sm:h-[270px] lg:h-[265px]"
+                        : "h-auto sm:h-[270px] lg:h-[265px]"
                     }
 
                     xl:max-w-[760px]
@@ -292,15 +292,12 @@ export default function CareerPaths() {
                     {/* Heading */}
 
                     <div
-                      className={`relative ${
-                        locale === "en"
-                          ? "min-h-[150px] sm:min-h-[122px]"
-                          : "min-h-[118px] sm:min-h-[122px]"
-                      }`}
+                      className="relative mb-3 sm:mb-0 sm:min-h-[122px]"
                     >
 
+                      {/* على الموبايل: العنوان بعرض كامل والزر تحته حتى لا يغطيه */}
                       <div
-                        className={`w-[66%] sm:w-[64%] lg:w-[62%] ${
+                        className={`w-full sm:w-[64%] lg:w-[62%] ${
                           locale === "ar"
                             ? "ml-auto text-right"
                             : "mr-auto text-left"
@@ -339,10 +336,10 @@ export default function CareerPaths() {
 
                       <AuthLink
                         href={path.link}
-                        className={`absolute top-0 inline-flex items-center gap-2 rounded-2xl bg-[#F7B548] px-4 py-2 text-[11px] font-black text-[#07152E] shadow-[0_10px_25px_rgba(247,181,72,0.22)] transition hover:scale-105 sm:px-5 sm:text-[12px] ${
+                        className={`mt-3 inline-flex items-center gap-2 rounded-2xl bg-[#F7B548] px-4 py-2 text-[12px] font-black text-[#07152E] shadow-[0_10px_25px_rgba(247,181,72,0.22)] transition hover:scale-105 sm:absolute sm:top-0 sm:mt-0 sm:px-5 ${
                           locale === "ar"
-                            ? "left-0"
-                            : "right-0"
+                            ? "sm:left-0"
+                            : "sm:right-0"
                         }`}
                       >
                         {text.explore}
@@ -363,11 +360,7 @@ export default function CareerPaths() {
                     {/* Course stations */}
 
                     <div
-                      className={`rounded-[22px] border border-white/15 bg-[#06142B]/90 px-3 pb-0 pt-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl sm:-mt-4 sm:px-4 sm:pb-2.5 sm:pt-1 lg:-mt-5 ${
-                        locale === "en"
-                          ? "-mt-4"
-                          : "-mt-9"
-                      }`}
+                      className="rounded-[22px] border border-white/15 bg-[#06142B]/90 px-3 pb-0 pt-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl sm:-mt-4 sm:px-4 sm:pb-2.5 sm:pt-1 lg:-mt-5"
                     >
 
                       <RoadJourney

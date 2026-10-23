@@ -75,6 +75,53 @@ export default function Home() {
   const [activeSection, setActiveSection] =
     useState<SectionKey>("paths");
 
+  /*
+   * عند التمرير داخل الأقسام يصغر الغلاف قليلًا
+   * (يبقى ظاهرًا مع الهيدر والإعلانات) ليأخذ المحتوى مساحة أكبر.
+   */
+  const [heroCompact, setHeroCompact] =
+    useState(false);
+
+  useEffect(() => {
+    const mainElement =
+      mainRef.current;
+
+    if (!mainElement) {
+      return;
+    }
+
+    function handleScroll() {
+      setHeroCompact(
+        (mainElement?.scrollTop ?? 0) > 24,
+      );
+    }
+
+    mainElement.addEventListener(
+      "scroll",
+      handleScroll,
+      { passive: true },
+    );
+
+    return () =>
+      mainElement.removeEventListener(
+        "scroll",
+        handleScroll,
+      );
+  }, []);
+
+  function scrollToSection(
+    section: SectionKey,
+  ) {
+    mainRef.current
+      ?.querySelector<HTMLElement>(
+        `[data-home-section="${section}"]`,
+      )
+      ?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+  }
+
   useEffect(() => {
     const mainElement =
       mainRef.current;
@@ -155,8 +202,12 @@ export default function Home() {
       ? "translate-y-0 scale-100 opacity-100"
       : "pointer-events-none translate-y-5 scale-[0.985] opacity-0";
 
+  /*
+   * القسم يملأ منطقة العرض على الأقل، وإذا كان محتواه أطول
+   * (مثل الدعوة الأخيرة على الموبايل) يمتد بدل أن يُقص.
+   */
   const sectionClassName =
-    "flex min-h-full snap-start snap-always items-center overflow-hidden";
+    "flex min-h-full snap-start items-center overflow-x-hidden py-2";
 
   const sectionContentClass = (
     section: SectionKey,
@@ -165,40 +216,77 @@ export default function Home() {
       section,
     )}`;
 
+  const sectionKeys =
+    Object.keys(
+      sectionContent,
+    ) as SectionKey[];
+
   return (
-    <>
+    <div className="flex h-[100svh] flex-col overflow-hidden">
       <Navbar activeItem="home" />
 
-      <div className="h-[55px]" />
+      <div className="h-[55px] shrink-0" />
 
-      <AnnouncementBar />
+      <div className="shrink-0">
+        <AnnouncementBar />
+      </div>
 
-      <Hero />
+      <div className="shrink-0">
+        <Hero compact={heroCompact} />
+      </div>
 
-      <SectionTitle
-        title={currentContent.title}
-        description={
-          currentContent.description
-        }
-      />
+      <div className="shrink-0">
+        <SectionTitle
+          title={currentContent.title}
+          description={
+            currentContent.description
+          }
+        />
+      </div>
+
+      <div className="relative min-h-0 flex-1">
+        {/* مؤشر الأقسام: يوضح أن هناك أقسامًا أخرى ويسمح بالانتقال إليها */}
+        <nav
+          aria-label="أقسام الصفحة"
+          className="absolute end-3 top-1/2 z-20 hidden -translate-y-1/2 flex-col gap-2 sm:flex"
+        >
+          {sectionKeys.map((key) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() =>
+                scrollToSection(key)
+              }
+              aria-label={
+                sectionContent[key].title
+              }
+              title={
+                sectionContent[key].title
+              }
+              className={`w-1.5 rounded-full transition-all duration-300 sm:w-2 ${
+                activeSection === key
+                  ? "h-5 bg-[#F7B548] sm:h-6"
+                  : "h-1.5 bg-slate-300 hover:bg-slate-400 sm:h-2"
+              }`}
+            />
+          ))}
+        </nav>
 
       <main
         ref={mainRef}
         className="
-          h-[calc(100svh-390px)]
-          min-h-[330px]
+          h-full
           w-full
           min-w-0
           overflow-x-hidden
           overflow-y-auto
           snap-y
-          snap-mandatory
+          snap-proximity
           scroll-smooth
           overscroll-contain
           bg-[#F7F8FA]
-
-          md:h-[calc(100vh-479px)]
-          md:min-h-[350px]
+          [scrollbar-width:none]
+          [&::-webkit-scrollbar]:hidden
         "
       >
         {/* Career Paths */}
@@ -313,6 +401,7 @@ export default function Home() {
           </div>
         </section>
       </main>
-    </>
+      </div>
+    </div>
   );
 }

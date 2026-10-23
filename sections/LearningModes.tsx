@@ -138,10 +138,17 @@ export default function LearningModes() {
         className="w-full bg-[#F8FAFC] py-4 sm:py-5 lg:py-6"
       >
         <div className="mx-auto w-full max-w-[800px] px-2 sm:px-4 lg:px-5">
-          <div className="grid grid-cols-3 items-end gap-3 sm:gap-4 lg:gap-5">
+          {/*
+            على الموبايل: بطاقات تُسحب أفقيًا بعرض مريح.
+            من التابلت وأكبر: ثلاث بطاقات جنبًا إلى جنب.
+          */}
+          <div className="-mx-2 flex snap-x snap-mandatory items-end gap-3 overflow-x-auto px-[12%] pb-2 pt-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-0 sm:pb-0 sm:pt-0 lg:gap-5">
             {journeys.map((journey) => (
-              <LearningModeCard
+              <div
                 key={journey.type}
+                className="w-[76%] shrink-0 snap-center sm:w-auto sm:shrink"
+              >
+              <LearningModeCard
                 title={journey.title}
                 description={journey.description}
                 image={journey.image}
@@ -154,6 +161,7 @@ export default function LearningModes() {
                   setSelectedType(journey.type)
                 }
               />
+              </div>
             ))}
           </div>
         </div>

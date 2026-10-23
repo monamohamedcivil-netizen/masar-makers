@@ -278,20 +278,17 @@ export default function HomeMonthlyDrawStatus({
           shadow-[0_7px_20px_rgba(0,0,0,.25)]
         "
       >
-        {/* Prize */}
+        {/*
+          الموبايل: نعرض العد التنازلي فقط بخط مقروء،
+          وتفاصيل الجائزة تظهر عند فتح نافذة السحب.
+        */}
 
-        <div
-          className="
-            border-b
-            border-[#F7B548]/20
-            bg-[#FFF9ED]
-            px-1
-            py-0.5
-            text-center
-          "
-        >
+        {/* Countdown */}
+
+        <div className="bg-[#FFF9ED] px-1 pb-1 pt-0.5">
           <div
             className="
+              mb-0.5
               flex
               items-center
               justify-center
@@ -299,49 +296,9 @@ export default function HomeMonthlyDrawStatus({
               text-[#B77A0B]
             "
           >
-            <Gift size={10} />
+            <CalendarClock size={11} />
 
-            <span
-              className="
-                text-[7px]
-                font-black
-                leading-none
-              "
-            >
-              {text.nextPrize}
-            </span>
-          </div>
-
-          <p
-            className="
-              mt-0
-              line-clamp-1
-              text-[6px]
-              font-black
-              leading-3
-              text-[#07152E]
-            "
-          >
-            {prizeTitle}
-          </p>
-        </div>
-
-        {/* Countdown */}
-
-        <div className="px-1 py-0">
-          <div
-            className="
-              mb-0 
-               flex
-              items-center
-              justify-center
-              gap-1
-              text-[#B77A0B]
-            "
-          >
-            <CalendarClock size={9} />
-
-            <span className="text-[7px] font-black">
+            <span className="whitespace-nowrap text-[9px] font-black leading-4">
               {text.nextDrawAfter}
             </span>
           </div>
@@ -380,12 +337,14 @@ export default function HomeMonthlyDrawStatus({
             bg-[#F7B548]
             px-1
             py-1
-            text-[6.5px]
+            whitespace-nowrap
+            text-[9px]
             font-black
+            leading-4
             text-[#07152E]
           "
         >
-          <Trophy size={10} />
+          <Trophy size={11} />
 
           {text.previousResult}
         </button>
@@ -406,7 +365,7 @@ export default function HomeMonthlyDrawStatus({
           ? "rtl"
           : "ltr"
       }
-      className={`absolute top-1/2 z-30 w-[135px]  -translate-y-1/2 ${
+      className={`absolute top-1/2 z-30 w-[150px] -translate-y-1/2 ${
         locale === "ar"
           ? "right-[max(8px,calc((90vw-1280px)/2+8px))]"
           : "left-[max(8px,calc((80vw-1280px)/2+5px))]"
@@ -425,7 +384,7 @@ export default function HomeMonthlyDrawStatus({
       >
         <div
           className="
-            border-b h-[35px]
+            border-b
             border-[#F7B548]/25
             bg-[#FFF9ED]
             px-2.5
@@ -442,20 +401,21 @@ export default function HomeMonthlyDrawStatus({
               text-[#B77A0B]
             "
           >
-            <Gift size={15} />
+            <Gift size={14} />
 
-            <span className="text-[11px] font-black">
+            <span className="text-[11px] font-black leading-4">
               {text.nextPrize}
             </span>
           </div>
 
           <p
+            title={prizeTitle}
             className="
-              mt-0
-              line-clamp-2
-              text-[9px]
+              mt-0.5
+              line-clamp-1
+              text-[10px]
               font-black
-              leading-3
+              leading-4
               text-[#07152E]
             "
           >
@@ -463,10 +423,10 @@ export default function HomeMonthlyDrawStatus({
           </p>
         </div>
 
-        <div className="px-2.5 py-0">
+        <div className="px-2.5 pb-1 pt-1">
           <div
             className="
-              mb-0
+              mb-1
               flex
               items-center
               justify-center
@@ -476,7 +436,7 @@ export default function HomeMonthlyDrawStatus({
           >
             <CalendarClock size={14} />
 
-            <span className="text-[11px] font-black">
+            <span className="text-[11px] font-black leading-4">
               {text.nextDrawAfter}
             </span>
           </div>
@@ -516,16 +476,18 @@ export default function HomeMonthlyDrawStatus({
               items-center
               justify-center
               gap-1
+              whitespace-nowrap
               rounded-[10px]
               bg-[#F7B548]
               px-2
               py-1
               text-[10px]
               font-black
+              leading-4
               text-[#07152E]
             "
           >
-            <Trophy size={15} />
+            <Trophy size={14} />
 
             {text.previousResult}
           </button>
@@ -577,7 +539,7 @@ function CompactTimeBox({
     >
       <p
         className="
-          text-[10px]
+          text-[12px]
           font-black
           leading-none
           text-[#F7B548]
@@ -592,7 +554,7 @@ function CompactTimeBox({
       <p
         className="
           mt-0.5
-          text-[5.5px]
+          text-[8px]
           font-bold
           leading-none
           text-white
