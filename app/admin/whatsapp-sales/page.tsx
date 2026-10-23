@@ -18,8 +18,8 @@ export default async function WhatsAppSalesPage() {
   return (
     <div className="space-y-8">
       <AdminPageHeader
-        title="WhatsApp Sales"
-        description="إدارة القوائم والكورسات والأسعار والردود التلقائية."
+        title="قوائم الشات والأسعار"
+        description="إدارة قوائم الشات والكورسات والأسعار والعروض والردود التلقائية."
         actions={
           <div className="inline-flex items-center gap-2 rounded-xl bg-[#07152E] px-4 py-3 text-sm font-black text-white">
             <MessageCircle className="h-4 w-4 text-[#F7B548]" />

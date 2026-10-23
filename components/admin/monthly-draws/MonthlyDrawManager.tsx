@@ -42,6 +42,8 @@ type DrawForm = {
   title: string;
   prizeTitle: string;
   prizeDescription: string;
+  prizeTitleEn: string;
+  prizeDescriptionEn: string;
   prizeImageUrl: string;
   scheduledAt: string;
   winnerMode: MonthlyDrawWinnerMode;
@@ -55,12 +57,14 @@ type DrawForm = {
 const INPUT =
   "h-[42px] w-full rounded-xl border border-slate-200 bg-[#FAFBFC] px-3 text-[11px] font-semibold text-[#07152E] outline-none transition focus:border-[#F7B548] focus:bg-white";
 
+// The draw always runs on Riyadh time (UTC+3, no DST) — whatever the admin's browser/device timezone is.
+const RIYADH_OFFSET_MS = 3 * 60 * 60 * 1000;
+
 function toLocalInput(value: string | null) {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 16);
+  return new Date(date.getTime() + RIYADH_OFFSET_MS).toISOString().slice(0, 16);
 }
 
 function initialMonth() {
@@ -70,8 +74,10 @@ function initialMonth() {
 
 function initialSchedule() {
   const now = new Date();
-  let date = new Date(now.getFullYear(), now.getMonth(), 1, 20, 0, 0);
-  if (date <= now) date = new Date(now.getFullYear(), now.getMonth() + 1, 1, 20, 0, 0);
+  const riyadh = new Date(now.getTime() + RIYADH_OFFSET_MS);
+  const at = (month: number) => new Date(Date.UTC(riyadh.getUTCFullYear(), month, 1, 20, 0, 0) - RIYADH_OFFSET_MS);
+  let date = at(riyadh.getUTCMonth());
+  if (date <= now) date = at(riyadh.getUTCMonth() + 1);
   return toLocalInput(date.toISOString());
 }
 
@@ -80,6 +86,8 @@ const EMPTY_DRAW: DrawForm = {
   title: "سحب مكافآت Masar Makers الشهري",
   prizeTitle: "",
   prizeDescription: "",
+  prizeTitleEn: "",
+  prizeDescriptionEn: "",
   prizeImageUrl: "",
   scheduledAt: initialSchedule(),
   winnerMode: "random",
@@ -159,6 +167,8 @@ export default function MonthlyDrawManager({
       title: draw.title,
       prizeTitle: draw.prize_title ?? "",
       prizeDescription: draw.prize_description ?? "",
+      prizeTitleEn: draw.prize_title_en ?? "",
+      prizeDescriptionEn: draw.prize_description_en ?? "",
       prizeImageUrl: draw.prize_image_url ?? "",
       scheduledAt: toLocalInput(draw.scheduled_at),
       winnerMode: draw.winner_mode,
@@ -204,6 +214,8 @@ export default function MonthlyDrawManager({
         title: drawForm.title,
         prizeTitle: drawForm.prizeTitle,
         prizeDescription: drawForm.prizeDescription,
+        prizeTitleEn: drawForm.prizeTitleEn,
+        prizeDescriptionEn: drawForm.prizeDescriptionEn,
         prizeImageUrl: drawForm.prizeImageUrl,
         scheduledAt: drawForm.scheduledAt,
         winnerMode: drawForm.winnerMode,
@@ -445,6 +457,18 @@ function prepareParticipants(draw: MonthlyDraw) {
             />
           </Field>
 
+          <Field label="جائزة الشهر بالإنجليزية (تظهر عند تحويل المنصة للإنجليزية)">
+            <input
+              value={drawForm.prizeTitleEn}
+              onChange={(e) =>
+                setDrawForm((s) => ({ ...s, prizeTitleEn: e.target.value }))
+              }
+              dir="ltr"
+              className={`${INPUT} text-left`}
+              placeholder="e.g. 90% off the Integrated Professional Journey"
+            />
+          </Field>
+
           <Field label="رابط صورة الجائزة">
             <input
               value={drawForm.prizeImageUrl}
@@ -468,6 +492,21 @@ function prepareParticipants(draw: MonthlyDraw) {
                 }))
               }
               className={`${INPUT} h-auto min-h-[76px] py-3`}
+            />
+          </Field>
+
+          <Field label="وصف الجائزة بالإنجليزية" className="md:col-span-2">
+            <textarea
+              rows={2}
+              value={drawForm.prizeDescriptionEn}
+              onChange={(e) =>
+                setDrawForm((s) => ({
+                  ...s,
+                  prizeDescriptionEn: e.target.value,
+                }))
+              }
+              dir="ltr"
+              className={`${INPUT} h-auto min-h-[76px] py-3 text-left`}
             />
           </Field>
 

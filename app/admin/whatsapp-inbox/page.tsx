@@ -19,7 +19,7 @@ export default async function WhatsAppInboxPage({
       <AdminPageHeader
         title="صندوق واتساب"
         description="كل محادثات رقم صناع المسار لحظيًا: ردود العملاء والبوت وردودك، مع التحكم في تشغيل البوت لكل عميل."
-        breadcrumbs={[{ label: "WhatsApp Sales", href: "/admin/whatsapp-sales" }, { label: "صندوق واتساب" }]}
+        breadcrumbs={[{ label: "قوائم الشات والأسعار", href: "/admin/whatsapp-sales" }, { label: "صندوق واتساب" }]}
         actions={
           <div className="inline-flex items-center gap-2 rounded-xl bg-[#07152E] px-4 py-3 text-sm font-black text-white">
             <Inbox className="h-4 w-4 text-[#F7B548]" />

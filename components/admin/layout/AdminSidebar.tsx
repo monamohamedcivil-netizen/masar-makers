@@ -17,7 +17,6 @@ import {
   LayoutDashboard,
   Megaphone,
   Bot,
-  Inbox,
   MessageCircle,
   Receipt,
   Route,
@@ -140,20 +139,18 @@ const navigationGroups: NavigationGroup[] = [
         icon: Database,
       },
       {
-  title: "WhatsApp Sales",
-  href: "/admin/whatsapp-sales",
-  icon: MessageCircle,
-},
+        title: "قوائم الشات والأسعار",
+        href: "/admin/whatsapp-sales",
+        icon: MessageCircle,
+      },
       {
         title: "شات المنصة",
         href: "/admin/web-chat",
         icon: Bot,
       },
-      {
-        title: "صندوق واتساب",
-        href: "/admin/whatsapp-inbox",
-        icon: Inbox,
-      },
+      // صندوق واتساب مخفي مؤقتًا (الشات انتقل للمنصة) — الصفحة والكود باقيان
+      // ويرجع بإضافة العنصر هنا:
+      // { title: "صندوق واتساب", href: "/admin/whatsapp-inbox", icon: Inbox /* أعيدي استيراد Inbox من lucide-react */ },
       {
         title: "المدفوعات",
         href: "/admin/finance/payments",

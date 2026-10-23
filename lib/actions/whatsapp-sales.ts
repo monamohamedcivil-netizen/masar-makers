@@ -79,6 +79,20 @@ function number(
     : fallback;
 }
 
+/** Optional columns (English text, picture/video links): only the ones present in the form; empty = cleared. */
+function extra(
+  formData: FormData,
+  keys: string[],
+) {
+  const out: Record<string, string | null> = {};
+  for (const key of keys) {
+    if (formData.has(key)) {
+      out[key] = nullable(formData, key);
+    }
+  }
+  return out;
+}
+
 function refresh() {
   revalidatePath(PAGE);
 }
@@ -180,6 +194,7 @@ export async function createCourse(
   } = await supabase
     .from("whatsapp_courses")
     .insert({
+      ...extra(formData, ["short_description_en","details_en","variants_prompt_en"]),
       course_key: courseKey,
       title,
 
@@ -309,6 +324,7 @@ export async function updateCourse(
     await supabase
       .from("whatsapp_courses")
       .update({
+        ...extra(formData, ["short_description_en","details_en","variants_prompt_en"]),
         title,
         whatsapp_label:
           whatsappLabel,
@@ -419,6 +435,7 @@ export async function createCourseVariant(
         "whatsapp_course_variants",
       )
       .insert({
+        ...extra(formData, ["title_en","short_description_en","details_en"]),
         course_id:
           text(
             formData,
@@ -493,6 +510,7 @@ export async function updateCourseVariant(
         "whatsapp_course_variants",
       )
       .update({
+        ...extra(formData, ["title_en","short_description_en","details_en"]),
         title:
           text(
             formData,
@@ -680,6 +698,8 @@ export async function savePrice(
         "offer_label",
       ),
 
+    ...extra(formData, ["offer_label_en"]),
+
     offer_active:
       checked(
         formData,
@@ -743,6 +763,58 @@ export async function savePrice(
   refresh();
 }
 
+/** One-click offer control for ALL courses (per-course offers stay editable in the price editor). */
+export async function setGlobalOffer(
+  formData: FormData,
+) {
+  const supabase =
+    await adminClient();
+
+  const mode =
+    text(formData, "mode");
+
+  if (mode !== "enable" && mode !== "disable") {
+    throw new Error("اختاري تفعيل أو إيقاف العرض.");
+  }
+
+  const patch: Record<string, unknown> = {
+    offer_active: mode === "enable",
+    updated_at: new Date().toISOString(),
+  };
+
+  if (mode === "enable") {
+    const label = text(formData, "offer_label");
+    if (label) patch.offer_label = label;
+    const labelEn = text(formData, "offer_label_en");
+    if (labelEn) patch.offer_label_en = labelEn;
+
+    const start = text(formData, "offer_start");
+    const end = text(formData, "offer_end");
+    // Empty date = no date limit (clears an old one).
+    patch.offer_start = start ? new Date(start).toISOString() : null;
+    patch.offer_end = end ? new Date(end).toISOString() : null;
+
+    if (
+      start &&
+      end &&
+      new Date(end).getTime() <= new Date(start).getTime()
+    ) {
+      throw new Error("نهاية العرض يجب أن تكون بعد بدايته.");
+    }
+  }
+
+  const { error } = await supabase
+    .from("whatsapp_course_prices")
+    .update(patch)
+    .not("id", "is", null);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  refresh();
+}
+
 /* =========================
    ANSWERS
 ========================= */
@@ -757,6 +829,7 @@ export async function createAnswer(
     await supabase
       .from("whatsapp_answers")
       .insert({
+        ...extra(formData, ["message_text_en","video_url"]),
         answer_key:
           text(
             formData,
@@ -797,6 +870,7 @@ export async function updateAnswer(
     await supabase
       .from("whatsapp_answers")
       .update({
+        ...extra(formData, ["message_text_en","video_url"]),
         admin_name:
           text(
             formData,
@@ -891,6 +965,7 @@ export async function createMenu(
     await supabase
       .from("whatsapp_menus")
       .insert({
+        ...extra(formData, ["header_text_en","body_text_en","footer_text_en"]),
         menu_key:
           text(
             formData,
@@ -967,6 +1042,7 @@ export async function updateMenu(
     await supabase
       .from("whatsapp_menus")
       .update({
+        ...extra(formData, ["header_text_en","body_text_en","footer_text_en"]),
         admin_name:
           text(
             formData,
@@ -1099,6 +1175,7 @@ export async function createMenuItem(
         "whatsapp_menu_items",
       )
       .insert({
+        ...extra(formData, ["label_en","description_en"]),
         menu_id:
           menuId,
 
@@ -1209,6 +1286,7 @@ export async function updateMenuItem(
         "whatsapp_menu_items",
       )
       .update({
+        ...extra(formData, ["label_en","description_en"]),
         label,
 
         description:

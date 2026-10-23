@@ -5,6 +5,7 @@ import {
   createAdminClient,
 } from "@/lib/supabase/server";
 import { createBunnyEmbedUrl } from "@/lib/bunny/stream";
+import { createResourceDownloadToken } from "@/lib/lesson-resources/download-token";
 
 const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 
@@ -70,7 +71,7 @@ export type StudentLessonResource = {
   title: string;
   type: string | null;
   scope: "lesson" | "section";
-  downloadUrl: string;
+  downloadToken: string;
 };
 
 export type StudentLessonPlayback = {
@@ -481,6 +482,9 @@ const adminSupabase =
       };
     }
 
+    // Captured here: TypeScript does not keep the "user is not null" check inside the hoisted function below.
+    const viewerUserId = user.id;
+
     async function signResources(
       rows:
         | typeof lessonResourceRows
@@ -500,56 +504,6 @@ const adminSupabase =
                 return null;
               }
 
-              const resourceTitle =
-  resource.title?.trim() || "مرفق";
-
-const storedFileName =
-  path.split("/").pop() ?? "";
-
-const extensionMatch =
-  storedFileName.match(
-    /(\.[^./\\]+)$/,
-  );
-
-const extension =
-  extensionMatch?.[1] ?? "";
-
-const downloadFileName =
-  extension &&
-  !resourceTitle
-    .toLowerCase()
-    .endsWith(
-      extension.toLowerCase(),
-    )
-    ? `${resourceTitle}${extension}`
-    : resourceTitle;
-
-const {
-  data: signed,
-  error: signedError,
-} =
-  await adminSupabase.storage
-    .from("lesson-resources")
-    .createSignedUrl(
-      path,
-      10 * 60,
-      {
-        download:
-          downloadFileName,
-      },
-    );
-
-              if (
-                signedError ||
-                !signed?.signedUrl
-              ) {
-                console.error(
-                  "SIGN LESSON RESOURCE ERROR",
-                  signedError,
-                );
-                return null;
-              }
-
               return {
                 id: resource.id,
                 title:
@@ -559,8 +513,12 @@ const {
                   resource.resource_type ??
                   null,
                 scope,
-                downloadUrl:
-                  signed.signedUrl,
+                // Link is created only when «تحميل» is pressed.
+                downloadToken:
+                  createResourceDownloadToken(
+                    String(resource.id),
+                    viewerUserId,
+                  ),
               } satisfies StudentLessonResource;
             },
           ),

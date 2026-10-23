@@ -220,7 +220,7 @@ export default function WhatsAppInbox({ initial, initialPhone = null }: { initia
           }`}
         >
           <Bot className="h-4 w-4" />
-          {!snapshot.botEnabled ? "البوت متوقف بالكامل (من إعدادات WhatsApp Sales)" : modeLabel[snapshot.routing.mode]}
+          {!snapshot.botEnabled ? "البوت متوقف بالكامل (من إعدادات قوائم الشات والأسعار)" : modeLabel[snapshot.routing.mode]}
         </span>
         <button
           type="button"

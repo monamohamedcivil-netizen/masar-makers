@@ -6,6 +6,7 @@ import {
   createClient,
 } from "@/lib/supabase/server";
 import { buildYearWinnerBlocklist } from "@/lib/draw/year-winners";
+import { clearPublicDrawCache } from "@/lib/public/monthly-draw-cache";
 import {
   getMasarPassport,
   getMasarPassportForRegistry,
@@ -29,6 +30,8 @@ export type MonthlyDraw = {
 
   prize_title: string | null;
   prize_description: string | null;
+  prize_title_en?: string | null;
+  prize_description_en?: string | null;
   prize_image_url: string | null;
 
   scheduled_at: string;
@@ -172,6 +175,15 @@ function buildWinnerCountMaps(
 /* =========================================================
    READ
 ========================================================= */
+
+/** The form sends "YYYY-MM-DDTHH:mm" — read it as Riyadh time (UTC+3), not the server/browser timezone. */
+function parseRiyadhDateTime(value: string) {
+  const text = String(value ?? "").trim();
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(text)) {
+    return new Date(`${text.length === 16 ? `${text}:00` : text}+03:00`);
+  }
+  return new Date(text);
+}
 
 export async function getAdminMonthlyDraws(): Promise<
   MonthlyDraw[]
@@ -344,6 +356,8 @@ export async function createMonthlyDraw(
     title?: string;
     prizeTitle: string;
     prizeDescription?: string;
+    prizeTitleEn?: string;
+    prizeDescriptionEn?: string;
     prizeImageUrl?: string;
     scheduledAt: string;
     winnerMode: MonthlyDrawWinnerMode;
@@ -385,7 +399,7 @@ export async function createMonthlyDraw(
   }
 
   const scheduledDate =
-    new Date(input.scheduledAt);
+    parseRiyadhDateTime(input.scheduledAt);
 
   if (
     Number.isNaN(
@@ -412,6 +426,14 @@ export async function createMonthlyDraw(
 
       prize_description:
         input.prizeDescription?.trim() ||
+        null,
+
+      prize_title_en:
+        input.prizeTitleEn?.trim() ||
+        null,
+
+      prize_description_en:
+        input.prizeDescriptionEn?.trim() ||
         null,
 
       prize_image_url:
@@ -480,6 +502,8 @@ export async function updateMonthlyDraw(
     title?: string;
     prizeTitle: string;
     prizeDescription?: string;
+    prizeTitleEn?: string;
+    prizeDescriptionEn?: string;
     prizeImageUrl?: string;
     scheduledAt: string;
     winnerMode: MonthlyDrawWinnerMode;
@@ -510,7 +534,7 @@ export async function updateMonthlyDraw(
   }
 
   const scheduledDate =
-    new Date(input.scheduledAt);
+    parseRiyadhDateTime(input.scheduledAt);
 
   if (
     Number.isNaN(
@@ -568,6 +592,14 @@ export async function updateMonthlyDraw(
 
       prize_description:
         input.prizeDescription?.trim() ||
+        null,
+
+      prize_title_en:
+        input.prizeTitleEn?.trim() ||
+        null,
+
+      prize_description_en:
+        input.prizeDescriptionEn?.trim() ||
         null,
 
       prize_image_url:
@@ -1209,6 +1241,9 @@ export async function prepareMonthlyDrawParticipants(
 ========================================================= */
 
 function revalidateDrawPages() {
+  // The public draw state is cached in memory: drop it after any admin change.
+  clearPublicDrawCache();
+
   revalidatePath(
     "/admin/content/monthly-draw",
   );

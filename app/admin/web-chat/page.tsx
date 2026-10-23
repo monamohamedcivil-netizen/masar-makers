@@ -19,7 +19,7 @@ export default async function WebChatAdminPage({
       <AdminPageHeader
         title="شات المنصة"
         description="كل من ضغط زرًا في المنصة: بياناته، العملة الخاصة به، الأسعار التي ظهرت له، التحويل لواتساب، والمتابعة كل 3 أيام."
-        breadcrumbs={[{ label: "WhatsApp Sales", href: "/admin/whatsapp-sales" }, { label: "شات المنصة" }]}
+        breadcrumbs={[{ label: "قوائم الشات والأسعار", href: "/admin/whatsapp-sales" }, { label: "شات المنصة" }]}
         actions={
           <div className="inline-flex items-center gap-2 rounded-xl bg-[#07152E] px-4 py-3 text-sm font-black text-white">
             <Bot className="h-4 w-4 text-[#F7B548]" />
