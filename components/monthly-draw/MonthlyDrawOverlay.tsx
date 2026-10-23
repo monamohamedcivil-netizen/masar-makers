@@ -20,6 +20,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -33,6 +34,9 @@ type Locale = "ar" | "en";
 
 const LIVE_POLL_MS = 1000;
 const COMPLETED_POLL_MS = 60 * 1000;
+// No published draw / read error: try again after 30 minutes.
+const NO_DRAW_RETRY_MS = 30 * 60 * 1000;
+const MAX_TIMER_MS = 2_000_000_000;
 
 function resultSeenKey(drawId: string) {
   return `masar-monthly-draw-result-seen:${drawId}`;
@@ -69,6 +73,12 @@ export default function MonthlyDrawOverlay() {
     useState<PublicMonthlyDrawState | null>(
       null,
     );
+
+  // Latest state for the polling timer (avoids restarting the timer on every update).
+  const drawRef = useRef<PublicMonthlyDrawState | null>(null);
+  useEffect(() => {
+    drawRef.current = draw;
+  }, [draw]);
 
   const [open, setOpen] =
     useState(false);
@@ -125,6 +135,7 @@ export default function MonthlyDrawOverlay() {
         const next =
           await getPublicMonthlyDrawState();
 
+        drawRef.current = next;
         setDraw(next);
 
         if (!next) {
@@ -175,6 +186,42 @@ export default function MonthlyDrawOverlay() {
     let timer:
       | number
       | undefined;
+    // Live draw (countdown/running): every second, exactly as before.
+    // Otherwise NO background checks during the month: one load when the page opens,
+    // then a single wake-up at the next draw time (the only moment anything can change).
+    function nextDelay(): number | null {
+      const current = drawRef.current;
+
+      if (current && current.phase !== "completed") {
+        return LIVE_POLL_MS;
+      }
+
+      if (!current) {
+        return NO_DRAW_RETRY_MS;
+      }
+
+      const target = current.nextCheckAt
+        ? new Date(current.nextCheckAt).getTime()
+        : Number.NaN;
+
+      if (!Number.isFinite(target)) {
+        return null;
+      }
+
+      const until = target - Date.now();
+
+      if (until > 0) {
+        // setTimeout cannot wait longer than ~24 days; a page open that long reloads anyway.
+        return until < MAX_TIMER_MS ? until + 1500 : null;
+      }
+
+      // Right after the draw time: check every minute for 15 minutes until the draw starts.
+      if (until > -15 * 60 * 1000) {
+        return COMPLETED_POLL_MS;
+      }
+
+      return null;
+    }
 
     async function poll() {
       if (cancelled) return;
@@ -183,14 +230,15 @@ export default function MonthlyDrawOverlay() {
 
       if (cancelled) return;
 
-      timer =
-        window.setTimeout(
-          poll,
-          draw?.phase ===
-            "completed"
-            ? COMPLETED_POLL_MS
-            : LIVE_POLL_MS,
-        );
+      const delay = nextDelay();
+
+      if (delay !== null) {
+        timer =
+          window.setTimeout(
+            poll,
+            delay,
+          );
+      }
     }
 
     void poll();

@@ -152,21 +152,42 @@ export default function HomeMonthlyDrawStatus({
       }
     }, []);
 
+  // One load when the page opens. The status is fixed during the month,
+  // so the only reload is a single wake-up at the next draw time.
   useEffect(() => {
     void loadDraw();
+  }, [loadDraw]);
 
-    const timer =
-      window.setInterval(
-        () => {
-          void loadDraw();
-        },
-        5 * 60 * 1000,
-      );
+  useEffect(() => {
+    // During the live draw: refresh every 15 seconds until the result is out.
+    if (draw && draw.phase !== "completed") {
+      const live = window.setTimeout(() => {
+        void loadDraw();
+      }, 15_000);
+      return () => window.clearTimeout(live);
+    }
+
+    const target = draw?.nextCheckAt
+      ? new Date(draw.nextCheckAt).getTime()
+      : Number.NaN;
+
+    if (!Number.isFinite(target)) return;
+
+    const until = target - Date.now();
+
+    if (until <= 0 || until > 2_000_000_000) return;
+
+    const timer = window.setTimeout(
+      () => {
+        void loadDraw();
+      },
+      until + 1500,
+    );
 
     return () => {
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
     };
-  }, [loadDraw]);
+  }, [draw, loadDraw]);
 
   useEffect(() => {
     const nextDrawAt =

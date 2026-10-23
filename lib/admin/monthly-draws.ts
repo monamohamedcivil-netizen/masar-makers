@@ -6,6 +6,7 @@ import {
   createClient,
 } from "@/lib/supabase/server";
 import { buildYearWinnerBlocklist } from "@/lib/draw/year-winners";
+import { clearPublicDrawCache } from "@/lib/public/monthly-draw-cache";
 import {
   getMasarPassport,
   getMasarPassportForRegistry,
@@ -1240,6 +1241,9 @@ export async function prepareMonthlyDrawParticipants(
 ========================================================= */
 
 function revalidateDrawPages() {
+  // The public draw state is cached in memory: drop it after any admin change.
+  clearPublicDrawCache();
+
   revalidatePath(
     "/admin/content/monthly-draw",
   );

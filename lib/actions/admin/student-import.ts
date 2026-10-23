@@ -17,6 +17,7 @@ import {
 
 import {
   getMasarPassportForRegistry,
+  getMasarPassportForRegistryAdminList,
 } from "@/lib/dashboard/masar-passport";
 
 export interface StudentImportRowResult {
@@ -1577,7 +1578,7 @@ export async function getImportedStudents(): Promise<
             projectsResult,
             freeEnrollmentsResult,
           ] = await Promise.all([
-            getMasarPassportForRegistry(
+            getMasarPassportForRegistryAdminList(
               student.id,
             ),
 

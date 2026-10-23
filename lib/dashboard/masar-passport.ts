@@ -2258,3 +2258,63 @@ export async function getMasarPassportForRegistry(
     completionPoints,
   };
 }
+/* =========================================================
+   Short cache for ADMIN LIST PAGES only (students table, imported students).
+   Those pages compute the passport of every student on each render
+   (~10 requests per student), and admin actions re-render them several
+   times in a row. Points shown there may be up to 3 minutes old.
+   The student's own pages, approvals and the monthly draw keep using
+   the uncached functions above (always fresh).
+========================================================= */
+
+const ADMIN_LIST_PASSPORT_TTL_MS = 3 * 60 * 1000;
+
+const adminListPassportCache = new Map<
+  string,
+  { at: number; value: Promise<MasarPassportData> }
+>();
+
+function cachedPassport(
+  key: string,
+  load: () => Promise<MasarPassportData>,
+): Promise<MasarPassportData> {
+  const now = Date.now();
+  const hit = adminListPassportCache.get(key);
+
+  if (hit && now - hit.at < ADMIN_LIST_PASSPORT_TTL_MS) {
+    return hit.value;
+  }
+
+  const value = load();
+  adminListPassportCache.set(key, { at: now, value });
+
+  // A failed load is never cached.
+  value.catch(() => {
+    if (adminListPassportCache.get(key)?.value === value) {
+      adminListPassportCache.delete(key);
+    }
+  });
+
+  // Keep the map small.
+  if (adminListPassportCache.size > 2000) {
+    for (const [k, v] of adminListPassportCache) {
+      if (now - v.at >= ADMIN_LIST_PASSPORT_TTL_MS) adminListPassportCache.delete(k);
+    }
+  }
+
+  return value;
+}
+
+export function getMasarPassportForAdminList(
+  userId: string,
+): Promise<MasarPassportData> {
+  return cachedPassport(`user:${userId}`, () => getMasarPassport(userId));
+}
+
+export function getMasarPassportForRegistryAdminList(
+  registryId: string,
+): Promise<MasarPassportData> {
+  return cachedPassport(`registry:${registryId}`, () =>
+    getMasarPassportForRegistry(registryId),
+  );
+}
