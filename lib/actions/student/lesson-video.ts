@@ -482,6 +482,9 @@ const adminSupabase =
       };
     }
 
+    // Captured here: TypeScript does not keep the "user is not null" check inside the hoisted function below.
+    const viewerUserId = user.id;
+
     async function signResources(
       rows:
         | typeof lessonResourceRows
@@ -514,7 +517,7 @@ const adminSupabase =
                 downloadToken:
                   createResourceDownloadToken(
                     String(resource.id),
-                    user.id,
+                    viewerUserId,
                   ),
               } satisfies StudentLessonResource;
             },
