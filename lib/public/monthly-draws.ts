@@ -5,6 +5,10 @@ import { buildYearWinnerBlocklist } from "@/lib/draw/year-winners";
 
 import { createAdminClient } from "@/lib/supabase/server";
 import {
+  readPublicDrawCache,
+  writePublicDrawCache,
+} from "@/lib/public/monthly-draw-cache";
+import {
   getMasarPassport,
   getMasarPassportForRegistry,
 } from "@/lib/dashboard/masar-passport";
@@ -1611,6 +1615,29 @@ function toPublicState(
 }
 
 export async function getPublicMonthlyDrawState(): Promise<
+  PublicMonthlyDrawState | null
+> {
+  // Same answer for every visitor and fixed during the month → served from memory.
+  const cached =
+    readPublicDrawCache<PublicMonthlyDrawState | null>();
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const state = await loadPublicMonthlyDrawState();
+
+  // "null" (draw off, nothing published, or a read error) is never cached.
+  if (state) {
+    writePublicDrawCache(state, {
+      live: state.phase !== "completed",
+      nextCheckAt: state.nextCheckAt,
+    });
+  }
+
+  return state;
+}
+
+async function loadPublicMonthlyDrawState(): Promise<
   PublicMonthlyDrawState | null
 > {
   const settings =
