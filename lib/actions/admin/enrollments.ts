@@ -32,6 +32,7 @@ export interface AdminEnrollmentRequest {
   subscriptionPrice: number | null;
   subscriptionCurrency: string;
   offerLabel: string | null;
+  paymentDraft: Record<string, unknown> | null;
 
   student: {
     name: string;
@@ -72,6 +73,8 @@ type EnrollmentRow = {
   subscription_price: number | null;
   subscription_currency: string | null;
   offer_label: string | null;
+  /** بيانات الدفع المملوءة قبل القبول (عمود payment_draft) */
+  payment_draft?: Record<string, unknown> | null;
 };
 
 type ApproveEnrollmentRow = {
@@ -278,9 +281,8 @@ export async function getEnrollmentRequests(): Promise<
 
   const { data, error } = await supabase
     .from("enrollments")
-    .select(
-      "id,user_id,student_name,student_email,course_id,journey_type,action_key,action_title,enrollment_source,reward_source,status,created_at,updated_at,subscription_price,subscription_currency,offer_label",
-    )
+    // select("*") يشمل payment_draft عند وجوده بدون أن يفشل قبل إضافته.
+    .select("*")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -428,6 +430,7 @@ export async function getEnrollmentRequests(): Promise<
           : Number(enrollment.subscription_price),
       subscriptionCurrency: enrollment.subscription_currency || "EGP",
       offerLabel: enrollment.offer_label?.trim() || null,
+      paymentDraft: enrollment.payment_draft ?? null,
 
       student: {
         name: getStudentName(

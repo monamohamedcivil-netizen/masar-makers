@@ -30,6 +30,7 @@ status: request.status,
     subscriptionPrice: request.subscriptionPrice,
     subscriptionCurrency: request.subscriptionCurrency,
     offerLabel: request.offerLabel ?? "",
+    paymentDraft: request.paymentDraft,
   };
 }
 

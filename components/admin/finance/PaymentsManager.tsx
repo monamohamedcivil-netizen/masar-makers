@@ -1,7 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Plus, Trash2, ChevronDown } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
 
 import {
   createPayment,
@@ -16,8 +23,9 @@ import {
 } from "@/lib/actions/admin/finance";
 import type { FinanceData } from "@/lib/finance/queries";
 import {
+  JOURNEY_KIND_LABELS,
   PAYMENT_STATUS_LABELS,
-  stageOfEdition,
+  stageOfPayment,
   type FinanceOffer,
   type FinanceOtherIncome,
   type FinancePayment,
@@ -65,10 +73,9 @@ const COLUMNS: Col[] = [
     label: "نوع الرحلة",
     type: "select",
     width: 120,
-    options: [
-      { value: "integrated", label: "متكاملة" },
-      { value: "one_day", label: "يوم واحد" },
-    ],
+    options: (
+      ["fundamental", "advanced", "integrated", "one_day"] as const
+    ).map((value) => ({ value, label: JOURNEY_KIND_LABELS[value] })),
   },
   {
     key: "delivery_type",
@@ -163,11 +170,33 @@ export default function PaymentsManager(props: Props) {
         return false;
       // كورس بمرحلتين: فلتر الأساسيات / المتقدم
       if (activeCourse?.split && stageFilter !== "all") {
-        return stageOfEdition(p.edition_code) === stageFilter;
+        if (stageOfPayment(p) !== stageFilter) return false;
       }
       return true;
     });
   }, [tab, activePath, courseTab, stageFilter, payments, unassigned]);
+
+  const tableScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // direction: 1 = الأعمدة السابقة (يمين)، -1 = الأعمدة التالية (يسار) في اتجاه RTL.
+  const scrollTable = (direction: 1 | -1) => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction * el.clientWidth * 0.7, behavior: "smooth" });
+  };
+
+  // بحث سريع داخل الجدول (الاسم / الهاتف / البريد / الإصدار / الملاحظات).
+  const [search, setSearch] = useState("");
+  const visibleRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((p) =>
+      [p.student_name, p.certificate_name, p.phone, p.email, p.edition_code, p.notes]
+        .join(" ")
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [rows, search]);
 
   const notRegistered = rows.filter((p) => p.account_status === "none").length;
 
@@ -310,26 +339,61 @@ export default function PaymentsManager(props: Props) {
         <OtherIncomeTable income={income} setIncome={setIncome} flash={flash} />
       ) : (
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-200 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 p-3">
             <p className="text-sm font-black text-[#07152E]">
-              المشتركون ({rows.length}) — اضغط على أي خلية لتعديلها
+              المشتركون ({visibleRows.length}
+              {visibleRows.length !== rows.length ? ` من ${rows.length}` : ""}) — اضغط على أي خلية لتعديلها
               {notRegistered > 0 ? (
                 <span className="mr-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-black text-amber-800">
                   {notRegistered} لم يسجّل في المنصة بعد
                 </span>
               ) : null}
             </p>
-            <button
-              type="button"
-              onClick={addRow}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#07152E] px-3 py-2 text-xs font-bold text-[#F7B548]"
-            >
-              <Plus className="h-4 w-4" />
-              إضافة اشتراك
-            </button>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <Search className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="بحث بالاسم أو الهاتف أو الإصدار..."
+                  className="h-9 w-64 rounded-lg border border-slate-200 bg-slate-50 pr-8 pl-2 text-xs outline-none focus:border-[#F7B548] focus:bg-white"
+                />
+              </div>
+
+              {/* تنقل أفقي سريع بين أعمدة الجدول */}
+              <div className="flex overflow-hidden rounded-lg border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => scrollTable(1)}
+                  title="الأعمدة السابقة"
+                  className="flex h-9 w-9 items-center justify-center bg-white text-slate-600 hover:bg-slate-50"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollTable(-1)}
+                  title="الأعمدة التالية"
+                  className="flex h-9 w-9 items-center justify-center border-r border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={addRow}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#07152E] px-3 py-2 text-xs font-bold text-[#F7B548]"
+              >
+                <Plus className="h-4 w-4" />
+                إضافة اشتراك
+              </button>
+            </div>
           </div>
 
-          <div className="max-h-[70vh] overflow-auto">
+          <div ref={tableScrollRef} className="max-h-[70vh] overflow-auto">
             <table className="w-max min-w-full text-right">
               <thead className="sticky top-0 z-10 bg-slate-50">
                 <tr className="border-b border-slate-200">
@@ -353,7 +417,7 @@ export default function PaymentsManager(props: Props) {
                 </tr>
               </thead>
               <tbody>
-                {rows.length === 0 ? (
+                {visibleRows.length === 0 ? (
                   <tr>
                     <td
                       colSpan={columns.length + 3}
@@ -363,7 +427,7 @@ export default function PaymentsManager(props: Props) {
                     </td>
                   </tr>
                 ) : (
-                  rows.map((p, idx) => (
+                  visibleRows.map((p, idx) => (
                     <tr
                       key={p.id}
                       className={`border-b border-slate-100 hover:bg-slate-50/60 ${

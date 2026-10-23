@@ -56,7 +56,7 @@ export default function SectionTitle({
         className="
           mx-auto
           flex
-          h-[58px]
+          h-[42px]
           max-w-[1500px]
           flex-col
           items-center
@@ -92,6 +92,7 @@ export default function SectionTitle({
 
           <p
             className="
+              hidden
               mt-1
               px-2
               text-[10px]
@@ -99,6 +100,7 @@ export default function SectionTitle({
               leading-4
               text-slate-500
 
+              sm:block
               sm:text-[13px]
               sm:leading-5
 

@@ -576,9 +576,32 @@ export function buildSharedJourneys(input: {
       fundamentalsLessons.length > 0 ||
       advancedLessons.length > 0;
 
-    if (isSplitCourse) {
+    /*
+     * الاشتراك في مرحلة بعينها (أساسيات / متقدم / متكاملة) يُحسب كرحلة
+     * (ويظهر وتُحسب نقاطه) حتى لو لم تُضف محاضرات هذه المرحلة بعد.
+     * نفس القاعدة في getStudentJourneys بلوحة الإدارة.
+     */
+    const explicitJourneyType =
+      normalizeJourneyText(journeyType);
+
+    const explicitlyEnrolledInPart = (
+      part: "fundamentals" | "advanced",
+    ) =>
+      (isSplitCourse || singleLessons.length === 0) &&
+      (explicitJourneyType === "integrated" ||
+        (part === "fundamentals"
+          ? explicitJourneyType === "fundamental" ||
+            explicitJourneyType === "fundamentals"
+          : explicitJourneyType === "advanced"));
+
+    if (
+      isSplitCourse ||
+      explicitlyEnrolledInPart("fundamentals") ||
+      explicitlyEnrolledInPart("advanced")
+    ) {
       if (
-        fundamentalsLessons.length > 0 &&
+        (fundamentalsLessons.length > 0 ||
+          explicitlyEnrolledInPart("fundamentals")) &&
         sharedEnrollmentAllowsPart(
           journeyType,
           "fundamentals",
@@ -596,7 +619,8 @@ export function buildSharedJourneys(input: {
       }
 
       if (
-        advancedLessons.length > 0 &&
+        (advancedLessons.length > 0 ||
+          explicitlyEnrolledInPart("advanced")) &&
         sharedEnrollmentAllowsPart(
           journeyType,
           "advanced",

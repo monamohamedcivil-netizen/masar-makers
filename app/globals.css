@@ -125,6 +125,12 @@
 
   html {
     @apply font-sans;
+    /*
+     * التصميم الأصلي مبني على مقاسات Times New Roman، وخط IBM Plex Sans Arabic
+     * أعرض منه بنفس المقاس. هذا السطر يصغّر كل النصوص في المنصة بنحو 12%
+     * (بكل المقاسات، بما فيها text-[..px]) بدون تعديل كل عنصر على حدة.
+     */
+    font-size-adjust: 0.46;
     width: 100%;
     max-width: 100%;
     overflow-x: clip;

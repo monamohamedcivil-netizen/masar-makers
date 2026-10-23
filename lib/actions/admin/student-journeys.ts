@@ -690,6 +690,24 @@ export async function getStudentJourneys(
       fundamentalsLessons.length > 0 ||
       advancedLessons.length > 0;
 
+    /*
+     * الاشتراك في مرحلة بعينها (أساسيات / متقدم / متكاملة) يظهر كرحلة للطالب
+     * وتُحسب نقاطه حتى لو لم تُضف محاضرات هذه المرحلة بعد (مثل المتقدم قبل بدايته).
+     * الاشتراكات القديمة العامة (career_path) تبقى مرتبطة بوجود المحاضرات كما كانت.
+     */
+    const explicitJourneyType =
+      normalizeStatus(originalJourneyType);
+
+    const explicitlyEnrolledInPart = (
+      part: "fundamentals" | "advanced",
+    ) =>
+      (isSplitCourse || singleLessons.length === 0) &&
+      (explicitJourneyType === "integrated" ||
+      (part === "fundamentals"
+        ? explicitJourneyType === "fundamental" ||
+          explicitJourneyType === "fundamentals"
+        : explicitJourneyType === "advanced"));
+
     const isFreeEnrollment =
       [
         "free",
@@ -857,9 +875,14 @@ export async function getStudentJourneys(
      * Fundamentals فقط = صف واحد.
      * Advanced فقط = صف واحد.
      */
-    if (isSplitCourse) {
+    if (
+      isSplitCourse ||
+      explicitlyEnrolledInPart("fundamentals") ||
+      explicitlyEnrolledInPart("advanced")
+    ) {
       if (
-        fundamentalsLessons.length > 0 &&
+        (fundamentalsLessons.length > 0 ||
+          explicitlyEnrolledInPart("fundamentals")) &&
         enrollmentAllowsPart(
           originalJourneyType,
           "fundamentals",
@@ -911,7 +934,8 @@ export async function getStudentJourneys(
       }
 
       if (
-        advancedLessons.length > 0 &&
+        (advancedLessons.length > 0 ||
+          explicitlyEnrolledInPart("advanced")) &&
         enrollmentAllowsPart(
           originalJourneyType,
           "advanced",
@@ -963,8 +987,7 @@ export async function getStudentJourneys(
       }
 
       /*
-       * إذا كان الكورس معرفًا كمقسم ولكن لا توجد محاضرات
-       * للجزء الذي يسمح به الاشتراك، لا ننشئ صفًا وهميًا.
+       * الاشتراك العام القديم في كورس مقسم: لا ننشئ صفًا لجزء بلا محاضرات.
        */
       continue;
     }

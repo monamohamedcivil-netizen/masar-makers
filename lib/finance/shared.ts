@@ -48,7 +48,7 @@ export interface FinancePayment {
   certificate_issued: boolean;
   survey_done: boolean;
   source: "enrollment" | "import" | "manual";
-  journey_kind: "integrated" | "one_day";
+  journey_kind: JourneyKind;
   /** اشتراك مكافأة (مثل جائزة السحب الشهري) بلا دفع */
   is_reward?: boolean;
   reward_reason?: string | null;
@@ -58,14 +58,101 @@ export interface FinancePayment {
   account_status?: "none" | "registered" | "enrolled";
 }
 
+/**
+ * نوع رحلة الدفعة: أساسيات / متقدم / متكاملة (أساسيات + متقدم) / يوم واحد.
+ * يأتي من نوع طلب الاشتراك (enrollments.journey_type) عند القبول.
+ */
+export type JourneyKind =
+  | "integrated"
+  | "fundamental"
+  | "advanced"
+  | "one_day";
+
+export const JOURNEY_KIND_LABELS: Record<JourneyKind, string> = {
+  fundamental: "أساسيات",
+  advanced: "متقدم",
+  integrated: "متكاملة",
+  one_day: "يوم واحد",
+};
+
+/** يحوّل أي قيمة (من الجدول أو من نوع طلب الاشتراك) إلى نوع رحلة صالح. */
+export function normalizeJourneyKind(value: unknown): JourneyKind {
+  const v = String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replaceAll("-", "_");
+  if (["workshop", "one_day", "one_day_journey"].includes(v)) return "one_day";
+  if (v === "fundamental" || v === "fundamentals") return "fundamental";
+  if (v === "advanced") return "advanced";
+  return "integrated";
+}
+
 export type CourseStage = "fundamental" | "advanced" | "other";
 
-/** مرحلة الاشتراك من رمز الإصدار: C3D-F1 / CSD-F2 أساسيات، CSD-A1 متقدم. */
+/**
+ * مرحلة الاشتراك من رمز الإصدار:
+ * C3D-F / CSD-F2 أساسيات، C3D-A / CSD-A1 متقدم، C3D-F+A متكاملة.
+ */
 export function stageOfEdition(edition: string | null | undefined): CourseStage {
   const code = String(edition ?? "").toUpperCase();
-  if (/-F/.test(code)) return "fundamental";
-  if (/-A/.test(code)) return "advanced";
+  const hasF = /-F(\d|\+|$)/.test(code);
+  const hasA = /[-+]A(\d|$)/.test(code);
+  // C3D-F+A (أو C3D-F1+A1 القديم) = اشتراك متكامل (أساسيات + متقدم)
+  if (hasF && hasA) return "other";
+  if (hasF) return "fundamental";
+  if (hasA) return "advanced";
   return "other";
+}
+
+/**
+ * رموز الإصدار تختلف عن رموز الكورسات لبعض الكورسات:
+ * SPD → PD، SID → SIDRA، SYN → SYNCHRO، VIS → VISSIM.
+ */
+const EDITION_PREFIX_BY_COURSE: Record<string, string> = {
+  SPD: "PD",
+  SID: "SIDRA",
+  SYN: "SYNCHRO",
+  VIS: "VISSIM",
+};
+
+/** بادئة رمز الإصدار من رمز الكورس (C3D, CSD, VT, BIM, PD, CUBE, VISUM, VISSIM, SIDRA, SYNCHRO). */
+export function editionPrefixOf(courseCode: string | null | undefined) {
+  const code = String(courseCode ?? "").trim().toUpperCase();
+  if (!code) return null;
+  return EDITION_PREFIX_BY_COURSE[code] ?? code;
+}
+
+/**
+ * رمز الإصدار التلقائي حسب نوع الاشتراك:
+ * كورس بمرحلتين: أساسيات C3D-F / متقدم C3D-A / متكاملة C3D-F+A،
+ * كورس بمرحلة واحدة أو رحلة يوم واحد: VT / BIM / PD / CUBE / VISUM / VISSIM / SIDRA / SYNCHRO.
+ */
+export function buildEditionCode(input: {
+  courseCode: string | null | undefined;
+  journeyKind: JourneyKind;
+  isSplitCourse: boolean;
+}) {
+  const prefix = editionPrefixOf(input.courseCode);
+  if (!prefix) return null;
+
+  if (!input.isSplitCourse) return prefix;
+
+  if (input.journeyKind === "fundamental") return `${prefix}-F`;
+  if (input.journeyKind === "advanced") return `${prefix}-A`;
+  if (input.journeyKind === "integrated") return `${prefix}-F+A`;
+  // يوم واحد في كورس بمرحلتين: بدون مرحلة
+  return prefix;
+}
+
+/** مرحلة الدفعة: من نوع الرحلة إن كان أساسيات/متقدم، وإلا من رمز الإصدار. */
+export function stageOfPayment(r: {
+  journey_kind: string | null;
+  edition_code: string | null;
+}): CourseStage {
+  if (r.journey_kind === "fundamental" || r.journey_kind === "advanced") {
+    return r.journey_kind;
+  }
+  return stageOfEdition(r.edition_code);
 }
 
 export type JourneyLabel = "أساسيات" | "متقدم" | "رحلة يوم واحد" | "كورس كامل";
@@ -83,7 +170,7 @@ export function journeyLabelOf(r: {
   edition_code: string | null;
 }): JourneyLabel {
   if (r.journey_kind === "one_day") return "رحلة يوم واحد";
-  const stage = stageOfEdition(r.edition_code);
+  const stage = stageOfPayment(r);
   if (stage === "fundamental") return "أساسيات";
   if (stage === "advanced") return "متقدم";
   return "كورس كامل";
@@ -205,9 +292,11 @@ export function derivePaymentStatus(
 export function courseCodeFromEdition(edition: string | null | undefined) {
   const code = String(edition ?? "").trim().toUpperCase();
   if (!code) return null;
-  const head = code.split(/[-.\s]/)[0].replace(/\d+$/, "");
-  if (head === "PD") return "SPD";
-  return head || null;
+  const head = code.split(/[-.\s+]/)[0].replace(/\d+$/, "");
+  const byPrefix = Object.entries(EDITION_PREFIX_BY_COURSE).find(
+    ([, prefix]) => prefix === head,
+  );
+  return byPrefix ? byPrefix[0] : head || null;
 }
 
 export function monthKey(date: string | null | undefined) {

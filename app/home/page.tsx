@@ -14,6 +14,7 @@ import StudentProjects from "@/sections/StudentProjects";
 import TestimonialsFromDB from "@/sections/TestimonialsFromDB";
 import Partners from "@/sections/Partners";
 import FinalCTA from "@/sections/FinalCTA";
+import FitToHeight from "@/components/common/FitToHeight";
 
 const sectionContent = {
   paths: {
@@ -75,51 +76,65 @@ export default function Home() {
   const [activeSection, setActiveSection] =
     useState<SectionKey>("paths");
 
+  const sectionNavRef =
+    useRef<HTMLElement | null>(null);
+
   /*
-   * عند التمرير داخل الأقسام يصغر الغلاف قليلًا
-   * (يبقى ظاهرًا مع الهيدر والإعلانات) ليأخذ المحتوى مساحة أكبر.
+   * على الموبايل شريط الأقسام يُسحب أفقيًا:
+   * نحرّكه تلقائيًا حتى يبقى زر القسم الحالي ظاهرًا في المنتصف.
    */
-  const [heroCompact, setHeroCompact] =
-    useState(false);
-
   useEffect(() => {
-    const mainElement =
-      mainRef.current;
+    const nav =
+      sectionNavRef.current;
 
-    if (!mainElement) {
+    const activeButton =
+      nav?.querySelector<HTMLElement>(
+        `[data-nav-section="${activeSection}"]`,
+      );
+
+    if (!nav || !activeButton) {
       return;
     }
 
-    function handleScroll() {
-      setHeroCompact(
-        (mainElement?.scrollTop ?? 0) > 24,
-      );
-    }
+    const navRect =
+      nav.getBoundingClientRect();
+    const buttonRect =
+      activeButton.getBoundingClientRect();
 
-    mainElement.addEventListener(
-      "scroll",
-      handleScroll,
-      { passive: true },
-    );
-
-    return () =>
-      mainElement.removeEventListener(
-        "scroll",
-        handleScroll,
-      );
-  }, []);
+    nav.scrollBy({
+      left:
+        buttonRect.left +
+        buttonRect.width / 2 -
+        (navRect.left + navRect.width / 2),
+      behavior: "smooth",
+    });
+  }, [activeSection]);
 
   function scrollToSection(
     section: SectionKey,
   ) {
-    mainRef.current
-      ?.querySelector<HTMLElement>(
+    const mainElement =
+      mainRef.current;
+
+    const target =
+      mainElement?.querySelector<HTMLElement>(
         `[data-home-section="${section}"]`,
-      )
-      ?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+      );
+
+    if (!mainElement || !target) {
+      return;
+    }
+
+    // نحرّك منطقة الأقسام فقط (scrollIntoView كان يحرّك الصفحة كلها أحيانًا).
+    mainElement.scrollTo({
+      top:
+        mainElement.scrollTop +
+        target.getBoundingClientRect().top -
+        mainElement.getBoundingClientRect().top,
+      behavior: "smooth",
+    });
+
+    setActiveSection(section);
   }
 
   useEffect(() => {
@@ -203,11 +218,11 @@ export default function Home() {
       : "pointer-events-none translate-y-5 scale-[0.985] opacity-0";
 
   /*
-   * القسم يملأ منطقة العرض على الأقل، وإذا كان محتواه أطول
-   * (مثل الدعوة الأخيرة على الموبايل) يمتد بدل أن يُقص.
+   * كل قسم بارتفاع منطقة العرض بالضبط ويثبت عليها التمرير (بدون فراغات).
+   * FitToHeight يصغّر محتوى القسم إذا كان أطول من الشاشة، فيظهر كاملًا بدون تمرير داخلي.
    */
   const sectionClassName =
-    "flex min-h-full snap-start items-center overflow-x-hidden py-2";
+    "h-full snap-start snap-always overflow-hidden";
 
   const sectionContentClass = (
     section: SectionKey,
@@ -232,7 +247,7 @@ export default function Home() {
       </div>
 
       <div className="shrink-0">
-        <Hero compact={heroCompact} />
+        <Hero />
       </div>
 
       <div className="shrink-0">
@@ -244,34 +259,7 @@ export default function Home() {
         />
       </div>
 
-      <div className="relative min-h-0 flex-1">
-        {/* مؤشر الأقسام: يوضح أن هناك أقسامًا أخرى ويسمح بالانتقال إليها */}
-        <nav
-          aria-label="أقسام الصفحة"
-          className="absolute end-3 top-1/2 z-20 hidden -translate-y-1/2 flex-col gap-2 sm:flex"
-        >
-          {sectionKeys.map((key) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() =>
-                scrollToSection(key)
-              }
-              aria-label={
-                sectionContent[key].title
-              }
-              title={
-                sectionContent[key].title
-              }
-              className={`w-1.5 rounded-full transition-all duration-300 sm:w-2 ${
-                activeSection === key
-                  ? "h-5 bg-[#F7B548] sm:h-6"
-                  : "h-1.5 bg-slate-300 hover:bg-slate-400 sm:h-2"
-              }`}
-            />
-          ))}
-        </nav>
-
+      <div className="min-h-0 flex-1">
       <main
         ref={mainRef}
         className="
@@ -281,7 +269,7 @@ export default function Home() {
           overflow-x-hidden
           overflow-y-auto
           snap-y
-          snap-proximity
+          snap-mandatory
           scroll-smooth
           overscroll-contain
           bg-[#F7F8FA]
@@ -294,13 +282,13 @@ export default function Home() {
           data-home-section="paths"
           className={sectionClassName}
         >
-          <div
+          <FitToHeight
             className={sectionContentClass(
               "paths",
             )}
           >
             <CareerPaths />
-          </div>
+          </FitToHeight>
         </section>
 
         {/* Learning Modes */}
@@ -308,13 +296,13 @@ export default function Home() {
           data-home-section="learning"
           className={sectionClassName}
         >
-          <div
+          <FitToHeight
             className={sectionContentClass(
               "learning",
             )}
           >
             <LearningModes />
-          </div>
+          </FitToHeight>
         </section>
 
         {/* Why Masar */}
@@ -322,13 +310,13 @@ export default function Home() {
           data-home-section="why"
           className={sectionClassName}
         >
-          <div
+          <FitToHeight
             className={sectionContentClass(
               "why",
             )}
           >
             <WhyMasar />
-          </div>
+          </FitToHeight>
         </section>
 
         {/* Popular Courses */}
@@ -336,13 +324,13 @@ export default function Home() {
           data-home-section="popular"
           className={sectionClassName}
         >
-          <div
+          <FitToHeight
             className={sectionContentClass(
               "popular",
             )}
           >
             <PopularCourses />
-          </div>
+          </FitToHeight>
         </section>
 
         {/* Student Projects */}
@@ -350,13 +338,13 @@ export default function Home() {
           data-home-section="projects"
           className={sectionClassName}
         >
-          <div
+          <FitToHeight
             className={sectionContentClass(
               "projects",
             )}
           >
             <StudentProjects />
-          </div>
+          </FitToHeight>
         </section>
 
         {/* Testimonials */}
@@ -364,13 +352,13 @@ export default function Home() {
           data-home-section="testimonials"
           className={sectionClassName}
         >
-          <div
+          <FitToHeight
             className={sectionContentClass(
               "testimonials",
             )}
           >
             <TestimonialsFromDB />
-          </div>
+          </FitToHeight>
         </section>
 
         {/* Partners */}
@@ -378,13 +366,13 @@ export default function Home() {
           data-home-section="partners"
           className={sectionClassName}
         >
-          <div
+          <FitToHeight
             className={sectionContentClass(
               "partners",
             )}
           >
             <Partners />
-          </div>
+          </FitToHeight>
         </section>
 
         {/* Final CTA */}
@@ -392,16 +380,81 @@ export default function Home() {
           data-home-section="cta"
           className={sectionClassName}
         >
-          <div
+          <FitToHeight
             className={sectionContentClass(
               "cta",
             )}
           >
             <FinalCTA />
-          </div>
+          </FitToHeight>
         </section>
       </main>
       </div>
+
+      {/*
+        شريط التنقل بين الأقسام أسفل الصفحة:
+        زر لكل قسم، يضيء زر القسم الحالي، والضغط ينقل للقسم مباشرة.
+      */}
+      <nav
+        ref={sectionNavRef}
+        aria-label="أقسام الصفحة"
+        className="
+          shrink-0
+          overflow-x-auto
+          border-t
+          border-[#F7B548]/25
+          bg-[#07152E]
+          px-3
+          py-2
+          [scrollbar-width:none]
+          [&::-webkit-scrollbar]:hidden
+        "
+        style={{
+          paddingBottom:
+            "max(0.5rem, env(safe-area-inset-bottom))",
+        }}
+      >
+        <div className="mx-auto flex w-max items-center gap-1.5 sm:gap-2">
+          {sectionKeys.map((key) => {
+            const active =
+              activeSection === key;
+
+            return (
+              <button
+                key={key}
+                type="button"
+                data-nav-section={key}
+                aria-current={
+                  active ? "true" : undefined
+                }
+                onClick={() =>
+                  scrollToSection(key)
+                }
+                className={`
+                  whitespace-nowrap
+                  rounded-full
+                  border
+                  px-3
+                  py-1
+                  text-[12px]
+                  font-semibold
+                  transition-all
+                  duration-300
+                  sm:px-3.5
+                  sm:text-[13px]
+                  ${
+                    active
+                      ? "border-[#F7B548] bg-[#F7B548] text-[#07152E] shadow-[0_0_16px_rgba(247,181,72,.55)]"
+                      : "border-slate-200 bg-slate-100 text-[#07152E] hover:border-[#F7B548] hover:bg-white"
+                  }
+                `}
+              >
+                {sectionContent[key].title}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

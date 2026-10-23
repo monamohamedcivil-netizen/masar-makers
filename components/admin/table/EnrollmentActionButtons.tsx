@@ -18,6 +18,8 @@ interface EnrollmentActionButtonsProps {
   enrollmentId: string;
   status: string;
   needsPrice?: boolean;
+  /** متابعة مُدخلة مسبقًا في بيانات الدفع: تُستخدم بدل سؤال السبب والموعد عند القبول. */
+  draftFollowup?: { reason: string; date: string } | null;
   studentName?: string;
 }
 
@@ -25,6 +27,7 @@ export default function EnrollmentActionButtons({
   enrollmentId,
   status,
   needsPrice = false,
+  draftFollowup = null,
   studentName = "",
 }: EnrollmentActionButtonsProps) {
   const router = useRouter();
@@ -92,8 +95,17 @@ export default function EnrollmentActionButtons({
   };
 
   const handleApprove = () => {
-    if (needsPrice) {
+    if (needsPrice && !draftFollowup) {
       setShowFollowup(true);
+      return;
+    }
+
+    if (needsPrice && draftFollowup) {
+      const confirmed = window.confirm(
+        `لم تُسجَّل قيمة الاشتراك. سيتم القبول مع المتابعة المحددة في بيانات الدفع (${draftFollowup.date}). متابعة؟`,
+      );
+
+      if (confirmed) runApprove(draftFollowup);
       return;
     }
 

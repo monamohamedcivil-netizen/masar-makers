@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import {
   CalendarDays,
+  ChevronDown,
+  CircleCheck,
   Gift,
   GraduationCap,
   Mail,
@@ -20,6 +22,7 @@ import StatusBadge from "./StatusBadge";
 import EnrollmentActionButtons from "./EnrollmentActionButtons";
 import EnrollmentSourceSelect from "./EnrollmentSourceSelect";
 import EnrollmentPricingFields from "./EnrollmentPricingFields";
+import EnrollmentPaymentDraftForm from "./EnrollmentPaymentDraftForm";
 
 export interface EnrollmentRequestRow {
   id: string;
@@ -38,6 +41,7 @@ export interface EnrollmentRequestRow {
   subscriptionPrice: number | null;
   subscriptionCurrency: string;
   offerLabel: string;
+  paymentDraft: Record<string, unknown> | null;
 }
 
 interface EnrollmentRequestsTableProps {
@@ -54,6 +58,10 @@ const journeyLabels: Record<string, string> = {
   career_path: "رحلة احتراف متكاملة",
   career: "رحلة احتراف متكاملة",
   professional: "رحلة احتراف متكاملة",
+  integrated: "رحلة احتراف متكاملة",
+  fundamental: "رحلة الأساسيات",
+  fundamentals: "رحلة الأساسيات",
+  advanced: "رحلة المتقدم",
   workshop: "رحلة اليوم الواحد",
   one_day: "رحلة اليوم الواحد",
   one_day_journey: "رحلة اليوم الواحد",
@@ -161,6 +169,10 @@ export default function EnrollmentRequestsTable({
 
   const [statusFilter, setStatusFilter] =
     useState("all");
+
+  // الصف المفتوح لإدخال بيانات الدفع.
+  const [openPaymentId, setOpenPaymentId] =
+    useState<string | null>(null);
 
   const tabCounts = useMemo(() => {
     return requests.reduce<
@@ -423,11 +435,12 @@ export default function EnrollmentRequestsTable({
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1800px] text-right">
-            <thead className="bg-slate-50">
+        // رأس الجدول وعمود الطالب ثابتان أثناء التمرير لسهولة التنقل.
+        <div className="max-h-[75vh] overflow-auto">
+          <table className="w-full min-w-[1700px] text-right">
+            <thead className="sticky top-0 z-20 bg-slate-50 shadow-[0_1px_0_#E2E8F0]">
               <tr className="border-b border-slate-200">
-                <th className="px-5 py-4 text-xs font-black text-slate-500">
+                <th className="sticky right-0 z-30 bg-slate-50 px-5 py-4 text-xs font-black text-slate-500 shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.2)]">
                   الطالب
                 </th>
 
@@ -456,6 +469,10 @@ export default function EnrollmentRequestsTable({
                 </th>
 
                 <th className="px-5 py-4 text-xs font-black text-slate-500">
+                  بيانات الدفع
+                </th>
+
+                <th className="px-5 py-4 text-xs font-black text-slate-500">
                   تاريخ الطلب
                 </th>
 
@@ -471,12 +488,33 @@ export default function EnrollmentRequestsTable({
 
             <tbody>
               {filteredRequests.map(
-                (request) => (
+                (request) => {
+                  const isPendingRequest =
+                    request.status.toLowerCase() === "pending";
+                  const draft = request.paymentDraft ?? {};
+                  const hasDraft = Object.values(draft).some(
+                    (value) => value !== null && value !== "" && value !== false,
+                  );
+                  const paymentOpen = openPaymentId === request.id;
+                  const draftFollowup =
+                    draft.needs_followup &&
+                    typeof draft.followup_reason === "string" &&
+                    typeof draft.followup_date === "string"
+                      ? {
+                          reason: draft.followup_reason,
+                          date: draft.followup_date,
+                        }
+                      : null;
+
+                  return (
+                  <Fragment key={request.id}>
                   <tr
-                    key={request.id}
-                    className="border-b border-slate-100 transition last:border-b-0 hover:bg-slate-50/70"
+                    className={`group border-b border-slate-100 transition last:border-b-0 hover:bg-slate-50 ${
+                      paymentOpen ? "bg-amber-50/40" : ""
+                    }`}
                   >
-                    <td className="px-5 py-4">
+                    <td className="sticky right-0 z-10 bg-white px-5 py-4 shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.2)] group-hover:bg-slate-50">
+
                       <div className="flex items-start gap-3">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#07152E] font-bold text-[#F7B548]">
                           {request.studentName
@@ -574,6 +612,34 @@ export default function EnrollmentRequestsTable({
                     />
 
                     <td className="px-5 py-4">
+                      {isPaidRequest(request) && isPendingRequest ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenPaymentId(paymentOpen ? null : request.id)
+                          }
+                          className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-2 text-xs font-bold transition ${
+                            hasDraft
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                              : "border-[#F7B548]/60 bg-white text-[#07152E] hover:bg-amber-50"
+                          }`}
+                        >
+                          {hasDraft ? (
+                            <CircleCheck className="h-4 w-4" />
+                          ) : null}
+                          {hasDraft ? "تم الإدخال" : "إدخال بيانات الدفع"}
+                          <ChevronDown
+                            className={`h-4 w-4 transition ${paymentOpen ? "rotate-180" : ""}`}
+                          />
+                        </button>
+                      ) : (
+                        <span className="text-xs text-slate-400">
+                          {isPaidRequest(request) ? "في جدول المدفوعات" : "—"}
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="px-5 py-4">
                       <span className="flex items-center gap-2 text-sm text-slate-600">
                         <CalendarDays className="h-4 w-4 text-slate-400" />
 
@@ -605,11 +671,27 @@ export default function EnrollmentRequestsTable({
                             (request.subscriptionPrice ?? 0) > 0
                           )
                         }
+                        draftFollowup={draftFollowup}
                         studentName={request.studentName}
                       />
                     </td>
                   </tr>
-                ),
+
+                  {paymentOpen ? (
+                    <tr className="border-b border-slate-100 bg-amber-50/30">
+                      <td colSpan={11} className="px-5 py-3">
+                        <div className="sticky right-5 max-w-[calc(100vw-22rem)]">
+                          <EnrollmentPaymentDraftForm
+                            enrollmentId={request.id}
+                            initialDraft={request.paymentDraft}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                  </Fragment>
+                  );
+                },
               )}
             </tbody>
           </table>

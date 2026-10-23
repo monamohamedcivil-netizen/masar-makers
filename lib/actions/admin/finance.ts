@@ -11,6 +11,10 @@ import {
   DEFAULT_RATES,
   derivePaymentStatus,
   normalizeCurrency,
+  normalizeJourneyKind,
+  buildEditionCode,
+  editionPrefixOf,
+  type JourneyKind,
   toEgp,
   classifyExpense,
   type BillingPeriod,
@@ -108,7 +112,7 @@ function buildPaymentPatch(
     out.amount_total = patch.amount_total === "" || patch.amount_total == null ? null : asNumber(patch.amount_total);
   if ("amount_paid" in patch) out.amount_paid = asNumber(patch.amount_paid);
   if ("journey_kind" in patch)
-    out.journey_kind = patch.journey_kind === "one_day" ? "one_day" : "integrated";
+    out.journey_kind = normalizeJourneyKind(patch.journey_kind);
   if ("delivery_type" in patch)
     out.delivery_type =
       patch.delivery_type === "recorded" || patch.delivery_type === "interactive"
@@ -767,6 +771,104 @@ export async function saveEnrollmentPricing(
   }
 }
 
+/* ============================ بيانات الدفع قبل القبول ============================ */
+
+/**
+ * بيانات الدفع التي تُملأ في جدول طلبات الاشتراك قبل القبول،
+ * وتُنقل كما هي إلى جدول المدفوعات عند قبول الطلب.
+ * (السعر بعد الخصم والعملة والعرض محفوظة في أعمدة الطلب نفسها.)
+ */
+export interface EnrollmentPaymentDraft {
+  edition_code?: string | null;
+  delivery_type?: "recorded" | "interactive" | null;
+  list_price?: number | null;
+  amount_paid?: number | null;
+  payment_status?: PaymentStatus | null;
+  paid_at?: string | null;
+  notes?: string | null;
+  needs_followup?: boolean;
+  followup_date?: string | null;
+  followup_reason?: string | null;
+}
+
+function sanitizePaymentDraft(
+  input: Record<string, unknown>,
+): EnrollmentPaymentDraft {
+  const optionalNumber = (v: unknown) =>
+    v === "" || v == null ? null : asNumber(v);
+
+  const needsFollowup = Boolean(input.needs_followup);
+
+  return {
+    edition_code: asText(input.edition_code),
+    delivery_type:
+      input.delivery_type === "recorded" || input.delivery_type === "interactive"
+        ? input.delivery_type
+        : null,
+    list_price: optionalNumber(input.list_price),
+    amount_paid: optionalNumber(input.amount_paid),
+    payment_status: ["paid", "partial", "unpaid"].includes(String(input.payment_status))
+      ? (input.payment_status as PaymentStatus)
+      : null,
+    paid_at: asDate(input.paid_at),
+    notes: asText(input.notes),
+    needs_followup: needsFollowup,
+    followup_date: needsFollowup ? asDate(input.followup_date) : null,
+    followup_reason: needsFollowup ? asText(input.followup_reason) : null,
+  };
+}
+
+export async function saveEnrollmentPaymentDraft(
+  enrollmentId: string,
+  input: Record<string, unknown>,
+): Promise<FinanceActionResult<EnrollmentPaymentDraft>> {
+  try {
+    await requireAdmin();
+    const admin = createAdminClient();
+
+    const draft = sanitizePaymentDraft(input);
+
+    if (draft.needs_followup && !(draft.followup_reason && draft.followup_date)) {
+      throw new Error("اكتب سبب المتابعة وحدّد موعدها.");
+    }
+
+    const { error } = await admin
+      .from("enrollments")
+      .update({ payment_draft: draft })
+      .eq("id", enrollmentId);
+    if (error) throw new Error(error.message);
+
+    revalidatePath("/admin/students/enrollment-requests");
+    return { success: true, data: draft };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/** رمز الإصدار التلقائي حسب نوع الاشتراك (C3D-F / C3D-A / C3D-F+A / VT ...). */
+async function suggestEditionCode(
+  admin: ReturnType<typeof createAdminClient>,
+  courseCode: string | null,
+  journeyKind: JourneyKind,
+): Promise<string | null> {
+  if (!editionPrefixOf(courseCode)) return null;
+
+  // كورس بمرحلتين (أساسيات / متقدم) حسب courses.level.
+  const { data: courseRow } = await admin
+    .from("courses")
+    .select("level")
+    .eq("course_code", courseCode)
+    .limit(1)
+    .maybeSingle();
+
+  return buildEditionCode({
+    courseCode,
+    journeyKind,
+    isSplitCourse:
+      String(courseRow?.level ?? "").toLowerCase() === "split",
+  });
+}
+
 /* ============================ إنشاء سجل الدفع عند القبول ============================ */
 
 const FREE_JOURNEYS = new Set(["free", "free_session", "free_journey"]);
@@ -779,14 +881,17 @@ export async function createPaymentForEnrollment(
     await requireAdmin();
     const admin = createAdminClient();
 
+    // select("*") حتى يعمل الكود قبل وبعد إضافة عمود payment_draft.
     const { data: enrollment } = await admin
       .from("enrollments")
-      .select(
-        "id,user_id,course_id,student_name,student_email,journey_type,enrollment_source,subscription_price,subscription_currency,offer_label",
-      )
+      .select("*")
       .eq("id", enrollmentId)
       .maybeSingle();
     if (!enrollment) throw new Error("طلب الاشتراك غير موجود");
+
+    const draft = sanitizePaymentDraft(
+      (enrollment.payment_draft ?? {}) as Record<string, unknown>,
+    );
 
     const journey = String(enrollment.journey_type ?? "")
       .toLowerCase()
@@ -846,8 +951,51 @@ export async function createPaymentForEnrollment(
     const currency = normalizeCurrency(enrollment.subscription_currency);
     const profileRow = (profile ?? {}) as Record<string, unknown>;
 
-    const followupDate = !price && followup ? asDate(followup.date) : null;
-    const followupReason = !price && followup ? asText(followup.reason) : null;
+    /*
+     * بيانات التسجيل (الاسم بالإنجليزي، الهاتف، بلد الإقامة) تُحفظ أيضًا مع الحساب
+     * في Supabase Auth؛ نستخدمها إذا كانت ناقصة في جدول profiles.
+     */
+    let authMeta: Record<string, unknown> = {};
+    let authEmail: string | null = null;
+    if (enrollment.user_id) {
+      const { data: authUser } = await admin.auth.admin.getUserById(
+        String(enrollment.user_id),
+      );
+      authMeta = (authUser?.user?.user_metadata ?? {}) as Record<string, unknown>;
+      authEmail = authUser?.user?.email ?? null;
+    }
+
+    const firstText = (...values: unknown[]) => {
+      for (const v of values) {
+        const t = asText(v);
+        if (t) return t;
+      }
+      return null;
+    };
+
+    const journeyKind = normalizeJourneyKind(journey);
+    const editionCode =
+      draft.edition_code ??
+      (await suggestEditionCode(admin, course?.course_code ?? null, journeyKind));
+
+    // المتابعة: المحددة في بيانات الدفع بالجدول، أو المطلوبة عند القبول بدون سعر.
+    const followupDate = draft.needs_followup
+      ? draft.followup_date ?? null
+      : !price && followup
+        ? asDate(followup.date)
+        : null;
+    const followupReason = draft.needs_followup
+      ? draft.followup_reason ?? null
+      : !price && followup
+        ? asText(followup.reason)
+        : null;
+
+    const amountPaid = isReward
+      ? 0
+      : draft.amount_paid ?? price;
+    const paymentStatus: PaymentStatus = isReward
+      ? "paid"
+      : draft.payment_status ?? derivePaymentStatus(price || null, amountPaid);
 
     const offerLabel = asText(enrollment.offer_label);
     let offerId: string | null = null;
@@ -860,28 +1008,43 @@ export async function createPaymentForEnrollment(
       offerId = offer?.id ? String(offer.id) : null;
     }
 
-    const { error } = await admin.from("finance_payments").insert({
+    const row = {
       enrollment_id: enrollmentId,
       user_id: enrollment.user_id,
       course_id: course?.id ?? null,
       course_code: course?.course_code ?? null,
       student_name:
-        asText(profileRow.full_name) ?? asText(enrollment.student_name) ?? "طالب",
-      certificate_name: asText(profileRow.full_name_en) ?? null,
-      email: asText(profileRow.email) ?? asText(enrollment.student_email),
-      phone: asText(profileRow.phone) ?? asText(profileRow.phone_number),
-      country: asText(profileRow.country),
+        firstText(profileRow.full_name, enrollment.student_name, authMeta.full_name) ??
+        "طالب",
+      certificate_name: firstText(
+        profileRow.full_name_en,
+        enrollment.student_name_en,
+        enrollment.student_name_on_certificate,
+        authMeta.full_name_en,
+      ),
+      email: firstText(profileRow.email, enrollment.student_email, authEmail),
+      phone: firstText(
+        profileRow.phone,
+        profileRow.phone_number,
+        profileRow.whatsapp_number,
+        authMeta.phone,
+      ),
+      nationality: firstText(profileRow.nationality, authMeta.nationality),
+      country: firstText(profileRow.country, profileRow.country_name, authMeta.country),
       offer_id: offerId,
       offer_label: offerLabel,
+      edition_code: editionCode,
+      delivery_type: draft.delivery_type ?? null,
+      list_price: isReward ? null : draft.list_price ?? null,
       currency,
       amount_total: price || null,
-      amount_paid: price,
-      amount_egp: toEgp(price, currency, rates),
-      payment_status: price || isReward ? "paid" : "unpaid",
-      journey_kind: ["workshop", "one_day", "one_day_journey"].includes(journey)
-        ? "one_day"
-        : "integrated",
-      paid_at: new Date().toISOString().slice(0, 10),
+      amount_paid: amountPaid,
+      amount_egp: toEgp(amountPaid, currency, rates),
+      payment_status: paymentStatus,
+      // نوع الرحلة الفعلي من طلب الاشتراك: أساسيات / متقدم / متكاملة / يوم واحد.
+      journey_kind: journeyKind,
+      paid_at: draft.paid_at ?? new Date().toISOString().slice(0, 10),
+      notes: draft.notes ?? null,
       followup_date: followupDate,
       followup_reason: followupReason,
       source: "enrollment",
@@ -893,7 +1056,16 @@ export async function createPaymentForEnrollment(
             notes: rewardReason,
           }
         : {}),
-    });
+    };
+
+    let { error } = await admin.from("finance_payments").insert(row);
+
+    // قبل تطبيق migration 20261028 يقبل الجدول "integrated" / "one_day" فقط.
+    if (error?.code === "23514" && row.journey_kind !== "one_day") {
+      ({ error } = await admin
+        .from("finance_payments")
+        .insert({ ...row, journey_kind: "integrated" }));
+    }
     if (error) throw new Error(error.message);
 
     refresh();

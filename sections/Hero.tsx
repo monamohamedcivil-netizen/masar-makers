@@ -26,20 +26,13 @@ const heroText = {
 
   en: {
     description:
-      "Practical learning journeys that take you from design to distinction, and from knowledge to professional mastery.",
+      "Practical journeys from design to distinction, and from knowledge to mastery.",
     start: "Start Your Journey",
     explore: "Explore Career Paths",
   },
 } as const;
 
-type HeroProps = {
-  /* نسخة أقصر من الغلاف أثناء التمرير داخل أقسام /home */
-  compact?: boolean;
-};
-
-export default function Hero({
-  compact = false,
-}: HeroProps) {
+export default function Hero() {
   const [locale, setLocale] =
     useState<Locale>("ar");
 
@@ -99,13 +92,10 @@ export default function Hero({
         dir={locale === "ar" ? "rtl" : "ltr"}
         className={`
           relative
-          ${compact ? "h-[84px]" : "h-[112px]"}
+          h-[100px]
           w-full
           overflow-hidden
           bg-[#07152E]
-          transition-[height]
-          duration-500
-          ease-out
           lg:hidden
         `}
       >
@@ -230,9 +220,7 @@ export default function Hero({
                 justify-center
                 gap-1.5
                 overflow-hidden
-                transition-all
-                duration-500
-                ${compact ? "mt-0 max-h-0 opacity-0" : "mt-1.5 max-h-10 opacity-100"}
+                mt-1.5
               `}
             >
               <AuthLink href="/dashboard">
@@ -314,11 +302,8 @@ export default function Hero({
         className={`
           relative
           hidden
-          ${compact ? "h-[152px]" : "h-[200px]"}
+          h-[160px]
           overflow-hidden
-          transition-[height]
-          duration-500
-          ease-out
           lg:block
         `}
       >
@@ -373,6 +358,7 @@ export default function Hero({
                 <h1
                   className="
                     whitespace-nowrap
+                    [text-wrap:nowrap]!
                     text-[18px]
                     font-black
                     leading-tight
@@ -393,7 +379,7 @@ export default function Hero({
                       Don&apos;t just take a course ...{" "}
 
                       <span className="text-[#F7B548]">
-                        Build your professional journey with confidence
+                        Build your professional journey
                       </span>
                     </>
                   )}
@@ -412,7 +398,7 @@ export default function Hero({
                   {text.description}
                 </p>
 
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <AuthLink href="/dashboard">
                     <button
                       className="

@@ -437,6 +437,11 @@ const exactEnglish: Record<string, string> = {
   "لا توجد رحلات يوم واحد في هذه المحطة": "There are no one-day journeys in this station",
   "ابدأ الآن": "Start Now",
   "استكمل": "Continue",
+  "ابدأ": "Start",
+  "فيديو": "Video",
+  "مشروع تطبيقي": "Applied Project",
+  "تنفيذ المتدرب": "Built by",
+  "محتوى المشروع": "Project Content",
   "مشاهدة": "Watch",
   "لا توجد رحلات مجانية بعد": "No Free Journeys Yet",
   "ستظهر هنا المحاضرات التي حددتها الإدارة كرحلات مجانية.": "Lectures selected by administration as free journeys will appear here.",
@@ -581,6 +586,9 @@ function translatePattern(normalized: string): string | null {
 
   match = normalized.match(/^(\d+)\s+صور$/);
   if (match) return `${match[1]} ${Number(match[1]) === 1 ? "image" : "images"}`;
+
+  match = normalized.match(/^(\d+)\s+صور\s*\+\s*فيديو$/);
+  if (match) return `${match[1]} ${Number(match[1]) === 1 ? "image" : "images"} + video`;
 
   match = normalized.match(/^(\d+)\s+شهادات?$/);
   if (match) return `${match[1]} ${Number(match[1]) === 1 ? "certificate" : "certificates"}`;

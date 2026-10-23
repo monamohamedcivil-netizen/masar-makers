@@ -88,7 +88,7 @@ const tracks: Track[] = [
   {
     title: {
       ar: "هندسة وتصميم الطرق",
-      en: "Road Design Engineering",
+      en: "Road Design",
     },
     courses: [
       {
@@ -813,15 +813,16 @@ export default function MasarLanding() {
           </p>
         </div>
 
-        <div className="absolute left-[3%] top-[12%] z-20 hidden text-center text-[#F7B548] md:block md:left-[7%] lg:left-[13%]">
-          <p className="text-[13px] font-black sm:text-lg lg:text-3xl">
+        {/* أسماء المسارات: خط أصغر وأقرب للحافة على الشاشات المتوسطة حتى لا تدخل تحت إطار الفيديو */}
+        <div className="absolute left-[3%] top-[12%] z-20 hidden text-center text-[#F7B548] md:block md:left-[5%] lg:left-[6%] 2xl:left-[11%]">
+          <p className="whitespace-nowrap text-[13px] font-black sm:text-lg lg:text-[22px] xl:text-[26px] 2xl:text-3xl">
             {tracks[1].title[locale]}
           </p>
           <div className="mx-auto mt-2 h-0.5 w-[clamp(55px,7vw,120px)] bg-[#F7B548]" />
         </div>
 
         <div className="absolute right-[3%] top-[12%] z-20 hidden text-center text-[#F7B548] md:block md:right-[5%] lg:right-[6%]">
-          <p className="text-[13px] font-black sm:text-lg lg:text-3xl">
+          <p className="whitespace-nowrap text-[13px] font-black sm:text-lg lg:text-[22px] xl:text-[26px] 2xl:text-3xl">
             {tracks[0].title[locale]}
           </p>
           <div className="mx-auto mt-2 h-0.5 w-[clamp(55px,7vw,120px)] bg-[#F7B548]" />

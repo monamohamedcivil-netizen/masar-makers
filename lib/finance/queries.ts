@@ -8,7 +8,8 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { computeExpenseTotals } from "./expense-calc";
 import {
   DEFAULT_RATES,
-  stageOfEdition,
+  normalizeJourneyKind,
+  stageOfPayment,
   type BillingPeriod,
   type ExpenseCategory,
   type FinanceService,
@@ -53,7 +54,7 @@ const num = (v: unknown) => {
 export function mapPayment(row: Record<string, unknown>): FinancePayment {
   return {
     ...(row as unknown as FinancePayment),
-    journey_kind: row.journey_kind === "one_day" ? "one_day" : "integrated",
+    journey_kind: normalizeJourneyKind(row.journey_kind),
     list_price: row.list_price == null ? null : num(row.list_price),
     amount_total: row.amount_total == null ? null : num(row.amount_total),
     amount_paid: num(row.amount_paid),
@@ -177,7 +178,7 @@ export async function applyAutoFlags(
     ];
 
     // الكورس بمرحلتين: الشهادة تُقرأ للمرحلة نفسها (أساسيات / متقدم).
-    const stage = stageOfEdition(p.edition_code);
+    const stage = stageOfPayment(p);
     const certKeysToCheck =
       stage === "other" ? keys : keys.map((k) => `${k}|${stage}`);
 
