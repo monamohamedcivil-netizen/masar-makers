@@ -3,6 +3,7 @@ import {
   createAdminClient,
 } from "@/lib/supabase/server";
 import { getMasarPassport } from "@/lib/dashboard/masar-passport";
+import { createResourceDownloadToken } from "@/lib/lesson-resources/download-token";
 import type { EnrollmentStatus } from "@/lib/actions/enroll";
 import {
   buildSharedJourneys,
@@ -34,7 +35,8 @@ export type StudentDownloadResource = {
   id: string;
   title: string;
   resourceType: string | null;
-  downloadUrl: string;
+  /** Ticket for getLessonResourceDownloadUrl (link is created on click). */
+  downloadToken: string;
 };
 
 export type StudentStationLesson = {
@@ -1289,67 +1291,22 @@ pdfUrl:
     ...((sectionResourcesResult.data ?? []) as ResourceRow[]),
   ];
 
-  const signedResourceRows = await Promise.all(
-    resourceRows.map(async (row) => {
-      const filePath = row.file_path?.trim();
-      if (!filePath) return null;
+  // No Supabase request here: each attachment gets a local signed ticket for the viewer;
+  // the real download link is created only when the student presses «تحميل».
+  const signedResourceRows = resourceRows.map((row) => {
+    const filePath = row.file_path?.trim();
+    if (!filePath) return null;
 
-      const resourceTitle =
-  row.title?.trim() || "مرفق";
-
-const storedFileName =
-  filePath.split("/").pop() ?? "";
-
-const extensionMatch =
-  storedFileName.match(
-    /(\.[^./\\]+)$/,
-  );
-
-const extension =
-  extensionMatch?.[1] ?? "";
-
-const downloadFileName =
-  extension &&
-  !resourceTitle
-    .toLowerCase()
-    .endsWith(
-      extension.toLowerCase(),
-    )
-    ? `${resourceTitle}${extension}`
-    : resourceTitle;
-
-const { data: signedData, error: signedError } =
-  await adminSupabase.storage
-    .from("lesson-resources")
-    .createSignedUrl(
-      filePath,
-      10 * 60,
-      {
-        download:
-          downloadFileName,
-      },
-    );
-
-      if (signedError || !signedData?.signedUrl) {
-        console.error(
-          "Failed to sign lesson resource:",
-          row.id,
-          signedError?.message,
-        );
-        return null;
-      }
-
-      return {
-        row,
-        resource: {
-          id: row.id,
-          title: row.title?.trim() || "مرفق",
-          resourceType: row.resource_type ?? null,
-          downloadUrl: signedData.signedUrl,
-        } satisfies StudentDownloadResource,
-      };
-    }),
-  );
+    return {
+      row,
+      resource: {
+        id: row.id,
+        title: row.title?.trim() || "مرفق",
+        resourceType: row.resource_type ?? null,
+        downloadToken: createResourceDownloadToken(row.id, user.id),
+      } satisfies StudentDownloadResource,
+    };
+  });
 
   const lessonResourcesMap =
     new Map<string, StudentDownloadResource[]>();
@@ -2130,7 +2087,11 @@ const { data: signedData, error: signedError } =
               access: accessState.access,
               enrollmentStatus: accessState.enrollmentStatus,
               progressPercent: partProgressPercent,
-              resources: sectionResources,
+              // Attachment tickets only for parts the student can open (the screen shows them only then).
+              resources:
+                accessState.access === "active"
+                  ? sectionResources
+                  : [],
               lessons: partLessonRows,
             };
           });

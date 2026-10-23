@@ -19,6 +19,7 @@ import {
   Sparkles,
   Target,
 } from "lucide-react";
+import ResourceDownloadLink from "@/components/student/resources/ResourceDownloadLink";
 
 import type {
   StudentCareerPathProgress,
@@ -871,18 +872,18 @@ function StationLearningView({
                 {part.access === "active" && part.resources.length ? (
                   <div className="flex items-center gap-1.5">
                     {part.resources.map((resource) => (
-                      <a
+                      <ResourceDownloadLink
                         key={resource.id}
-                        href={resource.downloadUrl}
+                        token={resource.downloadToken}
                         title={isArabic ? `تحميل ${resource.title}` : `Download ${resource.title}`}
-                        aria-label={isArabic ? `تحميل ${resource.title}` : `Download ${resource.title}`}
+                        ariaLabel={isArabic ? `تحميل ${resource.title}` : `Download ${resource.title}`}
                         className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#F7B548] px-2.5 text-[9px] font-black text-[#07152E] transition hover:bg-[#FFD078]"
                       >
                         <Download size={13} />
                         <span className="hidden sm:inline">
                           {resource.title}
                         </span>
-                      </a>
+                      </ResourceDownloadLink>
                     ))}
                   </div>
                 ) : null}
@@ -954,15 +955,15 @@ className="grid grid-cols-[34px_minmax(0,1fr)_auto_105px] items-center gap-3 px-
                       {lesson.resources.length ? (
                         <div className="flex items-center justify-end gap-1">
                           {lesson.resources.map((resource) => (
-                            <a
+                            <ResourceDownloadLink
                               key={resource.id}
-                              href={resource.downloadUrl}
+                              token={resource.downloadToken}
                               title={isArabic ? `تحميل ${resource.title}` : `Download ${resource.title}`}
-                              aria-label={isArabic ? `تحميل ${resource.title}` : `Download ${resource.title}`}
+                              ariaLabel={isArabic ? `تحميل ${resource.title}` : `Download ${resource.title}`}
                               className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#F7B548]/55 bg-[#FFF8EA] text-[#B87508] transition hover:border-[#F7B548] hover:bg-[#F7B548] hover:text-[#07152E]"
                             >
                               <Download size={14} />
-                            </a>
+                            </ResourceDownloadLink>
                           ))}
                         </div>
                       ) : (
