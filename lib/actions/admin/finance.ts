@@ -14,6 +14,7 @@ import {
   normalizeJourneyKind,
   buildEditionCode,
   editionPrefixOf,
+  normalizeEditionCode,
   type JourneyKind,
   toEgp,
   classifyExpense,
@@ -1100,7 +1101,8 @@ const firstEmail = (v: unknown) => {
 const paymentKey = (p: Record<string, unknown>) =>
   [
     firstEmail(p.email) || String(p.student_name ?? "").trim().toLowerCase(),
-    String(p.edition_code ?? "").trim().toLowerCase(),
+    // Old Excel codes (CSD-F2) and the new ones (CSD-F) count as the same edition.
+    String(normalizeEditionCode(String(p.edition_code ?? "")) ?? "").toLowerCase(),
     String(p.paid_at ?? ""),
     Math.round(asNumber(p.amount_paid) * 100),
   ].join("|");

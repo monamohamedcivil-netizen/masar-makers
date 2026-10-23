@@ -2,6 +2,7 @@
 import {
   courseCodeFromEdition,
   normalizeCurrency,
+  normalizeEditionCode,
 } from "./shared";
 
 export interface ParsedImport {
@@ -137,7 +138,7 @@ export async function parseFinanceWorkbook(file: File): Promise<ParsedImport> {
             .join("\n");
 
       payments.push({
-        edition_code: edition,
+        edition_code: normalizeEditionCode(edition),
         course_code: courseCodeFromEdition(edition),
         delivery_type: /record/i.test(String(at(row, idx.type) ?? ""))
           ? "recorded"
