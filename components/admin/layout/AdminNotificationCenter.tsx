@@ -227,7 +227,10 @@ export default function AdminNotificationCenter() {
   }, [loadNotifications]);
 
   useEffect(() => {
+    let lastRefresh = Date.now();
     const refresh = () => {
+      if (Date.now() - lastRefresh < 15_000) return;
+      lastRefresh = Date.now();
       void loadNotifications();
     };
 
@@ -242,10 +245,13 @@ export default function AdminNotificationCenter() {
   }, [loadNotifications]);
 
   useEffect(() => {
+    // Every minute while the admin tab is visible (was every 20 s, even in background tabs).
+    // Coming back to the tab refreshes right away (focus listener above).
     const timer =
       window.setInterval(() => {
+        if (document.visibilityState === "hidden") return;
         void loadNotifications();
-      }, 20_000);
+      }, 60_000);
 
     return () => {
       window.clearInterval(timer);
