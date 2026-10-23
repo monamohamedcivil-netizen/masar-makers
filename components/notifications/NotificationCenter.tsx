@@ -231,8 +231,14 @@ export default function NotificationCenter() {
   }, [loadNotifications]);
 
   useEffect(() => {
-    const refresh = () =>
+    // focus + visibilitychange fire together when returning to the tab:
+    // refresh at most once a minute instead of twice each time.
+    let lastRefresh = Date.now();
+    const refresh = () => {
+      if (Date.now() - lastRefresh < 60_000) return;
+      lastRefresh = Date.now();
       void loadNotifications();
+    };
 
     const handleVisibilityChange =
       () => {
