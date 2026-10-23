@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import AdminPageHeader from "@/components/admin/layout/AdminPageHeader";
+import { getInternalPaymentMatcher } from "@/lib/admin/internal-accounts";
 import { getAdminDashboardStats } from "@/lib/queries/admin-dashboard";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 
@@ -36,18 +37,21 @@ export default async function DashboardPage() {
   const todayIso = new Date().toISOString().slice(0, 10);
   const { data: followupRows } = await createAdminClient()
     .from("finance_payments")
-    .select("id,student_name,course_code,followup_date,followup_reason")
+    .select("id,student_name,course_code,followup_date,followup_reason,user_id,email")
     .eq("followup_done", false)
     .not("followup_date", "is", null)
     .order("followup_date", { ascending: true })
     .limit(200);
-  const followups = (followupRows ?? []) as Array<{
+  const isInternalPayment = await getInternalPaymentMatcher();
+  const followups = ((followupRows ?? []) as Array<{
+    user_id: string | null;
+    email: string | null;
     id: string;
     student_name: string | null;
     course_code: string | null;
     followup_date: string;
     followup_reason: string | null;
-  }>;
+  }>).filter((f) => !isInternalPayment(f)); // فريق العمل لا يظهر في المتابعات
   const dueFollowups = followups.filter((f) => f.followup_date <= todayIso);
   const followupPeople = new Set(
     followups.map((f) => (f.student_name ?? f.id).trim()),

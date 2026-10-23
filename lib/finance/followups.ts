@@ -1,3 +1,4 @@
+import { getInternalPaymentMatcher } from "@/lib/admin/internal-accounts";
 import { createAdminClient } from "@/lib/supabase/server";
 
 /**
@@ -11,7 +12,7 @@ export async function dispatchDueFollowups() {
 
     const { data: due } = await admin
       .from("finance_payments")
-      .select("id,student_name,followup_reason")
+      .select("id,student_name,followup_reason,user_id,email")
       .eq("followup_done", false)
       .is("followup_notified_at", null)
       .not("followup_date", "is", null)
@@ -19,6 +20,9 @@ export async function dispatchDueFollowups() {
       .limit(50);
 
     if (!due || due.length === 0) return;
+
+    // فريق العمل لا يُنبَّه بمتابعتهم.
+    const isInternal = await getInternalPaymentMatcher();
 
     const { data: admins } = await admin
       .from("profiles")
@@ -29,6 +33,7 @@ export async function dispatchDueFollowups() {
     if (adminIds.length === 0) return;
 
     for (const row of due) {
+      if (isInternal(row)) continue;
       const reason = row.followup_reason ? String(row.followup_reason) : "—";
       const name = row.student_name ? String(row.student_name) : "طالب";
 
