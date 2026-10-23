@@ -8,6 +8,7 @@ import {
   Download,
   PlayCircle,
 } from "lucide-react";
+import ResourceDownloadLink from "@/components/student/resources/ResourceDownloadLink";
 
 import type {
   StudentJourneyStationGroup,
@@ -500,15 +501,15 @@ function OneDayLessonRow({
       {journey.resources?.length ? (
         <div className="flex items-center justify-end gap-1">
           {journey.resources.map((resource) => (
-            <a
+            <ResourceDownloadLink
               key={resource.id}
-              href={resource.downloadUrl}
+              token={resource.downloadToken}
               title={`تحميل ${resource.title}`}
-              aria-label={`تحميل ${resource.title}`}
+              ariaLabel={`تحميل ${resource.title}`}
               className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#F7B548]/55 bg-[#FFF8EA] text-[#B87508] transition hover:border-[#F7B548] hover:bg-[#F7B548] hover:text-[#07152E]"
             >
               <Download size={14} />
-            </a>
+            </ResourceDownloadLink>
           ))}
         </div>
       ) : (

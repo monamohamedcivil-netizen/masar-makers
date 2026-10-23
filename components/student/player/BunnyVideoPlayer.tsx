@@ -23,7 +23,7 @@ type StudentLessonResource = {
   title: string;
   type: string | null;
   scope: "lesson" | "section";
-  downloadUrl: string;
+  downloadToken: string;
 };
 
 type StudentLessonPlayback = {
