@@ -216,6 +216,8 @@ export default function CourseActionButton({
             courseHint: whatsapp.courseTitle,
             actionLabel: actionTitle ?? itemTitle,
             journeyLabel: getJourneyLabel(whatsapp.journeyType),
+            journeyType: whatsapp.journeyType,
+            lessonId: actionKey?.match(/:lesson:(.+)$/)?.[1],
             requestNumber: String(whatsapp.requestNumber ?? ""),
           })
         ) {

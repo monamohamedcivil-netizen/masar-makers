@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { findChatCourse, isOneDayJourneyType } from "@/lib/webchat/courses";
 import { notifyWebChatAdmins } from "@/lib/webchat/notify";
 
 /* =========================================================
@@ -34,6 +35,10 @@ export type Viewer = {
 
 type ShownPrice = { variant: string | null; variantId: string | null; amount: number; original: number | null; offer: string | null };
 type LastPrice = { course: string; courseId: string; currency: string; currencyLabel: string; rows: ShownPrice[] };
+/** Chat opened from a one-day journey button: prices come from whatsapp_oneday_prices (kept in session.context.oneDay). */
+type OneDay = { courseId: string; lessonId: string | null };
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const WHATSAPP_NUMBER = "201031885659";
 const MAX_BUTTONS = 12;
@@ -112,6 +117,12 @@ export class WebChatEngine {
 
   private get currency(): string | null {
     return clean(this.viewer.contact?.currency).toUpperCase() || null;
+  }
+
+  /** One-day journey chat — only while the visitor stays on the course the button was for. */
+  private get oneDay(): OneDay | null {
+    const od = (this.session.context?.oneDay ?? null) as OneDay | null;
+    return od && String(od.courseId) === String(this.session.current_course_id) ? od : null;
   }
 
   /* ---------- data ---------- */
@@ -195,24 +206,9 @@ export class WebChatEngine {
   /* ---------- course matching from the page the visitor came from ---------- */
 
   async matchCourse(hint: string) {
-    const h = clean(hint).toLowerCase();
-    if (!h) return null;
-    const aliases: [RegExp, string][] = [
-      [/civil\s*site|\bcsd\b/, "csd"],
-      [/vehicle|\bvt\b|تتبع/, "vehicle_tracking"],
-      [/smart\s*project|deliverables|\bspd\b/, "spd"],
-      [/\bbim\b/, "bim"],
-      [/\bcube\b/, "cube"],
-      [/civil\s*3d|\bc3d\b/, "civil 3d"],
-    ];
-    const key = aliases.find(([re]) => re.test(h))?.[1];
+    if (!clean(hint)) return null;
     const { data } = await this.db.from("whatsapp_courses").select("*").eq("is_active", true).eq("whatsapp_visible", true);
-    const list = (data ?? []) as AnyRow[];
-    return (
-      list.find((c) => key && clean(c.course_key).toLowerCase() === key) ??
-      list.find((c) => h.includes(clean(c.title).toLowerCase()) || h.includes(clean(c.whatsapp_label).toLowerCase())) ??
-      null
-    );
+    return findChatCourse((data ?? []) as AnyRow[], hint);
   }
 
   /* ---------- first message of a chat (depends on the button) ---------- */
@@ -226,6 +222,10 @@ export class WebChatEngine {
 
     if (course && (entryKey === "enrollment" || entryKey === "course_action")) {
       await this.setCourse(course.id);
+      if (isOneDayJourneyType(context.journeyType) || /اليوم الواحد|one[\s-]?day/i.test(clean(context.journeyLabel))) {
+        const oneDay: OneDay = { courseId: String(course.id), lessonId: await this.oneDayLesson(course.id, context) };
+        await this.patchSession({ context: { ...(this.session.context ?? {}), oneDay } });
+      }
       // Enrollment button: answer = the price right away (members only; enrollment needs login anyway).
       if (entryKey === "enrollment" && this.isMember) {
         if (this.currency) return this.price(this.currency, welcome);
@@ -344,8 +344,9 @@ export class WebChatEngine {
     const items = menu ? await this.items(menu.id) : [];
 
     // Only currencies that are switched on for this course (add USD in the price editor → it appears here).
+    // One-day journey → the currencies of the one-day prices.
     const courseId = this.session.current_course_id;
-    let pricesQuery = this.db.from("whatsapp_course_prices").select("currency_code,sort_order").eq("is_active", true);
+    let pricesQuery = this.db.from(this.oneDay ? "whatsapp_oneday_prices" : "whatsapp_course_prices").select("currency_code,sort_order").eq("is_active", true);
     if (courseId) pricesQuery = pricesQuery.eq("course_id", courseId);
     const { data: priceRows } = await pricesQuery.order("sort_order", { ascending: true });
     const enabled: string[] = [];
@@ -390,11 +391,88 @@ export class WebChatEngine {
     this.viewer.contact = { ...this.viewer.contact, currency: code };
   }
 
+  /** The lecture a one-day button was for: its id from the button, or its title among the lectures with a special price. */
+  private async oneDayLesson(courseId: string, context: AnyRow): Promise<string | null> {
+    const id = clean(context.lessonId);
+    if (UUID.test(id)) return id;
+    const title = clean(context.actionLabel);
+    if (!title) return null;
+    const { data: specials } = await this.db.from("whatsapp_oneday_prices").select("lesson_id").eq("course_id", courseId).not("lesson_id", "is", null);
+    const ids = [...new Set(((specials ?? []) as AnyRow[]).map((r) => String(r.lesson_id)))];
+    if (!ids.length) return null;
+    const { data: lessons } = await this.db.from("lessons").select("id,title,title_ar").in("id", ids);
+    const t = title.toLowerCase();
+    const hit = ((lessons ?? []) as AnyRow[]).find((l) => [l.title_ar, l.title].some((v) => clean(v) && clean(v).toLowerCase() === t));
+    return hit ? String(hit.id) : null;
+  }
+
+  /** Lecture names in the visitor's language (Arabic title first in Arabic, English title first in English). */
+  private async lessonTitles(ids: string[]) {
+    const out = new Map<string, AnyRow>();
+    if (!ids.length) return out;
+    const { data } = await this.db.from("lessons").select("id,title,title_ar").in("id", ids);
+    for (const l of (data ?? []) as AnyRow[]) {
+      out.set(String(l.id), { id: l.id, title: clean(l.title_ar) || clean(l.title), title_en: clean(l.title) || clean(l.title_ar) });
+    }
+    return out;
+  }
+
+  /** One-day journey prices: the lecture's special price, else the course's general one-day price. */
+  private async oneDayPrice(oneDay: OneDay, course: AnyRow, code: string, lead = ""): Promise<ChatMessage[]> {
+    let label = await this.currencyLabel(code);
+    const { data } = await this.db
+      .from("whatsapp_oneday_prices")
+      .select("*")
+      .eq("course_id", course.id)
+      .eq("currency_code", code)
+      .eq("is_active", true)
+      .order("sort_order");
+    const all = (data ?? []) as AnyRow[];
+    if (label === code && !this.en) label = clean(all[0]?.currency_label) || label;
+    const general = all.find((r) => !r.lesson_id) ?? null;
+    const specials = all.filter((r) => r.lesson_id);
+    const titles = await this.lessonTitles([...new Set([...specials.map((r) => String(r.lesson_id)), ...(oneDay.lessonId ? [oneDay.lessonId] : [])])]);
+    const generalTitle = { id: "general", title: "سعر المحاضرة الواحدة", title_en: "Price per lecture" };
+
+    const rows: ShownPrice[] = [];
+    if (oneDay.lessonId) {
+      // The lecture the visitor chose: its special price, or the course's general price.
+      const special = specials.find((r) => String(r.lesson_id) === oneDay.lessonId);
+      const lesson = titles.get(oneDay.lessonId) ?? generalTitle;
+      if (special) rows.push(shown(special, lesson, this.en));
+      else if (general) rows.push(shown(general, lesson, this.en));
+    } else {
+      if (general) rows.push(shown(general, generalTitle, this.en));
+      for (const r of specials) {
+        const lesson = titles.get(String(r.lesson_id));
+        if (lesson) rows.push(shown(r, lesson, this.en));
+      }
+    }
+
+    const title = clean(course.whatsapp_label || course.title);
+    if (!rows.length) {
+      return this.courseActions(course, [lead, this.t(`سعر رحلة اليوم الواحد بعملة (${label}) غير متاح حاليًا لهذا الكورس. اختار «خدمة العملاء» وهنبلغك بالسعر.`, `The one-day journey price in (${label}) isn't available for this course right now. Choose “Customer service” and we'll let you know the price.`)].filter(Boolean).join("\n\n"));
+    }
+    await this.lockCurrency(code);
+    const last: LastPrice = { course: title, courseId: String(course.id), currency: code, currencyLabel: label, rows };
+    await this.patchSession({ last_price: last });
+    const text = [
+      lead,
+      this.t(`💰 *أسعار رحلة اليوم الواحد — ${title}* (${label})`, `💰 *${title} — one-day journey prices* (${label})`),
+      ...rows.map((r) => priceLines(r.variant ?? title, r, label, this.en)),
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+    return this.courseActions(course, text);
+  }
+
   private async price(requested: string, lead = ""): Promise<ChatMessage[]> {
     if (!this.isMember) return this.membersOnly();
     const course = await this.course(this.session.current_course_id);
     if (!course) return this.mainMenu();
     const code = (this.currency || requested).toUpperCase(); // locked currency always wins
+    const oneDay = this.oneDay;
+    if (oneDay) return this.oneDayPrice(oneDay, course, code, lead);
     const label = await this.currencyLabel(code);
     const rows: ShownPrice[] = [];
     const base = () => this.db.from("whatsapp_course_prices").select("*").eq("course_id", course.id).eq("currency_code", code).eq("is_active", true).order("sort_order").limit(1);
@@ -437,7 +515,8 @@ export class WebChatEngine {
     const course = await this.course(this.session.current_course_id);
     if (!course) return this.allCourses();
     await this.startFollowup();
-    if (course.has_variants && !this.session.variant_id) {
+    // A one-day lecture has no subscription type (Fundamentals / Advanced / Integrated are for the professional journey).
+    if (course.has_variants && !this.session.variant_id && !this.oneDay) {
       const variants = await this.variants(course.id);
       if (variants.length > 1) {
         return [

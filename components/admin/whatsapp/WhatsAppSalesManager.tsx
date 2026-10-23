@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import {
   BookOpen,
   Bot,
+  CalendarDays,
   ChevronDown,
   Headphones,
   ListTree,
@@ -27,7 +28,9 @@ import {
   createCourseVariant,
   createMenu,
   createMenuItem,
+  deleteOneDayPrice,
   returnCustomerToBot,
+  saveOneDayPrice,
   savePrice,
   setGlobalOffer,
   toggleMenuItem,
@@ -48,6 +51,7 @@ type AdminTrack = "Road Design" | "Traffic Engineering";
 type AdminTab =
   | "courses"
   | "prices"
+  | "oneday"
   | "menus"
   | "support"
   | "settings";
@@ -107,6 +111,22 @@ type WhatsAppCoursePrice = {
   offer_start: string | null;
   offer_end: string | null;
   is_active: boolean;
+  sort_order: number;
+};
+
+/** Fields shared by course prices and one-day prices (what the price editor shows). */
+type PriceFields = Omit<WhatsAppCoursePrice, "variant_id">;
+
+/** lesson_id null = the course's general one-day price; set = special price for that lecture. */
+type WhatsAppOneDayPrice = PriceFields & {
+  lesson_id: string | null;
+};
+
+type WhatsAppOneDayLesson = {
+  id: string;
+  chat_course_id: string;
+  title: string;
+  course_part: string | null;
   sort_order: number;
 };
 
@@ -194,6 +214,9 @@ type Props = {
   menuItems?: WhatsAppMenuItem[];
   items?: WhatsAppMenuItem[];
   sessions: WhatsAppBotSession[];
+  oneDayPrices?: WhatsAppOneDayPrice[];
+  oneDayLessons?: WhatsAppOneDayLesson[];
+  oneDayReady?: boolean;
 };
 
 /* =====================================================
@@ -338,6 +361,7 @@ export default function WhatsAppSalesManager(props: Props) {
   const tabs = [
     ["courses", "الكورسات", BookOpen],
     ["prices", "الأسعار والعروض", Tags],
+    ["oneday", "أسعار رحلات اليوم الواحد", CalendarDays],
     ["menus", "القوائم والردود", ListTree],
     ["support", "خدمة العملاء", Headphones],
     ["settings", "الإعدادات", Settings2],
@@ -393,6 +417,10 @@ export default function WhatsAppSalesManager(props: Props) {
           <GlobalOfferPanel prices={props.prices} />
           <PricesTab {...props} selectedTrack={track} />
         </>
+      )}
+
+      {tab === "oneday" && (
+        <OneDayPricesTab {...props} selectedTrack={track} />
       )}
 
       {tab === "menus" && (
@@ -1270,21 +1298,26 @@ function PriceGroup({
   variantId,
   title,
   prices,
+  oneDay,
+  badge,
 }: {
   courseId: string;
   variantId: string | null;
   title: string;
-  prices: WhatsAppCoursePrice[];
+  prices: PriceFields[];
+  /** Set for one-day prices: lessonId null = the course's general price. */
+  oneDay?: { lessonId: string | null };
+  badge?: string;
 }) {
   return (
     <details className="group overflow-hidden rounded-xl border border-slate-200 bg-white">
       <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 hover:bg-slate-50">
-        <div className="flex items-center gap-2">
-          <ChevronDown className="h-3.5 w-3.5 text-slate-400 transition-transform group-open:rotate-180" />
-          <span className="text-xs font-black text-[#07152E]">{title}</span>
+        <div className="flex min-w-0 items-center gap-2">
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform group-open:rotate-180" />
+          <span className="truncate text-xs font-black text-[#07152E]">{title}</span>
         </div>
-        <span className="text-[10px] font-bold text-slate-400">
-          {prices.length} عملة
+        <span className="shrink-0 text-[10px] font-bold text-slate-400">
+          {badge ?? `${prices.length} عملة`}
         </span>
       </summary>
 
@@ -1292,28 +1325,175 @@ function PriceGroup({
         {prices.length > 0 && (
           <div className="grid gap-3 xl:grid-cols-2">
             {prices.map((price) => (
-              <PriceEditor
-                key={price.id}
-                courseId={courseId}
-                variantId={variantId}
-                price={price}
-              />
+              <div key={price.id}>
+                <PriceEditor
+                  courseId={courseId}
+                  variantId={variantId}
+                  price={price}
+                  oneDay={oneDay}
+                />
+                {oneDay?.lessonId && (
+                  <ActionForm
+                    action={deleteOneDayPrice}
+                    successMessage="تم حذف السعر الخاص — المحاضرة تأخذ السعر العام للكورس."
+                    className="mt-2"
+                  >
+                    <input type="hidden" name="id" value={price.id} />
+                    <ActionSubmitButton
+                      pendingText="جارٍ الحذف..."
+                      className="inline-flex h-9 items-center rounded-xl border border-red-200 bg-white px-3 text-[11px] font-black text-red-700 hover:bg-red-50"
+                    >
+                      حذف السعر الخاص ({price.currency_code}) والرجوع للسعر العام
+                    </ActionSubmitButton>
+                  </ActionForm>
+                )}
+              </div>
             ))}
           </div>
         )}
 
         <details className="group mt-3 overflow-hidden rounded-xl border border-dashed border-slate-300 bg-white">
           <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between px-3 text-xs font-black text-[#B87908]">
-            <span>+ إضافة عملة جديدة</span>
+            <span>{oneDay?.lessonId ? "+ إضافة سعر خاص بعملة" : "+ إضافة عملة جديدة"}</span>
             <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
           </summary>
 
           <div className="border-t border-slate-100 p-3">
-            <PriceEditor courseId={courseId} variantId={variantId} />
+            <PriceEditor courseId={courseId} variantId={variantId} oneDay={oneDay} />
           </div>
         </details>
       </div>
     </details>
+  );
+}
+
+/* =====================================================
+   One-day journey prices (رحلات اليوم الواحد)
+===================================================== */
+
+function OneDayPricesTab({
+  courses,
+  oneDayPrices = [],
+  oneDayLessons = [],
+  oneDayReady = true,
+  selectedTrack,
+}: Props & { selectedTrack: AdminTrack }) {
+  const visibleCourses = useMemo(
+    () =>
+      courses
+        .filter(
+          (course) =>
+            course.is_active &&
+            belongsToTrack(course.track, selectedTrack),
+        )
+        .sort((a, b) => a.sort_order - b.sort_order),
+    [courses, selectedTrack],
+  );
+
+  if (!oneDayReady) {
+    return (
+      <InfoBar>
+        جدول أسعار رحلات اليوم الواحد غير موجود بعد في قاعدة البيانات. طبّقي ملف الترحيل
+        <b className="mx-1">20261028_web_chat_oneday_prices.sql</b>
+        ثم أعيدي فتح الصفحة.
+      </InfoBar>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <InfoBar>
+        السعر العام يظهر في الشات لكل محاضرات اليوم الواحد في الكورس. السعر الخاص لمحاضرة معيّنة يحل محل السعر العام لها فقط.
+        هذه الأسعار تظهر فقط لمن يضغط اشتراك من «رحلة اليوم الواحد»، ولا تغيّر أسعار رحلة الاحتراف المتكاملة.
+      </InfoBar>
+
+      {visibleCourses.length > 0 ? (
+        visibleCourses.map((course) => {
+          const coursePrices = oneDayPrices.filter((p) => p.course_id === course.id);
+          const general = coursePrices
+            .filter((p) => !p.lesson_id)
+            .sort((a, b) => a.sort_order - b.sort_order);
+          const lessons = oneDayLessons.filter((l) => l.chat_course_id === course.id);
+          const specialCount = new Set(coursePrices.filter((p) => p.lesson_id).map((p) => p.lesson_id)).size;
+          const generalText = general
+            .filter((p) => p.is_active)
+            .map((p) => `${Number(p.current_price).toLocaleString("en-US")} ${p.currency_label}`)
+            .join(" • ");
+
+          return (
+            <details
+              key={course.id}
+              className={`${panel} group overflow-hidden`}
+            >
+              <summary className={compactSummary}>
+                <div className="flex min-w-0 items-center gap-3">
+                  <ChevronDown className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-[#07152E]">
+                      {course.whatsapp_label || course.title}
+                    </p>
+                    <p className="mt-0.5 truncate text-[10px] font-bold text-slate-400">
+                      {lessons.length} محاضرة يوم واحد
+                      {" • "}
+                      {generalText ? `السعر العام: ${generalText}` : "لا يوجد سعر عام بعد"}
+                      {specialCount > 0 ? ` • ${specialCount} سعر خاص` : ""}
+                    </p>
+                  </div>
+                </div>
+
+                <span className="shrink-0 rounded-lg bg-[#FFF8E8] px-2.5 py-1 text-[10px] font-black text-[#9A6711]">
+                  إدارة أسعار اليوم الواحد
+                </span>
+              </summary>
+
+              <div className="space-y-3 border-t border-slate-100 bg-slate-50/40 p-4">
+                <PriceGroup
+                  courseId={course.id}
+                  variantId={null}
+                  title="السعر العام لكل محاضرات اليوم الواحد"
+                  prices={general}
+                  oneDay={{ lessonId: null }}
+                />
+
+                <div>
+                  <p className="mb-2 text-[11px] font-black text-slate-500">
+                    سعر خاص لمحاضرة معيّنة (اختياري)
+                  </p>
+                  {lessons.length > 0 ? (
+                    <div className="space-y-2">
+                      {lessons.map((lesson) => {
+                        const own = coursePrices
+                          .filter((p) => p.lesson_id === lesson.id)
+                          .sort((a, b) => a.sort_order - b.sort_order);
+                        return (
+                          <PriceGroup
+                            key={lesson.id}
+                            courseId={course.id}
+                            variantId={null}
+                            title={lesson.title}
+                            prices={own}
+                            oneDay={{ lessonId: lesson.id }}
+                            badge={
+                              own.length
+                                ? own.map((p) => `${Number(p.current_price).toLocaleString("en-US")} ${p.currency_code}`).join(" • ")
+                                : "السعر العام"
+                            }
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <EmptyState text="لا توجد محاضرات منشورة في رحلة اليوم الواحد لهذا الكورس على المنصة." />
+                  )}
+                </div>
+              </div>
+            </details>
+          );
+        })
+      ) : (
+        <EmptyState text={`لا توجد كورسات في ${trackArabic(selectedTrack)}.`} />
+      )}
+    </div>
   );
 }
 
@@ -1327,10 +1507,12 @@ function PriceEditor({
   courseId,
   variantId,
   price,
+  oneDay,
 }: {
   courseId: string;
   variantId: string | null;
-  price?: WhatsAppCoursePrice;
+  price?: PriceFields;
+  oneDay?: { lessonId: string | null };
 }) {
   const currencyTitle = price
     ? `${price.currency_label} (${price.currency_code})`
@@ -1344,7 +1526,7 @@ function PriceEditor({
 
   return (
     <ActionForm
-      action={savePrice}
+      action={oneDay ? saveOneDayPrice : savePrice}
       successMessage={
         price
           ? `تم حفظ سعر ${currencyTitle} بنجاح.`
@@ -1354,7 +1536,11 @@ function PriceEditor({
       className="rounded-xl border border-slate-200 bg-white p-3"
     >
       <input type="hidden" name="course_id" value={courseId} />
-      <input type="hidden" name="variant_id" value={variantId ?? ""} />
+      {oneDay ? (
+        <input type="hidden" name="lesson_id" value={oneDay.lessonId ?? ""} />
+      ) : (
+        <input type="hidden" name="variant_id" value={variantId ?? ""} />
+      )}
       {price && <input type="hidden" name="id" value={price.id} />}
 
       <div className="mb-3 flex items-center justify-between gap-2">

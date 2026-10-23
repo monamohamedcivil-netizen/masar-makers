@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
+import { findChatCourse, isOneDayJourneyType } from "@/lib/webchat/courses";
 
 export type WhatsAppBotSettings = {
   id: number;
@@ -53,6 +54,21 @@ export type WhatsAppCoursePrice = {
   offer_start: string | null;
   offer_end: string | null;
   is_active: boolean;
+  sort_order: number;
+};
+
+/** lesson_id null = the course's general one-day price; set = special price for that lecture. */
+export type WhatsAppOneDayPrice = Omit<WhatsAppCoursePrice, "variant_id"> & {
+  lesson_id: string | null;
+  offer_label_en?: string | null;
+};
+
+/** A published lecture of a platform one-day journey, matched to its chat course. */
+export type WhatsAppOneDayLesson = {
+  id: string;
+  chat_course_id: string;
+  title: string;
+  course_part: string | null;
   sort_order: number;
 };
 
@@ -112,6 +128,49 @@ export type WhatsAppSession = {
   updated_at: string;
 };
 
+/** One-day lectures of every platform course, grouped under the matching chat course. */
+async function getOneDayLessons(chatCourses: WhatsAppCourse[]): Promise<WhatsAppOneDayLesson[]> {
+  const db = createAdminClient();
+  const { data: courses } = await db.from("courses").select("id,title").eq("is_active", true);
+  const chatCourseOf = new Map<string, string>();
+  for (const c of courses ?? []) {
+    const chat = findChatCourse(chatCourses, String(c.title ?? ""));
+    if (chat) chatCourseOf.set(String(c.id), chat.id);
+  }
+  if (!chatCourseOf.size) return [];
+
+  const { data: journeys } = await db
+    .from("journeys")
+    .select("id,course_id,journey_type")
+    .in("course_id", [...chatCourseOf.keys()])
+    .eq("is_active", true);
+  const oneDay = (journeys ?? []).filter((j) => isOneDayJourneyType(j.journey_type));
+  if (!oneDay.length) return [];
+
+  const { data: links } = await db.from("lesson_journeys").select("lesson_id,journey_id").in("journey_id", oneDay.map((j) => j.id));
+  const lessonIds = [...new Set((links ?? []).map((l) => String(l.lesson_id ?? "")).filter(Boolean))];
+  if (!lessonIds.length) return [];
+
+  const { data: lessons } = await db
+    .from("lessons")
+    .select("id,course_id,title,title_ar,course_part,sort_order")
+    .in("id", lessonIds)
+    .eq("status", "published");
+
+  const partOrder: Record<string, number> = { fundamental: 1, fundamentals: 1, advanced: 2 };
+  const part = (v: unknown) => partOrder[String(v ?? "").toLowerCase()] ?? 0;
+  return (lessons ?? [])
+    .filter((l) => chatCourseOf.has(String(l.course_id)))
+    .map((l) => ({
+      id: String(l.id),
+      chat_course_id: chatCourseOf.get(String(l.course_id))!,
+      title: String(l.title_ar || l.title || "محاضرة").trim(),
+      course_part: l.course_part ?? null,
+      sort_order: Number(l.sort_order ?? 0),
+    }))
+    .sort((a, b) => part(a.course_part) - part(b.course_part) || a.sort_order - b.sort_order);
+}
+
 export async function getWhatsAppSalesAdminData() {
   const supabase = await createClient();
 
@@ -124,6 +183,7 @@ export async function getWhatsAppSalesAdminData() {
     menusResult,
     menuItemsResult,
     sessionsResult,
+    oneDayPricesResult,
   ] = await Promise.all([
     supabase
       .from("whatsapp_bot_settings")
@@ -167,6 +227,12 @@ export async function getWhatsAppSalesAdminData() {
       .order("updated_at", {
         ascending: false,
       }),
+
+    // Not in `errors` below: the page still opens before the one-day migration is applied.
+    supabase
+      .from("whatsapp_oneday_prices")
+      .select("*")
+      .order("sort_order"),
   ]);
 
   const errors = [
@@ -188,12 +254,17 @@ export async function getWhatsAppSalesAdminData() {
     );
   }
 
+  const courses = (coursesResult.data ?? []) as WhatsAppCourse[];
+  const oneDayLessons = await getOneDayLessons(courses).catch((error) => {
+    console.error("one-day lessons failed:", error);
+    return [] as WhatsAppOneDayLesson[];
+  });
+
   return {
     settings:
       settingsResult.data as WhatsAppBotSettings | null,
 
-    courses:
-      (coursesResult.data ?? []) as WhatsAppCourse[],
+    courses,
 
     variants:
       (variantsResult.data ?? []) as WhatsAppCourseVariant[],
@@ -212,5 +283,12 @@ export async function getWhatsAppSalesAdminData() {
 
     sessions:
       (sessionsResult.data ?? []) as WhatsAppSession[],
+
+    oneDayPrices:
+      (oneDayPricesResult.data ?? []) as WhatsAppOneDayPrice[],
+
+    oneDayReady: !oneDayPricesResult.error,
+
+    oneDayLessons,
   };
 }

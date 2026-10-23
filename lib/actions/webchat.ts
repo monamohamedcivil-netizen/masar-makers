@@ -21,6 +21,8 @@ export type WebChatContext = {
   courseHint?: string;    // course title/code from the page
   actionLabel?: string;   // label of the platform button
   journeyLabel?: string;  // journey type for enrollment buttons
+  journeyType?: string;   // journey type key (workshop = one-day journey → one-day prices)
+  lessonId?: string;      // one-day lecture the button was for (its special price, if any)
   requestNumber?: string; // enrollment request number
   page?: string;          // page path (to come back after login)
   visitorId?: string;     // anonymous browser id
@@ -155,6 +157,8 @@ export async function startWebChat(input: WebChatContext): Promise<WebChatStart>
       courseHint: cut(input?.courseHint, 200),
       actionLabel: cut(input?.actionLabel, 200),
       journeyLabel: cut(input?.journeyLabel, 120),
+      journeyType: cut(input?.journeyType, 40),
+      lessonId: cut(input?.lessonId, 64),
       requestNumber: cut(input?.requestNumber, 60),
       page: cut(input?.page, 300).startsWith("/") ? cut(input?.page, 300) : "/",
     };
