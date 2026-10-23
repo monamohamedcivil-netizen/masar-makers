@@ -39,3 +39,20 @@ export function isInternalEmail(email: unknown): boolean {
   const e = String(email ?? "").trim().toLowerCase();
   return e !== "" && INTERNAL_ACCOUNT_EMAILS.includes(e);
 }
+
+/**
+ * هل صف مدفوعات يخص حسابًا داخليًا؟ (بـ user_id أو بالبريد، وقد يحوي أكثر من بريد).
+ * يُستخدم لاستبعاد الفريق من المتابعات والتنبيهات.
+ */
+export async function getInternalPaymentMatcher() {
+  const ids = new Set(await getInternalAccountUserIds());
+  const emails = new Set(INTERNAL_ACCOUNT_EMAILS.map((e) => e.toLowerCase()));
+  return (row: { user_id?: unknown; email?: unknown }): boolean => {
+    if (row.user_id && ids.has(String(row.user_id))) return true;
+    const found =
+      String(row.email ?? "")
+        .toLowerCase()
+        .match(/[^\s,&;]+@[^\s,&;]+\.[^\s,&;]+/g) ?? [];
+    return found.some((e) => emails.has(e));
+  };
+}
