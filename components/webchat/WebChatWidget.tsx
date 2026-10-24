@@ -13,7 +13,7 @@ import type { ChatButton, ChatMessage, Locale } from "@/lib/webchat/engine";
 
 const STORE = "mm_webchat_session";
 const VISITOR = "mm_webchat_visitor";
-const MODE = (process.env.NEXT_PUBLIC_WEBCHAT_MODE ?? "test").trim();
+const MODE = (process.env.NEXT_PUBLIC_WEBCHAT_MODE ?? "live").trim();
 
 const UI = {
   ar: {
