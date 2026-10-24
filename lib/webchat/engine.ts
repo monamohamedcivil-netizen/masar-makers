@@ -293,11 +293,62 @@ export class WebChatEngine {
     ];
   }
 
+  /*
+   * Student already subscribed to this course (paid / reward journey, not a free one):
+   * no price button and no price list, so he never sees a number other than what he paid.
+   */
+  private enrolledCache = new Map<string, boolean>();
+
+  private async isEnrolledIn(course: AnyRow): Promise<boolean> {
+    const userId = this.viewer.userId;
+    if (!userId || !course?.id) return false;
+    const key = String(course.id);
+    const cached = this.enrolledCache.get(key);
+    if (cached !== undefined) return cached;
+
+    let enrolled = false;
+    const { data: rows } = await this.db
+      .from("enrollments")
+      .select("course_id,journey_type,status")
+      .eq("user_id", userId)
+      .in("status", ["active", "completed", "suspended", "expired"]);
+    const courseIds = [
+      ...new Set(
+        ((rows ?? []) as AnyRow[])
+          .filter((r) => clean(r.journey_type).toLowerCase() !== "free")
+          .map((r) => String(r.course_id)),
+      ),
+    ];
+    if (courseIds.length) {
+      const { data: courses } = await this.db.from("courses").select("id,title,course_code").in("id", courseIds);
+      enrolled = ((courses ?? []) as AnyRow[]).some((c) =>
+        Boolean(findChatCourse([course], `${clean(c.course_code)} ${clean(c.title)}`)),
+      );
+    }
+    this.enrolledCache.set(key, enrolled);
+    return enrolled;
+  }
+
+  private async alreadyEnrolled(course: AnyRow, lead = ""): Promise<ChatMessage[]> {
+    const text = [
+      lead,
+      this.t(
+        "✅ أنت مشترك بالفعل في هذا الكورس، لذلك لا تظهر الأسعار هنا.\nلأي استفسار عن اشتراكك اختر «خدمة العملاء».",
+        "✅ You're already subscribed to this course, so prices aren't shown here.\nFor any question about your subscription, choose “Customer service”.",
+      ),
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+    return this.courseActions(course, text);
+  }
+
   private async courseActions(course: AnyRow, text: string): Promise<ChatMessage[]> {
     const menu = await this.menu("course_actions");
     const items = menu ? await this.items(menu.id) : [];
     const buttons: ChatButton[] = [];
+    const hidePrice = await this.isEnrolledIn(course);
     for (const i of items) {
+      if (hidePrice && (clean(i.item_key) === "course_price" || i.action_type === "show_price")) continue;
       if (i.action_type === "open_url") {
         const url = await this.courseUrl(course, i);
         // «شرح محاور الرحلة» opens as a pop-up video over the page; other links open normally.
@@ -355,6 +406,10 @@ export class WebChatEngine {
   /** Currency question — shown only until the student picks one. */
   private async currencyStep(): Promise<ChatMessage[]> {
     if (!this.isMember) return this.membersOnly();
+    {
+      const current = await this.course(this.session.current_course_id);
+      if (current && (await this.isEnrolledIn(current))) return this.alreadyEnrolled(current);
+    }
     if (this.currency) return this.price(this.currency);
     const menu = await this.menu("currency_menu");
     const items = menu ? await this.items(menu.id) : [];
@@ -486,6 +541,7 @@ export class WebChatEngine {
     if (!this.isMember) return this.membersOnly();
     const course = await this.course(this.session.current_course_id);
     if (!course) return this.mainMenu();
+    if (await this.isEnrolledIn(course)) return this.alreadyEnrolled(course, lead);
     const code = (this.currency || requested).toUpperCase(); // locked currency always wins
     const oneDay = this.oneDay;
     if (oneDay) return this.oneDayPrice(oneDay, course, code, lead);
