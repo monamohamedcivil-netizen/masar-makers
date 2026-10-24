@@ -105,7 +105,7 @@ export default function CourseJourneyLessonsPanel({
     useState("");
 
   const [mobilePart, setMobilePart] =
-    useState<"fundamentals" | "advanced">(
+    useState<"fundamentals" | "advanced" | "single">(
       "fundamentals",
     );
 
@@ -247,7 +247,7 @@ export default function CourseJourneyLessonsPanel({
       ) : isSplit ? (
         <>
           <div
-            className="grid grid-cols-2 border-b border-[#DCE2EA] bg-[#EEF1F5] lg:hidden"
+            className={`grid ${grouped.single.length ? "grid-cols-3" : "grid-cols-2"} border-b border-[#DCE2EA] bg-[#EEF1F5] lg:hidden`}
             role="tablist"
             aria-label="أقسام الرحلة"
           >
@@ -305,6 +305,31 @@ export default function CourseJourneyLessonsPanel({
                 <span className="absolute inset-x-4 bottom-0 h-[3px] bg-[#F7B548]" />
               ) : null}
             </button>
+
+            {/* On phones the general (single) lectures were missing: they only showed on desktop. */}
+            {grouped.single.length ? (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={
+                  mobilePart === "single"
+                }
+                onClick={() =>
+                  setMobilePart("single")
+                }
+                className={`relative min-h-[46px] px-3 text-[11px] font-black transition ${
+                  mobilePart === "single"
+                    ? "bg-[#102D50] text-white"
+                    : "bg-[#EEF1F5] text-[#4B5563]"
+                }`}
+              >
+                محاضرات عامة
+
+                {mobilePart === "single" ? (
+                  <span className="absolute inset-x-4 bottom-0 h-[3px] bg-[#F7B548]" />
+                ) : null}
+              </button>
+            ) : null}
           </div>
 
           <div className="min-h-[333px] bg-white lg:hidden">
@@ -315,15 +340,19 @@ export default function CourseJourneyLessonsPanel({
                   ? partTitle(
                       "fundamentals",
                     )
-                  : partTitle(
-                      "advanced",
-                    )
+                  : mobilePart === "single"
+                    ? "محاضرات عامة"
+                    : partTitle(
+                        "advanced",
+                      )
               }
               lessons={
                 mobilePart ===
                 "fundamentals"
                   ? grouped.fundamentals
-                  : grouped.advanced
+                  : mobilePart === "single"
+                    ? grouped.single
+                    : grouped.advanced
               }
               kind={kind}
               enrollmentStatuses={
