@@ -288,6 +288,17 @@ export function derivePaymentStatus(
   return "paid";
 }
 
+/**
+ * رمز الإصدار الموحّد بدون رقم الدفعة:
+ * CSD-F2 → CSD-F، C3D-A1 → C3D-A، C3D-F1+A1 → C3D-F+A، BIM1 → BIM، PD1 → PD، VT1 → VT.
+ * (الأرقام داخل اسم الكورس مثل C3D تبقى كما هي.)
+ */
+export function normalizeEditionCode(edition: string | null | undefined) {
+  const code = String(edition ?? "").trim().toUpperCase();
+  if (!code) return null;
+  return code.replace(/([A-Z])\d+(?=$|[-+])/g, "$1");
+}
+
 /** تحويل رمز نسخة الإكسل (C3D-F1, CSD-A1, BIM1, PD1, VT1) إلى رمز الكورس في المنصة. */
 export function courseCodeFromEdition(edition: string | null | undefined) {
   const code = String(edition ?? "").trim().toUpperCase();
