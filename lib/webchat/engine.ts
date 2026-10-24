@@ -37,6 +37,8 @@ type ShownPrice = { variant: string | null; variantId: string | null; amount: nu
 type LastPrice = { course: string; courseId: string; currency: string; currencyLabel: string; rows: ShownPrice[] };
 /** Chat opened from a one-day journey button: prices come from whatsapp_oneday_prices (kept in session.context.oneDay). */
 type OneDay = { courseId: string; lessonId: string | null };
+type Stage = "fundamental" | "advanced" | "integrated";
+type Owned = { professional: boolean; stages: Set<Stage>; lessons: Set<string> };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -293,11 +295,114 @@ export class WebChatEngine {
     ];
   }
 
+  /*
+   * What the student already has in this course (the platform button there is no longer
+   * «اشترك» but «ابدأ / شاهد»), so the chat never shows him a price for it:
+   * - one-day: the lectures he subscribed to (other lectures keep their price);
+   * - professional: Fundamentals / Advanced / Integrated he has (Integrated = all of them).
+   * Pending / rejected / expired requests don't count (the subscribe button is still active).
+   */
+  private ownedCache = new Map<string, Owned>();
+
+  private async owned(course: AnyRow): Promise<Owned> {
+    const empty: Owned = { professional: false, stages: new Set(), lessons: new Set() };
+    const userId = this.viewer.userId;
+    if (!userId || !course?.id) return empty;
+    const key = String(course.id);
+    const cached = this.ownedCache.get(key);
+    if (cached) return cached;
+
+    const result: Owned = { professional: false, stages: new Set(), lessons: new Set() };
+    const { data: rows } = await this.db
+      .from("enrollments")
+      .select("course_id,journey_type,action_key,status")
+      .eq("user_id", userId)
+      .in("status", ["active", "completed", "suspended"]);
+    const list = (rows ?? []) as AnyRow[];
+    const courseIds = [...new Set(list.map((r) => String(r.course_id)))];
+    if (courseIds.length) {
+      const { data: courses } = await this.db.from("courses").select("id,title,course_code").in("id", courseIds);
+      const matching = new Set(
+        ((courses ?? []) as AnyRow[])
+          .filter((c) => findChatCourse([course], `${clean(c.course_code)} ${clean(c.title)}`))
+          .map((c) => String(c.id)),
+      );
+      for (const r of list) {
+        if (!matching.has(String(r.course_id))) continue;
+        const jt = clean(r.journey_type).toLowerCase();
+        if (jt === "free") continue;
+        if (jt === "workshop" || isOneDayJourneyType(jt)) {
+          const lessonId = clean(r.action_key).match(/lesson:([0-9a-f-]{36})/i)?.[1];
+          if (lessonId) result.lessons.add(lessonId.toLowerCase());
+          continue;
+        }
+        result.professional = true;
+        if (jt === "fundamental" || jt === "fundamentals") result.stages.add("fundamental");
+        else if (jt === "advanced") result.stages.add("advanced");
+        else ["fundamental", "advanced", "integrated"].forEach((st) => result.stages.add(st as Stage));
+      }
+      if (result.stages.has("fundamental") && result.stages.has("advanced")) result.stages.add("integrated");
+    }
+    this.ownedCache.set(key, result);
+    return result;
+  }
+
+  /** Fundamentals / Advanced / Integrated of a chat variant (from its key or titles). */
+  private variantStage(v: AnyRow): Stage | null {
+    const text = [v.variant_key, v.title, v.title_en].map((x) => clean(x).toLowerCase()).join(" ");
+    if (/integr|متكامل|full/.test(text)) return "integrated";
+    if (/fund|أساس|اساس/.test(text)) return "fundamental";
+    if (/adv|متقدم/.test(text)) return "advanced";
+    return null;
+  }
+
+  private ownsVariant(v: AnyRow, owned: Owned) {
+    const stage = this.variantStage(v);
+    return stage ? owned.stages.has(stage) : false;
+  }
+
+  /** Nothing left to buy in the professional journey of this course. */
+  private async ownsAllProfessional(course: AnyRow, owned: Owned) {
+    if (!owned.professional) return false;
+    if (!course.has_variants) return true;
+    const variants = await this.variants(course.id);
+    return variants.length > 0 && variants.every((v) => this.ownsVariant(v, owned));
+  }
+
+  /** Price is hidden for what the student already has (current one-day lecture, or the whole professional journey). */
+  private async priceHidden(course: AnyRow): Promise<boolean> {
+    const owned = await this.owned(course);
+    const oneDay = this.oneDay;
+    if (oneDay) return Boolean(oneDay.lessonId && owned.lessons.has(oneDay.lessonId.toLowerCase()));
+    return this.ownsAllProfessional(course, owned);
+  }
+
+  private async alreadyEnrolled(course: AnyRow, lead = ""): Promise<ChatMessage[]> {
+    const lecture = Boolean(this.oneDay?.lessonId);
+    const text = [
+      lead,
+      lecture
+        ? this.t(
+            "✅ أنت مشترك بالفعل في هذه المحاضرة، لذلك لا يظهر سعرها هنا.\nلأي استفسار عن اشتراكك اختر «خدمة العملاء».",
+            "✅ You're already subscribed to this lecture, so its price isn't shown here.\nFor any question about your subscription, choose “Customer service”.",
+          )
+        : this.t(
+            "✅ أنت مشترك بالفعل في هذه الرحلة، لذلك لا تظهر أسعارها هنا.\nلأي استفسار عن اشتراكك اختر «خدمة العملاء».",
+            "✅ You're already subscribed to this journey, so its prices aren't shown here.\nFor any question about your subscription, choose “Customer service”.",
+          ),
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+    return this.courseActions(course, text);
+  }
+
   private async courseActions(course: AnyRow, text: string): Promise<ChatMessage[]> {
     const menu = await this.menu("course_actions");
     const items = menu ? await this.items(menu.id) : [];
     const buttons: ChatButton[] = [];
+    const hidePrice = await this.priceHidden(course);
     for (const i of items) {
+      if (hidePrice && (clean(i.item_key) === "course_price" || i.action_type === "show_price")) continue;
       if (i.action_type === "open_url") {
         const url = await this.courseUrl(course, i);
         // «شرح محاور الرحلة» opens as a pop-up video over the page; other links open normally.
@@ -355,6 +460,10 @@ export class WebChatEngine {
   /** Currency question — shown only until the student picks one. */
   private async currencyStep(): Promise<ChatMessage[]> {
     if (!this.isMember) return this.membersOnly();
+    {
+      const current = await this.course(this.session.current_course_id);
+      if (current && (await this.priceHidden(current))) return this.alreadyEnrolled(current);
+    }
     if (this.currency) return this.price(this.currency);
     const menu = await this.menu("currency_menu");
     const items = menu ? await this.items(menu.id) : [];
@@ -459,7 +568,9 @@ export class WebChatEngine {
       else if (general) rows.push(shown(general, lesson, this.en));
     } else {
       if (general) rows.push(shown(general, generalTitle, this.en));
+      const ownedLessons = (await this.owned(course)).lessons;
       for (const r of specials) {
+        if (ownedLessons.has(String(r.lesson_id).toLowerCase())) continue;
         const lesson = titles.get(String(r.lesson_id));
         if (lesson) rows.push(shown(r, lesson, this.en));
       }
@@ -486,6 +597,8 @@ export class WebChatEngine {
     if (!this.isMember) return this.membersOnly();
     const course = await this.course(this.session.current_course_id);
     if (!course) return this.mainMenu();
+    if (await this.priceHidden(course)) return this.alreadyEnrolled(course, lead);
+    const owned = await this.owned(course);
     const code = (this.currency || requested).toUpperCase(); // locked currency always wins
     const oneDay = this.oneDay;
     if (oneDay) return this.oneDayPrice(oneDay, course, code, lead);
@@ -494,6 +607,7 @@ export class WebChatEngine {
     const base = () => this.db.from("whatsapp_course_prices").select("*").eq("course_id", course.id).eq("currency_code", code).eq("is_active", true).order("sort_order").limit(1);
     if (course.has_variants) {
       for (const v of await this.variants(course.id)) {
+        if (this.ownsVariant(v, owned)) continue; // already has it → no price for it
         const { data } = await base().eq("variant_id", v.id).maybeSingle();
         if (data) rows.push(shown(data, v, this.en));
       }
@@ -531,10 +645,13 @@ export class WebChatEngine {
     if (!this.isMember) return this.membersOnly();
     const course = await this.course(this.session.current_course_id);
     if (!course) return this.allCourses();
+    if (await this.priceHidden(course)) return this.alreadyEnrolled(course);
     await this.startFollowup();
     // A one-day lecture has no subscription type (Fundamentals / Advanced / Integrated are for the professional journey).
     if (course.has_variants && !this.session.variant_id && !this.oneDay) {
-      const variants = await this.variants(course.id);
+      const owned = await this.owned(course);
+      const variants = (await this.variants(course.id)).filter((v) => !this.ownsVariant(v, owned));
+      if (variants.length === 1) await this.patchSession({ variant_id: variants[0].id });
       if (variants.length > 1) {
         return [
           {
