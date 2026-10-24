@@ -232,8 +232,23 @@ export async function saveLesson(
 
     let finalSortOrder = requestedSortOrder;
 
+    // Moving an existing lesson to another course/section: never reject because of its old number.
+    let isMove = false;
+    if (id) {
+      const { data: currentLesson } = await supabase
+        .from("lessons")
+        .select("course_id,course_part")
+        .eq("id", id)
+        .maybeSingle();
+      isMove = Boolean(
+        currentLesson &&
+          (currentLesson.course_id !== courseId ||
+            (currentLesson.course_part || "single") !== requestedCoursePart),
+      );
+    }
+
     if (usedSortOrders.includes(requestedSortOrder)) {
-      if (id) {
+      if (id && !isMove) {
         return {
           success: false,
           message: `الترتيب ${requestedSortOrder} مستخدم لدرس آخر في نفس القسم. اختاري رقمًا آخر.`,

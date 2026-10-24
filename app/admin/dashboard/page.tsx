@@ -15,23 +15,25 @@ import {
 } from "lucide-react";
 
 import AdminPageHeader from "@/components/admin/layout/AdminPageHeader";
-import { getInternalPaymentMatcher } from "@/lib/admin/internal-accounts";
+import {
+  getInternalAccountUserIds,
+  getInternalPaymentMatcher,
+} from "@/lib/admin/internal-accounts";
 import { getAdminDashboardStats } from "@/lib/queries/admin-dashboard";
-import { createAdminClient, createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const stats = await getAdminDashboardStats();
-  const supabase = await createClient();
-
-  const { data: humanSessions } =
-    await supabase
-      .from("whatsapp_bot_sessions")
-      .select("human_mode_until")
-      .eq("mode", "human");
-
-  const now = Date.now();
+  // طلبات خدمة العملاء من شات المنصة (تحويل لواتساب بسبب «خدمة العملاء» أو «عملة أخرى») آخر 7 أيام.
+  const supportSince = new Date(Date.now() - 7 * 86400000).toISOString();
+  const { data: supportSessions } = await createAdminClient()
+    .from("web_chat_sessions")
+    .select("id,user_id")
+    .in("handoff_reason", ["support", "other_currency"])
+    .gte("handed_off_at", supportSince);
+  const internalUserIds = new Set(await getInternalAccountUserIds());
 
   // متابعات الدفعات المعلّقة (من جدول المدفوعات).
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -57,24 +59,9 @@ export default async function DashboardPage() {
     followups.map((f) => (f.student_name ?? f.id).trim()),
   ).size;
 
-  const whatsappSupportRequests =
-    (humanSessions ?? []).filter(
-      (session) => {
-        if (!session.human_mode_until) {
-          return true;
-        }
-
-        const until =
-          new Date(
-            session.human_mode_until,
-          ).getTime();
-
-        return (
-          Number.isFinite(until) &&
-          until > now
-        );
-      },
-    ).length;
+  const chatSupportRequests = (supportSessions ?? []).filter(
+    (session) => !session.user_id || !internalUserIds.has(String(session.user_id)),
+  ).length;
 
   return (
     <div className="space-y-8">
@@ -168,10 +155,10 @@ export default async function DashboardPage() {
           />
 
           <AttentionCard
-            href="/admin/whatsapp-sales"
-            title="خدمة عملاء WhatsApp"
-            value={whatsappSupportRequests}
-            subtitle="محادثات محولة وتحتاج ردك"
+            href="/admin/web-chat"
+            title="خدمة العملاء"
+            value={chatSupportRequests}
+            subtitle="طلبات من شات المنصة آخر 7 أيام"
             icon={Headphones}
             tone="red"
           />

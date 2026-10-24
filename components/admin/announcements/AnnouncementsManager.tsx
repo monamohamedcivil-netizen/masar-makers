@@ -40,6 +40,9 @@ type FormState = {
   buttonText: string;
   buttonTextEn: string;
   href: string;
+  opensChat: boolean;
+  chatReply: string;
+  chatReplyEn: string;
   isActive: boolean;
   displayOrder: number;
   startsAt: string;
@@ -57,6 +60,9 @@ const EMPTY_FORM: FormState = {
   buttonText: "التفاصيل",
   buttonTextEn: "Details",
   href: "#",
+  opensChat: false,
+  chatReply: "",
+  chatReplyEn: "",
   isActive: true,
   displayOrder: 0,
   startsAt: "",
@@ -150,6 +156,9 @@ export default function AnnouncementsManager({
       buttonTextEn:
         item.button_text_en || "Details",
       href: item.href || "#",
+      opensChat: Boolean(item.opens_chat),
+      chatReply: item.chat_reply ?? "",
+      chatReplyEn: item.chat_reply_en ?? "",
       isActive: true,
       displayOrder:
         item.display_order ?? 0,
@@ -187,6 +196,9 @@ export default function AnnouncementsManager({
       buttonTextEn:
         item.button_text_en || "Details",
       href: item.href || "#",
+      opensChat: Boolean(item.opens_chat),
+      chatReply: item.chat_reply ?? "",
+      chatReplyEn: item.chat_reply_en ?? "",
       isActive: item.is_active,
       displayOrder:
         item.display_order ?? 0,
@@ -227,6 +239,9 @@ export default function AnnouncementsManager({
         buttonText: form.buttonText,
         buttonTextEn: form.buttonTextEn,
         href: form.href,
+        opensChat: form.opensChat,
+        chatReply: form.chatReply,
+        chatReplyEn: form.chatReplyEn,
         isActive: form.isActive,
         displayOrder:
           form.displayOrder,
@@ -596,20 +611,97 @@ export default function AnnouncementsManager({
             />
           </Field>
 
-          <Field label="رابط الزر" className="md:col-span-2">
-            <input
-              value={form.href}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  href: event.target.value,
-                }))
-              }
-              dir="ltr"
-              className={`${INPUT} text-left`}
-              placeholder="/course/example"
-            />
+          <Field label="ماذا يفعل الزر؟" className="md:col-span-2">
+            <div className="flex flex-wrap gap-2">
+              {[
+                { value: false, label: "يفتح رابطًا" },
+                { value: true, label: "يفتح شات المنصة" },
+              ].map((option) => (
+                <button
+                  key={String(option.value)}
+                  type="button"
+                  onClick={() =>
+                    setForm((current) => ({
+                      ...current,
+                      opensChat: option.value,
+                    }))
+                  }
+                  className={`rounded-xl border px-4 py-2 text-xs font-black transition ${
+                    form.opensChat === option.value
+                      ? "border-[#07152E] bg-[#07152E] text-white"
+                      : "border-slate-200 bg-white text-[#07152E] hover:border-[#F7B548]"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </Field>
+
+          {form.opensChat ? (
+            <>
+              <Field label="رد الشات عند الضغط على الزر" className="md:col-span-2">
+                <textarea
+                  rows={3}
+                  value={form.chatReply}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      chatReply: event.target.value,
+                    }))
+                  }
+                  className={`${INPUT} h-auto min-h-[84px] py-3`}
+                  placeholder="مثال: أهلًا بك 👋 التسجيل في رحلة Civil 3D مفتوح الآن. اختر من القائمة لمعرفة التفاصيل والسعر 👇"
+                />
+              </Field>
+
+              <Field label="رد الشات بالإنجليزية" className="md:col-span-2">
+                <textarea
+                  rows={3}
+                  value={form.chatReplyEn}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      chatReplyEn: event.target.value,
+                    }))
+                  }
+                  dir="ltr"
+                  className={`${INPUT} h-auto min-h-[84px] py-3 text-left`}
+                  placeholder="Welcome 👋 Registration for the Civil 3D journey is open. Choose from the menu below 👇"
+                />
+              </Field>
+
+              <Field label="رابط احتياطي (يُستخدم فقط إذا كان الشات متوقفًا)" className="md:col-span-2">
+                <input
+                  value={form.href}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      href: event.target.value,
+                    }))
+                  }
+                  dir="ltr"
+                  className={`${INPUT} text-left`}
+                  placeholder="https://wa.me/..."
+                />
+              </Field>
+            </>
+          ) : (
+            <Field label="رابط الزر" className="md:col-span-2">
+              <input
+                value={form.href}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    href: event.target.value,
+                  }))
+                }
+                dir="ltr"
+                className={`${INPUT} text-left`}
+                placeholder="/course/example"
+              />
+            </Field>
+          )}
 
           <Field label="يبدأ في">
             <input
