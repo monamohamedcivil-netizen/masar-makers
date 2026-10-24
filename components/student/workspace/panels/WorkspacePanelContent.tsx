@@ -778,6 +778,19 @@ function StationLearningView({
   const [selectedLessonId, setSelectedLessonId] =
     useState<string | null>(null);
 
+  // Fundamentals / Advanced side by side as tabs; only the active tab's lessons are shown.
+  const hasTabs = station.learningParts.length > 1;
+  const [activePart, setActivePart] = useState<string | undefined>(
+    () =>
+      (
+        station.learningParts.find((part) => part.access === "active") ??
+        station.learningParts[0]
+      )?.part,
+  );
+  const visibleParts = hasTabs
+    ? station.learningParts.filter((part) => part.part === activePart)
+    : station.learningParts;
+
   const partTitle = {
     single: isArabic ? "محاضرات الكورس" : "Course Lessons",
     fundamentals: "Fundamentals",
@@ -837,14 +850,53 @@ function StationLearningView({
         </div>
       ) : null}
 
-      <div
-        className={
-          station.learningLayout === "split"
-            ? "grid gap-4 lg:grid-cols-2"
-            : "grid gap-4"
-        }
-      >
-        {station.learningParts.map((part) => (
+      {hasTabs ? (
+        <div
+          role="tablist"
+          aria-label={isArabic ? "أقسام الرحلة" : "Journey sections"}
+          className="grid overflow-hidden rounded-2xl border border-slate-200 bg-[#EEF1F5]"
+          style={{
+            gridTemplateColumns: `repeat(${station.learningParts.length}, minmax(0, 1fr))`,
+          }}
+        >
+          {station.learningParts.map((part) => {
+            const selected = part.part === activePart;
+            return (
+              <button
+                key={part.part}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => setActivePart(part.part)}
+                className={`relative flex min-h-[48px] items-center justify-center gap-2 px-3 text-xs font-black transition ${
+                  selected
+                    ? "bg-[#07152E] text-white"
+                    : "text-[#4B5563] hover:bg-white"
+                }`}
+              >
+                {partTitle[part.part]}
+                {part.access === "active" ? (
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-black ${
+                      selected
+                        ? "bg-[#F7B548] text-[#07152E]"
+                        : "bg-white text-[#07152E]"
+                    }`}
+                  >
+                    {Math.round(part.progressPercent)}%
+                  </span>
+                ) : null}
+                {selected ? (
+                  <span className="absolute inset-x-4 bottom-0 h-[3px] bg-[#F7B548]" />
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <div className="grid gap-4">
+        {visibleParts.map((part) => (
           <section
             key={part.part}
             className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
