@@ -6,12 +6,12 @@ import type { WebChatContext } from "@/lib/actions/webchat";
    Website chat switch.
    NEXT_PUBLIC_WEBCHAT_MODE:
      "off"  → never (all buttons open WhatsApp as before)
-     "test" → only in a browser that opened any page with ?webchat=1   (default)
-     "live" → for every visitor
+     "test" → only in a browser that opened any page with ?webchat=1
+     "live" → for every visitor   (default since 2026-10-24)
    ?webchat=0 turns the test mode off again in that browser.
 ========================================================= */
 
-const MODE = (process.env.NEXT_PUBLIC_WEBCHAT_MODE ?? "test").trim();
+const MODE = (process.env.NEXT_PUBLIC_WEBCHAT_MODE ?? "live").trim();
 const KEY = "mm_webchat_test";
 export const OPEN_EVENT = "masar-chat-open";
 
