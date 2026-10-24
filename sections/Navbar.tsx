@@ -4,8 +4,7 @@ import { openMasarChat } from "@/lib/webchat/client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Menu, X } from "lucide-react";
-import { FaWhatsapp } from "react-icons/fa";
+import { Menu, MessageCircleMore, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import AuthLink from "@/components/AuthLink";
@@ -238,10 +237,10 @@ export default function Navbar({ activeItem }: NavbarProps) {
             onClick={(event) => { if (openMasarChat({ source: "contact", text: "السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار." })) event.preventDefault(); }}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden h-7 w-7 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition hover:scale-110 hover:shadow-[0_0_22px_rgba(37,211,102,.55)] xl:flex"
-            aria-label={locale === "ar" ? "تواصل معنا عبر واتساب" : "Contact us on WhatsApp"}
+            className="hidden h-7 w-7 items-center justify-center rounded-full bg-[#F7B548] text-[#07152E] shadow-lg transition hover:scale-110 hover:shadow-[0_0_22px_rgba(247,181,72,.55)] xl:flex"
+            aria-label={locale === "ar" ? "تواصل معنا عبر شات المنصة" : "Chat with us"}
           >
-            <FaWhatsapp size={22} />
+            <MessageCircleMore size={17} />
           </a>
 
           <span className="hidden text-[14px] font-bold text-white xl:block">

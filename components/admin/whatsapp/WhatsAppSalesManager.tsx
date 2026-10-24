@@ -74,6 +74,7 @@ type WhatsAppCourse = {
   short_description_en?: string | null;
   details_en?: string | null;
   variants_prompt_en?: string | null;
+  outline_video_url?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -575,6 +576,12 @@ function CoursesTab({
             />
 
             <Field
+              title="رابط شرح محاور الرحلة ونتائجها (يوتيوب)"
+              name="outline_video_url"
+              placeholder="https://youtu.be/..."
+            />
+
+            <Field
               title="رابط الكورس"
               name="course_url"
               placeholder="https://masarmakers.com/..."
@@ -744,6 +751,12 @@ function CoursesTab({
                       title="رابط أول محاضرة"
                       name="intro_video_url"
                       defaultValue={course.intro_video_url ?? ""}
+                    />
+
+                    <Field
+                      title="رابط شرح محاور الرحلة ونتائجها (يوتيوب)"
+                      name="outline_video_url"
+                      defaultValue={course.outline_video_url ?? ""}
                     />
 
                     <Field

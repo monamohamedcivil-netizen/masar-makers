@@ -830,6 +830,31 @@ export default function LessonContentManager({
     });
   }
 
+  /*
+   * ترتيب الدرس عند تغيير المحطة/القسم:
+   * - درس جديد أو درس يُنقل لقسم آخر: أول ترتيب فارغ في القسم الجديد.
+   * - الرجوع لقسمه الأصلي: ترتيبه الأصلي.
+   */
+  function orderForTarget(
+    lesson: Row,
+    courseId: string,
+    coursePart: string,
+  ) {
+    const original = lesson.id
+      ? lessons.find((item: Row) => item.id === lesson.id)
+      : null;
+
+    if (
+      original &&
+      original.course_id === courseId &&
+      normalizePart(original.course_part) === normalizePart(coursePart)
+    ) {
+      return lessonOrder(original);
+    }
+
+    return getNextLessonOrder(courseId, coursePart);
+  }
+
   function getNextLessonOrder(
     courseId: string,
     coursePart: string,
@@ -1882,6 +1907,7 @@ export default function LessonContentManager({
           getNextLessonOrder={
             getNextLessonOrder
           }
+          orderForTarget={orderForTarget}
           pending={pending}
           close={() =>
             setEditing(null)
@@ -1986,6 +2012,7 @@ function LessonDialog({
   careerPaths,
   stations,
   getNextLessonOrder,
+  orderForTarget,
   pending,
   close,
   submit,
@@ -2084,13 +2111,12 @@ function LessonDialog({
                 course_id: stationCourse?.id || "",
                 journey_id: "",
                 journey_ids: [],
-                // الدرس الجديد: نحسب أول ترتيب فارغ في الكورس المختار.
-                lesson_order: editing.id
-                  ? editing.lesson_order
-                  : getNextLessonOrder(
-                      stationCourse?.id || "",
-                      editing.course_part || "single",
-                    ),
+                // درس جديد أو منقول: أول ترتيب فارغ في الكورس المختار.
+                lesson_order: orderForTarget(
+                  editing,
+                  stationCourse?.id || "",
+                  editing.course_part || "single",
+                ),
               });
             }}
             options={[
@@ -2106,13 +2132,12 @@ function LessonDialog({
             label="قسم الكورس"
             value={editing.course_part || "single"}
             set={(value: string) => {
-              const nextOrder =
-                editing.id
-                  ? editing.lesson_order
-                  : getNextLessonOrder(
-                      editing.course_id,
-                      value,
-                    );
+              // نقل الدرس لقسم آخر: ترتيب فارغ في القسم الجديد (كان يُرفض بسبب تكرار الترتيب).
+              const nextOrder = orderForTarget(
+                editing,
+                editing.course_id,
+                value,
+              );
 
               setEditing({
                 ...editing,

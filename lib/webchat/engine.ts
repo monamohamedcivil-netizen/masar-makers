@@ -214,6 +214,20 @@ export class WebChatEngine {
   /* ---------- first message of a chat (depends on the button) ---------- */
 
   async opening(entryKey: string, context: AnyRow): Promise<ChatMessage[]> {
+    // Announcement bar button: the reply written on that announcement, then the main menu.
+    if (entryKey === "announcement") {
+      let reply = "";
+      if (context.announcementId) {
+        const { data } = await this.db
+          .from("platform_announcements")
+          .select("chat_reply,chat_reply_en")
+          .eq("id", String(context.announcementId))
+          .maybeSingle();
+        reply = this.f(data, "chat_reply");
+      }
+      return this.mainMenu(reply || (await this.entryText("contact")));
+    }
+
     const welcome = fill(await this.entryText(entryKey), {
       action: clean(context.actionLabel) || clean(context.courseHint) || this.t("طلبك", "your request"),
       course: clean(context.courseHint),
@@ -286,7 +300,9 @@ export class WebChatEngine {
     for (const i of items) {
       if (i.action_type === "open_url") {
         const url = await this.courseUrl(course, i);
-        if (url) buttons.push({ id: `menuitem:${i.id}`, label: this.f(i, "label"), kind: "link", url });
+        // «شرح محاور الرحلة» opens as a pop-up video over the page; other links open normally.
+        const popup = clean(i.action_value) === "outline_video";
+        if (url) buttons.push({ id: `menuitem:${i.id}`, label: this.f(i, "label"), kind: popup ? "video" : "link", url });
         continue;
       }
       const b = this.itemButton(i);
@@ -501,7 +517,8 @@ export class WebChatEngine {
     let url = clean(item.url) || (/^https?:\/\//.test(value) ? value : "");
     if (!url && value === "intro_video") url = clean(course.intro_video_url);
     if (!url && value === "course_url") url = clean(course.course_url);
-    if (!url && course.has_variants) {
+    if (!url && value === "outline_video") url = clean(course.outline_video_url);
+    if (!url && course.has_variants && (value === "intro_video" || value === "course_url")) {
       const field = value === "course_url" ? "course_url" : "intro_video_url";
       url = clean((await this.variants(course.id)).find((v) => clean(v[field]))?.[field]);
     }

@@ -21,8 +21,8 @@ import {
 Volume2,
 VolumeX,
 Maximize2,
+MessageCircleMore,
 } from "lucide-react";
-import { FaWhatsapp } from "react-icons/fa";
 
 import { createClient } from "@/lib/supabase/client";
 import LanguageSwitch from "@/components/i18n/LanguageSwitch";
@@ -763,9 +763,9 @@ export default function MasarLanding() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label={text.contact}
-              className="inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-2xl border border-[#25D366]/60 bg-[#0B502B]/60 px-3 text-[13px] font-black text-white transition hover:bg-[#25D366] lg:text-[14px]"
+              className="inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-2xl border border-[#F7B548]/60 bg-white/10 px-3 text-[13px] font-black text-white transition hover:bg-[#F7B548] hover:text-[#07152E] lg:text-[14px]"
             >
-              <FaWhatsapp className="h-5 w-5" />
+              <MessageCircleMore className="h-5 w-5" />
               <span className="hidden lg:inline">
                 {text.contact}
               </span>
@@ -983,9 +983,9 @@ export default function MasarLanding() {
             onClick={(event) => { if (openMasarChat({ source: "contact", text: "السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار." })) event.preventDefault(); }}
             target="_blank"
             rel="noopener noreferrer"
-            className={`inline-flex min-h-8 whitespace-nowrap ${locale === "en" ? "w-[150px]" : "w-[115px]"} items-center justify-center gap-1.5 rounded-lg border border-[#25D366]/70 bg-[#0B502B]/85 px-3 text-[12px] font-black text-white shadow-md`}
+            className={`inline-flex min-h-8 whitespace-nowrap ${locale === "en" ? "w-[150px]" : "w-[115px]"} items-center justify-center gap-1.5 rounded-lg border border-[#F7B548]/70 bg-[#07152E]/85 px-3 text-[12px] font-black text-white shadow-md`}
           >
-            <FaWhatsapp className="h-4 w-4" />
+            <MessageCircleMore className="h-4 w-4 text-[#F7B548]" />
             {text.contact}
           </a>
 

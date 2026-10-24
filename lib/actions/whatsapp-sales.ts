@@ -194,7 +194,7 @@ export async function createCourse(
   } = await supabase
     .from("whatsapp_courses")
     .insert({
-      ...extra(formData, ["short_description_en","details_en","variants_prompt_en"]),
+      ...extra(formData, ["short_description_en","details_en","variants_prompt_en","outline_video_url"]),
       course_key: courseKey,
       title,
 
@@ -324,7 +324,7 @@ export async function updateCourse(
     await supabase
       .from("whatsapp_courses")
       .update({
-        ...extra(formData, ["short_description_en","details_en","variants_prompt_en"]),
+        ...extra(formData, ["short_description_en","details_en","variants_prompt_en","outline_video_url"]),
         title,
         whatsapp_label:
           whatsappLabel,

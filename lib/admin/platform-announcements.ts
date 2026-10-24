@@ -20,6 +20,10 @@ export type PlatformAnnouncement = {
   button_text: string;
   button_text_en: string | null;
   href: string;
+  /** The button opens the platform chat (instead of the link). */
+  opens_chat?: boolean;
+  chat_reply?: string | null;
+  chat_reply_en?: string | null;
   is_active: boolean;
   display_order: number;
   starts_at: string | null;
@@ -110,6 +114,9 @@ export async function createPlatformAnnouncement(input: {
   buttonText?: string;
   buttonTextEn?: string;
   href?: string;
+  opensChat?: boolean;
+  chatReply?: string;
+  chatReplyEn?: string;
   isActive?: boolean;
   displayOrder?: number;
   startsAt?: string;
@@ -151,6 +158,9 @@ export async function createPlatformAnnouncement(input: {
       button_text: input.buttonText?.trim() || "التفاصيل",
       button_text_en: input.buttonTextEn?.trim() || "Details",
       href: input.href?.trim() || "#",
+      opens_chat: Boolean(input.opensChat),
+      chat_reply: input.chatReply?.trim() || null,
+      chat_reply_en: input.chatReplyEn?.trim() || null,
       is_active: input.isActive ?? true,
       display_order: Number(input.displayOrder ?? 0),
       starts_at: startsAt,
@@ -187,6 +197,9 @@ export async function updatePlatformAnnouncement(
     buttonText?: string;
     buttonTextEn?: string;
     href?: string;
+    opensChat?: boolean;
+    chatReply?: string;
+    chatReplyEn?: string;
     isActive?: boolean;
     displayOrder?: number;
     startsAt?: string;
@@ -236,6 +249,9 @@ export async function updatePlatformAnnouncement(
       button_text: input.buttonText?.trim() || "التفاصيل",
       button_text_en: input.buttonTextEn?.trim() || "Details",
       href: input.href?.trim() || "#",
+      opens_chat: Boolean(input.opensChat),
+      chat_reply: input.chatReply?.trim() || null,
+      chat_reply_en: input.chatReplyEn?.trim() || null,
       is_active: input.isActive ?? true,
       display_order: Number(input.displayOrder ?? 0),
       starts_at: startsAt,

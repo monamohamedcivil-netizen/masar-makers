@@ -26,6 +26,7 @@ export type WebChatContext = {
   requestNumber?: string; // enrollment request number
   page?: string;          // page path (to come back after login)
   visitorId?: string;     // anonymous browser id
+  announcementId?: string; // platform announcement whose button opened the chat
   locale?: string;        // "ar" | "en" — the platform language
 };
 
@@ -45,7 +46,7 @@ export type WebChatLoad =
   | { ok: false; error: string };
 
 const MAX_MESSAGES_PER_SESSION = 300;
-const ENTRY_KEYS = new Set(["contact", "course_action", "enrollment", "launcher"]);
+const ENTRY_KEYS = new Set(["contact", "course_action", "enrollment", "launcher", "announcement"]);
 const cut = (v: unknown, n: number) => String(v ?? "").trim().slice(0, n);
 
 function newCode() {
@@ -161,6 +162,7 @@ export async function startWebChat(input: WebChatContext): Promise<WebChatStart>
       lessonId: cut(input?.lessonId, 64),
       requestNumber: cut(input?.requestNumber, 60),
       page: cut(input?.page, 300).startsWith("/") ? cut(input?.page, 300) : "/",
+      announcementId: /^[0-9a-f-]{36}$/i.test(String(input?.announcementId ?? "")) ? String(input.announcementId) : undefined,
     };
     const visitorId = /^[a-zA-Z0-9-]{8,64}$/.test(String(input?.visitorId ?? "")) ? String(input.visitorId) : null;
     const userId = await currentUserId();
@@ -205,7 +207,7 @@ export async function startWebChat(input: WebChatContext): Promise<WebChatStart>
       const { data: p } = await db.from("profiles").select("full_name,email").eq("id", userId).maybeSingle();
       who = String(p?.full_name || p?.email || "طالب مسجّل");
     }
-    const sourceLabel: Record<string, string> = { contact: "زر التواصل", course_action: "زر داخل الكورس", enrollment: "طلب اشتراك", launcher: "زر المساعد" };
+    const sourceLabel: Record<string, string> = { contact: "زر التواصل", course_action: "زر داخل الكورس", enrollment: "طلب اشتراك", launcher: "زر المساعد", announcement: "زر إعلان المنصة" };
     await notifyWebChatAdmins(db, {
       title: `🤖 محادثة جديدة — ${who}`,
       body: [sourceLabel[entryKey] ?? entryKey, ctx.actionLabel || ctx.text || "", ctx.courseHint || "", session.code].filter(Boolean).join(" • "),

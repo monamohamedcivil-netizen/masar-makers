@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import AuthLink from "@/components/AuthLink";
 import NotificationCenter from "@/components/notifications/NotificationCenter";
 import { createClient } from "@/lib/supabase/client";
+import { openMasarChat } from "@/lib/webchat/client";
 
 import {
   Gift,
@@ -39,6 +40,7 @@ type Announcement = {
   button_text: string | null;
   button_text_en: string | null;
   href: string | null;
+  opens_chat?: boolean | null;
   is_active: boolean;
   display_order: number;
   starts_at: string | null;
@@ -124,7 +126,7 @@ export default function AnnouncementBar() {
 const { data, error } = await supabase
   .from("platform_announcements")
   .select(
-    "id,type,title,title_en,description,description_en,button_text,button_text_en,href,is_active,display_order,starts_at,ends_at"
+    "id,type,title,title_en,description,description_en,button_text,button_text_en,href,opens_chat,is_active,display_order,starts_at,ends_at"
   )
   .eq("is_active", true)
   .or(`starts_at.is.null,starts_at.lte.${now}`)
@@ -207,6 +209,33 @@ const { data, error } = await supabase
       : item?.button_text?.trim() || text.details;
   const isExternalLink = /^https?:\/\//i.test(href);
 
+  // Buttons set to "open the chat" (and old WhatsApp links) open the platform chat.
+  const isWhatsAppLink = /(?:wa\.me|whatsapp\.com)\//i.test(href);
+  const opensChat = Boolean(item?.opens_chat) || isWhatsAppLink;
+
+  function openAnnouncementChat() {
+    if (!item) return;
+    let visitorText = "";
+    try {
+      visitorText = isWhatsAppLink
+        ? new URL(href).searchParams.get("text")?.trim() || ""
+        : "";
+    } catch {
+      visitorText = "";
+    }
+    const opened = openMasarChat({
+      source: "announcement",
+      announcementId: item.id,
+      text: visitorText || title,
+      actionLabel: title,
+    });
+    if (!opened && href && href !== "#") {
+      // Chat switched off: keep the old behaviour (the link).
+      if (isExternalLink) window.open(href, "_blank", "noopener,noreferrer");
+      else window.location.href = href;
+    }
+  }
+
   const ctaClassMobile =
     "inline-flex h-8 max-w-[104px] items-center gap-1 whitespace-nowrap rounded-full bg-[#F7B548] px-2.5 text-[10px] font-black text-[#07152E] shadow-sm transition hover:scale-105";
 
@@ -253,7 +282,16 @@ const { data, error } = await supabase
                 </div>
 
                 <div className="shrink-0">
-                  {isExternalLink ? (
+                  {opensChat ? (
+                    <button
+                      type="button"
+                      onClick={openAnnouncementChat}
+                      className={ctaClassMobile}
+                    >
+                      <span className="truncate">{buttonText}</span>
+                      <CTAArrow size={12} className="shrink-0" />
+                    </button>
+                  ) : isExternalLink ? (
                     <a
                       href={href}
                       target="_blank"
@@ -372,7 +410,16 @@ const { data, error } = await supabase
                   isArabic ? "left-6" : "right-6"
                 }`}
               >
-                {isExternalLink ? (
+                {opensChat ? (
+                  <button
+                    type="button"
+                    onClick={openAnnouncementChat}
+                    className={ctaClassDesktop}
+                  >
+                    {buttonText}
+                    <CTAArrow size={15} />
+                  </button>
+                ) : isExternalLink ? (
                   <a
                     href={href}
                     target="_blank"
