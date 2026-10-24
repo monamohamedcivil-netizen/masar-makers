@@ -46,6 +46,15 @@ const ROW_TONE: Record<ExpenseCategory, string> = {
   other: "bg-emerald-50 hover:bg-emerald-100/70 border-r-4 border-r-emerald-400",
 };
 
+// «مدفوع إلى» stays visible while scrolling the table sideways (opaque background = row colour).
+const STICKY_CELL =
+  "sticky right-0 z-10 shadow-[-6px_0_8px_-6px_rgba(7,21,46,0.25)]";
+const STICKY_BG: Record<ExpenseCategory, string> = {
+  ads: "bg-orange-50",
+  platform: "bg-sky-50",
+  other: "bg-emerald-50",
+};
+
 const LEGEND_DOT: Record<ExpenseCategory, string> = {
   ads: "bg-orange-400",
   platform: "bg-sky-400",
@@ -349,7 +358,12 @@ export default function ExpensesManager({
                   "الإجمالي (جنيه)",
                   "ملاحظات",
                 ].map((h) => (
-                  <th key={h} className="whitespace-nowrap px-2 py-3">
+                  <th
+                    key={h}
+                    className={`whitespace-nowrap px-2 py-3 ${
+                      h === "مدفوع إلى" ? `${STICKY_CELL} bg-slate-50` : ""
+                    }`}
+                  >
                     {h}
                   </th>
                 ))}
@@ -357,7 +371,12 @@ export default function ExpensesManager({
               </tr>
               <tr className="border-b border-slate-200 bg-white">
                 {FILTER_COLUMNS.map((col) => (
-                  <th key={col.key} className="px-1 py-1.5 font-normal">
+                  <th
+                    key={col.key}
+                    className={`px-1 py-1.5 font-normal ${
+                      col.key === "payee" ? `${STICKY_CELL} bg-white` : ""
+                    }`}
+                  >
                     {col.options ? (
                       <select
                         value={filters[col.key] ?? ""}
@@ -428,7 +447,7 @@ export default function ExpensesManager({
                           onSave={(v) => saveLinked(r, "category", v)}
                         />
                       </td>
-                      <td className="px-1 py-1">
+                      <td className={`px-1 py-1 ${STICKY_CELL} ${STICKY_BG[r.category]}`}>
                         <EditableCell
                           value={r.payee}
                           width={260}
