@@ -113,7 +113,14 @@ export default function ServicesManager({
                 "آخر دفعة",
                 "ملاحظات",
               ].map((h) => (
-                <th key={h} className="whitespace-nowrap px-2 py-3">
+                <th
+                  key={h}
+                  className={`whitespace-nowrap px-2 py-3 ${
+                    h === "الخدمة"
+                      ? "sticky right-0 z-10 bg-slate-50 shadow-[-6px_0_8px_-6px_rgba(7,21,46,0.25)]"
+                      : ""
+                  }`}
+                >
                   {h}
                 </th>
               ))}
@@ -136,7 +143,7 @@ export default function ServicesManager({
                     {s.is_running ? "● مستمر" : "■ متوقف"}
                   </button>
                 </td>
-                <td className="px-1 py-1">
+                <td className="sticky right-0 z-10 bg-white px-1 py-1 shadow-[-6px_0_8px_-6px_rgba(7,21,46,0.25)]">
                   <EditableCell value={s.name} width={160} onSave={(v) => save(s.id, { name: v })} />
                 </td>
                 <td className="px-1 py-1">
