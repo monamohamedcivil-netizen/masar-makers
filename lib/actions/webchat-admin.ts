@@ -70,8 +70,9 @@ function priceText(last: AnyRow | null) {
 export async function getWebChatAdmin(): Promise<WebChatAdminData> {
   const db = await admin();
 
-  const { data: sessions } = await db.from("web_chat_sessions").select("*").order("updated_at", { ascending: false }).limit(300);
-  const list = (sessions ?? []) as AnyRow[];
+  const { data: sessions } = await db.from("web_chat_sessions").select("*").order("updated_at", { ascending: false }).limit(400);
+  // Silent ad chats (opened by the ad link, the visitor never pressed anything) are not listed.
+  const list = ((sessions ?? []) as AnyRow[]).filter((s) => !s.context?.quiet).slice(0, 300);
   const contactIds = [...new Set(list.map((s) => s.contact_id).filter(Boolean))];
   const userIds = [...new Set(list.map((s) => s.user_id).filter(Boolean))];
   const courseIds = [...new Set(list.map((s) => s.current_course_id).filter(Boolean))];

@@ -6,6 +6,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { FaWhatsapp } from "react-icons/fa";
 
 import { loadWebChat, startWebChat, webChatAct, type WebChatContext } from "@/lib/actions/webchat";
+import { isBotUserAgent } from "@/lib/webchat/bots";
 import { isWebChatEnabled, OPEN_EVENT, syncWebChatTestFlag } from "@/lib/webchat/client";
 import type { ChatButton, ChatMessage, Locale } from "@/lib/webchat/engine";
 
@@ -226,7 +227,9 @@ export default function WebChatWidget() {
     } catch {
       /* ignore */
     }
-    if (askParam && !askedRef.current) {
+    if (askParam && !askedRef.current && isBotUserAgent(navigator.userAgent)) {
+      askedRef.current = true; // ad review / link-preview crawler: don't open a chat
+    } else if (askParam && !askedRef.current) {
       askedRef.current = true;
       try {
         storage()?.setItem("mm_webchat_test", "1"); // keep the chat on this visitor's next pages too
