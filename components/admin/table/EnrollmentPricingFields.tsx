@@ -11,6 +11,9 @@ interface EnrollmentPricingFieldsProps {
   editable: boolean;
   applicable: boolean;
   initialPrice: number | null;
+  /** Integrated journey in a two-stage course: Fundamentals price + Advanced price. */
+  twoPrices?: boolean;
+  initialPriceAdvanced?: number | null;
   initialCurrency: string;
   initialOffer: string;
   offerNames: string[];
@@ -28,6 +31,8 @@ export default function EnrollmentPricingFields({
   editable,
   applicable,
   initialPrice,
+  twoPrices = false,
+  initialPriceAdvanced = null,
   initialCurrency,
   initialOffer,
   offerNames,
@@ -38,12 +43,16 @@ export default function EnrollmentPricingFields({
   const [price, setPrice] = useState(
     initialPrice ? String(initialPrice) : "",
   );
+  const [priceAdvanced, setPriceAdvanced] = useState(
+    initialPriceAdvanced ? String(initialPriceAdvanced) : "",
+  );
   const [currency, setCurrency] = useState(initialCurrency || "EGP");
   const [offer, setOffer] = useState(initialOffer);
   const [error, setError] = useState("");
 
   const dirty =
     price !== (initialPrice ? String(initialPrice) : "") ||
+    priceAdvanced !== (initialPriceAdvanced ? String(initialPriceAdvanced) : "") ||
     currency !== (initialCurrency || "EGP") ||
     offer !== initialOffer;
 
@@ -62,7 +71,17 @@ export default function EnrollmentPricingFields({
     return (
       <>
         <td className="px-5 py-4 text-sm font-bold text-[#07152E]">
-          {initialPrice ? `${initialPrice} ${currencyLabel}` : "—"}
+          {twoPrices ? (
+            <span className="block whitespace-nowrap leading-6">
+              أساسيات: {initialPrice ? `${initialPrice} ${currencyLabel}` : "—"}
+              <br />
+              متقدم: {initialPriceAdvanced ? `${initialPriceAdvanced} ${currencyLabel}` : "—"}
+            </span>
+          ) : initialPrice ? (
+            `${initialPrice} ${currencyLabel}`
+          ) : (
+            "—"
+          )}
         </td>
         <td className="px-5 py-4 text-sm text-slate-600">
           {initialOffer || "—"}
@@ -76,6 +95,7 @@ export default function EnrollmentPricingFields({
     startTransition(async () => {
       const result = await saveEnrollmentPricing(enrollmentId, {
         price: price.trim() ? Number(price) : null,
+        priceAdvanced: twoPrices && priceAdvanced.trim() ? Number(priceAdvanced) : null,
         currency,
         offerLabel: offer,
       });
@@ -91,15 +111,40 @@ export default function EnrollmentPricingFields({
     <>
       <td className="px-5 py-4">
         <div className="flex min-w-[170px] items-center gap-1.5">
-          <input
-            type="number"
-            min={0}
-            inputMode="decimal"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            placeholder="القيمة"
-            className="h-9 w-24 rounded-lg border border-slate-200 bg-white px-2 text-sm outline-none focus:border-[#F7B548]"
-          />
+          {twoPrices ? (
+            <div className="grid gap-1">
+              <input
+                type="number"
+                min={0}
+                inputMode="decimal"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="الأساسيات"
+                title="سعر رحلة الأساسيات"
+                className="h-9 w-24 rounded-lg border border-slate-200 bg-white px-2 text-sm outline-none focus:border-[#F7B548]"
+              />
+              <input
+                type="number"
+                min={0}
+                inputMode="decimal"
+                value={priceAdvanced}
+                onChange={(e) => setPriceAdvanced(e.target.value)}
+                placeholder="المتقدم"
+                title="سعر الرحلة المتقدمة"
+                className="h-9 w-24 rounded-lg border border-slate-200 bg-white px-2 text-sm outline-none focus:border-[#F7B548]"
+              />
+            </div>
+          ) : (
+            <input
+              type="number"
+              min={0}
+              inputMode="decimal"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="القيمة"
+              className="h-9 w-24 rounded-lg border border-slate-200 bg-white px-2 text-sm outline-none focus:border-[#F7B548]"
+            />
+          )}
           <select
             value={currency}
             onChange={(e) => setCurrency(e.target.value)}

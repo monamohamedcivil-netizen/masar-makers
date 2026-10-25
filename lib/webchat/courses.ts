@@ -33,3 +33,16 @@ export function findChatCourse<T extends ChatCourseLike>(list: T[], hint: string
 export function isOneDayJourneyType(value: unknown) {
   return ["workshop", "one_day", "one-day", "one_day_workshop", "one-day-workshop"].includes(low(value));
 }
+
+/** Fundamentals / Advanced / Integrated of a chat course variant (from its key or titles). */
+export function variantStageOf(v: {
+  variant_key?: string | null;
+  title?: string | null;
+  title_en?: string | null;
+}): "fundamental" | "advanced" | "integrated" | null {
+  const text = [v.variant_key, v.title, v.title_en].map((x) => low(x)).join(" ");
+  if (/integr|متكامل|full/.test(text)) return "integrated";
+  if (/fund|أساس|اساس/.test(text)) return "fundamental";
+  if (/adv|متقدم/.test(text)) return "advanced";
+  return null;
+}
