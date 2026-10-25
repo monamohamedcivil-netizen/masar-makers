@@ -1,9 +1,11 @@
 "use server";
 
 import { randomBytes } from "crypto";
+import { headers } from "next/headers";
 
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { WebChatEngine, type ChatButton, type ChatMessage, type Locale } from "@/lib/webchat/engine";
+import { isBotUserAgent } from "@/lib/webchat/bots";
 import { notifyWebChatAdmins } from "@/lib/webchat/notify";
 
 /* =========================================================
@@ -149,8 +151,23 @@ async function log(db: Db, sessionId: string, rows: { sender: "visitor" | "bot";
     .eq("id", sessionId);
 }
 
+/** Chat opened by itself from an ad link (?ask=…): kept silent until the visitor presses a button. */
+const QUIET_SOURCES = new Set(["ad"]);
+
+async function requestIsBot() {
+  try {
+    return isBotUserAgent((await headers()).get("user-agent"));
+  } catch {
+    return false;
+  }
+}
+
 export async function startWebChat(input: WebChatContext): Promise<WebChatStart> {
   try {
+    // Ad review / link-preview crawlers: no session, no notification.
+    if (await requestIsBot()) {
+      return { ok: false, error: toLocale(input?.locale) === "en" ? "Chat is not available." : "المحادثة غير متاحة." };
+    }
     const db = createAdminClient();
     const ctx: WebChatContext = {
       source: cut(input?.source, 40) || "contact",
@@ -168,20 +185,30 @@ export async function startWebChat(input: WebChatContext): Promise<WebChatStart>
     const userId = await currentUserId();
     const contact = await resolveContact(db, userId, visitorId);
 
+    const quiet = QUIET_SOURCES.has(ctx.source ?? "");
     const token = randomBytes(24).toString("hex");
     let session: AnyRow | null = null;
     for (let attempt = 0; attempt < 3 && !session; attempt += 1) {
       const { data } = await db
         .from("web_chat_sessions")
-        .insert({ code: newCode(), token, user_id: userId, contact_id: contact?.id ?? null, source: ctx.source, context: ctx, last_visitor_at: new Date().toISOString() })
+        .insert({
+          code: newCode(),
+          token,
+          user_id: userId,
+          contact_id: contact?.id ?? null,
+          source: ctx.source,
+          context: quiet ? { ...ctx, quiet: true } : ctx,
+          last_visitor_at: new Date().toISOString(),
+        })
         .select("*")
         .single();
       session = data;
     }
     if (!session) return { ok: false, error: toLocale(input?.locale) === "en" ? "Couldn't start the chat." : "تعذّر بدء المحادثة." };
 
-    // One follow-up per student: a new chat replaces the older ones.
-    if (contact?.id) {
+    // One follow-up per student: a new chat replaces the older ones
+    // (a silent ad chat replaces them only once the visitor answers).
+    if (contact?.id && !quiet) {
       await db
         .from("web_chat_sessions")
         .update({ followup_status: "closed", followup_closed_reason: "new_chat", followup_closed_at: new Date().toISOString(), followup_next_at: null })
@@ -200,6 +227,18 @@ export async function startWebChat(input: WebChatContext): Promise<WebChatStart>
       ...(ctx.text ? [{ sender: "visitor" as const, body: ctx.text }] : []),
       ...messages.map((m) => ({ sender: "bot" as const, body: m.text, buttons: m.buttons })),
     ]);
+
+    // Silent ad chat: no follow-up and no notification until the visitor presses a button
+    // (ad link checkers open the page like visitors and never answer).
+    if (quiet) {
+      if (session.followup_status !== "none") {
+        await db
+          .from("web_chat_sessions")
+          .update({ followup_status: "none", followup_count: 0, followup_next_at: null })
+          .eq("id", session.id);
+      }
+      return { ok: true, sessionId: session.id, token, code: session.code, messages };
+    }
 
     // Notify Mona: new chat (who + which button).
     let who = "زائر غير مسجّل";
@@ -255,8 +294,44 @@ export async function webChatAct(sessionId: string, token: string, actionId: str
         followup_closed_at: null,
       });
     }
+    // First answer in a silent ad chat → it becomes a normal chat (follow-up + notification).
+    const waking = Boolean(session.context?.quiet);
+    if (waking) {
+      patch.context = { ...(session.context ?? {}), quiet: false };
+      if (session.current_course_id && session.followup_status === "none") {
+        const { data: cfg } = await db.from("web_chat_settings").select("followup_every_days").eq("id", 1).maybeSingle();
+        const days = Math.max(1, Number(cfg?.followup_every_days ?? 3));
+        Object.assign(patch, {
+          followup_status: "active",
+          followup_count: 0,
+          followup_next_at: new Date(now.getTime() + days * 86400000).toISOString(),
+        });
+      }
+      if (session.contact_id) {
+        await db
+          .from("web_chat_sessions")
+          .update({ followup_status: "closed", followup_closed_reason: "new_chat", followup_closed_at: now.toISOString(), followup_next_at: null })
+          .eq("contact_id", session.contact_id)
+          .eq("followup_status", "active")
+          .neq("id", session.id);
+      }
+    }
     await db.from("web_chat_sessions").update(patch).eq("id", session.id);
     Object.assign(session, patch);
+
+    if (waking) {
+      let who = "زائر غير مسجّل";
+      if (userId) {
+        const { data: p } = await db.from("profiles").select("full_name,email").eq("id", userId).maybeSingle();
+        who = String(p?.full_name || p?.email || "طالب مسجّل");
+      }
+      await notifyWebChatAdmins(db, {
+        title: `🤖 محادثة جديدة — ${who}`,
+        body: ["إعلان ممول / رابط مباشر", session.context?.actionLabel || "", cut(label, 120), session.code].filter(Boolean).join(" • "),
+        sessionId: session.id,
+        tag: `chat-${session.id}`,
+      });
+    }
 
     const id = cut(actionId, 80);
     const locale = toLocale(localeInput);
