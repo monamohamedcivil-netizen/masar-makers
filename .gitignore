@@ -48,3 +48,6 @@ supabase/.temp/
 
 # Landing Page promotional videos
 public/videos/promos/*.mp4
+
+# Ad / social media files live in the ads folder and Metricool, not in the platform repo
+/public/marketing/
