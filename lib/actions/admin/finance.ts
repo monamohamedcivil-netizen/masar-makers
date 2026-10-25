@@ -8,6 +8,11 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { applyAutoFlags, mapPayment } from "@/lib/finance/queries";
 import { computeExpenseTotals } from "@/lib/finance/expense-calc";
 import {
+  isFullProfessionalJourney,
+  lessonIdFromActionKey,
+  suggestListPrices,
+} from "@/lib/finance/course-prices";
+import {
   DEFAULT_RATES,
   derivePaymentStatus,
   normalizeCurrency,
@@ -39,6 +44,31 @@ function fail<T = undefined>(error: unknown): FinanceActionResult<T> {
     success: false,
     message: error instanceof Error ? error.message : String(error),
   };
+}
+
+/**
+ * أي عرض يُكتب في المدفوعات أو طلبات الاشتراك يُضاف تلقائيًا لقائمة العروض
+ * (حتى يظهر كاختيار جاهز لأي طالب آخر). يرجع معرّف العرض.
+ */
+async function ensureOffer(
+  admin: ReturnType<typeof createAdminClient>,
+  label: string | null,
+): Promise<string | null> {
+  const name = (label ?? "").trim();
+  if (!name || name.startsWith("مكافأة")) return null;
+  const { data: found } = await admin
+    .from("finance_offers")
+    .select("id")
+    .eq("name", name)
+    .limit(1)
+    .maybeSingle();
+  if (found?.id) return String(found.id);
+  const { data: created } = await admin
+    .from("finance_offers")
+    .insert({ name, discount_percent: 0, sort_order: 100, is_active: true })
+    .select("id")
+    .single();
+  return created?.id ? String(created.id) : null;
 }
 
 function refresh() {
@@ -165,19 +195,9 @@ export async function updatePayment(
       }
     }
 
-    // ربط العرض بقائمة العروض عند تطابق الاسم
+    // ربط العرض بقائمة العروض (ويُضاف للقائمة إن كان جديدًا)
     if ("offer_label" in clean) {
-      const label = clean.offer_label as string | null;
-      let offerId: string | null = null;
-      if (label) {
-        const { data: offer } = await admin
-          .from("finance_offers")
-          .select("id")
-          .eq("name", label)
-          .maybeSingle();
-        offerId = offer?.id ? String(offer.id) : null;
-      }
-      clean.offer_id = offerId;
+      clean.offer_id = await ensureOffer(admin, clean.offer_label as string | null);
     }
 
     // إذا حُدد موعد متابعة جديد نعيد تفعيل التنبيه
@@ -722,7 +742,13 @@ export async function deleteOtherIncome(id: string): Promise<FinanceActionResult
 
 export async function saveEnrollmentPricing(
   enrollmentId: string,
-  input: { price: number | null; currency: string; offerLabel: string },
+  input: {
+    price: number | null;
+    /** سعر المتقدم في الاشتراك المتكامل لكورس بمرحلتين (price = سعر الأساسيات). */
+    priceAdvanced?: number | null;
+    currency: string;
+    offerLabel: string;
+  },
 ): Promise<FinanceActionResult> {
   try {
     await requireAdmin();
@@ -735,32 +761,38 @@ export async function saveEnrollmentPricing(
       .maybeSingle();
     if (!enrollment) throw new Error("طلب الاشتراك غير موجود");
 
-    const price =
-      input.price == null || !(Number(input.price) > 0)
-        ? null
-        : Number(input.price);
+    const positive = (v: unknown) =>
+      v == null || !(Number(v) > 0) ? null : Number(v);
+    const price = positive(input.price);
+    const priceAdvanced = positive(input.priceAdvanced);
+
+    const offerLabel = asText(input.offerLabel);
+    await ensureOffer(admin, offerLabel);
 
     const { error } = await admin
       .from("enrollments")
       .update({
         subscription_price: price,
+        subscription_price_advanced: priceAdvanced,
         subscription_currency: normalizeCurrency(input.currency),
-        offer_label: asText(input.offerLabel),
+        offer_label: offerLabel,
       })
       .eq("id", enrollmentId);
     if (error) throw new Error(error.message);
 
-    // لو الاشتراك مقبول بالفعل ولديه سجل دفع، نزامنه
-    const { data: existing } = await admin
+    // لو الاشتراك مقبول بالفعل ولديه سجلات دفع، نزامنها (صف الأساسيات / صف المتقدم).
+    const { data: existingRows } = await admin
       .from("finance_payments")
-      .select("id")
-      .eq("enrollment_id", enrollmentId)
-      .maybeSingle();
-    if (existing && price) {
-      await updatePayment(String(existing.id), {
+      .select("id,enrollment_part")
+      .eq("enrollment_id", enrollmentId);
+    for (const row of existingRows ?? []) {
+      const amount =
+        row.enrollment_part === "advanced" ? priceAdvanced : price;
+      if (!amount) continue;
+      await updatePayment(String(row.id), {
         currency: input.currency,
-        amount_total: price,
-        amount_paid: price,
+        amount_total: amount,
+        amount_paid: amount,
         offer_label: input.offerLabel,
       });
     }
@@ -784,6 +816,9 @@ export interface EnrollmentPaymentDraft {
   delivery_type?: "recorded" | "interactive" | null;
   list_price?: number | null;
   amount_paid?: number | null;
+  /** صف المتقدم في الاشتراك المتكامل (كورس بمرحلتين). */
+  list_price_advanced?: number | null;
+  amount_paid_advanced?: number | null;
   payment_status?: PaymentStatus | null;
   paid_at?: string | null;
   notes?: string | null;
@@ -808,6 +843,8 @@ function sanitizePaymentDraft(
         : null,
     list_price: optionalNumber(input.list_price),
     amount_paid: optionalNumber(input.amount_paid),
+    list_price_advanced: optionalNumber(input.list_price_advanced),
+    amount_paid_advanced: optionalNumber(input.amount_paid_advanced),
     payment_status: ["paid", "partial", "unpaid"].includes(String(input.payment_status))
       ? (input.payment_status as PaymentStatus)
       : null,
@@ -906,13 +943,14 @@ export async function createPaymentForEnrollment(
       .from("finance_payments")
       .select("id")
       .eq("enrollment_id", enrollmentId)
+      .limit(1)
       .maybeSingle();
     if (existing) return { success: true, data: { created: false } };
 
     const [{ data: course }, { data: profile }, rates] = await Promise.all([
       admin
         .from("courses")
-        .select("id,course_code")
+        .select("id,course_code,title,level")
         .eq("id", enrollment.course_id)
         .maybeSingle(),
       admin
@@ -999,17 +1037,45 @@ export async function createPaymentForEnrollment(
       : draft.payment_status ?? derivePaymentStatus(price || null, amountPaid);
 
     const offerLabel = asText(enrollment.offer_label);
-    let offerId: string | null = null;
-    if (offerLabel) {
-      const { data: offer } = await admin
-        .from("finance_offers")
-        .select("id")
-        .eq("name", offerLabel)
-        .maybeSingle();
-      offerId = offer?.id ? String(offer.id) : null;
+    const offerId = await ensureOffer(admin, offerLabel);
+
+    // السعر الأصلي المقترح من أسعار الكورس (إن لم يُكتب في بيانات الدفع).
+    const suggestion = (
+      await suggestListPrices(admin, [
+        {
+          id: enrollmentId,
+          course_id: enrollment.course_id ?? null,
+          journey_type: enrollment.journey_type ?? null,
+          action_key: enrollment.action_key ?? null,
+        },
+      ])
+    ).get(enrollmentId);
+
+    // رحلة اليوم الواحد: «اسم الكورس - رقم المحاضرة - اسم المحاضرة» في الملاحظات.
+    let oneDayNote: string | null = null;
+    if (journeyKind === "one_day") {
+      const lessonId = lessonIdFromActionKey(enrollment.action_key);
+      if (lessonId) {
+        const { data: lesson } = await admin
+          .from("lessons")
+          .select("title,title_ar,sort_order")
+          .eq("id", lessonId)
+          .maybeSingle();
+        if (lesson) {
+          const rawTitle = asText(lesson.title) ?? asText(lesson.title_ar) ?? "";
+          const lessonTitle = rawTitle.replace(/^\s*\d+\s*[-–.)]\s*/, "").trim();
+          const number = String(Number(lesson.sort_order) || "").padStart(2, "0");
+          oneDayNote = [asText(course?.title) ?? course?.course_code ?? "", number, lessonTitle]
+            .filter(Boolean)
+            .join(" - ");
+        }
+      }
+      if (!oneDayNote && asText(enrollment.action_title)) {
+        oneDayNote = [asText(course?.title), asText(enrollment.action_title)].filter(Boolean).join(" - ");
+      }
     }
 
-    const row = {
+    const baseRow = {
       enrollment_id: enrollmentId,
       user_id: enrollment.user_id,
       course_id: course?.id ?? null,
@@ -1034,18 +1100,11 @@ export async function createPaymentForEnrollment(
       country: firstText(profileRow.country, profileRow.country_name, authMeta.country),
       offer_id: offerId,
       offer_label: offerLabel,
-      edition_code: editionCode,
       delivery_type: draft.delivery_type ?? null,
-      list_price: isReward ? null : draft.list_price ?? null,
       currency,
-      amount_total: price || null,
-      amount_paid: amountPaid,
-      amount_egp: toEgp(amountPaid, currency, rates),
-      payment_status: paymentStatus,
-      // نوع الرحلة الفعلي من طلب الاشتراك: أساسيات / متقدم / متكاملة / يوم واحد.
-      journey_kind: journeyKind,
       paid_at: draft.paid_at ?? new Date().toISOString().slice(0, 10),
-      notes: draft.notes ?? null,
+      notes:
+        [oneDayNote, draft.notes].filter(Boolean).join(" | ") || null,
       followup_date: followupDate,
       followup_reason: followupReason,
       source: "enrollment",
@@ -1059,13 +1118,86 @@ export async function createPaymentForEnrollment(
         : {}),
     };
 
-    let { error } = await admin.from("finance_payments").insert(row);
+    const suggestedList = (prices?: Record<string, number>) =>
+      prices && prices[currency] != null ? Number(prices[currency]) : null;
+
+    /*
+     * الاشتراك المتكامل في كورس بمرحلتين (C3D / CSD) يُسجَّل صفين:
+     * أساسيات (subscription_price) + متقدم (subscription_price_advanced).
+     */
+    const isSplitCourse = String(course?.level ?? "").toLowerCase() === "split";
+    const twoRows =
+      !isReward &&
+      isSplitCourse &&
+      journeyKind === "integrated" &&
+      isFullProfessionalJourney(enrollment.journey_type);
+
+    const rows: Array<Record<string, unknown>> = [];
+
+    if (twoRows) {
+      const priceAdvanced = Number(enrollment.subscription_price_advanced) > 0
+        ? Number(enrollment.subscription_price_advanced)
+        : 0;
+      const parts: Array<{
+        part: "fundamental" | "advanced";
+        total: number;
+        paid: number;
+        list: number | null;
+      }> = [
+        {
+          part: "fundamental",
+          total: price,
+          paid: draft.amount_paid ?? price,
+          list: draft.list_price ?? suggestedList(suggestion?.main),
+        },
+        {
+          part: "advanced",
+          total: priceAdvanced,
+          paid: draft.amount_paid_advanced ?? priceAdvanced,
+          list: draft.list_price_advanced ?? suggestedList(suggestion?.advanced),
+        },
+      ];
+      for (const item of parts) {
+        rows.push({
+          ...baseRow,
+          enrollment_part: item.part,
+          journey_kind: item.part,
+          edition_code:
+            (await suggestEditionCode(admin, course?.course_code ?? null, item.part)) ??
+            editionCode,
+          list_price: item.list,
+          amount_total: item.total || null,
+          amount_paid: item.paid,
+          amount_egp: toEgp(item.paid, currency, rates),
+          payment_status:
+            draft.payment_status ?? derivePaymentStatus(item.total || null, item.paid),
+          // متابعة واحدة للاشتراك (على صف الأساسيات) حتى لا يتكرر التنبيه.
+          ...(item.part === "advanced"
+            ? { followup_date: null, followup_reason: null }
+            : {}),
+        });
+      }
+    } else {
+      rows.push({
+        ...baseRow,
+        edition_code: editionCode,
+        list_price: isReward ? null : draft.list_price ?? suggestedList(suggestion?.main),
+        amount_total: price || null,
+        amount_paid: amountPaid,
+        amount_egp: toEgp(amountPaid, currency, rates),
+        payment_status: paymentStatus,
+        // نوع الرحلة الفعلي من طلب الاشتراك: أساسيات / متقدم / متكاملة / يوم واحد.
+        journey_kind: journeyKind,
+      });
+    }
+
+    let { error } = await admin.from("finance_payments").insert(rows);
 
     // قبل تطبيق migration 20261028 يقبل الجدول "integrated" / "one_day" فقط.
-    if (error?.code === "23514" && row.journey_kind !== "one_day") {
+    if (error?.code === "23514" && !twoRows && rows[0].journey_kind !== "one_day") {
       ({ error } = await admin
         .from("finance_payments")
-        .insert({ ...row, journey_kind: "integrated" }));
+        .insert({ ...rows[0], journey_kind: "integrated" }));
     }
     if (error) throw new Error(error.message);
 

@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getInternalAccountUserIds } from "@/lib/admin/internal-accounts";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
+import { findChatCourse } from "@/lib/webchat/courses";
 import type { EnrollmentStatus } from "@/lib/actions/enroll";
 import { getMasarPassport } from "@/lib/dashboard/masar-passport";
 import { activateEnrollmentWorkflow } from "@/lib/workflows";
@@ -30,6 +31,8 @@ export interface AdminEnrollmentRequest {
   createdAt: string;
   updatedAt: string | null;
   subscriptionPrice: number | null;
+  /** سعر المتقدم في الاشتراك المتكامل لكورس بمرحلتين. */
+  subscriptionPriceAdvanced: number | null;
   subscriptionCurrency: string;
   offerLabel: string | null;
   paymentDraft: Record<string, unknown> | null;
@@ -71,6 +74,7 @@ type EnrollmentRow = {
   created_at: string;
   updated_at: string | null;
   subscription_price: number | null;
+  subscription_price_advanced?: number | null;
   subscription_currency: string | null;
   offer_label: string | null;
   /** بيانات الدفع المملوءة قبل القبول (عمود payment_draft) */
@@ -428,6 +432,10 @@ export async function getEnrollmentRequests(): Promise<
         enrollment.subscription_price == null
           ? null
           : Number(enrollment.subscription_price),
+      subscriptionPriceAdvanced:
+        enrollment.subscription_price_advanced == null
+          ? null
+          : Number(enrollment.subscription_price_advanced),
       subscriptionCurrency: enrollment.subscription_currency || "EGP",
       offerLabel: enrollment.offer_label?.trim() || null,
       paymentDraft: enrollment.payment_draft ?? null,
@@ -611,9 +619,11 @@ export async function approveEnrollment(
       reward_source,
       status,
       subscription_price,
+      subscription_price_advanced,
       courses (
         title,
-        title_ar
+        title_ar,
+        level
       )
     `)
     .eq("id", enrollmentId)
@@ -630,6 +640,7 @@ export async function approveEnrollment(
 
   const enrollment = data as ApproveEnrollmentRow & {
     subscription_price: number | null;
+    subscription_price_advanced?: number | null;
   };
   const enrollmentSource = normalizeEnrollmentSource(
     enrollment.enrollment_source,
@@ -642,7 +653,20 @@ export async function approveEnrollment(
     "free_session",
     "free_journey",
   ].includes(normalizeJourneyType(enrollment.journey_type));
-  const missingPrice = !(Number(enrollment.subscription_price) > 0);
+  // المتكامل في كورس بمرحلتين يحتاج سعرين (أساسيات + متقدم).
+  const courseLevel = String(
+    (Array.isArray(enrollment.courses)
+      ? (enrollment.courses[0] as { level?: string } | undefined)?.level
+      : (enrollment.courses as { level?: string } | null)?.level) ?? "",
+  ).toLowerCase();
+  const needsTwoPrices =
+    courseLevel === "split" &&
+    ["integrated", "professional", "career_path", "career", ""].includes(
+      String(enrollment.journey_type ?? "").trim().toLowerCase(),
+    );
+  const missingPrice =
+    !(Number(enrollment.subscription_price) > 0) ||
+    (needsTwoPrices && !(Number(enrollment.subscription_price_advanced) > 0));
 
   // حسابات فريق العمل لا تحتاج سعرًا ولا سبب متابعة.
   const isTeamAccount = enrollment.user_id
@@ -928,6 +952,16 @@ export async function approveEnrollment(
     }`;
   }
 
+  // الشات: متابعة الطالب عن هذا الكورس تُغلق تلقائيًا بعد قبول اشتراكه فيه.
+  try {
+    await closeChatFollowupsForEnrollment(
+      String(enrollment.user_id),
+      String(enrollment.course_id),
+    );
+  } catch (followupError) {
+    console.error("CLOSE CHAT FOLLOWUP ERROR", followupError);
+  }
+
   revalidateEnrollmentPages();
 
   return {
@@ -944,6 +978,42 @@ export async function approveEnrollment(
       paymentWarning ??
       result.warning,
   };
+}
+
+/** Close the platform-chat follow-ups of this student about this course (he is now subscribed). */
+async function closeChatFollowupsForEnrollment(userId: string, courseId: string) {
+  if (!userId || !courseId) return;
+  const admin = createAdminClient();
+
+  const [{ data: course }, { data: chatCourses }, { data: contacts }] = await Promise.all([
+    admin.from("courses").select("title,course_code").eq("id", courseId).maybeSingle(),
+    admin.from("whatsapp_courses").select("id,course_key,title,whatsapp_label"),
+    admin.from("web_chat_contacts").select("id").eq("user_id", userId),
+  ]);
+  if (!course) return;
+
+  const chatCourse = findChatCourse(
+    (chatCourses ?? []) as Array<{ id: string; course_key: string | null; title: string | null; whatsapp_label: string | null }>,
+    `${course.course_code ?? ""} ${course.title ?? ""}`,
+  );
+  if (!chatCourse) return;
+
+  const contactIds = (contacts ?? []).map((c) => String(c.id));
+  const owner = contactIds.length
+    ? `user_id.eq.${userId},contact_id.in.(${contactIds.join(",")})`
+    : `user_id.eq.${userId}`;
+
+  await admin
+    .from("web_chat_sessions")
+    .update({
+      followup_status: "closed",
+      followup_closed_reason: "enrolled",
+      followup_closed_at: new Date().toISOString(),
+      followup_next_at: null,
+    })
+    .eq("followup_status", "active")
+    .eq("current_course_id", chatCourse.id)
+    .or(owner);
 }
 
 export async function rejectEnrollment(

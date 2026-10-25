@@ -4,14 +4,24 @@ import EnrollmentRequestsTable, {
 } from "@/components/admin/table/EnrollmentRequestsTable";
 
 import { getEnrollmentRequests } from "@/lib/actions/admin/enrollments";
+import {
+  isFullProfessionalJourney,
+  suggestListPrices,
+  type ListPriceSuggestion,
+} from "@/lib/finance/course-prices";
 import { createAdminClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 function toTableRow(
   request: Awaited<ReturnType<typeof getEnrollmentRequests>>[number],
+  extra: { twoPrices: boolean; suggestion: ListPriceSuggestion | null },
 ): EnrollmentRequestRow {
   return {
+    twoPrices: extra.twoPrices,
+    suggestedListPrice: extra.suggestion?.main ?? {},
+    suggestedListPriceAdvanced: extra.suggestion?.advanced ?? {},
+    subscriptionPriceAdvanced: request.subscriptionPriceAdvanced,
     id: request.id,
     studentName: request.student.name,
     studentEmail: request.student.email,
@@ -36,14 +46,55 @@ status: request.status,
 
 export default async function EnrollmentRequestsPage() {
   const enrollmentRequests = await getEnrollmentRequests();
-  const requests = enrollmentRequests.map(toTableRow);
+  const admin = createAdminClient();
 
-  const { data: offerRows } = await createAdminClient()
-    .from("finance_offers")
-    .select("name")
-    .eq("is_active", true)
-    .order("sort_order");
-  const offerNames = (offerRows ?? []).map((o) => String(o.name));
+  // كورسات بمرحلتين (المتكامل فيها يُسجَّل بسعرين) + السعر الأصلي المقترح من أسعار الكورس.
+  const [{ data: courseRows }, suggestions] = await Promise.all([
+    admin.from("courses").select("id,level"),
+    suggestListPrices(
+      admin,
+      enrollmentRequests.map((r) => ({
+        id: r.id,
+        course_id: r.courseId,
+        journey_type: r.journeyType,
+        action_key: r.actionKey,
+      })),
+    ),
+  ]);
+  const splitCourses = new Set(
+    (courseRows ?? [])
+      .filter((c) => String(c.level ?? "").toLowerCase() === "split")
+      .map((c) => String(c.id)),
+  );
+
+  const requests = enrollmentRequests.map((r) =>
+    toTableRow(r, {
+      twoPrices:
+        splitCourses.has(String(r.courseId)) &&
+        r.enrollmentSource !== "reward" &&
+        isFullProfessionalJourney(r.journeyType),
+      suggestion: suggestions.get(r.id) ?? null,
+    }),
+  );
+
+  // العروض: قائمة العروض + أي عرض كُتب سابقًا في المدفوعات أو الطلبات.
+  const [{ data: offerRows }, { data: paymentOffers }, { data: requestOffers }] =
+    await Promise.all([
+      admin.from("finance_offers").select("name").eq("is_active", true).order("sort_order"),
+      admin.from("finance_payments").select("offer_label").not("offer_label", "is", null),
+      admin.from("enrollments").select("offer_label").not("offer_label", "is", null),
+    ]);
+  const offerNames = [
+    ...new Set(
+      [
+        ...(offerRows ?? []).map((o) => String(o.name)),
+        ...(paymentOffers ?? []).map((o) => String(o.offer_label)),
+        ...(requestOffers ?? []).map((o) => String(o.offer_label)),
+      ]
+        .map((name) => name.trim())
+        .filter((name) => name && !name.startsWith("مكافأة")),
+    ),
+  ];
 
   const pendingCount = requests.filter(
     (request) => request.status === "pending",

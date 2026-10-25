@@ -125,7 +125,17 @@ export default function PaymentsManager(props: Props) {
   const [showPricing, setShowPricing] = useState(false);
   const [message, setMessage] = useState("");
 
-  const offerNames = offers.filter((o) => o.is_active).map((o) => o.name);
+  // العروض: قائمة العروض + أي عرض كُتب في جدول المدفوعات (يظهر فورًا كاختيار لأي طالب آخر).
+  const offerNames = [
+    ...new Set(
+      [
+        ...offers.filter((o) => o.is_active).map((o) => o.name),
+        ...payments.map((p) => String(p.offer_label ?? "")),
+      ]
+        .map((name) => name.trim())
+        .filter((name) => name && !name.startsWith("مكافأة")),
+    ),
+  ];
 
   /* ---------- الإحصائيات ---------- */
   const stats = useMemo(() => {

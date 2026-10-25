@@ -11,6 +11,12 @@ interface EnrollmentPaymentDraftFormProps {
   enrollmentId: string;
   initialDraft: Record<string, unknown> | null;
   onSaved?: () => void;
+  /** Integrated journey in a two-stage course: Fundamentals row + Advanced row. */
+  twoPrices?: boolean;
+  currency?: string;
+  /** «السعر الأصلي» from the course prices, per currency (filled in when empty; editable). */
+  suggestedListPrice?: Record<string, number>;
+  suggestedListPriceAdvanced?: Record<string, number>;
 }
 
 const text = (v: unknown) =>
@@ -27,6 +33,10 @@ export default function EnrollmentPaymentDraftForm({
   enrollmentId,
   initialDraft,
   onSaved,
+  twoPrices = false,
+  currency = "EGP",
+  suggestedListPrice = {},
+  suggestedListPriceAdvanced = {},
 }: EnrollmentPaymentDraftFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -38,8 +48,11 @@ export default function EnrollmentPaymentDraftForm({
   const [form, setForm] = useState({
     edition_code: text(initial.edition_code),
     delivery_type: text(initial.delivery_type),
-    list_price: text(initial.list_price),
+    list_price: text(initial.list_price) || text(suggestedListPrice[currency]),
     amount_paid: text(initial.amount_paid),
+    list_price_advanced:
+      text(initial.list_price_advanced) || text(suggestedListPriceAdvanced[currency]),
+    amount_paid_advanced: text(initial.amount_paid_advanced),
     payment_status: text(initial.payment_status),
     paid_at: text(initial.paid_at),
     notes: text(initial.notes),
@@ -77,6 +90,7 @@ export default function EnrollmentPaymentDraftForm({
     <div className="rounded-xl border border-[#F7B548]/40 bg-amber-50/40 p-3">
       <p className="mb-2 text-xs font-black text-[#07152E]">
         بيانات الدفع — تنتقل تلقائيًا إلى جدول المدفوعات والتقارير عند قبول الطلب
+        {twoPrices ? " (صفان: الأساسيات + المتقدم)" : ""}
       </p>
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
@@ -84,7 +98,7 @@ export default function EnrollmentPaymentDraftForm({
           <input
             value={form.edition_code}
             onChange={(e) => set("edition_code", e.target.value)}
-            placeholder="مثال: C3D-F1"
+            placeholder={twoPrices ? "تلقائي: C3D-F و C3D-A" : "تلقائي"}
             className={inputClass}
           />
         </Field>
@@ -101,7 +115,7 @@ export default function EnrollmentPaymentDraftForm({
           </select>
         </Field>
 
-        <Field label="السعر الأصلي">
+        <Field label={twoPrices ? "السعر الأصلي — الأساسيات" : "السعر الأصلي"}>
           <input
             type="number"
             min={0}
@@ -112,7 +126,7 @@ export default function EnrollmentPaymentDraftForm({
           />
         </Field>
 
-        <Field label="المدفوع">
+        <Field label={twoPrices ? "المدفوع — الأساسيات" : "المدفوع"}>
           <input
             type="number"
             min={0}
@@ -123,6 +137,33 @@ export default function EnrollmentPaymentDraftForm({
             className={inputClass}
           />
         </Field>
+
+        {twoPrices ? (
+          <>
+            <Field label="السعر الأصلي — المتقدم">
+              <input
+                type="number"
+                min={0}
+                inputMode="decimal"
+                value={form.list_price_advanced}
+                onChange={(e) => set("list_price_advanced", e.target.value)}
+                className={inputClass}
+              />
+            </Field>
+
+            <Field label="المدفوع — المتقدم">
+              <input
+                type="number"
+                min={0}
+                inputMode="decimal"
+                value={form.amount_paid_advanced}
+                onChange={(e) => set("amount_paid_advanced", e.target.value)}
+                placeholder="= سعر المتقدم"
+                className={inputClass}
+              />
+            </Field>
+          </>
+        ) : null}
 
         <Field label="حالة الدفع">
           <select

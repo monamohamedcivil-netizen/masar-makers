@@ -42,6 +42,12 @@ export interface EnrollmentRequestRow {
   subscriptionCurrency: string;
   offerLabel: string;
   paymentDraft: Record<string, unknown> | null;
+  /** Integrated journey in a two-stage course: two prices (Fundamentals + Advanced). */
+  twoPrices: boolean;
+  subscriptionPriceAdvanced: number | null;
+  /** «السعر الأصلي» from the course prices, per currency. */
+  suggestedListPrice: Record<string, number>;
+  suggestedListPriceAdvanced: Record<string, number>;
 }
 
 interface EnrollmentRequestsTableProps {
@@ -606,6 +612,8 @@ export default function EnrollmentRequestsTable({
                       }
                       applicable={isPaidRequest(request)}
                       initialPrice={request.subscriptionPrice}
+                      twoPrices={request.twoPrices}
+                      initialPriceAdvanced={request.subscriptionPriceAdvanced}
                       initialCurrency={request.subscriptionCurrency}
                       initialOffer={request.offerLabel}
                       offerNames={offerNames}
@@ -667,9 +675,11 @@ export default function EnrollmentRequestsTable({
                         }
                         needsPrice={
                           isPaidRequest(request) &&
-                          !(
+                          (!(
                             (request.subscriptionPrice ?? 0) > 0
-                          )
+                          ) ||
+                            (request.twoPrices &&
+                              !((request.subscriptionPriceAdvanced ?? 0) > 0)))
                         }
                         draftFollowup={draftFollowup}
                         studentName={request.studentName}
@@ -684,6 +694,10 @@ export default function EnrollmentRequestsTable({
                           <EnrollmentPaymentDraftForm
                             enrollmentId={request.id}
                             initialDraft={request.paymentDraft}
+                            twoPrices={request.twoPrices}
+                            currency={request.subscriptionCurrency}
+                            suggestedListPrice={request.suggestedListPrice}
+                            suggestedListPriceAdvanced={request.suggestedListPriceAdvanced}
                           />
                         </div>
                       </td>
