@@ -15,6 +15,7 @@ import {
   deleteOffer,
   deleteOtherIncome,
   deletePayment,
+  saveCoursePriceCell,
   saveExchangeRate,
   saveOffer,
   saveOtherIncome,
@@ -824,6 +825,26 @@ function PricingPanel({
     setOffers((prev) => prev.filter((o) => o.id !== id));
   };
 
+  // تعديل السعر الأساسي هنا يعدّل سعر الكورس في «قوائم الشات والأسعار» (نفس المصدر).
+  const saveBasePrice = async (
+    item: FinancePriceItem,
+    field: "price_egp" | "price_sar" | "price_usd",
+    value: number | string | boolean | null,
+  ) => {
+    const currency = field === "price_egp" ? "EGP" : field === "price_sar" ? "SAR" : "USD";
+    const amount = value === "" || value == null ? null : Number(value);
+    const result = await saveCoursePriceCell({ code: item.code, currency, value: amount });
+    if (!result.success) {
+      flash(result.message || "تعذر الحفظ");
+      return false;
+    }
+    setPriceItems((prev) =>
+      prev.map((x) => (x.code === item.code ? { ...x, [field]: amount } : x)),
+    );
+    flash("تم تحديث السعر في قوائم الشات والأسعار");
+    return true;
+  };
+
   // عروض لها نسبة خصم (العروض المكتوبة بدون نسبة لا تغيّر السعر).
   const discountOffers = offers.filter(
     (o) => o.is_active && Number(o.discount_percent) > 0,
@@ -914,7 +935,7 @@ function PricingPanel({
             href="/admin/whatsapp-sales"
             className="rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-[#07152E] hover:bg-amber-50"
           >
-            تعديل الأسعار من «قوائم الشات والأسعار»
+            فتح «قوائم الشات والأسعار»
           </a>
         </div>
         <table className="w-full text-right">
@@ -938,8 +959,13 @@ function PricingPanel({
                 <tr key={item.code} className="border-b border-slate-100 text-xs">
                   <td className="px-1 py-1.5 font-bold text-[#07152E]">{item.label}</td>
                   {(["price_egp", "price_sar", "price_usd"] as const).map((f) => (
-                    <td key={f} className="px-1 py-1.5 font-semibold text-slate-700">
-                      {item[f] == null ? "—" : fmt(item[f] as number)}
+                    <td key={f} className="px-1 py-1">
+                      <EditableCell
+                        value={item[f]}
+                        type="number"
+                        width={80}
+                        onSave={(v) => saveBasePrice(item, f, v)}
+                      />
                     </td>
                   ))}
                 </tr>
@@ -979,7 +1005,7 @@ function PricingPanel({
           </tbody>
         </table>
         <p className="mt-2 text-[11px] text-slate-400">
-          الأسعار الأساسية تأتي تلقائيًا من «قوائم الشات والأسعار» (السعر قبل الخصم)، فأي كورس أو سعر جديد هناك يظهر هنا.
+          الأسعار الأساسية هي نفس أسعار «قوائم الشات والأسعار» (السعر قبل الخصم): أي تعديل هنا يظهر هناك، وأي كورس أو سعر جديد هناك يظهر هنا.
           السعر بعد العرض = السعر الأساسي × (1 − نسبة الخصم)، للعروض التي لها نسبة خصم.
         </p>
       </div>
