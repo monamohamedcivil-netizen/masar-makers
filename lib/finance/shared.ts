@@ -184,13 +184,17 @@ export interface FinanceOffer {
   is_active: boolean;
 }
 
+/**
+ * سطر في «أسعار الكورسات الأساسية»: من «قوائم الشات والأسعار» مباشرة
+ * (السعر قبل الخصم لكل كورس / نوع اشتراك / رحلة يوم واحد). null = لا يوجد سعر بهذه العملة.
+ */
 export interface FinancePriceItem {
   code: string;
   label: string;
   course_code: string | null;
-  price_egp: number;
-  price_sar: number;
-  price_usd: number;
+  price_egp: number | null;
+  price_sar: number | null;
+  price_usd: number | null;
   sort_order: number;
 }
 

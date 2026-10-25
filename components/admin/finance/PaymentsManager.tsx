@@ -18,7 +18,6 @@ import {
   saveExchangeRate,
   saveOffer,
   saveOtherIncome,
-  savePriceItem,
   updatePayment,
 } from "@/lib/actions/admin/finance";
 import type { FinanceData } from "@/lib/finance/queries";
@@ -825,20 +824,10 @@ function PricingPanel({
     setOffers((prev) => prev.filter((o) => o.id !== id));
   };
 
-  const savePrice = async (
-    item: FinancePriceItem,
-    patch: Partial<FinancePriceItem>,
-  ) => {
-    const result = await savePriceItem({ code: item.code, ...patch });
-    if (!result.success) {
-      flash(result.message || "تعذر الحفظ");
-      return false;
-    }
-    setPriceItems((prev) =>
-      prev.map((x) => (x.code === item.code ? { ...x, ...patch } : x)),
-    );
-    return true;
-  };
+  // عروض لها نسبة خصم (العروض المكتوبة بدون نسبة لا تغيّر السعر).
+  const discountOffers = offers.filter(
+    (o) => o.is_active && Number(o.discount_percent) > 0,
+  );
 
   const saveRate = async (currency: string, value: number | string | boolean | null) => {
     const result = await saveExchangeRate(currency, Number(value));
@@ -919,7 +908,15 @@ function PricingPanel({
 
       {/* قائمة الأسعار */}
       <div className="overflow-x-auto">
-        <h3 className="mb-2 text-sm font-black text-[#07152E]">أسعار الكورسات الأساسية</h3>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-black text-[#07152E]">أسعار الكورسات الأساسية</h3>
+          <a
+            href="/admin/whatsapp-sales"
+            className="rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-[#07152E] hover:bg-amber-50"
+          >
+            تعديل الأسعار من «قوائم الشات والأسعار»
+          </a>
+        </div>
         <table className="w-full text-right">
           <thead>
             <tr className="border-b border-slate-200 text-[11px] font-black text-slate-500">
@@ -930,29 +927,24 @@ function PricingPanel({
             </tr>
           </thead>
           <tbody>
-            {priceItems.map((item) => (
-              <tr key={item.code} className="border-b border-slate-100">
-                <td className="px-1 py-1">
-                  <EditableCell
-                    value={item.label}
-                    width={150}
-                    onSave={(v) => savePrice(item, { label: String(v ?? "") })}
-                  />
+            {priceItems.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="px-1 py-4 text-center text-xs text-slate-400">
+                  لا توجد أسعار مفعّلة في «قوائم الشات والأسعار».
                 </td>
-                {(["price_egp", "price_sar", "price_usd"] as const).map((f) => (
-                  <td key={f} className="px-1 py-1">
-                    <EditableCell
-                      value={item[f]}
-                      type="number"
-                      width={80}
-                      onSave={(v) =>
-                        savePrice(item, { [f]: Number(v ?? 0) } as Partial<FinancePriceItem>)
-                      }
-                    />
-                  </td>
-                ))}
               </tr>
-            ))}
+            ) : (
+              priceItems.map((item) => (
+                <tr key={item.code} className="border-b border-slate-100 text-xs">
+                  <td className="px-1 py-1.5 font-bold text-[#07152E]">{item.label}</td>
+                  {(["price_egp", "price_sar", "price_usd"] as const).map((f) => (
+                    <td key={f} className="px-1 py-1.5 font-semibold text-slate-700">
+                      {item[f] == null ? "—" : fmt(item[f] as number)}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
 
@@ -963,28 +955,32 @@ function PricingPanel({
           <thead>
             <tr className="border-b border-slate-200 text-[11px] font-black text-slate-500">
               <th className="px-1 py-2">الكورس</th>
-              {offers.map((o) => (
-                <th key={o.id} className="px-1 py-2">
-                  {o.discount_percent}%
+              {discountOffers.map((o) => (
+                <th key={o.id} className="px-1 py-2" title={o.name}>
+                  <span className="block max-w-[110px] truncate">{o.name}</span>
+                  <span className="text-[#C88712]">{o.discount_percent}%</span>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {priceItems.map((item) => (
-              <tr key={item.code} className="border-b border-slate-100 text-xs">
-                <td className="px-1 py-1.5 font-bold">{item.label}</td>
-                {offers.map((o) => (
-                  <td key={o.id} className="px-1 py-1.5">
-                    {fmt(item.price_egp * (1 - o.discount_percent / 100))}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {priceItems
+              .filter((item) => item.price_egp != null)
+              .map((item) => (
+                <tr key={item.code} className="border-b border-slate-100 text-xs">
+                  <td className="px-1 py-1.5 font-bold">{item.label}</td>
+                  {discountOffers.map((o) => (
+                    <td key={o.id} className="px-1 py-1.5">
+                      {fmt((item.price_egp as number) * (1 - o.discount_percent / 100))}
+                    </td>
+                  ))}
+                </tr>
+              ))}
           </tbody>
         </table>
         <p className="mt-2 text-[11px] text-slate-400">
-          السعر بعد العرض = السعر الأساسي × (1 − نسبة الخصم). يمكنك أيضًا كتابة أي عرض حر داخل خانة العرض في الجدول.
+          الأسعار الأساسية تأتي تلقائيًا من «قوائم الشات والأسعار» (السعر قبل الخصم)، فأي كورس أو سعر جديد هناك يظهر هنا.
+          السعر بعد العرض = السعر الأساسي × (1 − نسبة الخصم)، للعروض التي لها نسبة خصم.
         </p>
       </div>
     </div>
