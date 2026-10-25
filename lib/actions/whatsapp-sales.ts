@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 const PAGE =
   "/admin/whatsapp-sales";
@@ -95,6 +95,32 @@ function extra(
 
 function refresh() {
   revalidatePath(PAGE);
+}
+
+/**
+ * Offer names written in the chat price menus also appear in «العروض والخصومات»
+ * (payments tab) so they can be picked for payments. Added with 0% (fixed-price offer);
+ * never fails the price save.
+ */
+async function syncFinanceOffer(label: string | null | undefined) {
+  const name = String(label ?? "").trim();
+  if (!name || name.startsWith("مكافأة")) return;
+  try {
+    const admin = createAdminClient();
+    const { data: found } = await admin
+      .from("finance_offers")
+      .select("id")
+      .eq("name", name)
+      .limit(1)
+      .maybeSingle();
+    if (found?.id) return;
+    await admin
+      .from("finance_offers")
+      .insert({ name, discount_percent: 0, sort_order: 100, is_active: true });
+    revalidatePath("/admin/finance/payments");
+  } catch {
+    // The price itself is saved; the offer list can be updated later.
+  }
 }
 
 /* =========================
@@ -760,6 +786,8 @@ export async function savePrice(
     );
   }
 
+  await syncFinanceOffer(payload.offer_label);
+
   refresh();
 }
 
@@ -827,6 +855,8 @@ export async function saveOneDayPrice(
   if (result.error) {
     throw new Error(result.error.message);
   }
+
+  await syncFinanceOffer(payload.offer_label);
 
   refresh();
 }
@@ -901,6 +931,10 @@ export async function setGlobalOffer(
 
   if (error) {
     throw new Error(error.message);
+  }
+
+  if (mode === "enable") {
+    await syncFinanceOffer(text(formData, "offer_label"));
   }
 
   refresh();

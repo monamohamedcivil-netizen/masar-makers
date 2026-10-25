@@ -17,6 +17,7 @@ import {
   type FinanceOffer,
   type FinanceOtherIncome,
   type FinancePayment,
+  type FinanceFixedOffer,
   type FinancePriceItem,
   type FinanceRates,
 } from "./shared";
@@ -198,6 +199,118 @@ export async function applyAutoFlags(
   });
 }
 
+/*
+ * «أسعار الكورسات الأساسية» مربوطة بأسعار الكورسات في «قوائم الشات والأسعار»:
+ * كل كورس (أو كل نوع اشتراك: أساسيات / متقدم / متكامل) + السعر العام لرحلة اليوم الواحد.
+ * السعر الأساسي = السعر قبل الخصم (original_price) وإلا السعر الحالي.
+ */
+async function loadChatPriceList(
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<FinancePriceItem[]> {
+  const [{ data: courses }, { data: variants }, { data: prices }, { data: oneDay }] =
+    await Promise.all([
+      admin
+        .from("whatsapp_courses")
+        .select("id,title,whatsapp_label,course_key,has_variants,is_active,sort_order")
+        .eq("is_active", true)
+        .order("sort_order"),
+      admin
+        .from("whatsapp_course_variants")
+        .select("id,course_id,title,title_en,is_active,sort_order")
+        .eq("is_active", true)
+        .order("sort_order"),
+      admin
+        .from("whatsapp_course_prices")
+        .select("course_id,variant_id,currency_code,current_price,original_price,offer_label,offer_active,offer_start,offer_end,is_active,sort_order")
+        .eq("is_active", true)
+        .order("sort_order"),
+      admin
+        .from("whatsapp_oneday_prices")
+        .select("course_id,lesson_id,currency_code,current_price,original_price,offer_label,offer_active,offer_start,offer_end,is_active,sort_order")
+        .eq("is_active", true)
+        .is("lesson_id", null)
+        .order("sort_order"),
+    ]);
+
+  const basePrice = (r: Record<string, unknown>) => {
+    const original = r.original_price == null ? NaN : Number(r.original_price);
+    if (Number.isFinite(original) && original > 0) return original;
+    const current = Number(r.current_price);
+    return Number.isFinite(current) && current > 0 ? current : null;
+  };
+  const pick = (rows: Array<Record<string, unknown>>, code: string) => {
+    const row = rows.find((r) => String(r.currency_code).toUpperCase() === code);
+    return row ? basePrice(row) : null;
+  };
+  const nowMs = Date.now();
+  // Offer with a fixed price written in the chat price menus (e.g. «عرض خاص» 80 instead of 120).
+  const fixedOffers = (rows: Array<Record<string, unknown>>): FinanceFixedOffer[] => {
+    const out: FinanceFixedOffer[] = [];
+    for (const r of rows) {
+      const label = String(r.offer_label ?? "").trim();
+      if (!r.offer_active || !label) continue;
+      const start = r.offer_start ? new Date(String(r.offer_start)).getTime() : NaN;
+      const end = r.offer_end ? new Date(String(r.offer_end)).getTime() : NaN;
+      if (Number.isFinite(start) && start > nowMs) continue;
+      if (Number.isFinite(end) && end <= nowMs) continue;
+      const current = Number(r.current_price);
+      const original = r.original_price == null ? NaN : Number(r.original_price);
+      if (!Number.isFinite(current) || current <= 0) continue;
+      if (!Number.isFinite(original) || original <= current) continue;
+      out.push({ label, currency: String(r.currency_code).toUpperCase(), price: current });
+    }
+    return out;
+  };
+  const toItem = (
+    code: string,
+    label: string,
+    rows: Array<Record<string, unknown>>,
+    sort: number,
+  ): FinancePriceItem => ({
+    code,
+    label,
+    course_code: null,
+    price_egp: pick(rows, "EGP"),
+    price_sar: pick(rows, "SAR"),
+    price_usd: pick(rows, "USD"),
+    sort_order: sort,
+    fixed_offers: fixedOffers(rows),
+  });
+
+  const items: FinancePriceItem[] = [];
+  let sort = 0;
+  for (const c of (courses ?? []) as Array<Record<string, unknown>>) {
+    const name = String(c.whatsapp_label || c.title || c.course_key || "");
+    const coursePrices = ((prices ?? []) as Array<Record<string, unknown>>).filter(
+      (p) => String(p.course_id) === String(c.id),
+    );
+    const courseVariants = ((variants ?? []) as Array<Record<string, unknown>>).filter(
+      (v) => String(v.course_id) === String(c.id),
+    );
+
+    if (c.has_variants && courseVariants.length) {
+      for (const v of courseVariants) {
+        const rows = coursePrices.filter((p) => String(p.variant_id) === String(v.id));
+        items.push(toItem(`${c.id}:${v.id}`, `${name} — ${String(v.title_en || v.title || "")}`, rows, sort++));
+      }
+    } else {
+      const rows = coursePrices.filter((p) => !p.variant_id);
+      items.push(toItem(`${c.id}:main`, name, rows, sort++));
+    }
+
+    const oneDayRows = ((oneDay ?? []) as Array<Record<string, unknown>>).filter(
+      (p) => String(p.course_id) === String(c.id),
+    );
+    if (oneDayRows.length) {
+      items.push(toItem(`${c.id}:oneday`, `${name} — رحلة يوم واحد`, oneDayRows, sort++));
+    }
+  }
+
+  return items.filter(
+    (i) => i.price_egp != null || i.price_sar != null || i.price_usd != null,
+  );
+}
+
 export async function getFinanceData(): Promise<FinanceData> {
   await requireAdmin();
   const admin = createAdminClient();
@@ -226,7 +339,7 @@ export async function getFinanceData(): Promise<FinanceData> {
       .order("paid_at", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false }),
     admin.from("finance_offers").select("*").order("sort_order"),
-    admin.from("finance_price_items").select("*").order("sort_order"),
+    loadChatPriceList(admin),
     admin.from("finance_exchange_rates").select("*"),
     admin
       .from("finance_expenses")
@@ -366,17 +479,7 @@ export async function getFinanceData(): Promise<FinanceData> {
         is_active: o.is_active !== false,
       }),
     ),
-    priceItems: (
-      (pricesRes.data ?? []) as Array<Record<string, unknown>>
-    ).map((p) => ({
-      code: String(p.code),
-      label: String(p.label),
-      course_code: (p.course_code as string | null) ?? null,
-      price_egp: num(p.price_egp),
-      price_sar: num(p.price_sar),
-      price_usd: num(p.price_usd),
-      sort_order: num(p.sort_order),
-    })),
+    priceItems: pricesRes,
     rates,
     expenses,
     services,

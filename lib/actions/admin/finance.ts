@@ -380,6 +380,76 @@ export async function savePriceItem(input: {
   }
 }
 
+/**
+ * تعديل «السعر الأساسي» من جدول الأسعار في المدفوعات = تعديل سعر الكورس نفسه في «قوائم الشات والأسعار»
+ * (مصدر واحد، فالجدولان يتحدثان معًا). code = "<chat course id>:<variant id | main | oneday>".
+ * السعر الأساسي = السعر قبل الخصم إن وُجد عرض، وإلا السعر الحالي.
+ */
+export async function saveCoursePriceCell(input: {
+  code: string;
+  currency: "EGP" | "SAR" | "USD";
+  value: number | null;
+}): Promise<FinanceActionResult> {
+  try {
+    await requireAdmin();
+    const admin = createAdminClient();
+    const [courseId, target] = String(input.code ?? "").split(":");
+    const currency = String(input.currency ?? "").toUpperCase();
+    const uuid = /^[0-9a-f-]{36}$/i;
+    if (!uuid.test(courseId ?? "") || !target || !["EGP", "SAR", "USD"].includes(currency)) {
+      throw new Error("بيانات السعر غير صحيحة");
+    }
+    const value = input.value == null || !(Number(input.value) > 0) ? null : Number(input.value);
+    if (value == null) throw new Error("اكتب سعرًا أكبر من صفر");
+
+    const labels: Record<string, string> = { EGP: "جنيه مصري", SAR: "ريال سعودي", USD: "دولار أمريكي" };
+    const isOneDay = target === "oneday";
+    const table = isOneDay ? "whatsapp_oneday_prices" : "whatsapp_course_prices";
+
+    let query = admin
+      .from(table)
+      .select("id,current_price,original_price")
+      .eq("course_id", courseId)
+      .eq("currency_code", currency);
+    if (isOneDay) query = query.is("lesson_id", null);
+    else if (target === "main") query = query.is("variant_id", null);
+    else if (uuid.test(target)) query = query.eq("variant_id", target);
+    else throw new Error("بيانات السعر غير صحيحة");
+
+    const { data: existing } = await query.order("sort_order").limit(1).maybeSingle();
+    const now = new Date().toISOString();
+
+    if (existing) {
+      const hasOriginal = existing.original_price != null && Number(existing.original_price) > 0;
+      const { error } = await admin
+        .from(table)
+        .update(hasOriginal ? { original_price: value, updated_at: now } : { current_price: value, updated_at: now })
+        .eq("id", existing.id);
+      if (error) throw new Error(error.message);
+    } else {
+      const { error } = await admin.from(table).insert({
+        course_id: courseId,
+        ...(isOneDay ? { lesson_id: null } : { variant_id: target === "main" ? null : target }),
+        currency_code: currency,
+        currency_label: labels[currency],
+        current_price: value,
+        original_price: null,
+        offer_active: false,
+        is_active: true,
+        sort_order: currency === "SAR" ? 10 : currency === "EGP" ? 20 : 30,
+        updated_at: now,
+      });
+      if (error) throw new Error(error.message);
+    }
+
+    refresh();
+    revalidatePath("/admin/whatsapp-sales");
+    return { success: true };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
 export async function saveExchangeRate(
   currency: string,
   rate: number,
