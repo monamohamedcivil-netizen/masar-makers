@@ -17,6 +17,7 @@ import {
   type FinanceOffer,
   type FinanceOtherIncome,
   type FinancePayment,
+  type FinanceFixedOffer,
   type FinancePriceItem,
   type FinanceRates,
 } from "./shared";
@@ -220,12 +221,12 @@ async function loadChatPriceList(
         .order("sort_order"),
       admin
         .from("whatsapp_course_prices")
-        .select("course_id,variant_id,currency_code,current_price,original_price,is_active,sort_order")
+        .select("course_id,variant_id,currency_code,current_price,original_price,offer_label,offer_active,offer_start,offer_end,is_active,sort_order")
         .eq("is_active", true)
         .order("sort_order"),
       admin
         .from("whatsapp_oneday_prices")
-        .select("course_id,lesson_id,currency_code,current_price,original_price,is_active,sort_order")
+        .select("course_id,lesson_id,currency_code,current_price,original_price,offer_label,offer_active,offer_start,offer_end,is_active,sort_order")
         .eq("is_active", true)
         .is("lesson_id", null)
         .order("sort_order"),
@@ -241,6 +242,25 @@ async function loadChatPriceList(
     const row = rows.find((r) => String(r.currency_code).toUpperCase() === code);
     return row ? basePrice(row) : null;
   };
+  const nowMs = Date.now();
+  // Offer with a fixed price written in the chat price menus (e.g. «عرض خاص» 80 instead of 120).
+  const fixedOffers = (rows: Array<Record<string, unknown>>): FinanceFixedOffer[] => {
+    const out: FinanceFixedOffer[] = [];
+    for (const r of rows) {
+      const label = String(r.offer_label ?? "").trim();
+      if (!r.offer_active || !label) continue;
+      const start = r.offer_start ? new Date(String(r.offer_start)).getTime() : NaN;
+      const end = r.offer_end ? new Date(String(r.offer_end)).getTime() : NaN;
+      if (Number.isFinite(start) && start > nowMs) continue;
+      if (Number.isFinite(end) && end <= nowMs) continue;
+      const current = Number(r.current_price);
+      const original = r.original_price == null ? NaN : Number(r.original_price);
+      if (!Number.isFinite(current) || current <= 0) continue;
+      if (!Number.isFinite(original) || original <= current) continue;
+      out.push({ label, currency: String(r.currency_code).toUpperCase(), price: current });
+    }
+    return out;
+  };
   const toItem = (
     code: string,
     label: string,
@@ -254,6 +274,7 @@ async function loadChatPriceList(
     price_sar: pick(rows, "SAR"),
     price_usd: pick(rows, "USD"),
     sort_order: sort,
+    fixed_offers: fixedOffers(rows),
   });
 
   const items: FinancePriceItem[] = [];

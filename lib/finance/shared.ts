@@ -196,6 +196,14 @@ export interface FinancePriceItem {
   price_sar: number | null;
   price_usd: number | null;
   sort_order: number;
+  /** عروض بسعر ثابت مكتوب في قوائم الشات والأسعار (مفعلة وغير منتهية). */
+  fixed_offers: FinanceFixedOffer[];
+}
+
+export interface FinanceFixedOffer {
+  label: string;
+  currency: string;
+  price: number;
 }
 
 export type ExpenseCategory = "ads" | "platform" | "other";
