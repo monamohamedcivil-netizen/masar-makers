@@ -230,13 +230,13 @@ export class WebChatEngine {
       return this.mainMenu(reply || (await this.entryText("contact")));
     }
 
+    const course = context.courseHint ? await this.matchCourse(String(context.courseHint)) : null;
     const welcome = fill(await this.entryText(entryKey), {
       action: clean(context.actionLabel) || clean(context.courseHint) || this.t("طلبك", "your request"),
-      course: clean(context.courseHint),
+      course: course ? clean(course.whatsapp_label || course.title) : clean(context.courseHint),
     });
-    const course = context.courseHint ? await this.matchCourse(String(context.courseHint)) : null;
 
-    if (course && (entryKey === "enrollment" || entryKey === "course_action")) {
+    if (course && (entryKey === "enrollment" || entryKey === "course_action" || entryKey === "ad")) {
       await this.setCourse(course.id);
       if (isOneDayJourneyType(context.journeyType) || /اليوم الواحد|one[\s-]?day/i.test(clean(context.journeyLabel))) {
         const oneDay: OneDay = { courseId: String(course.id), lessonId: await this.oneDayLesson(course.id, context) };

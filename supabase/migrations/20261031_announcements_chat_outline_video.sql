@@ -17,3 +17,10 @@ select m.id, 'course_outline', '🧭 شرح محاور الرحلة ونتائج
 from public.whatsapp_menus m
 where m.menu_key = 'course_actions'
   and not exists (select 1 from public.whatsapp_menu_items i where i.menu_id = m.id and i.item_key = 'course_outline');
+
+-- Ads / direct links (?ask=<course>) open the chat on that course with this welcome (applied 2026-10-25).
+insert into public.web_chat_entry_points (entry_key, label, welcome_text, welcome_text_en) values
+('ad', 'الإعلانات الممولة والروابط المباشرة (?ask=)',
+ 'أهلًا بيك في Masar Makers 👋' || chr(10) || 'شكرًا لاهتمامك برحلة *{course}* — التسجيل مفتوح والرحلة بتبدأ قريبًا.' || chr(10) || 'اختار سؤالك من القائمة وهرد عليك فورًا 👇',
+ 'Welcome to Masar Makers 👋' || chr(10) || 'Thanks for your interest in the *{course}* journey — registration is open and it starts soon.' || chr(10) || 'Pick your question below 👇')
+on conflict (entry_key) do nothing;

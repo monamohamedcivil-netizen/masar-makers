@@ -145,6 +145,9 @@ function RichText({ text }: { text: string }) {
 export default function WebChatWidget() {
   const searchParams = useSearchParams();
   const chatParam = searchParams.get("chat");
+  // Ads / external links: ?ask=civil3d opens the chat on that course (welcome + course menu).
+  const askParam = (searchParams.get("ask") ?? "").trim().slice(0, 60);
+  const askedRef = useRef(false);
   const [enabled, setEnabled] = useState(false);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -199,7 +202,7 @@ export default function WebChatWidget() {
       ...context,
       locale: currentLocale(),
       visitorId: visitorId(),
-      page: `${window.location.pathname}${window.location.search.replace(/([?&])(chat|webchat)=[^&]*/g, "$1").replace(/[?&]+$/, "")}`,
+      page: `${window.location.pathname}${window.location.search.replace(/([?&])(chat|webchat|ask)=[^&]*/g, "$1").replace(/[?&]+$/, "")}`,
     });
     setBusy(false);
     if (!result.ok) {
@@ -214,7 +217,7 @@ export default function WebChatWidget() {
   // Enable + resume the saved chat.
   useEffect(() => {
     syncWebChatTestFlag();
-    const on = isWebChatEnabled() || Boolean(chatParam);
+    const on = isWebChatEnabled() || Boolean(chatParam) || Boolean(askParam);
     setEnabled(on);
     if (!on) return;
     let saved: { sessionId?: string; token?: string } = {};
@@ -223,7 +226,27 @@ export default function WebChatWidget() {
     } catch {
       /* ignore */
     }
-    if (chatParam) {
+    if (askParam && !askedRef.current) {
+      askedRef.current = true;
+      try {
+        storage()?.setItem("mm_webchat_test", "1"); // keep the chat on this visitor's next pages too
+      } catch {
+        /* ignore */
+      }
+      const utm = new URLSearchParams(window.location.search);
+      void start({
+        source: "ad",
+        courseHint: askParam.replace(/[-_]+/g, " "),
+        actionLabel: [utm.get("utm_source"), utm.get("utm_campaign")].filter(Boolean).join(" / ") || "رابط مباشر",
+      });
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("ask");
+        window.history.replaceState(null, "", url.toString());
+      } catch {
+        /* ignore */
+      }
+    } else if (chatParam) {
       // Opened from a follow-up notification or after login.
       setOpen(true);
       void reload(chatParam, saved.sessionId === chatParam ? saved.token ?? null : null, true).then((ok) => {
@@ -232,7 +255,7 @@ export default function WebChatWidget() {
     } else if (saved.sessionId && saved.token) {
       void reload(saved.sessionId, saved.token, false);
     }
-  }, [chatParam, reload]);
+  }, [chatParam, askParam, reload, start]);
 
   useEffect(() => {
     const onOpen = (event: Event) => void start(((event as CustomEvent).detail ?? {}) as WebChatContext);

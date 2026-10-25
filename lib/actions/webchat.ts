@@ -46,7 +46,7 @@ export type WebChatLoad =
   | { ok: false; error: string };
 
 const MAX_MESSAGES_PER_SESSION = 300;
-const ENTRY_KEYS = new Set(["contact", "course_action", "enrollment", "launcher", "announcement"]);
+const ENTRY_KEYS = new Set(["contact", "course_action", "enrollment", "launcher", "announcement", "ad"]);
 const cut = (v: unknown, n: number) => String(v ?? "").trim().slice(0, n);
 
 function newCode() {
@@ -207,7 +207,7 @@ export async function startWebChat(input: WebChatContext): Promise<WebChatStart>
       const { data: p } = await db.from("profiles").select("full_name,email").eq("id", userId).maybeSingle();
       who = String(p?.full_name || p?.email || "طالب مسجّل");
     }
-    const sourceLabel: Record<string, string> = { contact: "زر التواصل", course_action: "زر داخل الكورس", enrollment: "طلب اشتراك", launcher: "زر المساعد", announcement: "زر إعلان المنصة" };
+    const sourceLabel: Record<string, string> = { contact: "زر التواصل", course_action: "زر داخل الكورس", enrollment: "طلب اشتراك", launcher: "زر المساعد", announcement: "زر إعلان المنصة", ad: "إعلان ممول / رابط مباشر" };
     await notifyWebChatAdmins(db, {
       title: `🤖 محادثة جديدة — ${who}`,
       body: [sourceLabel[entryKey] ?? entryKey, ctx.actionLabel || ctx.text || "", ctx.courseHint || "", session.code].filter(Boolean).join(" • "),
