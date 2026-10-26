@@ -405,8 +405,8 @@ export class WebChatEngine {
       if (hidePrice && (clean(i.item_key) === "course_price" || i.action_type === "show_price")) continue;
       if (i.action_type === "open_url") {
         const url = await this.courseUrl(course, i);
-        // «شرح محاور الرحلة» opens as a pop-up video over the page; other links open normally.
-        const popup = clean(i.action_value) === "outline_video";
+        // «شرح محاور الرحلة» and «المحاضرة الأولى» open as a pop-up video over the page; other links open normally.
+        const popup = ["outline_video", "intro_video"].includes(clean(i.action_value));
         if (url) buttons.push({ id: `menuitem:${i.id}`, label: this.f(i, "label"), kind: popup ? "video" : "link", url });
         continue;
       }

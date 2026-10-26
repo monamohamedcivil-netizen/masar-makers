@@ -127,7 +127,7 @@ async function syncFinanceOffer(label: string | null | undefined) {
    SETTINGS
 ========================= */
 
-export async function updateBotSettings(
+async function updateBotSettingsImpl(
   formData: FormData,
 ) {
   const supabase =
@@ -182,7 +182,7 @@ export async function updateBotSettings(
    COURSES
 ========================= */
 
-export async function createCourse(
+async function createCourseImpl(
   formData: FormData,
 ) {
   const supabase =
@@ -296,7 +296,7 @@ export async function createCourse(
   refresh();
 
 
-export async function updateCourse(
+async function updateCourseImpl(
   formData: FormData,
 ) {
   const supabase =
@@ -449,7 +449,7 @@ export async function updateCourse(
    VARIANTS
 ========================= */
 
-export async function createCourseVariant(
+async function createCourseVariantImpl(
   formData: FormData,
 ) {
   const supabase =
@@ -524,7 +524,7 @@ export async function createCourseVariant(
   refresh();
 }
 
-export async function updateCourseVariant(
+async function updateCourseVariantImpl(
   formData: FormData,
 ) {
   const supabase =
@@ -609,7 +609,7 @@ export async function updateCourseVariant(
    PRICES
 ========================= */
 
-export async function savePrice(
+async function savePriceImpl(
   formData: FormData,
 ) {
   const supabase =
@@ -792,7 +792,7 @@ export async function savePrice(
 }
 
 /** One-day journey price: the course's general price (no lesson_id) or a special price for one lecture. */
-export async function saveOneDayPrice(
+async function saveOneDayPriceImpl(
   formData: FormData,
 ) {
   const supabase =
@@ -862,7 +862,7 @@ export async function saveOneDayPrice(
 }
 
 /** Removes a lecture's special one-day price (the lecture goes back to the course's general price). */
-export async function deleteOneDayPrice(
+async function deleteOneDayPriceImpl(
   formData: FormData,
 ) {
   const supabase =
@@ -885,7 +885,7 @@ export async function deleteOneDayPrice(
 }
 
 /** One-click offer control for ALL courses (per-course offers stay editable in the price editor). */
-export async function setGlobalOffer(
+async function setGlobalOfferImpl(
   formData: FormData,
 ) {
   const supabase =
@@ -944,7 +944,7 @@ export async function setGlobalOffer(
    ANSWERS
 ========================= */
 
-export async function createAnswer(
+async function createAnswerImpl(
   formData: FormData,
 ) {
   const supabase =
@@ -985,7 +985,7 @@ export async function createAnswer(
   refresh();
 }
 
-export async function updateAnswer(
+async function updateAnswerImpl(
   formData: FormData,
 ) {
   const supabase =
@@ -1074,7 +1074,7 @@ async function menuLimits(
   };
 }
 
-export async function createMenu(
+async function createMenuImpl(
   formData: FormData,
 ) {
   const supabase =
@@ -1151,7 +1151,7 @@ export async function createMenu(
   refresh();
 }
 
-export async function updateMenu(
+async function updateMenuImpl(
   formData: FormData,
 ) {
   const supabase =
@@ -1235,7 +1235,7 @@ export async function updateMenu(
   refresh();
 }
 
-export async function createMenuItem(
+async function createMenuItemImpl(
   formData: FormData,
 ) {
   const supabase =
@@ -1373,7 +1373,7 @@ export async function createMenuItem(
   refresh();
 }
 
-export async function updateMenuItem(
+async function updateMenuItemImpl(
   formData: FormData,
 ) {
   const supabase =
@@ -1482,7 +1482,7 @@ export async function updateMenuItem(
   refresh();
 }
 
-export async function toggleMenuItem(
+async function toggleMenuItemImpl(
   formData: FormData,
 ) {
   const supabase =
@@ -1567,7 +1567,7 @@ export async function toggleMenuItem(
    HUMAN SUPPORT
 ========================= */
 
-export async function returnCustomerToBot(
+async function returnCustomerToBotImpl(
   formData: FormData,
 ) {
   const supabase =
@@ -1613,4 +1613,90 @@ export async function returnCustomerToBot(
   }
 
   refresh();
+}
+/* =========================
+   EXPORTED ACTIONS
+   Errors are returned (not thrown): in production Next.js hides thrown messages,
+   so the admin would only see an English "Server Components render" error.
+========================= */
+
+export type ActionResult = { ok: true } | { ok: false; error: string };
+
+async function run(impl: (formData: FormData) => Promise<unknown>, formData: FormData): Promise<ActionResult> {
+  try {
+    await impl(formData);
+    return { ok: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    console.error("whatsapp-sales action failed:", message);
+    return { ok: false, error: message || "حدث خطأ غير متوقع أثناء الحفظ." };
+  }
+}
+
+export async function updateBotSettings(formData: FormData) {
+  return run(updateBotSettingsImpl, formData);
+}
+
+export async function createCourse(formData: FormData) {
+  return run(createCourseImpl, formData);
+}
+
+export async function updateCourse(formData: FormData) {
+  return run(updateCourseImpl, formData);
+}
+
+export async function createCourseVariant(formData: FormData) {
+  return run(createCourseVariantImpl, formData);
+}
+
+export async function updateCourseVariant(formData: FormData) {
+  return run(updateCourseVariantImpl, formData);
+}
+
+export async function savePrice(formData: FormData) {
+  return run(savePriceImpl, formData);
+}
+
+export async function saveOneDayPrice(formData: FormData) {
+  return run(saveOneDayPriceImpl, formData);
+}
+
+export async function deleteOneDayPrice(formData: FormData) {
+  return run(deleteOneDayPriceImpl, formData);
+}
+
+export async function setGlobalOffer(formData: FormData) {
+  return run(setGlobalOfferImpl, formData);
+}
+
+export async function createAnswer(formData: FormData) {
+  return run(createAnswerImpl, formData);
+}
+
+export async function updateAnswer(formData: FormData) {
+  return run(updateAnswerImpl, formData);
+}
+
+export async function createMenu(formData: FormData) {
+  return run(createMenuImpl, formData);
+}
+
+export async function updateMenu(formData: FormData) {
+  return run(updateMenuImpl, formData);
+}
+
+export async function createMenuItem(formData: FormData) {
+  return run(createMenuItemImpl, formData);
+}
+
+export async function updateMenuItem(formData: FormData) {
+  return run(updateMenuItemImpl, formData);
+}
+
+export async function toggleMenuItem(formData: FormData) {
+  return run(toggleMenuItemImpl, formData);
+}
+
+export async function returnCustomerToBot(formData: FormData) {
+  return run(returnCustomerToBotImpl, formData);
 }
