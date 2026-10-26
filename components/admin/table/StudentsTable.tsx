@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AccountSuspensionButton from "@/components/admin/students/AccountSuspensionButton";
+import { saveStudentCurrency } from "@/lib/actions/admin/finance";
 import {
   addStudentBonusPoints,
   getStudentBonusPointsHistory,
@@ -76,6 +77,12 @@ lastBonusReason: string | null;
 drawEntries: number;
 drawWins: number;
 availableDrawEntries: number;
+
+  /** «عملة الطالب» (الشات + طلبات الاشتراك + المدفوعات). */
+  studentCurrency?: string | null;
+  studentCurrencySource?: string | null;
+  /** مقيم في مصر (البلد مصر والرقم ليس أجنبيًا) → يرى أسعار الجنيه الأصلية. */
+  egyptResident?: boolean;
 }
 
 interface StudentsTableProps {
@@ -238,12 +245,13 @@ function BasicStudentsTable({
       <col className="w-[20%]" />
       <col className="w-[13%]" />
       <col className="w-[8%]" />
+      <col className="w-[9%]" />
       <col className="w-[7%]" />
       <col className="w-[7%]" />
       <col className="w-[6%]" />
       <col className="w-[6%]" />
       <col className="w-[7%]" />
-      <col className="w-[26%]" />
+      <col className="w-[17%]" />
     </colgroup>
   );
 
@@ -252,6 +260,7 @@ function BasicStudentsTable({
       <TableHead>الطالب</TableHead>
       <TableHead>الهاتف</TableHead>
       <TableHead>الدولة</TableHead>
+      <TableHead>عملة الطالب</TableHead>
       <TableHead>الاحترافية</TableHead>
       <TableHead>إجمالي الاشتراكات</TableHead>
       <TableHead>النشط</TableHead>
@@ -320,6 +329,10 @@ function BasicStudentsTable({
                 ) : (
                   <EmptyValue />
                 )}
+              </TableCell>
+
+              <TableCell>
+                <StudentCurrencyCell student={student} />
               </TableCell>
 
               <MetricCell
@@ -1298,5 +1311,75 @@ function EmptyValue() {
     <span className="font-bold text-slate-300">
       —
     </span>
+  );
+}
+const CURRENCY_OPTIONS = [
+  { code: "", label: "— لم تُحدد" },
+  { code: "EGP", label: "جنيه مصري" },
+  { code: "SAR", label: "ريال سعودي" },
+  { code: "USD", label: "دولار" },
+];
+
+const CURRENCY_SOURCE: Record<string, string> = {
+  student: "اختارها في الشات",
+  admin: "حددتِها",
+  payments: "من المدفوعات",
+};
+
+/** «عملة الطالب»: تغييرها هنا يُستخدم في الشات وطلبات الاشتراك والمدفوعات. */
+function StudentCurrencyCell({ student }: { student: StudentRow }) {
+  const router = useRouter();
+  const [value, setValue] = useState(student.studentCurrency ?? "");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setValue(student.studentCurrency ?? "");
+  }, [student.studentCurrency]);
+
+  const save = async (next: string) => {
+    const previous = value;
+    setValue(next);
+    setSaving(true);
+    setMessage(null);
+    const result = await saveStudentCurrency(student.userId, next || null);
+    setSaving(false);
+    if (!result.success) {
+      setValue(previous);
+      setMessage(result.message || "تعذر الحفظ");
+      return;
+    }
+    setMessage("تم الحفظ");
+    window.setTimeout(() => setMessage(null), 2000);
+    router.refresh();
+  };
+
+  const convertedPound = value === "EGP" && !student.egyptResident;
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <select
+        value={value}
+        disabled={saving}
+        onChange={(event) => void save(event.target.value)}
+        className="w-full max-w-[120px] rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-[11px] font-bold text-[#07152E] outline-none focus:border-[#F7B548]"
+      >
+        {CURRENCY_OPTIONS.map((o) => (
+          <option key={o.code} value={o.code}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      {message ? (
+        <span className="text-[10px] font-bold text-slate-500">{message}</span>
+      ) : value && student.studentCurrencySource && CURRENCY_SOURCE[student.studentCurrencySource] ? (
+        <span className="text-[10px] text-slate-400">{CURRENCY_SOURCE[student.studentCurrencySource]}</span>
+      ) : null}
+      {convertedPound ? (
+        <span title="بلده ليست مصر أو رقمه أجنبي: سعر الجنيه = سعر الريال × سعر الصرف" className="text-[10px] font-bold text-amber-600">
+          جنيه من الريال
+        </span>
+      ) : null}
+    </div>
   );
 }

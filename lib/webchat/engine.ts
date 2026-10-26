@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { egpFromSar, isEgyptResident } from "@/lib/pricing/student-currency";
 import { findChatCourse, isOneDayJourneyType } from "@/lib/webchat/courses";
 import { notifyWebChatAdmins } from "@/lib/webchat/notify";
 
@@ -76,6 +77,16 @@ function shown(price: AnyRow, variant: AnyRow | null, en = false): ShownPrice {
   };
 }
 
+/** Riyal price shown in pounds (not living in Egypt): × exchange rate, rounded to the nearest 50. */
+function converted(price: ShownPrice, factor: number): ShownPrice {
+  if (factor === 1) return price;
+  return {
+    ...price,
+    amount: egpFromSar(price.amount, factor),
+    original: price.original == null ? null : egpFromSar(price.original, factor),
+  };
+}
+
 const CURRENCY_EN: Record<string, string> = { SAR: "Saudi riyal", EGP: "Egyptian pound", USD: "US dollar" };
 const CURRENCY_FLAG: Record<string, string> = { SAR: "🇸🇦", EGP: "🇪🇬", USD: "🇺🇸" };
 
@@ -119,6 +130,33 @@ export class WebChatEngine {
 
   private get currency(): string | null {
     return clean(this.viewer.contact?.currency).toUpperCase() || null;
+  }
+
+  private egyptLocalCache: boolean | null = null;
+
+  /**
+   * Egyptian-pound list prices are only for students living in Egypt (country Egypt and a
+   * phone that is not clearly foreign — see lib/pricing/student-currency.ts). Anyone else who
+   * chooses the pound sees the riyal price × the SAR exchange rate (finance_exchange_rates).
+   */
+  private async egyptLocal(): Promise<boolean> {
+    if (this.egyptLocalCache !== null) return this.egyptLocalCache;
+    let local = false;
+    if (this.viewer.userId) {
+      const { data } = await this.db.from("profiles").select("country,phone").eq("id", this.viewer.userId).maybeSingle();
+      local = isEgyptResident(data?.country, data?.phone);
+    }
+    this.egyptLocalCache = local;
+    return local;
+  }
+
+  /** Which price rows to read for the shown currency, and the factor to apply to them. */
+  private async priceSource(code: string): Promise<{ code: string; factor: number }> {
+    if (code !== "EGP" || (await this.egyptLocal())) return { code, factor: 1 };
+    const { data } = await this.db.from("finance_exchange_rates").select("rate_to_egp").eq("currency", "SAR").maybeSingle();
+    const rate = Number(data?.rate_to_egp);
+    if (!Number.isFinite(rate) || rate <= 0) return { code, factor: 1 };
+    return { code: "SAR", factor: rate };
   }
 
   /** One-day journey chat — only while the visitor stays on the course the button was for. */
@@ -545,15 +583,16 @@ export class WebChatEngine {
   /** One-day journey prices: the lecture's special price, else the course's general one-day price. */
   private async oneDayPrice(oneDay: OneDay, course: AnyRow, code: string, lead = ""): Promise<ChatMessage[]> {
     let label = await this.currencyLabel(code);
+    const source = await this.priceSource(code);
     const { data } = await this.db
       .from("whatsapp_oneday_prices")
       .select("*")
       .eq("course_id", course.id)
-      .eq("currency_code", code)
+      .eq("currency_code", source.code)
       .eq("is_active", true)
       .order("sort_order");
     const all = (data ?? []) as AnyRow[];
-    if (label === code && !this.en) label = clean(all[0]?.currency_label) || label;
+    if (label === code && !this.en && source.code === code) label = clean(all[0]?.currency_label) || label;
     const general = all.find((r) => !r.lesson_id) ?? null;
     const specials = all.filter((r) => r.lesson_id);
     const titles = await this.lessonTitles([...new Set([...specials.map((r) => String(r.lesson_id)), ...(oneDay.lessonId ? [oneDay.lessonId] : [])])]);
@@ -576,6 +615,7 @@ export class WebChatEngine {
       }
     }
 
+    if (source.factor !== 1) rows.splice(0, rows.length, ...rows.map((r) => converted(r, source.factor)));
     const title = clean(course.whatsapp_label || course.title);
     if (!rows.length) {
       return this.courseActions(course, [lead, this.t(`سعر رحلة اليوم الواحد بعملة (${label}) غير متاح حاليًا لهذا الكورس. اختار «خدمة العملاء» وهنبلغك بالسعر.`, `The one-day journey price in (${label}) isn't available for this course right now. Choose “Customer service” and we'll let you know the price.`)].filter(Boolean).join("\n\n"));
@@ -604,7 +644,8 @@ export class WebChatEngine {
     if (oneDay) return this.oneDayPrice(oneDay, course, code, lead);
     const label = await this.currencyLabel(code);
     const rows: ShownPrice[] = [];
-    const base = () => this.db.from("whatsapp_course_prices").select("*").eq("course_id", course.id).eq("currency_code", code).eq("is_active", true).order("sort_order").limit(1);
+    const source = await this.priceSource(code);
+    const base = () => this.db.from("whatsapp_course_prices").select("*").eq("course_id", course.id).eq("currency_code", source.code).eq("is_active", true).order("sort_order").limit(1);
     if (course.has_variants) {
       for (const v of await this.variants(course.id)) {
         if (this.ownsVariant(v, owned)) continue; // already has it → no price for it
@@ -615,6 +656,7 @@ export class WebChatEngine {
       const { data } = await base().is("variant_id", null).maybeSingle();
       if (data) rows.push(shown(data, null, this.en));
     }
+    if (source.factor !== 1) rows.splice(0, rows.length, ...rows.map((r) => converted(r, source.factor)));
     const title = clean(course.whatsapp_label || course.title);
     if (!rows.length) {
       return this.courseActions(course, [lead, this.t(`السعر بعملة (${label}) غير متاح حاليًا لهذا الكورس. اختار «خدمة العملاء» وهنبلغك بالسعر.`, `The price in (${label}) isn't available for this course right now. Choose “Customer service” and we'll let you know the price.`)].filter(Boolean).join("\n\n"));

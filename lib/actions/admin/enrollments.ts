@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getInternalAccountUserIds } from "@/lib/admin/internal-accounts";
+import { getStudentCurrencies } from "@/lib/pricing/student-currency-store";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { findChatCourse } from "@/lib/webchat/courses";
 import type { EnrollmentStatus } from "@/lib/actions/enroll";
@@ -307,7 +308,7 @@ export async function getEnrollmentRequests(): Promise<
     new Set(enrollments.map((item) => item.course_id).filter(Boolean)),
   );
 
-  const [{ data: profiles }, { data: courses }] = await Promise.all([
+  const [{ data: profiles }, { data: courses }, studentCurrencies] = await Promise.all([
     userIds.length
       ? supabase.from("profiles").select("*").in("id", userIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
@@ -315,6 +316,11 @@ export async function getEnrollmentRequests(): Promise<
     courseIds.length
       ? supabase.from("courses").select("*").in("id", courseIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+
+    // «عملة الطالب»: default currency of a request that has none yet.
+    getStudentCurrencies(createAdminClient(), userIds as string[]).catch(
+      () => new Map<string, { currency: string | null }>(),
+    ),
   ]);
 
   const profilesMap = new Map(
@@ -436,7 +442,10 @@ export async function getEnrollmentRequests(): Promise<
         enrollment.subscription_price_advanced == null
           ? null
           : Number(enrollment.subscription_price_advanced),
-      subscriptionCurrency: enrollment.subscription_currency || "EGP",
+      subscriptionCurrency:
+        enrollment.subscription_currency ||
+        studentCurrencies.get(enrollment.user_id)?.currency ||
+        "EGP",
       offerLabel: enrollment.offer_label?.trim() || null,
       paymentDraft: enrollment.payment_draft ?? null,
 

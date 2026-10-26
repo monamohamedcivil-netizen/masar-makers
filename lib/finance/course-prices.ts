@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { egpFromSar, isEgyptResident } from "@/lib/pricing/student-currency";
 import { findChatCourse, isOneDayJourneyType, variantStageOf } from "@/lib/webchat/courses";
 
 /*
@@ -9,6 +10,8 @@ import { findChatCourse, isOneDayJourneyType, variantStageOf } from "@/lib/webch
  * - أساسيات / متقدم: سعر نوع الاشتراك نفسه.
  * - متكاملة في كورس بمرحلتين: main = سعر الأساسيات، advanced = سعر المتقدم.
  * - كورس بمرحلة واحدة: سعر الكورس.
+ * - سعر الجنيه للطالب غير المقيم في مصر (البلد ليس مصر أو الرقم أجنبي) = سعر الريال × سعر صرف الريال،
+ *   مقرّبًا لأقرب 50 جنيه (نفس قاعدة الشات).
  * ملف سيرفر عادي (ليس "use server").
  */
 
@@ -22,6 +25,7 @@ export type EnrollmentForPricing = {
   course_id: string | null;
   journey_type: string | null;
   action_key?: string | null;
+  user_id?: string | null;
 };
 
 const norm = (v: unknown) => String(v ?? "").trim().toLowerCase().replaceAll("-", "_");
@@ -69,6 +73,31 @@ export async function suggestListPrices(
       db.from("whatsapp_oneday_prices").select("course_id,lesson_id,currency_code,current_price,original_price,is_active,sort_order").eq("is_active", true).order("sort_order"),
     ]);
 
+  // Pound prices for students not living in Egypt come from the riyal price.
+  const userIds = [...new Set(enrollments.map((e) => e.user_id).filter(Boolean))] as string[];
+  const [{ data: profiles }, { data: sarRate }] = await Promise.all([
+    userIds.length
+      ? db.from("profiles").select("id,country,phone").in("id", userIds)
+      : Promise.resolve({ data: [] as AnyRow[] }),
+    db.from("finance_exchange_rates").select("rate_to_egp").eq("currency", "SAR").maybeSingle(),
+  ]);
+  const resident = new Map(
+    ((profiles ?? []) as AnyRow[]).map((p) => [String(p.id), isEgyptResident(p.country, p.phone)]),
+  );
+  const rate = Number((sarRate as AnyRow | null)?.rate_to_egp);
+  const forStudent = (userId: string | null | undefined, prices: CurrencyPrices): CurrencyPrices => {
+    if (!userId || resident.get(String(userId)) !== false) return prices;
+    const out = { ...prices };
+    delete out.EGP;
+    if (prices.SAR != null && Number.isFinite(rate) && rate > 0) out.EGP = egpFromSar(prices.SAR, rate);
+    return out;
+  };
+  const setFor = (e: EnrollmentForPricing, s: ListPriceSuggestion) =>
+    out.set(e.id, {
+      main: forStudent(e.user_id, s.main),
+      ...(s.advanced ? { advanced: forStudent(e.user_id, s.advanced) } : {}),
+    });
+
   const courseById = new Map(((courses ?? []) as AnyRow[]).map((c) => [String(c.id), c]));
   const chatList = (chatCourses ?? []) as AnyRow[];
   const variantList = (variants ?? []) as AnyRow[];
@@ -87,7 +116,7 @@ export async function suggestListPrices(
       const lessonId = lessonIdFromActionKey(e.action_key);
       const special = lessonId ? rows.filter((r) => String(r.lesson_id ?? "").toLowerCase() === lessonId) : [];
       const general = rows.filter((r) => !r.lesson_id);
-      out.set(e.id, { main: { ...byCurrency(general), ...byCurrency(special) } });
+      setFor(e, { main: { ...byCurrency(general), ...byCurrency(special) } });
       continue;
     }
 
@@ -101,14 +130,14 @@ export async function suggestListPrices(
     const isSplit = String(course.level ?? "").toLowerCase() === "split";
 
     if (journey === "fundamental" || journey === "fundamentals") {
-      out.set(e.id, { main: pricesOfVariant("fundamental") });
+      setFor(e, { main: pricesOfVariant("fundamental") });
     } else if (journey === "advanced") {
-      out.set(e.id, { main: pricesOfVariant("advanced") });
+      setFor(e, { main: pricesOfVariant("advanced") });
     } else if (isSplit) {
-      out.set(e.id, { main: pricesOfVariant("fundamental"), advanced: pricesOfVariant("advanced") });
+      setFor(e, { main: pricesOfVariant("fundamental"), advanced: pricesOfVariant("advanced") });
     } else {
       const single = byCurrency(chatPrices.filter((r) => !r.variant_id));
-      out.set(e.id, { main: Object.keys(single).length ? single : pricesOfVariant("integrated") });
+      setFor(e, { main: Object.keys(single).length ? single : pricesOfVariant("integrated") });
     }
   }
 
