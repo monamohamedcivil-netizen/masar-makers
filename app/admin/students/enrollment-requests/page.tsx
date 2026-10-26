@@ -58,6 +58,7 @@ export default async function EnrollmentRequestsPage() {
         course_id: r.courseId,
         journey_type: r.journeyType,
         action_key: r.actionKey,
+        user_id: r.userId,
       })),
     ),
   ]);

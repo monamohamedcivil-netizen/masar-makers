@@ -4,6 +4,9 @@ import StudentsTable, {
 } from "@/components/admin/table/StudentsTable";
 
 import { getStudentsSummary } from "@/lib/actions/admin/students";
+import { isEgyptResident } from "@/lib/pricing/student-currency";
+import { getStudentCurrencies } from "@/lib/pricing/student-currency-store";
+import { createAdminClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -101,8 +104,28 @@ export default async function StudentsPage() {
   const students =
     await getStudentsSummary();
 
-  const rows =
-    students.map(toTableRow);
+  // «عملة الطالب» + هل يرى أسعار الجنيه المصرية (مقيم في مصر) أم الجنيه المحسوب من الريال.
+  const admin = createAdminClient();
+  const ids = students.map((s) => s.userId);
+  const [currencies, { data: profiles }] = await Promise.all([
+    getStudentCurrencies(admin, ids).catch(() => new Map()),
+    ids.length
+      ? admin.from("profiles").select("id,country,phone").in("id", ids)
+      : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
+  ]);
+  const resident = new Map(
+    ((profiles ?? []) as Array<Record<string, unknown>>).map((p) => [
+      String(p.id),
+      isEgyptResident(p.country, p.phone),
+    ]),
+  );
+
+  const rows = students.map((student) => ({
+    ...toTableRow(student),
+    studentCurrency: currencies.get(student.userId)?.currency ?? null,
+    studentCurrencySource: currencies.get(student.userId)?.source ?? null,
+    egyptResident: resident.get(student.userId) ?? false,
+  }));
 
   return (
     <div>

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { isInternalEmail } from "@/lib/admin/internal-accounts";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { getStudentCurrencies, setStudentCurrency } from "@/lib/pricing/student-currency-store";
 import { createAdminClient } from "@/lib/supabase/server";
 import { applyAutoFlags, mapPayment } from "@/lib/finance/queries";
 import { computeExpenseTotals } from "@/lib/finance/expense-calc";
@@ -215,6 +216,11 @@ export async function updatePayment(
       .select("*")
       .single();
     if (error) throw new Error(error.message);
+
+    // Currency changed on a student's payment → it becomes «عملة الطالب» (chat + new requests).
+    if ("currency" in clean && current.user_id && clean.currency) {
+      await setStudentCurrency(admin, String(current.user_id), String(clean.currency), "payments").catch(() => undefined);
+    }
 
     const [withFlags] = await applyAutoFlags(admin, [
       mapPayment(updated as Record<string, unknown>),
@@ -826,10 +832,15 @@ export async function saveEnrollmentPricing(
 
     const { data: enrollment } = await admin
       .from("enrollments")
-      .select("status")
+      .select("status,user_id")
       .eq("id", enrollmentId)
       .maybeSingle();
     if (!enrollment) throw new Error("طلب الاشتراك غير موجود");
+
+    // The request's currency becomes «عملة الطالب».
+    if (enrollment.user_id) {
+      await setStudentCurrency(admin, String(enrollment.user_id), normalizeCurrency(input.currency)).catch(() => undefined);
+    }
 
     const positive = (v: unknown) =>
       v == null || !(Number(v) > 0) ? null : Number(v);
@@ -1057,7 +1068,11 @@ export async function createPaymentForEnrollment(
     const price = !isReward && enrollment.subscription_price
       ? Number(enrollment.subscription_price)
       : 0;
-    const currency = normalizeCurrency(enrollment.subscription_currency);
+    // Request without a currency → «عملة الطالب» (chat contact / last payment).
+    const studentCurrency = enrollment.subscription_currency
+      ? null
+      : (await getStudentCurrencies(admin, [String(enrollment.user_id ?? "")])).get(String(enrollment.user_id ?? ""))?.currency ?? null;
+    const currency = normalizeCurrency(enrollment.subscription_currency || studentCurrency);
     const profileRow = (profile ?? {}) as Record<string, unknown>;
 
     /*
@@ -1117,6 +1132,7 @@ export async function createPaymentForEnrollment(
           course_id: enrollment.course_id ?? null,
           journey_type: enrollment.journey_type ?? null,
           action_key: enrollment.action_key ?? null,
+          user_id: enrollment.user_id ?? null,
         },
       ])
     ).get(enrollmentId);
@@ -1450,5 +1466,36 @@ export async function commitFinanceImport(
     return { success: true, data: result };
   } catch (error) {
     return fail(error);
+  }
+}
+
+/**
+ * «عملة الطالب» from the students table: used by the chat (no currency question),
+ * as the default currency of his new subscription requests and payments,
+ * and applied to his pending requests that have no price yet.
+ */
+export async function saveStudentCurrency(
+  userId: string,
+  currency: string | null,
+): Promise<FinanceActionResult> {
+  try {
+    await requireAdmin();
+    const admin = createAdminClient();
+    const code = currency ? normalizeCurrency(currency) : null;
+    await setStudentCurrency(admin, userId, code);
+    if (code) {
+      await admin
+        .from("enrollments")
+        .update({ subscription_currency: code })
+        .eq("user_id", userId)
+        .eq("status", "pending")
+        .is("subscription_price", null);
+    }
+    revalidatePath("/admin/students");
+    revalidatePath("/admin/students/enrollment-requests");
+    revalidatePath("/admin/web-chat");
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : "تعذر حفظ عملة الطالب" };
   }
 }

@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { egpFromSar, isEgyptResident } from "@/lib/pricing/student-currency";
 import { findChatCourse, isOneDayJourneyType } from "@/lib/webchat/courses";
 import { notifyWebChatAdmins } from "@/lib/webchat/notify";
 
@@ -76,13 +77,13 @@ function shown(price: AnyRow, variant: AnyRow | null, en = false): ShownPrice {
   };
 }
 
-/** Riyal price shown in pounds (non-Egypt residents): × exchange rate, rounded. */
+/** Riyal price shown in pounds (not living in Egypt): × exchange rate, rounded to the nearest 50. */
 function converted(price: ShownPrice, factor: number): ShownPrice {
   if (factor === 1) return price;
   return {
     ...price,
-    amount: Math.round(price.amount * factor),
-    original: price.original == null ? null : Math.round(price.original * factor),
+    amount: egpFromSar(price.amount, factor),
+    original: price.original == null ? null : egpFromSar(price.original, factor),
   };
 }
 
@@ -134,21 +135,16 @@ export class WebChatEngine {
   private egyptLocalCache: boolean | null = null;
 
   /**
-   * Egyptian-pound list prices are only for students living in Egypt:
-   * profile country = Egypt AND an Egyptian phone number. Anyone else who chooses
-   * the pound sees the riyal price × the SAR exchange rate (finance_exchange_rates).
+   * Egyptian-pound list prices are only for students living in Egypt (country Egypt and a
+   * phone that is not clearly foreign — see lib/pricing/student-currency.ts). Anyone else who
+   * chooses the pound sees the riyal price × the SAR exchange rate (finance_exchange_rates).
    */
   private async egyptLocal(): Promise<boolean> {
     if (this.egyptLocalCache !== null) return this.egyptLocalCache;
     let local = false;
     if (this.viewer.userId) {
       const { data } = await this.db.from("profiles").select("country,phone").eq("id", this.viewer.userId).maybeSingle();
-      const country = clean(data?.country).toLowerCase();
-      const egyptCountry = ["egypt", "مصر", "جمهورية مصر العربية"].includes(country);
-      // "+20 010…" (extra 0 after the country code) is common → treated as +2010…
-      const digits = clean(data?.phone).replace(/[^0-9]/g, "").replace(/^00/, "").replace(/^0(?=20)/, "").replace(/^200(?=1[0125]\d{8}$)/, "20");
-      const egyptPhone = /^201[0125]\d{8}$/.test(digits) || /^01[0125]\d{8}$/.test(digits);
-      local = egyptCountry && egyptPhone;
+      local = isEgyptResident(data?.country, data?.phone);
     }
     this.egyptLocalCache = local;
     return local;
