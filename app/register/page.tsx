@@ -15,6 +15,7 @@ import {
 
 import AuthShell from "@/components/auth/AuthShell";
 import { createClient } from "@/lib/supabase/client";
+import { countrySelectValue, typedCountry } from "@/lib/countries";
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -157,6 +158,12 @@ export default function RegisterPage() {
 
     if (!submittedCountry) {
       setError("يرجى اختيار الدولة.");
+      setLoading(false);
+      return;
+    }
+
+    if (submittedCountry === "Other") {
+      setError("يرجى كتابة اسم الدولة.");
       setLoading(false);
       return;
     }
@@ -477,7 +484,7 @@ export default function RegisterPage() {
             <select
               id="country"
               name="country"
-              value={country}
+              value={countrySelectValue(country)}
               onChange={(event) =>
                 setCountry(event.target.value)
               }
@@ -509,6 +516,30 @@ export default function RegisterPage() {
               <option value="Other">دولة أخرى</option>
             </select>
           </div>
+
+          {countrySelectValue(country) === "Other" ? (
+            <input
+              id="countryOther"
+              value={typedCountry(country)}
+              onChange={(event) =>
+                setCountry(event.target.value || "Other")
+              }
+              placeholder="اكتب اسم دولتك"
+              maxLength={60}
+              required
+              className="
+                mt-2 h-[46px] w-full
+                rounded-[16px]
+                border border-[#D8DEE7]
+                bg-[#F8FAFC]
+                px-4
+                text-[12px] font-medium
+                text-[#07152E] outline-none
+                transition focus:border-[#F7B548]
+                focus:bg-white
+              "
+            />
+          ) : null}
         </div>
 
         {/* Job Title */}

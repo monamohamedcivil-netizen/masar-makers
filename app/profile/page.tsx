@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import Navbar from "@/sections/Navbar";
 import AnnouncementBar from "@/sections/AnnouncementBar";
 import { createClient } from "@/lib/supabase/client";
+import { countrySelectValue, typedCountry } from "@/lib/countries";
 
 type ProfileForm = {
   fullName: string;
@@ -286,6 +287,11 @@ export default function ProfilePage() {
 
     if (!country) {
       setError("يرجى اختيار الدولة.");
+      return;
+    }
+
+    if (country === "Other") {
+      setError("يرجى كتابة اسم الدولة.");
       return;
     }
 
@@ -620,7 +626,7 @@ export default function ProfilePage() {
                   icon={Globe2}
                 >
                   <select
-                    value={form.country}
+                    value={countrySelectValue(form.country)}
                     onChange={(event) =>
                       updateField(
                         "country",
@@ -663,6 +669,20 @@ export default function ProfilePage() {
                       دولة أخرى
                     </option>
                   </select>
+                  {countrySelectValue(form.country) === "Other" ? (
+                    <input
+                      value={typedCountry(form.country)}
+                      onChange={(event) =>
+                        updateField(
+                          "country",
+                          event.target.value || "Other",
+                        )
+                      }
+                      placeholder="اكتب اسم دولتك"
+                      maxLength={60}
+                      className={`${INPUT} mt-2`}
+                    />
+                  ) : null}
                 </Field>
 
                 <Field
