@@ -749,13 +749,13 @@ export default function MasarLanding() {
               {text.login}
             </Link>
 
-            <Link
+            <a
               href="/home"
               className="inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-2xl bg-[#F7B548] px-3 text-[13px] font-black text-[#07152E] shadow-lg transition hover:-translate-y-0.5 lg:text-[14px]"
             >
               {text.explore}
               <ArrowIcon className="h-3.5 w-3.5" />
-            </Link>
+            </a>
 
             <a
               href="https://wa.me/201031885659?text=السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار."
@@ -970,13 +970,13 @@ export default function MasarLanding() {
             {text.login}
           </Link>
 
-          <Link
+          <a
             href="/home"
             className={`inline-flex min-h-8 whitespace-nowrap ${locale === "en" ? "w-[150px]" : "w-[115px]"} items-center justify-center gap-1 rounded-lg bg-[#F7B548] px-3 text-[12px] font-black text-[#07152E] shadow-md`}
           >
             {text.explore}
             <ArrowIcon className="h-3 w-3" />
-          </Link>
+          </a>
 
           <a
             href="https://wa.me/201031885659?text=السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار."
