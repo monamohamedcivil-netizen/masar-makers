@@ -25,7 +25,7 @@ const SOURCE: Record<string, string> = {
 };
 const HANDOFF: Record<string, string> = { subscribe: "🟢 اشتراك", support: "🆘 خدمة العملاء", other_currency: "🌍 عملة أخرى" };
 const CLOSED: Record<string, string> = { no_reply: "لم يرد على المتابعات", admin: "أُغلقت يدويًا", new_chat: "بدأ محادثة أحدث" };
-const SET_BY: Record<string, string> = { student: "اختارها الطالب", admin: "عدّلتِها يدويًا", payments: "من المدفوعات" };
+const SET_BY: Record<string, string> = { student: "اختارها الطالب", admin: "عدّلتِها يدويًا", payments: "من المدفوعات", country: "من بلد الطالب (السعودية)" };
 
 const fmt = (v: string | null) =>
   v ? new Intl.DateTimeFormat("ar-EG", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }).format(new Date(v)) : "—";

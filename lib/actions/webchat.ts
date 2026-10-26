@@ -79,6 +79,19 @@ async function paidCurrency(db: Db, userId: string) {
   return cut(data?.currency, 8).toUpperCase() || null;
 }
 
+/** Currency from the student's country (profile) — Saudi Arabia → SAR, only if SAR prices are enabled. */
+async function countryCurrency(db: Db, userId: string) {
+  const { data } = await db.from("profiles").select("country").eq("id", userId).maybeSingle();
+  const country = String(data?.country ?? "").trim().toLowerCase();
+  if (!["saudi arabia", "saudi", "ksa", "السعودية", "المملكة العربية السعودية"].includes(country)) return null;
+  const { count } = await db
+    .from("whatsapp_course_prices")
+    .select("id", { count: "exact", head: true })
+    .eq("currency_code", "SAR")
+    .eq("is_active", true);
+  return (count ?? 0) > 0 ? "SAR" : null;
+}
+
 /** One contact per student (user) or per anonymous browser; merges the browser into the user after login. */
 async function resolveContact(db: Db, userId: string | null, visitorId: string | null): Promise<AnyRow | null> {
   const now = new Date().toISOString();
@@ -109,6 +122,11 @@ async function resolveContact(db: Db, userId: string | null, visitorId: string |
       if (paid) {
         contact = (
           await db.from("web_chat_contacts").update({ currency: paid, currency_set_at: now, currency_set_by: "payments", updated_at: now }).eq("id", contact.id).select("*").single()
+        ).data;
+      } else if (await countryCurrency(db, userId) === "SAR") {
+        // Student's country is Saudi Arabia → Saudi riyal, without asking.
+        contact = (
+          await db.from("web_chat_contacts").update({ currency: "SAR", currency_set_at: now, currency_set_by: "country", updated_at: now }).eq("id", contact.id).select("*").single()
         ).data;
       }
     }
