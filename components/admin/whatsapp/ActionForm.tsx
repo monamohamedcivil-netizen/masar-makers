@@ -66,6 +66,20 @@ function getFriendlyError(
     return "لا توجد صلاحية كافية لتنفيذ هذه العملية.";
   }
 
+  if (
+    message.includes("Server Components render") ||
+    message.includes("Server Action") ||
+    message.includes("Failed to fetch") ||
+    message.includes("NetworkError")
+  ) {
+    return "تعذّر الحفظ. حدّثي الصفحة وحاولي مرة أخرى.";
+  }
+
+  if (/^[\x00-\x7F]+$/.test(message.trim())) {
+    // Technical English message (database/network): show a clear Arabic message instead.
+    return "تعذّر الحفظ بسبب خطأ تقني. حدّثي الصفحة وحاولي مرة أخرى.";
+  }
+
   return (
     message ||
     "حدث خطأ غير متوقع أثناء الحفظ."
@@ -124,7 +138,18 @@ export default function ActionForm({
     setToast(null);
 
     try {
-      await action(formData);
+      const result = await action(formData);
+
+      if (
+        result &&
+        typeof result === "object" &&
+        "ok" in result &&
+        (result as { ok: unknown }).ok === false
+      ) {
+        throw new Error(
+          String((result as { error?: unknown }).error ?? ""),
+        );
+      }
 
       setToast({
         type: "success",

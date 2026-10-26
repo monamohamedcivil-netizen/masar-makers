@@ -90,6 +90,16 @@ function VideoModal({ url, onClose, closeLabel, title }: { url: string; onClose:
             </div>
           )}
         </div>
+        {embed && (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mx-auto mt-3 flex w-fit items-center gap-1 rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-white hover:bg-white/20"
+          >
+            <ExternalLink className="h-3.5 w-3.5" /> YouTube
+          </a>
+        )}
       </div>
     </div>
   );
