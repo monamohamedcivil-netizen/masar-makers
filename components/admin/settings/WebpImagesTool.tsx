@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from "react";
 
-import { listOldCourseImages, replaceCourseImageUrl, type OldImage } from "@/lib/actions/admin/webp-images";
+import {
+  deleteConvertedOriginals,
+  listConvertedOriginals,
+  listOldCourseImages,
+  replaceCourseImageUrl,
+  type ConvertedOriginal,
+  type OldImage,
+} from "@/lib/actions/admin/webp-images";
 import { createClient } from "@/lib/supabase/client";
 import { compressImageForUpload } from "@/lib/utils/compress-image";
 
@@ -15,6 +22,37 @@ export default function WebpImagesTool() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<Record<string, Status>>({});
   const [running, setRunning] = useState(false);
+  const [originals, setOriginals] = useState<ConvertedOriginal[] | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteNote, setDeleteNote] = useState<string | null>(null);
+
+  const loadOriginals = async () => {
+    const result = await listConvertedOriginals();
+    if (result.ok) setOriginals(result.items);
+    else setDeleteNote(result.error);
+  };
+
+  const deleteOriginals = async () => {
+    const safe = (originals ?? []).filter((o) => !o.stillUsed);
+    if (!safe.length) return;
+    if (
+      !window.confirm(
+        `حذف ${safe.length} صورة أصلية (PNG / JPG) نهائيًا من Supabase؟\nالصفحات تستخدم نسخ WebP الجديدة، والحذف لا يمكن التراجع عنه.`,
+      )
+    ) {
+      return;
+    }
+    setDeleting(true);
+    setDeleteNote(null);
+    const result = await deleteConvertedOriginals();
+    setDeleting(false);
+    if (!result.ok) {
+      setDeleteNote(result.error);
+      return;
+    }
+    setDeleteNote(`تم حذف ${result.deleted} صورة أصلية ووفّرنا ${mb(result.freed)}${result.kept ? ` • ${result.kept} صورة ما زالت مستخدمة ولم تُحذف` : ""}.`);
+    void loadOriginals();
+  };
 
   const load = async () => {
     setError(null);
@@ -25,6 +63,7 @@ export default function WebpImagesTool() {
 
   useEffect(() => {
     void load();
+    void loadOriginals();
   }, []);
 
   const setOne = (url: string, s: Status) => setStatus((prev) => ({ ...prev, [url]: s }));
@@ -58,7 +97,7 @@ export default function WebpImagesTool() {
           .upload(path, webp, { cacheControl: "31536000", contentType: "image/webp", upsert: false });
         if (uploadError) throw uploadError;
         const newUrl = supabase.storage.from("course-images").getPublicUrl(path).data.publicUrl;
-        const result = await replaceCourseImageUrl(image.url, newUrl);
+        const result = await replaceCourseImageUrl(image.url, newUrl, { oldSize: blob.size, newSize: webp.size });
         if (!result.ok) throw new Error(result.error);
         setOne(image.url, { state: "done", oldSize: blob.size, newSize: webp.size, note: `${result.rows} صفحة` });
       } catch (e) {
@@ -66,6 +105,7 @@ export default function WebpImagesTool() {
       }
     }
     setRunning(false);
+    void loadOriginals();
   };
 
   const done = Object.values(status).filter((s) => s.state === "done");
@@ -136,6 +176,35 @@ export default function WebpImagesTool() {
           </div>
         </>
       )}
+
+      <div className="mt-6 border-t border-slate-100 pt-5">
+        <h3 className="text-base font-black text-[#07152E]">حذف الصور الأصلية بعد التحويل</h3>
+        <p className="mt-1 text-sm text-slate-500">
+          بعد ما تتأكدي إن صفحات الكورسات بتعرض الصور كويس، احذفي النسخ الأصلية PNG / JPG لتوفير مساحة التخزين.
+          الحذف يشمل فقط الصور التي تم تحويلها ولم تعد مستخدمة في أي صفحة، وهو نهائي.
+        </p>
+        {originals === null ? (
+          <p className="mt-3 text-sm text-slate-500">جارٍ التحميل…</p>
+        ) : originals.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-500">لا توجد صور أصلية محوّلة في انتظار الحذف.</p>
+        ) : (
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              disabled={deleting || running || (originals ?? []).filter((o) => !o.stillUsed).length === 0}
+              onClick={() => void deleteOriginals()}
+              className="rounded-xl bg-red-600 px-5 py-2.5 text-sm font-black text-white disabled:opacity-50"
+            >
+              {deleting ? "جارٍ الحذف…" : `حذف ${(originals ?? []).filter((o) => !o.stillUsed).length} صورة أصلية`}
+            </button>
+            <span className="text-sm font-bold text-slate-600">
+              المساحة: {mb((originals ?? []).filter((o) => !o.stillUsed).reduce((t, o) => t + (o.oldSize ?? 0), 0))}
+              {originals.some((o) => o.stillUsed) ? ` • ${originals.filter((o) => o.stillUsed).length} ما زالت مستخدمة ولن تُحذف` : ""}
+            </span>
+          </div>
+        )}
+        {deleteNote ? <p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm font-bold text-[#07152E]">{deleteNote}</p> : null}
+      </div>
     </div>
   );
 }
