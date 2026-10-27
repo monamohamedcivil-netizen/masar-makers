@@ -1,18 +1,17 @@
 /*
- * ضغط الصور في المتصفح قبل رفعها إلى Supabase Storage.
+ * تحويل الصور إلى WebP في المتصفح قبل رفعها إلى Supabase Storage.
  *
- * الهدف: تقليل حجم الصور (وبالتالي استهلاك نقل البيانات Egress)
- * دون تغيير شكلها بشكل ملحوظ.
- *
- * - الحد الأقصى للعرض/الارتفاع: 1600 بكسل.
- * - الصيغة: WebP بجودة 0.82.
- * - صور GIF لا تُضغط (حتى لا تفقد الحركة).
- * - إذا فشل الضغط أو لم يصغّر الحجم، نرفع الملف الأصلي كما هو.
+ * - كل صورة JPG / PNG (وأي صيغة يقرأها المتصفح) تتحول إلى WebP بجودة 0.82.
+ * - الحد الأقصى للعرض/الارتفاع: 1600 بكسل (الأكبر يُصغَّر بنفس النسبة).
+ * - صورة WebP صغيرة الأبعاد تُرفع كما هي (لا داعي لإعادة ضغطها).
+ * - GIF لا تُحوَّل (حتى لا تفقد الحركة)، وكذلك SVG (صورة متجهة).
+ * - إذا فشل التحويل (متصفح قديم أو صيغة غير مدعومة) نرفع الملف الأصلي كما هو.
  */
 
 const MAX_DIMENSION = 1600;
 const WEBP_QUALITY = 0.82;
-const SKIP_BELOW_BYTES = 150 * 1024;
+
+const SKIP_TYPES = ["image/gif", "image/svg+xml"];
 
 export async function compressImageForUpload(
   file: File,
@@ -20,26 +19,23 @@ export async function compressImageForUpload(
   try {
     if (
       typeof window === "undefined" ||
-      typeof createImageBitmap !== "function"
-    ) {
-      return file;
-    }
-
-    // GIF قد تكون متحركة، والصور الصغيرة لا تحتاج ضغطًا.
-    if (
-      file.type === "image/gif" ||
-      file.size <= SKIP_BELOW_BYTES
+      typeof createImageBitmap !== "function" ||
+      !file.type.startsWith("image/") ||
+      SKIP_TYPES.includes(file.type)
     ) {
       return file;
     }
 
     const bitmap = await createImageBitmap(file);
+    const largest = Math.max(bitmap.width, bitmap.height);
 
-    const scale = Math.min(
-      1,
-      MAX_DIMENSION / Math.max(bitmap.width, bitmap.height),
-    );
+    // WebP بالفعل وأبعاده مناسبة → كما هو.
+    if (file.type === "image/webp" && largest <= MAX_DIMENSION) {
+      bitmap.close();
+      return file;
+    }
 
+    const scale = Math.min(1, MAX_DIMENSION / largest);
     const width = Math.max(1, Math.round(bitmap.width * scale));
     const height = Math.max(1, Math.round(bitmap.height * scale));
 
@@ -61,7 +57,8 @@ export async function compressImageForUpload(
       canvas.toBlob(resolve, "image/webp", WEBP_QUALITY),
     );
 
-    if (!blob || blob.type !== "image/webp" || blob.size >= file.size) {
+    // المتصفح لا يدعم WebP (يرجع PNG) → نرفع الأصل.
+    if (!blob || blob.type !== "image/webp") {
       return file;
     }
 
@@ -72,7 +69,7 @@ export async function compressImageForUpload(
       lastModified: Date.now(),
     });
   } catch {
-    // أي خطأ: نرفع الصورة الأصلية بدون ضغط.
+    // أي خطأ: نرفع الصورة الأصلية بدون تحويل.
     return file;
   }
 }

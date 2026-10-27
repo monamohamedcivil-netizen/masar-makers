@@ -2,13 +2,16 @@
 import { useState } from "react";
 import { ImagePlus, Loader2 } from "lucide-react";
 import { uploadCourseMedia } from "@/lib/actions/admin/media";
+import { compressImageForUpload } from "@/lib/utils/compress-image";
 
 export default function ImageUploadField({ label, value, onChange, folder }: { label: string; value: string; onChange: (url: string, path?: string) => void; folder: string }) {
   const [loading, setLoading] = useState(false);
   async function upload(file?: File) {
     if (!file) return;
     setLoading(true);
-    const fd = new FormData(); fd.append("file", file); fd.append("folder", folder);
+    // الصورة تتحول إلى WebP قبل الرفع.
+    const webp = await compressImageForUpload(file);
+    const fd = new FormData(); fd.append("file", webp); fd.append("folder", folder);
     const result = await uploadCourseMedia(fd);
     setLoading(false);
     if (!result.success || !result.url) return alert(result.message || "تعذر رفع الصورة.");
