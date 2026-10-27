@@ -30,6 +30,7 @@ import type {
 import type {
   StudentProject,
 } from "@/lib/projects/types";
+import { compressImageForUpload } from "@/lib/utils/compress-image";
 
 type Props = {
   open: boolean;
@@ -641,14 +642,16 @@ export default function ProjectDialog({
               Boolean(image),
           );
 
-      orderedNewImages.forEach(
-        (image) => {
-          formData.append(
-            "images",
-            image.file,
-          );
-        },
+      // الصور تتحول إلى WebP قبل الرفع (بنفس الترتيب).
+      const webpImages = await Promise.all(
+        orderedNewImages.map((image) =>
+          compressImageForUpload(image.file),
+        ),
       );
+
+      webpImages.forEach((file) => {
+        formData.append("images", file);
+      });
 
       if (
         mode === "edit" &&
