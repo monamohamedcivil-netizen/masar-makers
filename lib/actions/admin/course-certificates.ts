@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { getComposedCertificateEligibility } from "@/lib/certificates/composed-eligibility";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { generateCertificateNumber } from "@/lib/certificates";
 import { sendCertificateEmail } from "@/lib/email/send-certificate-email";
 const CERTIFICATE_TYPES = [
@@ -566,13 +567,55 @@ if (enrollmentIds.length > 0) {
   }
 }
 
-const students = rows
-  .flatMap((row) =>
-  mapEnrollmentToCertificateStudents(
-    row,
-    courseLevel,
+/*
+ * شهادة من «اليوم الواحد + المجاني» (طالب بدون اشتراك احترافي):
+ * تغطية كاملة لمحاضرات المتكاملة = مستحق، تغطية جزئية = إصدار يدوي باختيار الإدارة.
+ */
+const composed = await getComposedCertificateEligibility(
+  createAdminClient(),
+  normalizedCourseId,
+).catch(() => []);
+const rowById = new Map(rows.map((row) => [row.id, row]));
+const composedStudents: CourseCertificateStudent[] = composed.flatMap((item) => {
+  const anchor = rowById.get(item.anchorEnrollmentId);
+  if (!anchor) return [];
+  return item.coverage.map((c) => ({
+    enrollmentId: anchor.id,
+    studentId: anchor.user_id,
+    studentName: getStudentDisplayName(anchor),
+    studentEmail: getStudentEmail(anchor),
+    courseId: anchor.course_id,
+    courseTitle: anchor.course_title?.trim() || "كورس بدون عنوان",
+    journeyId: anchor.journey_id,
+    certificateType: c.type,
+    journeyType: c.type,
+    journeyTitle: "يوم واحد + مجاني",
+    actionKey: anchor.action_key?.trim() || null,
+    actionTitle: c.complete
+      ? `يوم واحد + مجاني — يغطي كل محاضرات المتكاملة (${c.total}) ✓`
+      : c.eligible
+        ? `يوم واحد + مجاني — يغطي ${c.covered} من ${c.total} محاضرة (مستحق)`
+        : `يوم واحد + مجاني — يغطي ${c.covered} من ${c.total} محاضرة (إصدار يدوي)`,
+    certificateStatus: null,
+    certificateIssuedAt: null,
+    certificateReadyAt: null,
+    certificateId: null,
+    progressPercent: Math.round((c.covered / c.total) * 100),
+    completedLessons: c.covered,
+    totalLessons: c.total,
+    enrolledAt: anchor.created_at,
+  }));
+});
+
+const students = [
+  ...rows.flatMap((row) =>
+    mapEnrollmentToCertificateStudents(
+      row,
+      courseLevel,
+    ),
   ),
-)
+  ...composedStudents,
+]
   .map((student) => {
     const certificate = certificateMap.get(
       `${student.enrollmentId}:${student.certificateType}`,
@@ -811,16 +854,33 @@ const certificateType = input.certificateType;
       };
     }
 
+    /*
+     * اشتراك يوم واحد / مجاني: مسموح فقط لشهادة «اليوم الواحد + المجاني»
+     * (الطالب بدون اشتراك احترافي، وأكمل محاضرة احترافية واحدة على الأقل من نوع الشهادة).
+     * التغطية الكاملة أو الجزئية: القرار للإدارة.
+     */
+    let composedTypes: CertificateType[] | null = null;
     if (
       !isProfessionalCertificateJourneyType(
         enrollment.journey_type,
       )
     ) {
-      return {
-        success: false,
-        message:
-          "الشهادات متاحة فقط لرحلات الاحتراف، ولا تصدر للرحلات المجانية أو رحلات اليوم الواحد.",
-      };
+      const composed = await getComposedCertificateEligibility(
+        createAdminClient(),
+        enrollment.course_id,
+        enrollment.user_id,
+      ).catch(() => []);
+      const mine = composed.find(
+        (item) => item.anchorEnrollmentId === enrollment.id,
+      );
+      if (!mine) {
+        return {
+          success: false,
+          message:
+            "الشهادات متاحة لرحلات الاحتراف، أو لطالب أكمل محاضرات من الرحلة المتكاملة عن طريق رحلات اليوم الواحد والمجاني.",
+        };
+      }
+      composedTypes = mine.coverage.map((c) => c.type);
     }
 
     const { data: currentCertificate } = await supabase
@@ -884,10 +944,11 @@ if (
       enrollment.student_name_en?.trim() ||
       resolvedStudentName;
 
+    // شهادة «يوم واحد + مجاني»: اسم الكورس، لا اسم المحاضرة.
     const courseTitle =
       settings.display_title?.trim() ||
-      enrollment.action_title?.trim() ||
-      enrollment.journey_title?.trim() ||
+      (composedTypes ? null : enrollment.action_title?.trim()) ||
+      (composedTypes ? null : enrollment.journey_title?.trim()) ||
       enrollment.course_title?.trim() ||
       "Course Certificate";
 
@@ -980,6 +1041,7 @@ const courseLevel: "single" | "split" =
   courseData.level === "split" ? "split" : "single";
 
 const allowedCertificateTypes =
+  composedTypes ??
   getCertificateTypesForEnrollment(
     enrollment.journey_type,
     courseLevel,
@@ -1132,7 +1194,7 @@ verification_code: verificationCode,
   notification_status: "pending",
   email_status: "pending",
 
-  metadata: {},
+  metadata: composedTypes ? { basis: "one_day_free" } : {},
 };
 
     const { data: certificateData, error: certificateError } =
