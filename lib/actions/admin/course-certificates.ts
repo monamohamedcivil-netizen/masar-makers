@@ -593,7 +593,9 @@ const composedStudents: CourseCertificateStudent[] = composed.flatMap((item) => 
     actionKey: anchor.action_key?.trim() || null,
     actionTitle: c.complete
       ? `يوم واحد + مجاني — يغطي كل محاضرات المتكاملة (${c.total}) ✓`
-      : `يوم واحد + مجاني — يغطي ${c.covered} من ${c.total} محاضرة (إصدار يدوي)`,
+      : c.eligible
+        ? `يوم واحد + مجاني — يغطي ${c.covered} من ${c.total} محاضرة (مستحق)`
+        : `يوم واحد + مجاني — يغطي ${c.covered} من ${c.total} محاضرة (إصدار يدوي)`,
     certificateStatus: null,
     certificateIssuedAt: null,
     certificateReadyAt: null,

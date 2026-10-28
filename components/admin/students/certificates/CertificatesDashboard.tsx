@@ -27,6 +27,7 @@ import type {
   CertificatesDashboardData,
   CertificatesDashboardRow,
 } from "@/lib/actions/admin/certificates-dashboard";
+import { CERTIFICATE_ELIGIBLE_PERCENT } from "@/lib/certificates/threshold";
 
 type TabId = "pending" | "issued";
 type ProgressFilter = "all" | "eligible" | "incomplete";
@@ -60,7 +61,7 @@ function isIssued(row: CertificatesDashboardRow) {
 function isProgressEligible(
   row: CertificatesDashboardRow,
 ) {
-  return row.progressPercent >= 100;
+  return row.progressPercent >= CERTIFICATE_ELIGIBLE_PERCENT;
 }
 
 function formatDate(value: string | null) {
@@ -441,7 +442,7 @@ export default function CertificatesDashboard({
             active={progressFilter === "eligible"}
             onClick={() => setProgressFilter("eligible")}
           >
-            مستحق 100%
+            مستحق {CERTIFICATE_ELIGIBLE_PERCENT}%+
           </FilterButton>
 
           <FilterButton

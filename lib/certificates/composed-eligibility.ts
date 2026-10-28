@@ -2,6 +2,8 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { CERTIFICATE_ELIGIBLE_PERCENT } from "@/lib/certificates/threshold";
+
 /*
  * شهادة من «اليوم الواحد + المجاني»:
  * الطالب بدون اشتراك احترافي يستحق الشهادة إذا كانت محاضرات رحلات اليوم الواحد
@@ -9,6 +11,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * المتكاملة للكورس، وأكمل مشاهدتها كلها (100%).
  * - كورس بمرحلتين: شهادة الأساسيات إذا غطّى كل محاضرات الأساسيات، والمتقدم كذلك.
  * - كورس بمستوى واحد: شهادة Advanced إذا غطّى كل محاضرات الكورس الاحترافية.
+ * - يُعتبر «مستحقًا» (وتصل الإدارة إشعارًا) من 90% من المحاضرات؛ الإصدار دائمًا يدوي.
  * لو الرحلة المتكاملة فيها محاضرات غير معروضة له كيوم واحد أو مجاني (أو لم يكملها) → «تغطية جزئية»:
  * لا يستحقها تلقائيًا، لكن الإدارة تقدر تصدرها يدويًا (قرار منى).
  */
@@ -21,8 +24,10 @@ export type ComposedTypeCoverage = {
   /** Professional lessons of this certificate the student watched (100%) through one-day / free journeys. */
   covered: number;
   total: number;
-  /** covered === total → eligible automatically. */
+  /** covered === total. */
   complete: boolean;
+  /** covered ≥ 90% of total → «مستحق» (admin is notified). Below → manual issue only. */
+  eligible: boolean;
 };
 
 export type ComposedEligibility = {
@@ -134,7 +139,15 @@ export async function getComposedCertificateEligibility(
     for (const [type, ids] of groups) {
       if (!ids.length) continue;
       const covered = ids.filter((id) => v.lessons.has(id) && done.has(`${userId}:${id}`)).length;
-      if (covered > 0) coverage.push({ type, covered, total: ids.length, complete: covered === ids.length });
+      if (covered > 0) {
+        coverage.push({
+          type,
+          covered,
+          total: ids.length,
+          complete: covered === ids.length,
+          eligible: (covered / ids.length) * 100 >= CERTIFICATE_ELIGIBLE_PERCENT,
+        });
+      }
     }
     if (coverage.length) out.push({ userId, anchorEnrollmentId: String(v.anchor!.id), coverage });
   }

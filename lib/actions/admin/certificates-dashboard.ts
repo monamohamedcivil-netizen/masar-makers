@@ -7,6 +7,7 @@ import {
   type CertificateType,
   type CourseCertificateStudent,
 } from "@/lib/actions/admin/course-certificates";
+import { CERTIFICATE_ELIGIBLE_PERCENT } from "@/lib/certificates/threshold";
 
 export type CertificatesDashboardRow = CourseCertificateStudent & {
   pathId: string | null;
@@ -370,7 +371,7 @@ Promise<GetCertificatesDashboardResult> {
     /*
      * "مستحقة للإصدار" تعني:
      * - لم تصدر بعد
-     * - وصلت نسبة الإنجاز إلى 100%
+     * - وصلت نسبة الإنجاز إلى 90% أو أكثر (CERTIFICATE_ELIGIBLE_PERCENT)
      *
      * الطلاب الأقل من 100% يظلون ظاهرين في شاشة الشهادات
      * عند اختيار فلتر "الكل" أو "غير مكتمل"، ويمكن للإدارة
@@ -380,7 +381,7 @@ Promise<GetCertificatesDashboardResult> {
     const pendingRows = rows.filter(
       (row) =>
         !isIssued(row) &&
-        row.progressPercent >= 100,
+        row.progressPercent >= CERTIFICATE_ELIGIBLE_PERCENT,
     );
 
     const issuedRows = rows.filter(isIssued);
