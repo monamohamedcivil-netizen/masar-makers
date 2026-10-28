@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import AdminPageHeader from "@/components/admin/layout/AdminPageHeader";
+import PushToggle from "@/components/admin/whatsapp/PushToggle";
 import {
   getInternalAccountUserIds,
   getInternalPaymentMatcher,
@@ -69,6 +70,8 @@ export default async function DashboardPage() {
         title="لوحة التحكم"
         description="نظرة مباشرة على الطلاب والاشتراكات والمهام التي تحتاج مراجعتك."
         actions={
+          <div className="flex flex-wrap items-center gap-2">
+          <PushToggle />
           <Link
             href="/admin/students/enrollment-requests"
             className="inline-flex items-center gap-2 rounded-xl bg-[#07152E] px-4 py-3 text-sm font-black text-white transition hover:bg-[#F7B548] hover:text-[#07152E]"
@@ -76,6 +79,7 @@ export default async function DashboardPage() {
             مراجعة الطلبات
             <ClipboardList className="h-4 w-4" />
           </Link>
+          </div>
         }
       />
 
