@@ -271,12 +271,8 @@ console.log(
     .trim()
     .toLowerCase();
 
+  // رحلات اليوم الواحد مسموح لها برفع مشروع (مثل الرحلات الاحترافية)، الرحلات المجانية لا.
   const nonProfessionalJourneyTypes = new Set([
-    "workshop",
-    "one_day",
-    "one-day",
-    "one_day_workshop",
-    "one-day-workshop",
     "free",
     "free_session",
     "free-session",

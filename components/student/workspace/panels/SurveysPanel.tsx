@@ -116,8 +116,9 @@ export default function SurveysPanel({
         .filter((path) =>
           path.stations.some(
             (station) =>
-              station.isEnrolled &&
-              station.status !== "pending",
+              ((station.isEnrolled &&
+              station.status !== "pending") ||
+              Boolean(station.hasOneDayAccess)),
           ),
         ),
     [data.careerPaths],
@@ -211,8 +212,9 @@ export default function SurveysPanel({
         (station) =>
           station.courseId ===
             requestedCourseId &&
-          station.isEnrolled &&
-          station.status !== "pending",
+          ((station.isEnrolled &&
+          station.status !== "pending") ||
+          Boolean(station.hasOneDayAccess)),
       ),
     )?.pathId;
   }, [paths, requestedCourseId]);
@@ -344,8 +346,9 @@ function SurveyPathView({
     () =>
       path.stations.filter(
         (station) =>
-          station.isEnrolled &&
-          station.status !== "pending" &&
+          ((station.isEnrolled &&
+          station.status !== "pending") ||
+          Boolean(station.hasOneDayAccess)) &&
           Boolean(station.courseId),
       ),
     [path.stations],
@@ -507,8 +510,9 @@ function CompactStationRoad({
         {stations.map(
           (station, index) => {
             const enrolled =
-              station.isEnrolled &&
-              station.status !== "pending";
+              ((station.isEnrolled &&
+              station.status !== "pending") ||
+              Boolean(station.hasOneDayAccess));
 
             const active =
               enrolled &&

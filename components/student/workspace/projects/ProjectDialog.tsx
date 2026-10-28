@@ -111,8 +111,9 @@ export default function ProjectDialog({
       path.stations
         .filter(
           (station) =>
-            station.isEnrolled &&
-            station.status !== "pending" &&
+            ((station.isEnrolled &&
+            station.status !== "pending") ||
+            Boolean(station.hasOneDayAccess)) &&
             Boolean(station.courseId) &&
             Boolean(station.enrollmentId),
         )
