@@ -486,9 +486,11 @@ export class WebChatEngine {
       {
         from: "bot",
         text,
+        // 1) تسجيل الدخول  2) حساب جديد  3) خدمة العملاء (واتساب)
         buttons: [
-          { id: "nav:register", label: this.t("📝 إنشاء حساب مجاني", "📝 Create a free account"), kind: "link", url: "/register", sameTab: true },
-          { id: "nav:login", label: this.t("🔑 لدي حساب — تسجيل الدخول", "🔑 I have an account — log in"), kind: "link", url: `/login?next=${encodeURIComponent(next)}`, sameTab: true },
+          { id: "nav:login", label: this.t("🔑 تسجيل الدخول", "🔑 Log in"), kind: "link", url: `/login?next=${encodeURIComponent(next)}`, sameTab: true },
+          { id: "nav:register", label: this.t("📝 إنشاء حساب جديد", "📝 Create a new account"), kind: "link", url: "/register", sameTab: true },
+          { id: "handoff:support", label: this.t("👩‍💼 خدمة العملاء (واتساب)", "👩‍💼 Customer service (WhatsApp)"), kind: "handoff" },
           { id: "main", label: this.t("↩️ القائمة الرئيسية", "↩️ Main menu") },
         ],
       },
