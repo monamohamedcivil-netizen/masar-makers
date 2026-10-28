@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 
 import AdminPageHeader from "@/components/admin/layout/AdminPageHeader";
 import LandingPageEditor from "@/components/admin/landing/LandingPageEditor";
+import LandingLeadsTable from "@/components/admin/landing/LandingLeadsTable";
+import { listLandingLeads } from "@/lib/actions/landing-leads";
 import { getLandingPageForAdmin } from "@/lib/actions/landing-pages";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +19,8 @@ export default async function LandingPageEditPage({ params }: PageProps) {
   const page = await getLandingPageForAdmin(id);
   if (!page) notFound();
 
+  const leads = await listLandingLeads(page.id);
+
   return (
     <div>
       <AdminPageHeader
@@ -27,6 +31,7 @@ export default async function LandingPageEditPage({ params }: PageProps) {
           { label: page.title },
         ]}
       />
+      <LandingLeadsTable leads={leads} />
       <LandingPageEditor page={page} />
     </div>
   );
