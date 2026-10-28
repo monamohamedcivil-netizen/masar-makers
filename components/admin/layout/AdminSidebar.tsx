@@ -128,6 +128,11 @@ const navigationGroups: NavigationGroup[] = [
         href: "/admin/content/landing-promos",
         icon: Video,
       },
+      {
+        title: "صفحات هبوط الإعلانات",
+        href: "/admin/content/landing-pages",
+        icon: FileImage,
+      },
     ],
   },
   {

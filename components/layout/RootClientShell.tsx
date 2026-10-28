@@ -171,10 +171,14 @@ export default function RootClientShell({
       pathname,
     );
 
+  // صفحات هبوط الإعلانات (/lp/...) نظيفة: بدون نافذة السحب ولا الشات.
+  const isLandingRoute =
+    pathname.startsWith("/lp/");
+
   const showMonthlyDraw =
     !isCleanCertificateRoute(
       pathname,
-    );
+    ) && !isLandingRoute;
 
   return (
     <BuilderProvider>
@@ -194,6 +198,7 @@ export default function RootClientShell({
       ) : null}
 
       {!pathname.startsWith("/admin") &&
+      !isLandingRoute &&
       !isCleanCertificateRoute(pathname) ? (
         <Suspense fallback={null}>
           <WebChatWidget />
