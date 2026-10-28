@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Tajawal } from "next/font/google";
+import { JetBrains_Mono } from "next/font/google";
 import { notFound } from "next/navigation";
 
 import LandingView from "@/components/landing/LandingView";
@@ -11,13 +11,6 @@ import "../landing.css";
 /* صفحة هبوط إعلان: /lp/<slug> — تُعدَّل من /admin/content/landing-pages */
 
 export const dynamic = "force-dynamic";
-
-const display = Tajawal({
-  variable: "--lp-display",
-  subsets: ["arabic", "latin"],
-  weight: ["500", "700", "800", "900"],
-  display: "swap",
-});
 
 const mono = JetBrains_Mono({
   variable: "--lp-mono",
@@ -81,7 +74,7 @@ export default async function LandingPage({ params }: PageProps) {
   if (!page) notFound();
 
   return (
-    <div className={`${display.variable} ${mono.variable}`}>
+    <div className={mono.variable}>
       <LandingView
         content={page.content}
         whatsappNumber={page.whatsapp_number}
