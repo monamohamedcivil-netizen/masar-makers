@@ -58,6 +58,11 @@ const navigationGroups: NavigationGroup[] = [
         href: "/admin/reports",
         icon: ChartNoAxesCombined,
       },
+      {
+        title: "الإعدادات",
+        href: "/admin/settings",
+        icon: Settings,
+      },
     ],
   },
   {
@@ -123,6 +128,26 @@ const navigationGroups: NavigationGroup[] = [
         href: "/admin/learning/lessons",
         icon: BookOpen,
       },
+    ],
+  },
+  {
+    title: "الإعلانات والجوائز",
+    items: [
+      {
+        title: "شات المنصة",
+        href: "/admin/web-chat",
+        icon: Bot,
+      },
+      {
+        title: "قوائم الشات والأسعار",
+        href: "/admin/whatsapp-sales",
+        icon: MessageCircle,
+      },
+      {
+        title: "الإعلانات",
+        href: "/admin/content/announcements",
+        icon: Megaphone,
+      },
       {
         title: "إعلانات صفحة البداية",
         href: "/admin/content/landing-promos",
@@ -133,6 +158,11 @@ const navigationGroups: NavigationGroup[] = [
         href: "/admin/content/landing-pages",
         icon: FileImage,
       },
+      {
+        title: "السحب الشهري",
+        href: "/admin/content/monthly-draw",
+        icon: Gift,
+      },
     ],
   },
   {
@@ -142,16 +172,6 @@ const navigationGroups: NavigationGroup[] = [
         title: "استيراد البيانات",
         href: "/admin/student-import",
         icon: Database,
-      },
-      {
-        title: "قوائم الشات والأسعار",
-        href: "/admin/whatsapp-sales",
-        icon: MessageCircle,
-      },
-      {
-        title: "شات المنصة",
-        href: "/admin/web-chat",
-        icon: Bot,
       },
       // صندوق واتساب مخفي مؤقتًا (الشات انتقل للمنصة) — الصفحة والكود باقيان
       // ويرجع بإضافة العنصر هنا:
@@ -165,21 +185,6 @@ const navigationGroups: NavigationGroup[] = [
         title: "المصروفات",
         href: "/admin/finance/expenses",
         icon: Receipt,
-      },
-      {
-        title: "الإعلانات",
-        href: "/admin/content/announcements",
-        icon: Megaphone,
-      },
-      {
-        title: "السحب الشهري",
-        href: "/admin/content/monthly-draw",
-        icon: Gift,
-      },
-      {
-        title: "الإعدادات",
-        href: "/admin/settings",
-        icon: Settings,
       },
     ],
   },
