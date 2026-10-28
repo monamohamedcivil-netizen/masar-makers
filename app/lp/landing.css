@@ -297,3 +297,17 @@ html:has(.mm-lp){scroll-behavior:smooth}
 .mm-lp footer{border-top:0;background:var(--navy);color:var(--dim)}
 .mm-lp footer .num{color:var(--ink)}
 @media (max-width:620px){.mm-lp .pathband{padding-block:160px 52px}}
+/* أزرار الهيدر + لينك المنصة في الفوتر + عنوان المسار في سطر واحد */
+.mm-lp .top-actions{display:flex;align-items:center;gap:8px}
+.mm-lp .top .btn,.mm-lp .brand b{white-space:nowrap}
+.mm-lp .pathband h2{max-width:none;white-space:nowrap;font-size:min(2.35rem,3.8vw)}
+.mm-lp footer .site{color:var(--gold);font-family:var(--f-mono);direction:ltr;unicode-bidi:isolate;text-decoration:none}
+.mm-lp footer .site:hover{text-decoration:underline}
+@media (max-width:620px){
+  .mm-lp .brand small{display:none}
+  .mm-lp .top-actions{gap:6px}
+  .mm-lp .top-actions .btn{padding:7px 10px;font-size:.8rem}
+  .mm-lp .brand{gap:6px}
+  .mm-lp .brand img{width:36px;height:36px}
+  .mm-lp .brand b{font-size:.95rem}
+}

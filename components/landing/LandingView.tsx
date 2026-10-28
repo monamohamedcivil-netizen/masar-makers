@@ -145,9 +145,14 @@ export default function LandingView({ content: c, whatsappNumber, pixelId, isDra
               <small>masarmakers.com</small>
             </span>
           </a>
-          <a className="btn btn-gold btn-sm" href="#book">
-            احجز مكانك
-          </a>
+          <nav className="top-actions">
+            <a className="btn btn-ghost btn-sm" href="/">
+              استكشف المنصة
+            </a>
+            <a className="btn btn-gold btn-sm" href="#book">
+              احجز مكانك
+            </a>
+          </nav>
         </div>
       </header>
 
@@ -555,7 +560,9 @@ export default function LandingView({ content: c, whatsappNumber, pixelId, isDra
 
       <footer>
         <div className="wrap">
-          <span>© صنّاع المسار · Masar Makers</span>
+          <span>
+            © صنّاع المسار · <a className="site" href="/">masarmakers.com</a>
+          </span>
           <span>
             واتساب: <span className="num">{displayPhone(digits(whatsappNumber))}</span>
           </span>
