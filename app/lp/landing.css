@@ -253,3 +253,47 @@ html:has(.mm-lp){scroll-behavior:smooth}
 .mm-lp .gifts svg{color:var(--gold)}
 .mm-lp .num,.mm-lp .form-note .num{direction:ltr;unicode-bidi:isolate;font-family:var(--f-mono);color:var(--ink);user-select:all}
 .mm-lp img{max-width:100%}
+
+/* ===== خلفية فاتحة دافئة (طلب منى 28/10): الصفحة فاتحة، والكروت كحلية بكتابة بيضاء ===== */
+.mm-lp{--page:#FBF6EA;--page-2:#FFFDF7;--page-ink:#0B1D3D;--page-muted:#4F5F78;--page-line:rgba(11,29,61,.10);--gold-text:#A86A12;
+  background:
+    radial-gradient(900px 520px at 88% -8%,rgba(247,181,72,.28),transparent 62%),
+    radial-gradient(700px 420px at 0% 30%,rgba(255,214,140,.16),transparent 65%),
+    linear-gradient(180deg,var(--page-2),var(--page) 40%,#F7EFDD);
+  color:var(--page-ink);color-scheme:light}
+.mm-lp .top{background:rgba(255,252,244,.88);border-bottom:1px solid var(--page-line)}
+.mm-lp .brand b{color:var(--page-ink)}
+.mm-lp .brand small{color:var(--page-muted)}
+.mm-lp .ribbon{background:var(--page-ink);color:var(--gold)}
+.mm-lp .hero h1{color:var(--page-ink)}
+.mm-lp .hero h1 em{color:var(--gold-text)}
+.mm-lp .lead,.mm-lp .hero .lead{color:var(--page-muted)}
+.mm-lp .hero-note{color:var(--page-muted)}
+.mm-lp .status{background:#fff;border-color:var(--page-line);color:var(--page-muted);box-shadow:0 6px 18px -12px rgba(11,29,61,.35)}
+.mm-lp .sec-head h2,.mm-lp .book h2{color:var(--page-ink)}
+.mm-lp .sec-head .eyebrow,.mm-lp .sec-head .eyebrow-ar,.mm-lp .book>div:first-child .eyebrow-ar{color:var(--gold-text)}
+.mm-lp .btn-ghost{color:var(--page-ink);border-color:rgba(11,29,61,.28);background:rgba(255,255,255,.6)}
+.mm-lp .btn-ghost:hover{border-color:var(--gold-text);color:var(--gold-text)}
+.mm-lp .steps p{color:var(--page-muted)}
+.mm-lp .steps strong{color:var(--page-ink)}
+.mm-lp .steps b{background:var(--navy);color:var(--gold);border-color:var(--navy)}
+.mm-lp .screen{border-color:var(--page-line);box-shadow:0 30px 60px -32px rgba(11,29,61,.55)}
+/* الكروت كحلية بكتابة بيضاء */
+.mm-lp .facts,.mm-lp .start,.mm-lp .who article,.mm-lp .stage,.mm-lp .level,.mm-lp .help a,.mm-lp .sheetbox,.mm-lp .offer,.mm-lp .price,.mm-lp form,.mm-lp details{
+  color:var(--ink);box-shadow:0 22px 44px -30px rgba(11,29,61,.55)}
+.mm-lp .facts,.mm-lp .start,.mm-lp .who article,.mm-lp .stage,.mm-lp .level,.mm-lp .help a,.mm-lp .sheetbox,.mm-lp .price,.mm-lp details{background-color:var(--sheet)}
+.mm-lp .offer{background:linear-gradient(120deg,#1A2E55,var(--sheet) 60%)}
+.mm-lp .price.best{background:linear-gradient(180deg,#22365E,var(--sheet) 60%)}
+.mm-lp .start span{color:var(--muted)}
+.mm-lp .start .when{color:var(--ink)}
+.mm-lp .faq summary{color:var(--ink)}
+/* مسار المنصة بعرض الشاشة */
+.mm-lp .pathband{position:relative;overflow:hidden;padding-block:220px 72px;margin-top:24px;color:var(--ink)}
+.mm-lp .pathband .pathbg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.mm-lp .pathband::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(7,21,46,.97) 30%,rgba(7,21,46,.55) 65%,rgba(7,21,46,.05))}
+.mm-lp .pathband .inner{position:relative;z-index:1;display:grid;gap:18px}
+.mm-lp .pathband h2{max-width:22ch;color:#fff}
+.mm-lp .pathband .eyebrow-ar{color:var(--gold)}
+.mm-lp footer{border-top:0;background:var(--navy);color:var(--dim)}
+.mm-lp footer .num{color:var(--ink)}
+@media (max-width:620px){.mm-lp .pathband{padding-block:160px 52px}}

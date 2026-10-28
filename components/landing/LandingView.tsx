@@ -523,35 +523,31 @@ export default function LandingView({ content: c, whatsappNumber, pixelId, isDra
           </div>
         </section>
 
-        <section>
-          <div className="wrap">
-            <div className="path">
-              <img src={c.path.image} alt="" />
-              <div className="inner">
-                <span className="eyebrow-ar">{c.path.eyebrow}</span>
-                <h2>{c.path.title}</h2>
-                <ol className="road">
-                  {c.path.stations.map((station, index) => (
-                    <li className={station.current ? "here" : undefined} key={index}>
-                      <span className="ic">
-                        <img src={station.icon} alt="" />
-                      </span>
-                      <span className="n">{String(index + 1).padStart(2, "0")}</span>
-                      <b>{station.title}</b>
-                      <small>{station.sub}</small>
-                    </li>
-                  ))}
-                </ol>
-                <div>
-                  <a
-                    className="btn btn-gold"
-                    href={c.path.url}
-                    {...(isExternal(c.path.url) ? { target: "_blank", rel: "noopener" } : {})}
-                  >
-                    {c.path.cta}
-                  </a>
-                </div>
-              </div>
+        <section className="pathband">
+          <img className="pathbg" src={c.path.image} alt="" />
+          <div className="wrap inner">
+            <span className="eyebrow-ar">{c.path.eyebrow}</span>
+            <h2>{c.path.title}</h2>
+            <ol className="road">
+              {c.path.stations.map((station, index) => (
+                <li className={station.current ? "here" : undefined} key={index}>
+                  <span className="ic">
+                    <img src={station.icon} alt="" />
+                  </span>
+                  <span className="n">{String(index + 1).padStart(2, "0")}</span>
+                  <b>{station.title}</b>
+                  <small>{station.sub}</small>
+                </li>
+              ))}
+            </ol>
+            <div>
+              <a
+                className="btn btn-gold"
+                href={c.path.url}
+                {...(isExternal(c.path.url) ? { target: "_blank", rel: "noopener" } : {})}
+              >
+                {c.path.cta}
+              </a>
             </div>
           </div>
         </section>
