@@ -45,7 +45,7 @@ const rows: { title: string; tools: Tool[] }[] = [
     title: "المحتوى والصور",
     tools: [
       { href: "/admin/content/monthly-draw", title: "السحب الشهري", description: "إعدادات السحب والفائزين.", icon: Gift },
-      { href: "/admin/learning/courses", title: "الكورسات", description: "بيانات الكورسات وصورها.", icon: BookOpen },
+      { href: "/admin/learning/lessons", title: "الدروس والمحتوى", description: "محاضرات الكورسات ومحتواها ومرفقاتها.", icon: BookOpen },
       { href: "/admin/settings/webp-images", title: "تحويل الصور إلى WebP", description: "تحويل صور الكورسات القديمة (PNG/JPG) لتقليل استهلاك Supabase.", icon: ImageDown },
     ],
   },
