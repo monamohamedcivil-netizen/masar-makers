@@ -323,3 +323,20 @@ html:has(.mm-lp){scroll-behavior:smooth}
 @media (max-width:900px){
   .mm-lp .sec-head h2,.mm-lp .book h2{white-space:normal;text-wrap:balance}
 }
+/* شعار واسم المنصة أكبر في الهيدر (طلب منى 28/10) */
+.mm-lp .top .wrap{padding-block:12px}
+.mm-lp .brand{gap:12px}
+.mm-lp .brand img{width:74px;height:74px}
+.mm-lp .brand b{font-size:1.45rem;line-height:1.2}
+.mm-lp .brand small{font-size:.85rem}
+@media (max-width:620px){
+  .mm-lp .brand{gap:8px}
+  .mm-lp .brand img{width:46px;height:46px}
+  .mm-lp .brand b{font-size:1.1rem}
+}
+@media (max-width:420px){
+  .mm-lp .brand{gap:6px;min-width:0}
+  .mm-lp .brand img{width:38px;height:38px}
+  .mm-lp .brand b{font-size:.92rem}
+  .mm-lp .top-actions .btn{padding:6px 9px;font-size:.76rem}
+}
