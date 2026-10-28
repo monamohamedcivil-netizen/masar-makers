@@ -118,8 +118,9 @@ export default function ProjectsPanel({
         .filter((path) =>
           path.stations.some(
             (station) =>
-              station.isEnrolled &&
-              station.status !== "pending",
+              ((station.isEnrolled &&
+              station.status !== "pending") ||
+              Boolean(station.hasOneDayAccess)),
           ),
         ),
     [data.careerPaths],
@@ -424,8 +425,9 @@ export default function ProjectsPanel({
             ...path,
             stations: path.stations.filter(
               (station) =>
-                station.isEnrolled &&
-                station.status !== "pending",
+                ((station.isEnrolled &&
+                station.status !== "pending") ||
+                Boolean(station.hasOneDayAccess)),
             ),
           }))
           .filter(
@@ -507,8 +509,9 @@ function ProjectPathView({
     () =>
       path.stations.filter(
         (station) =>
-          station.isEnrolled &&
-          station.status !== "pending" &&
+          ((station.isEnrolled &&
+          station.status !== "pending") ||
+          Boolean(station.hasOneDayAccess)) &&
           Boolean(station.courseId),
       ),
     [path.stations],
@@ -685,8 +688,9 @@ function CompactStationRoad({
         {stations.map(
           (station, index) => {
             const enrolled =
-              station.isEnrolled &&
-              station.status !== "pending";
+              ((station.isEnrolled &&
+              station.status !== "pending") ||
+              Boolean(station.hasOneDayAccess));
 
             const active =
               enrolled &&

@@ -81,6 +81,8 @@ export type StudentPathStationProgress = {
     | "in_progress"
     | "completed";
   isEnrolled: boolean;
+  /** Active one-day journey in this station (opens surveys & projects, not the career map). */
+  hasOneDayAccess?: boolean;
   courseSlug: string;
   courseHref: string;
   learningLayout: "single" | "split";
@@ -1681,6 +1683,20 @@ pdfUrl:
     "cancelled",
   ]);
 
+  // اشتراكات اليوم الواحد الفعالة: تفتح الاستبيانات والمشاريع للمحطة.
+  const activeOneDayCardsByCourseId = new Map(
+    cards
+      .filter((card) => {
+        const status = normalizeStatus(card.enrollmentStatus);
+        return (
+          getJourneyKind(card.journeyType) === "one_day" &&
+          !pendingStatusValues.has(status) &&
+          !["rejected", "suspended", "expired", "cancelled"].includes(status)
+        );
+      })
+      .map((card) => [card.courseId, card]),
+  );
+
   const professionalCardsByCourseId = new Map(
     cards
       .filter((card) => {
@@ -1916,6 +1932,11 @@ pdfUrl:
             );
 
           const enrolledCard = enrolledCards[0];
+          const oneDayCard = enrolledCards.length
+            ? undefined
+            : stationCourses
+                .map((course) => activeOneDayCardsByCourseId.get(course.id))
+                .find((card): card is StudentCourseCard => Boolean(card));
           const representativeCourse =
             stationCourses.find((course) => course.is_featured) ??
             stationCourses.find((course) =>
@@ -2188,10 +2209,11 @@ pdfUrl:
   stationId: station.id,
 
   enrollmentId:
-    enrolledCard?.enrollmentId ?? "",
+    enrolledCard?.enrollmentId ?? oneDayCard?.enrollmentId ?? "",
 
   courseId:
     enrolledCard?.courseId ??
+    oneDayCard?.courseId ??
     representativeCourse?.id ??
     "",
 
@@ -2217,6 +2239,7 @@ pdfUrl:
               enrolledCard?.enrollmentStatus ?? null,
             status: stationStatus,
             isEnrolled,
+            hasOneDayAccess: Boolean(oneDayCard),
             courseSlug:
               enrolledCard?.slug ??
               representativeCourse?.slug ??
