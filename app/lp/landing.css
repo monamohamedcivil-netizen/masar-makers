@@ -314,3 +314,12 @@ html:has(.mm-lp){scroll-behavior:smooth}
 
 /* خط المنصة (IBM Plex Sans Arabic) بأوزان هادئة مثل باقي المنصة */
 .mm-lp h1,.mm-lp h2{letter-spacing:0;line-height:1.35}
+/* عناوين الأقسام: أكبر، والعنوان والوصف في سطر واحد على الكمبيوتر (طلب منى 28/10) */
+.mm-lp .sec-head{max-width:none}
+.mm-lp .sec-head h2,.mm-lp .book h2{font-size:clamp(1.7rem,3.3vw,2.6rem);text-wrap:nowrap;white-space:nowrap}
+.mm-lp .sec-head .lead{max-width:none;font-size:1.1rem}
+.mm-lp .sec-head .eyebrow-ar{font-size:1.1rem}
+.mm-lp .sec-head .eyebrow{font-size:.85rem}
+@media (max-width:900px){
+  .mm-lp .sec-head h2,.mm-lp .book h2{white-space:normal;text-wrap:balance}
+}
