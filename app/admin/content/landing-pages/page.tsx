@@ -1,11 +1,12 @@
 import AdminPageHeader from "@/components/admin/layout/AdminPageHeader";
 import LandingPagesList from "@/components/admin/landing/LandingPagesList";
+import { countLandingLeads } from "@/lib/actions/landing-leads";
 import { listLandingPages } from "@/lib/actions/landing-pages";
 
 export const dynamic = "force-dynamic";
 
 export default async function LandingPagesAdminPage() {
-  const pages = await listLandingPages();
+  const [pages, leads] = await Promise.all([listLandingPages(), countLandingLeads()]);
 
   return (
     <div>
@@ -20,6 +21,7 @@ export default async function LandingPagesAdminPage() {
           slug: page.slug,
           title: page.title,
           status: page.status,
+          leads: leads[page.id] ?? 0,
           updatedAt: page.updated_at,
         }))}
       />

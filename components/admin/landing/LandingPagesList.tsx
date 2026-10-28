@@ -12,6 +12,7 @@ type Item = {
   slug: string;
   title: string;
   status: "draft" | "published";
+  leads: number;
   updatedAt: string;
 };
 
@@ -54,6 +55,7 @@ export default function LandingPagesList({ pages }: { pages: Item[] }) {
               <th className="px-4 py-3 font-semibold">الصفحة</th>
               <th className="px-4 py-3 font-semibold">الرابط</th>
               <th className="px-4 py-3 font-semibold">الحالة</th>
+              <th className="px-4 py-3 font-semibold">الحجوزات</th>
               <th className="px-4 py-3 font-semibold">آخر تعديل</th>
               <th className="px-4 py-3" />
             </tr>
@@ -61,7 +63,7 @@ export default function LandingPagesList({ pages }: { pages: Item[] }) {
           <tbody>
             {pages.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                   لا توجد صفحات بعد. أنشئي أول صفحة من الأسفل.
                 </td>
               </tr>
@@ -81,6 +83,7 @@ export default function LandingPagesList({ pages }: { pages: Item[] }) {
                     {item.status === "published" ? "منشورة" : "مسودة"}
                   </span>
                 </td>
+                <td className="px-4 py-3 font-bold text-[#07152E]">{item.leads}</td>
                 <td className="px-4 py-3 text-slate-500">
                   {new Date(item.updatedAt).toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" })}
                 </td>

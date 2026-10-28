@@ -5,6 +5,7 @@
 import Script from "next/script";
 import { useEffect, useMemo, useState } from "react";
 
+import { recordLandingLead } from "@/lib/actions/landing-leads";
 import type { LandingContent, LandingGift } from "@/lib/landing/types";
 
 type Props = {
@@ -78,12 +79,19 @@ export default function LandingView({ content: c, whatsappNumber, pixelId, isDra
   const [plan, setPlan] = useState(c.booking.planOptions[0] ?? "");
   const [error, setError] = useState("");
   const [source, setSource] = useState("");
+  const [utm, setUtm] = useState({ source: "", medium: "", campaign: "", content: "" });
   const [playing, setPlaying] = useState(false);
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     const parts = [q.get("utm_source"), q.get("utm_campaign"), q.get("utm_content")].filter(Boolean);
     setSource(parts.join(" / "));
+    setUtm({
+      source: q.get("utm_source") ?? "",
+      medium: q.get("utm_medium") ?? "",
+      campaign: q.get("utm_campaign") ?? "",
+      content: q.get("utm_content") ?? "",
+    });
   }, []);
 
   const message = useMemo(() => {
@@ -111,8 +119,22 @@ export default function LandingView({ content: c, whatsappNumber, pixelId, isDra
       event.preventDefault();
       return;
     }
+    // تسجيل الحجز في المنصة (بدون انتظار، واتساب يفتح في تبويب جديد).
+    void recordLandingLead({
+      slug,
+      name: name.trim(),
+      email: email.trim(),
+      phone: `${code} ${digits(phone)}`.trim(),
+      country,
+      plan,
+      utmSource: utm.source,
+      utmMedium: utm.medium,
+      utmCampaign: utm.campaign,
+      utmContent: utm.content,
+    }).catch(() => undefined);
     try {
       window.fbq?.("track", "Lead", { content_name: slug, content_category: plan });
+      window.fbq?.("track", "Contact", { content_name: slug });
     } catch {
       /* Pixel اختياري */
     }
