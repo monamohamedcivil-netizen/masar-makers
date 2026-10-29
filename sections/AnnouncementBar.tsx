@@ -237,10 +237,10 @@ const { data, error } = await supabase
   }
 
   const ctaClassMobile =
-    "inline-flex h-8 max-w-[104px] items-center gap-1 whitespace-nowrap rounded-full bg-[#E9C989] px-2.5 text-[10px] font-black text-[#07152E] shadow-sm transition hover:scale-105 hover:bg-[#F0D59F]";
+    "inline-flex h-8 max-w-[104px] items-center gap-1 whitespace-nowrap rounded-full bg-gradient-to-b from-[#FFCB45] to-[#F5A31A] px-2.5 text-[10px] font-black text-[#07152E] shadow-[0_4px_12px_rgba(245,163,26,0.45)] ring-1 ring-[#E18F0C]/40 transition hover:scale-105 hover:from-[#FFD766] hover:to-[#FFB02E]";
 
   const ctaClassDesktop =
-    "flex items-center gap-2 rounded-full bg-[#E9C989] px-5 py-2 text-sm font-bold text-[#07152E] transition duration-300 hover:scale-105 hover:bg-[#F0D59F] hover:shadow-lg";
+    "flex items-center gap-2 rounded-full bg-gradient-to-b from-[#FFCB45] to-[#F5A31A] px-5 py-2 text-sm font-black text-[#07152E] shadow-[0_6px_16px_rgba(245,163,26,0.5)] ring-1 ring-[#E18F0C]/40 transition duration-300 hover:scale-105 hover:from-[#FFD766] hover:to-[#FFB02E] hover:shadow-[0_8px_20px_rgba(245,163,26,0.6)]";
 
   return (
     <section
