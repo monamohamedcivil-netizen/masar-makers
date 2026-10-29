@@ -65,23 +65,23 @@ export default function SettingsPage() {
     <>
       <AdminPageHeader title="الإعدادات" description="اختصارات لأدوات وإعدادات المنصة." />
 
-      <div className="space-y-6">
+      <div className="space-y-3">
         {rows.map((row) => (
           <section key={row.title}>
-            <h2 className="mb-3 text-sm font-bold text-slate-500">{row.title}</h2>
-            <div className="grid gap-4 md:grid-cols-3">
+            <h2 className="mb-1.5 text-xs font-bold text-slate-500">{row.title}</h2>
+            <div className="grid gap-2.5 md:grid-cols-3">
               {row.tools.map((tool) => (
                 <Link
                   key={`${row.title}-${tool.title}`}
                   href={tool.href}
-                  className="group flex gap-4 rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-[#F7B548] hover:shadow-sm"
+                  className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 transition hover:border-[#F7B548] hover:shadow-sm"
                 >
-                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#07152E] text-[#F7B548]">
-                    <tool.icon className="h-6 w-6" />
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[#07152E] text-[#F7B548]">
+                    <tool.icon className="h-5 w-5" />
                   </span>
-                  <span className="grid gap-1">
-                    <span className="text-base font-bold text-[#07152E] group-hover:text-[#A86A12]">{tool.title}</span>
-                    <span className="text-sm leading-6 text-slate-500">{tool.description}</span>
+                  <span className="grid gap-0.5">
+                    <span className="text-sm font-bold text-[#07152E] group-hover:text-[#A86A12]">{tool.title}</span>
+                    <span className="text-xs leading-5 text-slate-500">{tool.description}</span>
                   </span>
                 </Link>
               ))}
