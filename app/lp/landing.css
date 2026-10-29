@@ -255,13 +255,13 @@ html:has(.mm-lp){scroll-behavior:smooth}
 .mm-lp img{max-width:100%}
 
 /* ===== خلفية فاتحة دافئة (طلب منى 28/10): الصفحة فاتحة، والكروت كحلية بكتابة بيضاء ===== */
-.mm-lp{--page:#FBF6EA;--page-2:#FFFDF7;--page-ink:#0B1D3D;--page-muted:#4F5F78;--page-line:rgba(11,29,61,.10);--gold-text:#A86A12;
+.mm-lp{--page:#FFF9ED;--page-2:#FFF9ED;--page-ink:#0B1D3D;--page-muted:#4F5F78;--page-line:rgba(11,29,61,.10);--gold-text:#A86A12;
   background:
-    radial-gradient(900px 520px at 88% -8%,rgba(247,181,72,.28),transparent 62%),
+    radial-gradient(900px 520px at 88% -8%,rgba(247,181,72,.20),transparent 62%),
     radial-gradient(700px 420px at 0% 30%,rgba(255,214,140,.16),transparent 65%),
-    linear-gradient(180deg,var(--page-2),var(--page) 40%,#F7EFDD);
+    linear-gradient(180deg,var(--page-2),var(--page));
   color:var(--page-ink);color-scheme:light}
-.mm-lp .top{background:rgba(255,252,244,.88);border-bottom:1px solid var(--page-line)}
+.mm-lp .top{background:rgba(255,249,237,.9);border-bottom:1px solid var(--page-line)}
 .mm-lp .brand b{color:var(--page-ink)}
 .mm-lp .brand small{color:var(--page-muted)}
 .mm-lp .ribbon{background:var(--page-ink);color:var(--gold)}
