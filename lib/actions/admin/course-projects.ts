@@ -33,6 +33,7 @@ export type AdminCourseProject = {
   submittedAt: string | null;
   reviewedAt: string | null;
   adminNotes: string | null;
+  videoUrl: string | null;
   images: AdminProjectImage[];
 };
 
@@ -128,7 +129,9 @@ const supabase = createAdminClient();
   featured,
   submitted_at,
   reviewed_at,
-  admin_notes
+  admin_notes,
+  video_storage_path,
+  video_url
 `)
         .eq("course_id", normalizedCourseId)
         .order("submitted_at", {
@@ -305,6 +308,16 @@ function normalizeImportedImages(
       return `/images/student-projects/${path}`;
     });
 }
+    const videoUrlsByPath = new Map<string, string>();
+    for (const row of projectRows as Array<{ video_storage_path?: string | null }>) {
+      const path = row.video_storage_path?.trim();
+      if (!path || videoUrlsByPath.has(path)) continue;
+      const { data: signed } = await supabase.storage
+        .from("student-projects")
+        .createSignedUrl(path, 60 * 60);
+      if (signed?.signedUrl) videoUrlsByPath.set(path, signed.signedUrl);
+    }
+
     const projects: AdminCourseProject[] =
   projectRows.map((project) => {
     const linkedProfile = project.user_id
@@ -347,6 +360,8 @@ const importedImages: AdminProjectImage[] =
     sortOrder:
       uploadedImages.length + index,
   }));
+    const videoPath = (project as { video_storage_path?: string | null }).video_storage_path ?? null;
+    const videoDirect = (project as { video_url?: string | null }).video_url?.trim() || null;
     return {
       id: project.id,
       userId: project.user_id,
@@ -374,6 +389,7 @@ studentEmail:
       submittedAt: project.submitted_at,
       reviewedAt: project.reviewed_at,
       adminNotes: project.admin_notes,
+      videoUrl: videoDirect ?? (videoPath ? videoUrlsByPath.get(videoPath) ?? null : null),
       images: [
         ...uploadedImages,
         ...importedImages,
@@ -444,7 +460,7 @@ const supabase = createAdminClient();
       .eq("id", normalizedProjectId);
 
     if (values.coverImageId) {
-      await supabase
+      const { error: resetError } = await supabase
         .from("student_project_images")
         .update({
           is_cover: false,
@@ -454,13 +470,17 @@ const supabase = createAdminClient();
           normalizedProjectId,
         );
 
-      await supabase
+      if (resetError) throw new Error(`تعذر تغيير الغلاف: ${resetError.message}`);
+
+      const { error: setError } = await supabase
         .from("student_project_images")
         .update({
           is_cover: true,
           show_in_course: true,
         })
         .eq("id", values.coverImageId);
+
+      if (setError) throw new Error(`تعذر تغيير الغلاف: ${setError.message}`);
 
       const { data: cover } =
         await supabase
@@ -469,13 +489,15 @@ const supabase = createAdminClient();
           .eq("id", values.coverImageId)
           .single();
 
-      await supabase
+      const { error: coverError } = await supabase
         .from("student_projects")
         .update({
           cover_image:
             cover?.storage_path ?? null,
         })
         .eq("id", normalizedProjectId);
+
+      if (coverError) throw new Error(`تعذر حفظ الغلاف: ${coverError.message}`);
     }
 if (values.coverImagePath) {
   await supabase

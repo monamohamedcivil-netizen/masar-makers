@@ -56,10 +56,7 @@ export default function ProjectGalleryModal({
 
   const media = useMemo(
     () => [
-      ...images.map((url) => ({
-        type: "image" as const,
-        url,
-      })),
+      // الفيديو أول عنصر (من غير تشغيل تلقائي)، وبعده الصور
       ...(videoUrl
         ? [
             {
@@ -68,6 +65,10 @@ export default function ProjectGalleryModal({
             },
           ]
         : []),
+      ...images.map((url) => ({
+        type: "image" as const,
+        url,
+      })),
     ],
     [images, videoUrl],
   );
@@ -169,7 +170,7 @@ export default function ProjectGalleryModal({
             ) : activeMedia?.type === "image" ? (
               <img
                 src={activeMedia.url}
-                alt={`${project.title} - الصورة ${activeIndex + 1}`}
+                alt={`${project.title} - الصورة ${activeIndex + 1 - (videoUrl ? 1 : 0)}`}
                 className="h-full w-full object-contain"
               />
             ) : (
