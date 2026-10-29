@@ -21,9 +21,9 @@ import type { LecturePath, TopicLecture } from "@/lib/journeys/topic-lectures";
 type Kind = "workshop" | "free" | "professional";
 
 const THEME = {
-  workshop: { accent: "#3B82E6", soft: "#EAF2FE", ring: "ring-[#3B82E6]", text: "text-[#2463C7]", bg: "bg-[#3B82E6]", title: "رحلات اليوم الواحد", subtitle: "محاضرة واحدة مركّزة في موضوع محدد، مرتبة حسب خطوات تصميم المشروع. اختار المحطة اللي محتاجها وابدأ.", action: "اشترك الآن", icon: Rocket },
-  free: { accent: "#2FA36B", soft: "#E8F6EF", ring: "ring-[#2FA36B]", text: "text-[#1F8455]", bg: "bg-[#2FA36B]", title: "الرحلات المجانية", subtitle: "ابدأ مجانًا واتعرف على أسلوب التعلم في صناع المسار. المحاضرات مرتبة حسب خطوات تصميم المشروع.", action: "شاهد الآن", icon: PlayCircle },
-  professional: { accent: "#D4A24C", soft: "#FBF3E2", ring: "ring-[#D4A24C]", text: "text-[#A9761F]", bg: "bg-[#D4A24C]", title: "رحلات الاحتراف المتكاملة", subtitle: "رحلة متدرجة لكل برنامج، من الأساسيات حتى المخرجات الاحترافية، على مشروع حقيقي. اختار محطتك.", action: "", icon: CalendarDays },
+  workshop: { accent: "#3B82E6", soft: "#EAF2FE", ring: "ring-[#3B82E6]", thin: "ring-1 ring-[#3B82E6]/70 hover:ring-2 hover:ring-[#3B82E6]/60", tab: "bg-gradient-to-r from-[#2867C7] to-[#123C7A] text-white shadow-[0_6px_16px_rgba(18,60,122,.35)]", text: "text-[#2463C7]", bg: "bg-[#3B82E6]", title: "رحلات اليوم الواحد", subtitle: "محاضرة واحدة مركّزة في موضوع محدد، مرتبة حسب خطوات تصميم المشروع. اختار المحطة اللي محتاجها وابدأ.", action: "اشترك الآن", icon: Rocket },
+  free: { accent: "#2FA36B", soft: "#E8F6EF", ring: "ring-[#2FA36B]", thin: "ring-1 ring-[#2FA36B]/70 hover:ring-2 hover:ring-[#2FA36B]/60", tab: "bg-gradient-to-r from-[#55C766] to-[#2E8547] text-white shadow-[0_6px_16px_rgba(46,133,71,.35)]", text: "text-[#1F8455]", bg: "bg-[#2FA36B]", title: "الرحلات المجانية", subtitle: "ابدأ مجانًا واتعرف على أسلوب التعلم في صناع المسار. المحاضرات مرتبة حسب خطوات تصميم المشروع.", action: "شاهد الآن", icon: PlayCircle },
+  professional: { accent: "#D4A24C", soft: "#FBF3E2", ring: "ring-[#D4A24C]", thin: "ring-1 ring-[#F7B548] hover:ring-2 hover:ring-[#F7B548]/55", tab: "bg-gradient-to-r from-[#F7B548] to-[#D99B22] text-[#07152E] shadow-[0_6px_16px_rgba(217,155,34,.35)]", text: "text-[#A9761F]", bg: "bg-[#D4A24C]", title: "رحلات الاحتراف المتكاملة", subtitle: "رحلة متدرجة لكل برنامج، من الأساسيات حتى المخرجات الاحترافية، على مشروع حقيقي. اختار محطتك.", action: "", icon: CalendarDays },
 } as const;
 
 type Station = { key: string; title: string; iconCode?: string; comingSoon?: boolean; count?: number };
@@ -42,11 +42,14 @@ function Road({
   stations,
   active,
   onSelect,
+  kind,
 }: {
   stations: Station[];
   active: string;
   onSelect: (key: string) => void;
+  kind: Kind;
 }) {
+  const theme = THEME[kind];
   return (
     <div className="relative mx-auto max-w-6xl overflow-x-auto px-2 pb-2 [scrollbar-width:thin]">
       <div className="relative min-w-[720px] px-6 pt-4 sm:min-w-0">
@@ -64,8 +67,8 @@ function Road({
                   onClick={() => onSelect(s.key)}
                   aria-pressed={selected}
                   aria-label={s.comingSoon ? `${s.title} — قريبًا` : s.title}
-                  className={`relative flex h-[58px] w-[58px] items-center justify-center overflow-hidden rounded-full border border-white bg-white p-2 shadow-[0_8px_18px_rgba(7,21,46,0.14)] transition-all duration-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-[#F7B548]/60 ${
-                    selected ? "scale-110 ring-4 ring-[#F7B548]" : "ring-1 ring-[#F7B548] hover:scale-105 hover:ring-2 hover:ring-[#F7B548]/55"
+                  className={`relative flex h-[58px] w-[58px] items-center justify-center overflow-hidden rounded-full border border-white bg-white p-2 shadow-[0_8px_18px_rgba(7,21,46,0.14)] transition-all duration-300 focus:outline-none focus-visible:ring-4 ${
+                    selected ? `scale-110 ring-4 ${theme.ring}` : `${theme.thin} hover:scale-105`
                   } ${s.comingSoon ? "opacity-45 grayscale" : ""}`}
                 >
                   {s.iconCode && courseIcon(s.iconCode) ? (
@@ -76,7 +79,7 @@ function Road({
                     <span className="text-lg font-black text-[#07152E]">{i + 1}</span>
                   )}
                 </button>
-                <span className={`mt-3 text-[12px] font-black leading-5 sm:text-[13px] ${selected ? "text-[#B87508]" : "text-[#07152E]"}`}>{s.title}</span>
+                <span className={`mt-3 text-[12px] font-black leading-5 sm:text-[13px] ${selected ? theme.text : "text-[#07152E]"}`}>{s.title}</span>
                 {s.comingSoon ? (
                   <span className="mt-0.5 text-[11px] font-black text-[#C88712]">قريبًا</span>
                 ) : typeof s.count === "number" ? (
@@ -153,7 +156,7 @@ function ProfessionalPanel({ station }: { station: ProfessionalStation }) {
                 ابدأ الرحلة
               </Link>
             ) : (
-              <Link href={`/course/${station.slug}`} className="rounded-xl px-5 py-2.5 text-sm font-black text-[#07152E]" style={{ background: "#F7B548" }}>
+              <Link href={`/course/${station.slug}`} className="rounded-xl px-5 py-2.5 text-sm font-black text-[#07152E]" style={{ background: theme.accent }}>
                 {pending ? "طلب الاشتراك قيد المراجعة — تفاصيل الرحلة" : "تفاصيل الرحلة والاشتراك"}
               </Link>
             )}
@@ -209,8 +212,7 @@ export default function JourneysRoadView(props: Props) {
               role="tab"
               aria-selected={p.id === path?.id}
               onClick={() => setPathId(p.id)}
-              className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-black transition ${p.id === path?.id ? "text-[#07152E]" : "text-white/80 hover:bg-white/10"}`}
-              style={p.id === path?.id ? { background: "#F7B548" } : undefined}
+              className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-black transition ${p.id === path?.id ? theme.tab : "text-white/80 hover:bg-white/10"}`}
             >
               {p.title}
             </button>
@@ -224,7 +226,7 @@ export default function JourneysRoadView(props: Props) {
             المحاضرات في هذا المسار قريبًا.
           </p>
         ) : (
-          <Road stations={stations} active={active} onSelect={(key) => path && setSelectedByPath((prev) => ({ ...prev, [path.id]: key }))} />
+          <Road stations={stations} active={active} onSelect={(key) => path && setSelectedByPath((prev) => ({ ...prev, [path.id]: key }))} kind={kind} />
         )}
       </section>
 

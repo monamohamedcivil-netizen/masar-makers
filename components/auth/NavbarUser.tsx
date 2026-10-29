@@ -162,7 +162,7 @@ export default function NavbarUser({
     return (
       <Link
         href="/login"
-        className="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-full bg-[#F7B548] px-4 text-[12px] font-black text-[#07152E] shadow-md transition hover:-translate-y-0.5 hover:bg-[#ffc45d]"
+        className="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-full bg-[#E9C989] px-4 text-[12px] font-black text-[#07152E] shadow-md transition hover:-translate-y-0.5 hover:bg-[#F0D59F]"
       >
         {text.login}
       </Link>
