@@ -216,6 +216,8 @@ export type StudentDashboardData = {
   pendingCourses: StudentCourseCard[];
   completedCourses: StudentCourseCard[];
   careerPaths: StudentCareerPathProgress[];
+  /** Paths for surveys & projects: professional stations + stations with an active one-day journey. */
+  activityPaths?: StudentCareerPathProgress[];
   oneDayJourneyGroups: StudentOneDayJourneyGroup[];
   freeJourneyGroups: StudentFreeJourneyGroup[];
   nextStepSections: StudentNextStepSection[];
@@ -1882,7 +1884,7 @@ pdfUrl:
     return null;
   };
 
-  const careerPaths: StudentCareerPathProgress[] = careerPathRows
+  const activityPaths: StudentCareerPathProgress[] = careerPathRows
     .map((path) => {
       const pathStations = stationRows
         .filter((station) => station.career_path_id === path.id)
@@ -2262,7 +2264,11 @@ pdfUrl:
       /*
        * لا يظهر المسار إلا إذا كان الطالب مسجلًا في محطة واحدة منه على الأقل.
        */
-      if (enrolledStations === 0) {
+      // الاستبيانات والمشاريع تفتح أيضًا لمحطات رحلات اليوم الواحد.
+      if (
+        enrolledStations === 0 &&
+        !stations.some((station) => station.hasOneDayAccess)
+      ) {
         return null;
       }
 
@@ -2303,6 +2309,11 @@ pdfUrl:
         path,
       ): path is StudentCareerPathProgress => Boolean(path),
     );
+
+  // خريطة المسار المهني وباقي الحسابات: المسارات الاحترافية فقط (كما كانت).
+  const careerPaths = activityPaths.filter(
+    (path) => path.enrolledStations > 0,
+  );
 
   const oneDayJourneyTypeValues = new Set([
     "workshop",
@@ -3159,6 +3170,7 @@ const surveysRemaining = Math.max(
     pendingCourses,
     completedCourses,
     careerPaths,
+    activityPaths,
     oneDayJourneyGroups,
     freeJourneyGroups,
     nextStepSections,
