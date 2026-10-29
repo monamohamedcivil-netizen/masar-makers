@@ -295,7 +295,7 @@ export default function PopularCourses() {
                 </span>
 
                 <span
-                  className={`absolute top-2 flex items-center gap-1 rounded-full bg-[#F7B548] px-2 py-1 text-[7.5px] font-black text-[#07152E] shadow-md sm:px-2.5 sm:text-[8.5px] lg:text-[9.5px] ${
+                  className={`absolute top-2 flex items-center gap-1 rounded-full bg-[#E9C989] px-2 py-1 text-[7.5px] font-black text-[#07152E] shadow-md sm:px-2.5 sm:text-[8.5px] lg:text-[9.5px] ${
                     isArabic
                       ? "left-2 sm:left-2.5"
                       : "right-2 sm:right-2.5"
