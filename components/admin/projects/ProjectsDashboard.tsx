@@ -458,6 +458,19 @@ export default function ProjectsDashboard({
 
             <div className="grid gap-6 p-5 lg:grid-cols-[minmax(0,1.5fr)_360px]">
               <div>
+                {selectedProject.videoUrl ? (
+                  <div className="mb-3">
+                    <p className="mb-2 text-xs font-black text-slate-500">
+                      فيديو المشروع
+                    </p>
+                    <video
+                      src={selectedProject.videoUrl}
+                      controls
+                      preload="metadata"
+                      className="aspect-video w-full rounded-2xl bg-black"
+                    />
+                  </div>
+                ) : null}
                 <div className="relative aspect-video overflow-hidden rounded-2xl bg-slate-100">
                   {selectedProject.images[
                     activeImageIndex
@@ -530,19 +543,6 @@ export default function ProjectsDashboard({
                   {selectedProject.videoUrl ? " + فيديو" : ""}
                 </p>
 
-                {selectedProject.videoUrl ? (
-                  <div className="mt-3">
-                    <p className="mb-2 text-xs font-black text-slate-500">
-                      فيديو المشروع
-                    </p>
-                    <video
-                      src={selectedProject.videoUrl}
-                      controls
-                      preload="metadata"
-                      className="aspect-video w-full rounded-2xl bg-black"
-                    />
-                  </div>
-                ) : null}
               </div>
 
               <div className="space-y-5">
