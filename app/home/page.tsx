@@ -444,8 +444,8 @@ export default function Home() {
                   sm:text-[13px]
                   ${
                     active
-                      ? "border-[#F7B548] bg-[#F7B548] text-[#07152E] shadow-[0_0_16px_rgba(247,181,72,.55)]"
-                      : "border-slate-200 bg-slate-100 text-[#07152E] hover:border-[#F7B548] hover:bg-white"
+                      ? "border-[#E9C989] bg-[#E9C989] text-[#07152E] shadow-[0_0_16px_rgba(233,201,137,.5)]"
+                      : "border-slate-200 bg-slate-100 text-[#07152E] hover:border-[#E9C989] hover:bg-white"
                   }
                 `}
               >

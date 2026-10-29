@@ -336,7 +336,7 @@ export default function CareerPaths() {
 
                       <AuthLink
                         href={path.link}
-                        className={`mt-3 inline-flex items-center gap-2 rounded-2xl bg-[#F7B548] px-4 py-2 text-[12px] font-black text-[#07152E] shadow-[0_10px_25px_rgba(247,181,72,0.22)] transition hover:scale-105 sm:absolute sm:top-0 sm:mt-0 sm:px-5 ${
+                        className={`mt-3 inline-flex items-center gap-2 rounded-2xl bg-[#E9C989] px-4 py-2 text-[12px] font-black text-[#07152E] shadow-[0_10px_25px_rgba(233,201,137,0.25)] transition hover:scale-105 hover:bg-[#F0D59F] sm:absolute sm:top-0 sm:mt-0 sm:px-5 ${
                           locale === "ar"
                             ? "sm:left-0"
                             : "sm:right-0"

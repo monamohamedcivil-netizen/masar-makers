@@ -178,7 +178,7 @@ export default function WhyMasar() {
 
             <Link
               href="/about"
-              className="flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#F7B548] px-4 py-2 text-[12px] font-black text-[#07152E] shadow-[0_10px_24px_rgba(247,181,72,0.2)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_14px_30px_rgba(247,181,72,0.3)] sm:gap-2 sm:px-4 sm:py-2.5 sm:text-[10.5px] md:text-[11px] lg:rounded-2xl lg:px-5 lg:text-[13px] xl:px-6 xl:text-[14px]"
+              className="flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#E9C989] px-4 py-2 text-[12px] font-black text-[#07152E] shadow-[0_10px_24px_rgba(233,201,137,0.25)] transition duration-300 hover:-translate-y-1 hover:bg-[#F0D59F] hover:shadow-[0_14px_30px_rgba(233,201,137,0.35)] sm:gap-2 sm:px-4 sm:py-2.5 sm:text-[10.5px] md:text-[11px] lg:rounded-2xl lg:px-5 lg:text-[13px] xl:px-6 xl:text-[14px]"
             >
               {text.button}
               <ButtonArrow className="h-3.5 w-3.5 sm:h-4 sm:w-4 lg:h-[17px] lg:w-[17px]" />
