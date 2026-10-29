@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Route, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
 
 type AuthShellProps = {
   children: React.ReactNode;
@@ -74,17 +74,30 @@ export default function AuthShell({
           </div>
         </section>
 
-        {/* Visual area */}
+        {/* Visual area: صورة رحلة المنصة (فيها كل الكلام) + الشعار فوق والـ CTA تحت */}
         <section className="relative hidden overflow-hidden bg-[#07152E] lg:block">
+          {/* نفس الصورة مغبّشة تملأ المساحة حوالين الصورة الأساسية */}
           <Image
-            src="/images/hero-road-v4.jpg"
-            alt="Masar Makers professional journey"
+            src="/images/auth-journey-map.webp"
+            alt=""
             fill
-            priority
-            className="object-cover object-left"
+            aria-hidden="true"
+            sizes="55vw"
+            className="scale-125 object-cover opacity-80 blur-2xl"
           />
+          <div className="absolute inset-0 bg-[#07152E]/35" />
 
-          <div className="absolute inset-0 bg-gradient-to-l from-[#07152E]/96 via-[#07152E]/75 to-[#07152E]/25" />
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2">
+            <Image
+              src="/images/auth-journey-map.webp"
+              alt="رحلتك في صناع المسار: اختر مسارك، محطتك، رحلتك، وطريقة تعلمك، ثم تابع تقدمك وقدّم مشروعك"
+              width={1800}
+              height={1013}
+              priority
+              sizes="55vw"
+              className="h-auto w-full"
+            />
+          </div>
 
           <div className="relative z-10 flex h-full flex-col justify-between p-12 text-white">
             <Link href="/" className="inline-flex w-fit items-center gap-3">
@@ -98,25 +111,6 @@ export default function AuthShell({
 
               <BrandName />
             </Link>
-
-            <div className="max-w-[620px]">
-              <span className="inline-flex items-center gap-2 rounded-full border border-[#F7B548]/35 bg-[#F7B548]/10 px-4 py-1.5 text-[12px] font-black text-[#F7B548]">
-                <Route size={15} />
-                رحلتك المهنية تبدأ هنا
-              </span>
-
-              <h2 className="mt-5 text-[42px] font-black leading-[1.25]">
-                لا تتعلم كورسًا فقط
-                <span className="mt-2 block text-[#F7B548]">
-                  ابنِ مسيرتك المهنية
-                </span>
-              </h2>
-
-              <p className="mt-4 max-w-[560px] text-[15px] font-medium leading-8 text-slate-300">
-                سجّل دخولك لاستكشاف المسارات والورش والمحاضرات المجانية، وتتبع
-                تقدمك ومشاريعك وشهاداتك داخل رحلة تعليمية واحدة.
-              </p>
-            </div>
 
             <div className="grid grid-cols-3 gap-3">
               {[
