@@ -5,6 +5,7 @@ import { buildYearWinnerBlocklist } from "@/lib/draw/year-winners";
 
 import { createAdminClient } from "@/lib/supabase/server";
 import {
+  clearPublicDrawCache,
   readPublicDrawCache,
   writePublicDrawCache,
 } from "@/lib/public/monthly-draw-cache";
@@ -1704,6 +1705,20 @@ export async function getPublicMonthlyDrawState(): Promise<
   }
 
   return state;
+}
+
+/*
+ * تشغيل السحب من السيرفر (بدون أي زائر): تستدعيها الجدولة (pg_cron) كل دقيقة عند الاستحقاق.
+ * تنشئ سحب الشهر التلقائي إن لزم، وتقدّم العدّ التنازلي ثم الدوران ثم إعلان الفائز.
+ * نفس منطق الزائر تمامًا، لكن بدون ذاكرة مؤقتة. آمنة للتكرار (الحالات تتغير بشروط).
+ */
+export async function runMonthlyDrawTick(): Promise<{
+  phase: PublicDrawStatus | null;
+}> {
+  clearPublicDrawCache();
+  const state = await loadPublicMonthlyDrawState();
+  clearPublicDrawCache();
+  return { phase: state?.phase ?? null };
 }
 
 async function loadPublicMonthlyDrawState(): Promise<
