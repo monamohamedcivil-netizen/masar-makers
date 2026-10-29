@@ -845,7 +845,7 @@ export default function MasarLanding({ v2 = false }: { v2?: boolean } = {}) {
 
         {/* Mobile path titles */}
         <div
-          className={`absolute z-20 text-center text-[#F7B548] md:hidden ${
+          className={`absolute z-20 text-center md:hidden ${v2 ? "text-white [text-shadow:0_1px_3px_rgba(7,21,46,.95),0_0_12px_rgba(7,21,46,.85)]" : "text-[#F7B548]"} ${
             locale === "en"
               ? "left-[3%] top-[35.5%] w-[43%]"
               : "left-[12%] top-[34.5%]"
@@ -860,11 +860,11 @@ export default function MasarLanding({ v2 = false }: { v2?: boolean } = {}) {
           >
             {tracks[1].title[locale]}
           </p>
-          <div className="mx-auto mt-1.5 h-0.5 w-20 bg-[#F7B548]" />
+          <div className="mx-auto mt-1.5 h-0.5 w-20 bg-[#F7B548] shadow-[0_1px_4px_rgba(7,21,46,.7)]" />
         </div>
 
         <div
-          className={`absolute z-20 text-center text-[#F7B548] md:hidden ${
+          className={`absolute z-20 text-center md:hidden ${v2 ? "text-white [text-shadow:0_1px_3px_rgba(7,21,46,.95),0_0_12px_rgba(7,21,46,.85)]" : "text-[#F7B548]"} ${
             locale === "en"
               ? "right-[3%] top-[35.5%] w-[46%]"
               : "right-[6%] top-[34.5%]"
@@ -879,7 +879,7 @@ export default function MasarLanding({ v2 = false }: { v2?: boolean } = {}) {
           >
             {tracks[0].title[locale]}
           </p>
-          <div className="mx-auto mt-1.5 h-0.5 w-24 bg-[#F7B548]" />
+          <div className="mx-auto mt-1.5 h-0.5 w-24 bg-[#F7B548] shadow-[0_1px_4px_rgba(7,21,46,.7)]" />
         </div>
 
         {/* Mobile stations */}
@@ -896,6 +896,7 @@ export default function MasarLanding({ v2 = false }: { v2?: boolean } = {}) {
 
             return (
               <StationPin
+                v2={v2}
                 key={`mobile-traffic-${item.title}`}
                 course={item}
                 active={active}
@@ -926,6 +927,7 @@ export default function MasarLanding({ v2 = false }: { v2?: boolean } = {}) {
 
             return (
               <StationPin
+                v2={v2}
                 key={`mobile-road-${item.title}`}
                 course={item}
                 active={active}
@@ -1026,6 +1028,7 @@ export default function MasarLanding({ v2 = false }: { v2?: boolean } = {}) {
 
           return (
             <StationPin
+                v2={v2}
               key={item.title}
               course={item}
               active={active}
@@ -1055,6 +1058,7 @@ export default function MasarLanding({ v2 = false }: { v2?: boolean } = {}) {
 
           return (
             <StationPin
+                v2={v2}
               key={item.title}
               course={item}
               active={active}
@@ -1361,7 +1365,7 @@ function PromoShowcase({
     <div
       className={`
         absolute left-1/2 z-30
-        ${locale === "en" ? "top-[11%]" : "top-[9%]"}
+        ${v2 ? (locale === "en" ? "top-[8%]" : "top-[6.2%]") : locale === "en" ? "top-[11%]" : "top-[9%]"}
         h-[255px] min-h-0
         w-full max-w-none
         -translate-x-1/2
@@ -1819,6 +1823,7 @@ function LearningModeCard({
 }
 
 function StationPin({
+  v2 = false,
   comingSoon = false,
   course,
   active,
@@ -1830,6 +1835,7 @@ function StationPin({
   labelSide,
   compactLabel = false,
 }: {
+  v2?: boolean;
   comingSoon?: boolean;
   compactLabel?: boolean;
   course: Course;
@@ -1851,7 +1857,7 @@ function StationPin({
       onFocus={onHoverStart}
       onBlur={onHoverEnd}
       onClick={onSelect}
-      className={`group absolute z-20 -translate-x-1/2 -translate-y-1/2 focus:outline-none ${comingSoon ? "opacity-45 grayscale" : ""}`}
+      className={`group absolute z-20 -translate-x-1/2 -translate-y-1/2 focus:outline-none`}
       style={{
         left: `${left}%`,
         top: `${top}%`,
@@ -1863,6 +1869,7 @@ function StationPin({
           relative block
           h-[60px] w-[50px]
           transition duration-200
+          ${comingSoon ? "opacity-45 grayscale" : ""}
           sm:h-[64px] sm:w-[52px]
           lg:h-[74px] lg:w-[62px]
           ${
@@ -1918,7 +1925,7 @@ function StationPin({
           xl:max-w-none xl:whitespace-nowrap
           ${compactLabel ? "text-[9px]" : ""}
           text-[11px] font-black leading-[1.05]
-          drop-shadow-[0_2px_6px_rgba(0,0,0,.9)]
+          ${v2 ? "[text-shadow:0_1px_3px_rgba(7,21,46,.95),0_0_10px_rgba(7,21,46,.8)]" : "drop-shadow-[0_2px_6px_rgba(0,0,0,.9)]"}
           sm:text-[12px]
           md:text-sm
           lg:text-[20px]
