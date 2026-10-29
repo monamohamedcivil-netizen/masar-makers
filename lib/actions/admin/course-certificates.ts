@@ -594,13 +594,13 @@ const composedStudents: CourseCertificateStudent[] = composed.flatMap((item) => 
     actionTitle: c.complete
       ? `يوم واحد + مجاني — يغطي كل محاضرات المتكاملة (${c.total}) ✓`
       : c.eligible
-        ? `يوم واحد + مجاني — يغطي ${c.covered} من ${c.total} محاضرة (مستحق)`
-        : `يوم واحد + مجاني — يغطي ${c.covered} من ${c.total} محاضرة (إصدار يدوي)`,
+        ? `يوم واحد + مجاني — أكمل ${c.covered} من ${c.total} محاضرة — إنجاز ${c.percent}% (مستحق)`
+        : `يوم واحد + مجاني — أكمل ${c.covered} من ${c.total} محاضرة — إنجاز ${c.percent}% (إصدار يدوي)`,
     certificateStatus: null,
     certificateIssuedAt: null,
     certificateReadyAt: null,
     certificateId: null,
-    progressPercent: Math.round((c.covered / c.total) * 100),
+    progressPercent: c.percent,
     completedLessons: c.covered,
     totalLessons: c.total,
     enrolledAt: anchor.created_at,

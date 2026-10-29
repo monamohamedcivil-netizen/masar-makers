@@ -11,7 +11,8 @@ import { CERTIFICATE_ELIGIBLE_PERCENT } from "@/lib/certificates/threshold";
  * المتكاملة للكورس، وأكمل مشاهدتها كلها (100%).
  * - كورس بمرحلتين: شهادة الأساسيات إذا غطّى كل محاضرات الأساسيات، والمتقدم كذلك.
  * - كورس بمستوى واحد: شهادة Advanced إذا غطّى كل محاضرات الكورس الاحترافية.
- * - يُعتبر «مستحقًا» (وتصل الإدارة إشعارًا) من 90% من المحاضرات؛ الإصدار دائمًا يدوي.
+ * - نسبة الإنجاز خاصة بالكورس نفسه (متوسط تقدم محاضرات الرحلة المتكاملة، غير المشترك فيها = 0).
+ * - يُعتبر «مستحقًا» (وتصل الإدارة إشعارًا) من 90% نسبة إنجاز؛ الإصدار دائمًا يدوي.
  * لو الرحلة المتكاملة فيها محاضرات غير معروضة له كيوم واحد أو مجاني (أو لم يكملها) → «تغطية جزئية»:
  * لا يستحقها تلقائيًا، لكن الإدارة تقدر تصدرها يدويًا (قرار منى).
  */
@@ -26,7 +27,12 @@ export type ComposedTypeCoverage = {
   total: number;
   /** covered === total. */
   complete: boolean;
-  /** covered ≥ 90% of total → «مستحق» (admin is notified). Below → manual issue only. */
+  /**
+   * نسبة الإنجاز في هذا الكورس فقط: متوسط تقدّم محاضرات الرحلة المتكاملة (من 100) لهذا الشهادة،
+   * المحاضرة المكتملة = 100، المحاضرة اللي اشترك فيها وعنده فيها تقدم = نسبة تقدمها، وغير المشترك فيها = 0.
+   */
+  percent: number;
+  /** percent ≥ 90 → «مستحق» (admin is notified). Below → manual issue only. */
   eligible: boolean;
 };
 
@@ -127,11 +133,14 @@ export async function getComposedCertificateEligibility(
     .select("user_id,lesson_id,completed,progress_percent")
     .in("user_id", candidates.map(([userId]) => userId))
     .in("lesson_id", allPro);
-  const done = new Set(
-    ((progress ?? []) as AnyRow[])
-      .filter((p) => p.completed === true || Number(p.progress_percent) >= 100)
-      .map((p) => `${p.user_id}:${String(p.lesson_id).toLowerCase()}`),
-  );
+  const done = new Set<string>();
+  const pct = new Map<string, number>();
+  for (const p of (progress ?? []) as AnyRow[]) {
+    const key = `${p.user_id}:${String(p.lesson_id).toLowerCase()}`;
+    const value = p.completed === true ? 100 : Math.max(0, Math.min(100, Number(p.progress_percent) || 0));
+    if (value >= 100) done.add(key);
+    pct.set(key, Math.max(pct.get(key) ?? 0, value));
+  }
 
   const out: ComposedEligibility[] = [];
   for (const [userId, v] of candidates) {
@@ -139,13 +148,17 @@ export async function getComposedCertificateEligibility(
     for (const [type, ids] of groups) {
       if (!ids.length) continue;
       const covered = ids.filter((id) => v.lessons.has(id) && done.has(`${userId}:${id}`)).length;
-      if (covered > 0) {
+      // نسبة الإنجاز: تقدم المحاضرات المشترك فيها فقط (غير المشترك = 0) ÷ كل محاضرات الكورس
+      const sum = ids.reduce((acc, id) => (v.lessons.has(id) ? acc + (pct.get(`${userId}:${id}`) ?? 0) : acc), 0);
+      const percent = Math.round(sum / ids.length);
+      if (percent > 0) {
         coverage.push({
           type,
           covered,
           total: ids.length,
           complete: covered === ids.length,
-          eligible: (covered / ids.length) * 100 >= CERTIFICATE_ELIGIBLE_PERCENT,
+          percent,
+          eligible: percent >= CERTIFICATE_ELIGIBLE_PERCENT,
         });
       }
     }
