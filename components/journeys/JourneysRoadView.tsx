@@ -196,7 +196,7 @@ export default function JourneysRoadView(props: Props) {
   const active = (path && selectedByPath[path.id]) || firstOpen;
 
   return (
-    <main dir="rtl" className="min-h-screen bg-[#F7F8FA] pb-16 pt-[55px]">
+    <main dir="rtl" className="min-h-screen bg-[#F7F8FA] pb-16">
       <section className="px-4 pb-8 pt-8 text-center text-white sm:pt-10" style={{ background: `linear-gradient(160deg,#07152E 55%,${theme.accent}55)` }}>
         <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border-2" style={{ borderColor: theme.accent, color: theme.accent }}>
           <Icon className="h-6 w-6" />

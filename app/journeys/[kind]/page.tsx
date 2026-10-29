@@ -25,8 +25,9 @@ export default async function LearningModePage({ params, searchParams }: PagePro
 
   return (
     <>
-      <AnnouncementBar />
       <Navbar />
+      <div className="h-[55px]" />
+      <AnnouncementBar />
       {kind === "professional" ? (
         <JourneysRoadView kind="professional" paths={await getProfessionalStations()} initialPathSlug={initialPathSlug} />
       ) : (
