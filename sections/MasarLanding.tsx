@@ -410,7 +410,12 @@ function getYoutubeEmbedUrl(
   return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`;
 }
 
-export default function MasarLanding() {
+/**
+ * v2 (نسخة تجريبية للإدارة على /preview/landing حتى تعتمدها منى):
+ * بدون زر «استكشف المنصة»، تسجيل الدخول ذهبي هادي، تواصل فاتح، محطات المرور «قريبًا» (ما عدا CUBE)،
+ * الفيديو صورة + زر تشغيل، خلفية WebP، والكروت تفتح صفحاتها.
+ */
+export default function MasarLanding({ v2 = false }: { v2?: boolean } = {}) {
   const [locale, setLocale] = useState<Locale>("ar");
   const [localeReady, setLocaleReady] = useState(false);
   const [selected, setSelected] = useState<SelectedCourse>(null);
@@ -744,11 +749,14 @@ export default function MasarLanding() {
 
             <Link
               href="/login"
-              className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-2xl bg-[#F7B548] px-3 text-[13px] font-black text-[#07152E] shadow-lg transition hover:-translate-y-0.5 hover:bg-[#FFD06A] lg:px-4 lg:text-[14px]"
+              className={`inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-2xl px-3 text-[13px] font-black text-[#07152E] shadow-lg transition hover:-translate-y-0.5 lg:px-4 lg:text-[14px] ${
+                v2 ? "bg-[#E9C989] hover:bg-[#F0D59F]" : "bg-[#F7B548] hover:bg-[#FFD06A]"
+              }`}
             >
               {text.login}
             </Link>
 
+            {!v2 ? (
             <a
               href="/home"
               className="inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-2xl bg-[#F7B548] px-3 text-[13px] font-black text-[#07152E] shadow-lg transition hover:-translate-y-0.5 lg:text-[14px]"
@@ -756,6 +764,7 @@ export default function MasarLanding() {
               {text.explore}
               <ArrowIcon className="h-3.5 w-3.5" />
             </a>
+            ) : null}
 
             <a
               href="https://wa.me/201031885659?text=السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار."
@@ -763,7 +772,9 @@ export default function MasarLanding() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label={text.contact}
-              className="inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-2xl border border-[#F7B548]/60 bg-white/10 px-3 text-[13px] font-black text-white transition hover:bg-[#F7B548] hover:text-[#07152E] lg:text-[14px]"
+              className={`inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-2xl border px-3 text-[13px] font-black transition hover:bg-[#F7B548] hover:text-[#07152E] lg:text-[14px] ${
+                v2 ? "border-[#F7B548] bg-white/90 text-[#07152E]" : "border-[#F7B548]/60 bg-white/10 text-white"
+              }`}
             >
               <MessageCircleMore className="h-5 w-5" />
               <span className="hidden lg:inline">
@@ -775,18 +786,18 @@ export default function MasarLanding() {
       </header>
 
       <section
-        className="
+        className={`
           relative mx-auto
           min-h-[1150px] w-full max-w-[2000px]
           overflow-hidden bg-[#07152E]
-          bg-[url('/images/landing/learning-roads-bg.png')]
+          ${v2 ? "bg-[url('/images/landing/learning-roads-bg.webp')]" : "bg-[url('/images/landing/learning-roads-bg.png')]"}
           bg-[length:100%_100%]
           bg-center bg-no-repeat
           sm:min-h-[1050px]
           md:min-h-[max(800px,calc(100svh-150px))]
           lg:min-h-[900px]
           xl:min-h-[950px]
-        "
+        `}
       >
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#07152E]/58 via-[#07152E]/5 to-[#07152E]/30" />
 
@@ -888,6 +899,7 @@ export default function MasarLanding() {
                 left={mobileEnLeft.traffic[visualIndex]}
                 top={pos.top}
                 compactLabel
+                comingSoon={v2 && item.title !== "CUBE"}
                 onSelect={() => selectCourseManually(1, courseIndex)}
                 onHoverStart={() => {
                   setHoverPaused(true);
@@ -965,11 +977,12 @@ export default function MasarLanding() {
 
           <Link
             href="/login"
-            className={`inline-flex min-h-8 whitespace-nowrap ${locale === "en" ? "w-[150px]" : "w-[115px]"} items-center justify-center rounded-lg bg-[#F7B548] px-3 text-[12px] font-black text-[#07152E] shadow-md transition hover:bg-[#FFD06A]`}
+            className={`inline-flex min-h-8 whitespace-nowrap ${locale === "en" ? "w-[150px]" : "w-[115px]"} items-center justify-center rounded-lg px-3 text-[12px] font-black text-[#07152E] shadow-md transition ${v2 ? "bg-[#E9C989] hover:bg-[#F0D59F]" : "bg-[#F7B548] hover:bg-[#FFD06A]"}`}
           >
             {text.login}
           </Link>
 
+          {!v2 ? (
           <a
             href="/home"
             className={`inline-flex min-h-8 whitespace-nowrap ${locale === "en" ? "w-[150px]" : "w-[115px]"} items-center justify-center gap-1 rounded-lg bg-[#F7B548] px-3 text-[12px] font-black text-[#07152E] shadow-md`}
@@ -977,13 +990,14 @@ export default function MasarLanding() {
             {text.explore}
             <ArrowIcon className="h-3 w-3" />
           </a>
+          ) : null}
 
           <a
             href="https://wa.me/201031885659?text=السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار."
             onClick={(event) => { if (openMasarChat({ source: "contact", text: "السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار." })) event.preventDefault(); }}
             target="_blank"
             rel="noopener noreferrer"
-            className={`inline-flex min-h-8 whitespace-nowrap ${locale === "en" ? "w-[150px]" : "w-[115px]"} items-center justify-center gap-1.5 rounded-lg border border-[#F7B548]/70 bg-[#07152E]/85 px-3 text-[12px] font-black text-white shadow-md`}
+            className={`inline-flex min-h-8 whitespace-nowrap ${locale === "en" ? "w-[150px]" : "w-[115px]"} items-center justify-center gap-1.5 rounded-lg border px-3 text-[12px] font-black shadow-md ${v2 ? "border-[#F7B548] bg-white/90 text-[#07152E]" : "border-[#F7B548]/70 bg-[#07152E]/85 text-white"}`}
           >
             <MessageCircleMore className="h-4 w-4 text-[#F7B548]" />
             {text.contact}
@@ -1014,6 +1028,7 @@ export default function MasarLanding() {
               active={active}
               left={pos.left}
               top={pos.top}
+              comingSoon={v2 && item.title !== "CUBE"}
               onSelect={() => selectCourseManually(1, courseIndex)}
               onHoverStart={() => {
                 setHoverPaused(true);
@@ -1082,6 +1097,8 @@ export default function MasarLanding() {
               slide.courseIndex,
             )
           }
+          v2={v2}
+          onActivateVideo={() => setManualPaused(true)}
         />
 
         <div className="absolute left-1/2 top-[70%] z-20 -translate-x-1/2 text-center md:top-[65%]">
@@ -1133,6 +1150,15 @@ export default function MasarLanding() {
               key={mode.key}
               mode={mode}
               locale={locale}
+              href={
+                v2
+                  ? mode.key === "professional"
+                    ? "/career-path/road-design"
+                    : mode.key === "one-day"
+                      ? "/journeys/one-day"
+                      : "/journeys/free"
+                  : undefined
+              }
             />
           ))}
         </div>
@@ -1148,6 +1174,16 @@ export default function MasarLanding() {
           <span className="h-2 w-2 rounded-full bg-[#F7B548]" />
           <span className="h-px w-20 bg-[#F7B548] sm:w-48" />
         </div>
+
+        {v2 ? (
+          <a
+            href="#journeys-center"
+            className="mx-auto mt-2 inline-flex flex-col items-center gap-0.5 text-[11px] font-black text-[#F7B548] sm:text-xs"
+          >
+            {locale === "ar" ? "انزل لمركز الرحلات" : "Scroll to the journeys center"}
+            <span aria-hidden="true" className="animate-bounce text-base leading-none motion-reduce:animate-none">⌄</span>
+          </a>
+        ) : null}
       </section>
     </main>
   );
@@ -1163,7 +1199,11 @@ function PromoShowcase({
   autoPaused,
   onFullscreenChange,
   onSelectSlide,
+  v2 = false,
+  onActivateVideo,
 }: {
+  v2?: boolean;
+  onActivateVideo?: () => void;
   locale: Locale;
   selected: SelectedCourse;
   course: Course | null;
@@ -1179,6 +1219,8 @@ function PromoShowcase({
   const videoContainerRef = useRef<HTMLDivElement | null>(null);
 
   const [showControls, setShowControls] = useState(false);
+  // v2: يوتيوب يتحمّل فقط بعد ضغط زر التشغيل (توفير الباقة وسرعة الصفحة).
+  const [activatedVideoId, setActivatedVideoId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
@@ -1440,7 +1482,29 @@ function PromoShowcase({
       : "order-2 md:order-1"
   }`}
 >
-            {youtubeVideoId ? (
+            {youtubeVideoId && v2 && activatedVideoId !== youtubeVideoId ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setActivatedVideoId(youtubeVideoId);
+                  onActivateVideo?.();
+                }}
+                className="group/play relative block h-full w-full bg-black"
+                aria-label={locale === "ar" ? `تشغيل فيديو ${course.title}` : `Play ${course.title} video`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`https://i.ytimg.com/vi/${youtubeVideoId}/hqdefault.jpg`}
+                  alt=""
+                  loading="lazy"
+                  className="h-full w-full object-cover opacity-90 transition group-hover/play:opacity-100"
+                />
+                <span className="absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#F7B548] text-[#07152E] shadow-[0_8px_24px_rgba(0,0,0,.45)] transition group-hover/play:scale-110 sm:h-16 sm:w-16">
+                  <Play className="h-6 w-6 translate-x-[1px] fill-current sm:h-7 sm:w-7" />
+                </span>
+              </button>
+            ) : youtubeVideoId ? (
               <>
                 <iframe
                   ref={iframeRef}
@@ -1626,9 +1690,12 @@ function PromoShowcase({
 function LearningModeCard({
   mode,
   locale,
+  href,
 }: {
   mode: (typeof modes)[number];
   locale: Locale;
+  /** v2: the card opens its page. */
+  href?: string;
 }) {
   const text = pageText[locale];
 
@@ -1672,6 +1739,7 @@ function LearningModeCard({
       className={`
         relative mt-7
         min-h-[140px] w-[74%] shrink-0 snap-center
+        ${href ? "cursor-pointer transition hover:-translate-y-1" : ""}
         rounded-[18px] border
         px-4 pb-4 pt-8 text-center
         backdrop-blur-md
@@ -1730,11 +1798,25 @@ function LearningModeCard({
       <p className="mx-auto mt-3 max-w-sm text-[12px] font-semibold leading-5 text-white/95 sm:mt-3 sm:text-[12px] sm:leading-5 lg:text-[14px] lg:leading-6">
         {description}
       </p>
+
+      {href ? (
+        <>
+          <span className="mt-2 inline-flex items-center gap-1 pb-3 text-[12px] font-black text-[#F7B548] sm:pb-4">
+            {locale === "ar" ? "افتح الرحلات ←" : "Open journeys →"}
+          </span>
+          <Link
+            href={href}
+            aria-label={title}
+            className="absolute inset-0 z-10 rounded-[inherit] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F7B548]"
+          />
+        </>
+      ) : null}
     </article>
   );
 }
 
 function StationPin({
+  comingSoon = false,
   course,
   active,
   left,
@@ -1745,6 +1827,7 @@ function StationPin({
   labelSide,
   compactLabel = false,
 }: {
+  comingSoon?: boolean;
   compactLabel?: boolean;
   course: Course;
   active: boolean;
@@ -1765,12 +1848,12 @@ function StationPin({
       onFocus={onHoverStart}
       onBlur={onHoverEnd}
       onClick={onSelect}
-      className="group absolute z-20 -translate-x-1/2 -translate-y-1/2 focus:outline-none"
+      className={`group absolute z-20 -translate-x-1/2 -translate-y-1/2 focus:outline-none ${comingSoon ? "opacity-45 grayscale" : ""}`}
       style={{
         left: `${left}%`,
         top: `${top}%`,
       }}
-      aria-label={course.title}
+      aria-label={comingSoon ? `${course.title} — قريبًا` : course.title}
     >
       <span
         className={`
@@ -1845,6 +1928,9 @@ function StationPin({
         `}
       >
         {course.title}
+        {comingSoon ? (
+          <span className="mt-0.5 block text-[9px] font-black text-[#F7B548] sm:text-[10px] lg:text-xs">قريبًا</span>
+        ) : null}
       </span>
     </button>
   );
