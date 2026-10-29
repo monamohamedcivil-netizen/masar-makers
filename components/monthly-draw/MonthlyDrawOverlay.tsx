@@ -86,6 +86,8 @@ export default function MonthlyDrawOverlay() {
 
   // Latest state for the polling timer (avoids restarting the timer on every update).
   const drawRef = useRef<PublicMonthlyDrawState | null>(null);
+  // فرق ساعة جهاز الزائر عن ساعة السيرفر (يُحدَّث مع كل رد لسحب حيّ) حتى لا تضيع أرقام العدّ التنازلي.
+  const serverOffsetRef = useRef(0);
   useEffect(() => {
     drawRef.current = draw;
   }, [draw]);
@@ -176,6 +178,14 @@ export default function MonthlyDrawOverlay() {
         const next =
           await getPublicMonthlyDrawState();
 
+        if (next?.serverNow) {
+          const serverTime = new Date(next.serverNow).getTime();
+
+          if (Number.isFinite(serverTime)) {
+            serverOffsetRef.current = serverTime - Date.now();
+          }
+        }
+
         drawRef.current = next;
         setDraw(next);
 
@@ -257,10 +267,15 @@ export default function MonthlyDrawOverlay() {
 
       if (until > 0) {
         // setTimeout cannot wait longer than ~24 days; a page open that long reloads anyway.
-        return until < MAX_TIMER_MS ? until + 1500 : null;
+        return until < MAX_TIMER_MS ? until + 300 : null;
       }
 
-      // Right after the draw time: check every minute for 15 minutes until the draw starts.
+      // أول 3 دقائق بعد الموعد: كل ثانية حتى نلتقط بداية العدّ التنازلي فنعرضه كاملًا من 10.
+      if (until > -3 * 60 * 1000) {
+        return LIVE_POLL_MS;
+      }
+
+      // بعدها وحتى 15 دقيقة: كل دقيقة (احتياط لو تأخر السحب).
       if (until > -15 * 60 * 1000) {
         return COMPLETED_POLL_MS;
       }
@@ -421,16 +436,29 @@ export default function MonthlyDrawOverlay() {
       return;
     }
 
+    const totalSeconds =
+      Math.max(
+        1,
+        Number(
+          draw?.countdownSeconds ?? 10,
+        ),
+      );
+
     function update() {
       const diff =
         countdownEndTimestamp -
-        Date.now();
+        (Date.now() +
+          serverOffsetRef.current);
 
+      // مهلة البدء (قبل العدّ الفعلي) تظهر كأول رقم (10) وليس أكبر منه.
       setRemaining(
-        Math.max(
-          0,
-          Math.ceil(
-            diff / 1000,
+        Math.min(
+          totalSeconds,
+          Math.max(
+            0,
+            Math.ceil(
+              diff / 1000,
+            ),
           ),
         ),
       );

@@ -5,6 +5,7 @@ import { buildYearWinnerBlocklist } from "@/lib/draw/year-winners";
 
 import { createAdminClient } from "@/lib/supabase/server";
 import {
+  clearPublicDrawCache,
   readPublicDrawCache,
   writePublicDrawCache,
 } from "@/lib/public/monthly-draw-cache";
@@ -14,6 +15,12 @@ import {
 } from "@/lib/dashboard/masar-passport";
 
 const DRAW_SPIN_SECONDS = 10;
+
+/*
+ * مهلة قصيرة قبل بدء العدّ التنازلي الفعلي، ليلتقط كل جهاز مفتوح الحالة (polling كل ثانية)
+ * ويعرض العدّ كاملًا من 10 إلى 0 بدل أن ينضم متأخرًا.
+ */
+const COUNTDOWN_LEAD_MS = 2000;
 
 const DEFAULT_MONTHLY_DRAW_TITLE =
   "سحب مكافآت Masar Makers الشهري";
@@ -50,6 +57,8 @@ export type PublicMonthlyDrawState = {
   countdownEndsAt: string | null;
   countdownSeconds: number;
   runningEndsAt: string | null;
+  /** وقت السيرفر لحظة الرد (للسحب الحيّ فقط) لتصحيح فرق ساعة جهاز الزائر في العدّ التنازلي. */
+  serverNow?: string;
 
   totalParticipants: number;
   totalEntries: number;
@@ -954,7 +963,9 @@ async function advanceDueDraw(
     );
 
     const countdownStartedAt =
-      new Date();
+      new Date(
+        Date.now() + COUNTDOWN_LEAD_MS,
+      );
 
     const { data, error } =
       await supabase
@@ -1150,6 +1161,7 @@ function getScheduledAtForMonth(
  */
 async function ensureAutomaticDueDraw(
   settings: SettingsRow,
+  earlyMs = 0,
 ): Promise<void> {
   const now =
     new Date();
@@ -1167,7 +1179,8 @@ async function ensureAutomaticDueDraw(
     Number.isNaN(
       scheduledAt.getTime(),
     ) ||
-    now < scheduledAt
+    now.getTime() <
+      scheduledAt.getTime() - earlyMs
   ) {
     return;
   }
@@ -1607,6 +1620,11 @@ function toPublicState(
         ? runningEndsAt.toISOString()
         : null,
 
+    serverNow:
+      phase === "completed"
+        ? undefined
+        : new Date().toISOString(),
+
     totalParticipants:
       Number(
         draw.total_participants ??
@@ -1704,6 +1722,65 @@ export async function getPublicMonthlyDrawState(): Promise<
   }
 
   return state;
+}
+
+/*
+ * تشغيل السحب من السيرفر (بدون أي زائر): تستدعيها الجدولة (pg_cron) كل دقيقة عند الاستحقاق.
+ * تنشئ سحب الشهر التلقائي إن لزم، وتقدّم العدّ التنازلي ثم الدوران ثم إعلان الفائز.
+ * نفس منطق الزائر تمامًا، لكن بدون ذاكرة مؤقتة. آمنة للتكرار (الحالات تتغير بشروط).
+ */
+export async function runMonthlyDrawTick(): Promise<{
+  phase: PublicDrawStatus | null;
+}> {
+  try {
+    await prepareUpcomingDraw();
+  } catch (error) {
+    console.error("PREPARE MONTHLY DRAW ERROR:", error);
+  }
+
+  clearPublicDrawCache();
+  const state = await loadPublicMonthlyDrawState();
+  clearPublicDrawCache();
+  return { phase: state?.phase ?? null };
+}
+
+/*
+ * تحضير السحب قبل موعده: حساب لقطة المشاركين (نقاط كل الطلاب) تأخذ من 30 ثانية إلى عدة دقائق،
+ * وكانت تُحسب لحظة الموعد فيتأخر العدّ التنازلي. لذلك نحسبها قبله بدقائق (من الجدولة)، فإذا جاء
+ * الموعد يبدأ العدّ فورًا. تنشئ أيضًا صف سحب الشهر التلقائي مبكرًا إن لم يكن له صف.
+ */
+const PREPARE_WINDOW_MS = 20 * 60 * 1000;
+
+async function prepareUpcomingDraw(): Promise<void> {
+  const settings = await getSettings();
+
+  if (!settings || !settings.is_enabled) {
+    return;
+  }
+
+  await ensureAutomaticDueDraw(settings, PREPARE_WINDOW_MS);
+
+  const supabase = createAdminClient();
+  const now = Date.now();
+
+  const { data, error } = await supabase
+    .from("monthly_draws")
+    .select("*")
+    .eq("is_published", true)
+    .in("status", ["scheduled", "draft"])
+    .gt("scheduled_at", new Date(now).toISOString())
+    .lte(
+      "scheduled_at",
+      new Date(now + PREPARE_WINDOW_MS).toISOString(),
+    );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  for (const draw of (data ?? []) as DrawRow[]) {
+    await ensureParticipantSnapshot(draw, settings);
+  }
 }
 
 async function loadPublicMonthlyDrawState(): Promise<
