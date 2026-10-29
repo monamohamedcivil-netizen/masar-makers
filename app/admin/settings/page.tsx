@@ -10,6 +10,7 @@ import {
   Megaphone,
   MessageCircle,
   Receipt,
+  Users,
   Video,
 } from "lucide-react";
 
@@ -36,9 +37,9 @@ const rows: { title: string; tools: Tool[] }[] = [
   {
     title: "الشات",
     tools: [
+      { href: "/admin/students", title: "بيانات الطلاب", description: "بيانات الطلاب وحساباتهم واشتراكاتهم.", icon: Users },
       { href: "/admin/web-chat", title: "شات المنصة", description: "رسائل الترحيب، أسئلة الشات، المتابعة التلقائية، وعملة كل طالب.", icon: Bot },
       { href: "/admin/whatsapp-sales", title: "قوائم الشات والأسعار", description: "الكورسات والمستويات والأسعار والعروض اللي بتظهر في الشات.", icon: MessageCircle },
-      { href: "/admin/students/enrollment-requests", title: "طلبات الاشتراك", description: "الطلبات اللي بتوصل من الشات وصفحات الحجز.", icon: ClipboardList },
     ],
   },
   {
