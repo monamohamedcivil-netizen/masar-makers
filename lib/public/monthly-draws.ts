@@ -1161,6 +1161,7 @@ function getScheduledAtForMonth(
  */
 async function ensureAutomaticDueDraw(
   settings: SettingsRow,
+  earlyMs = 0,
 ): Promise<void> {
   const now =
     new Date();
@@ -1178,7 +1179,8 @@ async function ensureAutomaticDueDraw(
     Number.isNaN(
       scheduledAt.getTime(),
     ) ||
-    now < scheduledAt
+    now.getTime() <
+      scheduledAt.getTime() - earlyMs
   ) {
     return;
   }
@@ -1730,10 +1732,55 @@ export async function getPublicMonthlyDrawState(): Promise<
 export async function runMonthlyDrawTick(): Promise<{
   phase: PublicDrawStatus | null;
 }> {
+  try {
+    await prepareUpcomingDraw();
+  } catch (error) {
+    console.error("PREPARE MONTHLY DRAW ERROR:", error);
+  }
+
   clearPublicDrawCache();
   const state = await loadPublicMonthlyDrawState();
   clearPublicDrawCache();
   return { phase: state?.phase ?? null };
+}
+
+/*
+ * تحضير السحب قبل موعده: حساب لقطة المشاركين (نقاط كل الطلاب) تأخذ من 30 ثانية إلى عدة دقائق،
+ * وكانت تُحسب لحظة الموعد فيتأخر العدّ التنازلي. لذلك نحسبها قبله بدقائق (من الجدولة)، فإذا جاء
+ * الموعد يبدأ العدّ فورًا. تنشئ أيضًا صف سحب الشهر التلقائي مبكرًا إن لم يكن له صف.
+ */
+const PREPARE_WINDOW_MS = 20 * 60 * 1000;
+
+async function prepareUpcomingDraw(): Promise<void> {
+  const settings = await getSettings();
+
+  if (!settings || !settings.is_enabled) {
+    return;
+  }
+
+  await ensureAutomaticDueDraw(settings, PREPARE_WINDOW_MS);
+
+  const supabase = createAdminClient();
+  const now = Date.now();
+
+  const { data, error } = await supabase
+    .from("monthly_draws")
+    .select("*")
+    .eq("is_published", true)
+    .in("status", ["scheduled", "draft"])
+    .gt("scheduled_at", new Date(now).toISOString())
+    .lte(
+      "scheduled_at",
+      new Date(now + PREPARE_WINDOW_MS).toISOString(),
+    );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  for (const draw of (data ?? []) as DrawRow[]) {
+    await ensureParticipantSnapshot(draw, settings);
+  }
 }
 
 async function loadPublicMonthlyDrawState(): Promise<

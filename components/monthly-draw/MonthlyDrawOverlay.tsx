@@ -267,10 +267,15 @@ export default function MonthlyDrawOverlay() {
 
       if (until > 0) {
         // setTimeout cannot wait longer than ~24 days; a page open that long reloads anyway.
-        return until < MAX_TIMER_MS ? until + 1500 : null;
+        return until < MAX_TIMER_MS ? until + 300 : null;
       }
 
-      // Right after the draw time: check every minute for 15 minutes until the draw starts.
+      // أول 3 دقائق بعد الموعد: كل ثانية حتى نلتقط بداية العدّ التنازلي فنعرضه كاملًا من 10.
+      if (until > -3 * 60 * 1000) {
+        return LIVE_POLL_MS;
+      }
+
+      // بعدها وحتى 15 دقيقة: كل دقيقة (احتياط لو تأخر السحب).
       if (until > -15 * 60 * 1000) {
         return COMPLETED_POLL_MS;
       }
