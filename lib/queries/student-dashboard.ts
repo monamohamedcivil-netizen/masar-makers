@@ -3091,8 +3091,8 @@ freeJourneysByStation.set(
 
 /*
  * إحصائيات الاستبيانات:
- * المؤهل = محطة احتراف مشترك بها الطالب
- * وليست Pending.
+ * المؤهل = محطة احتراف مشترك بها الطالب (وليست Pending)
+ * أو محطة لها رحلة يوم واحد فعّالة.
  *
  * المكتمل = يوجد لها استبيان:
  * submitted_at موجود
@@ -3100,12 +3100,14 @@ freeJourneysByStation.set(
  */
 
 const eligibleSurveyCourseIds = new Set(
-  careerPaths.flatMap((path) =>
+  activityPaths.flatMap((path) =>
     path.stations
       .filter(
         (station) =>
-          station.isEnrolled &&
-          station.status !== "pending" &&
+          // احترافي فعّال، أو رحلة يوم واحد فعّالة (تفتح الاستبيان والمشاريع)
+          ((station.isEnrolled &&
+            station.status !== "pending") ||
+            Boolean(station.hasOneDayAccess)) &&
           Boolean(station.courseId),
       )
       .map(
@@ -3116,7 +3118,7 @@ const eligibleSurveyCourseIds = new Set(
 
 /*
  * لا نعرض استبيانًا محفوظًا في صفحة الطالب إذا لم يعد هناك
- * اشتراك احترافي فعّال يؤهل هذا الكورس للاستبيان.
+ * اشتراك فعّال (احترافي أو يوم واحد) يؤهل هذا الكورس للاستبيان.
  * هذا يعالج أيضًا البيانات التي ربما أُنشئت قبل إغلاق الثغرة.
  */
 surveys = surveys.filter((survey) =>
