@@ -52,7 +52,7 @@ function Road({
   const theme = THEME[kind];
   return (
     <div className="relative mx-auto max-w-6xl overflow-x-auto px-2 pb-2 [scrollbar-width:thin]">
-      <div className="relative min-w-[720px] px-6 pt-4 sm:min-w-0">
+      <div className="relative min-w-[720px] px-6 pt-2 sm:min-w-0">
         {/* الطريق */}
         <div className="absolute inset-x-6 top-[52px] h-[18px] rounded-full bg-[#1B2A44] shadow-[inset_0_2px_4px_rgba(0,0,0,.35)]">
           <div className="absolute inset-x-3 top-1/2 h-0 -translate-y-1/2 border-t-2 border-dashed border-[#F7B548]/80" />
@@ -197,14 +197,16 @@ export default function JourneysRoadView(props: Props) {
 
   return (
     <main dir="rtl" className="min-h-screen bg-[#F7F8FA] pb-16">
-      <section className="px-4 pb-8 pt-8 text-center text-white sm:pt-10" style={{ background: `linear-gradient(160deg,#07152E 55%,${theme.accent}55)` }}>
-        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border-2" style={{ borderColor: theme.accent, color: theme.accent }}>
-          <Icon className="h-6 w-6" />
-        </span>
-        <h1 className="mt-3 text-2xl font-black sm:text-3xl">{theme.title}</h1>
-        <p className="mx-auto mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-300">{theme.subtitle}</p>
+      <section className="px-4 pb-3 pt-3 text-center text-white sm:pb-4 sm:pt-4" style={{ background: `linear-gradient(160deg,#07152E 55%,${theme.accent}55)` }}>
+        <div className="flex items-center justify-center gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2" style={{ borderColor: theme.accent, color: theme.accent }}>
+            <Icon className="h-4 w-4" />
+          </span>
+          <h1 className="text-lg font-black sm:text-2xl">{theme.title}</h1>
+        </div>
+        <p className="mx-auto mt-1 max-w-2xl text-xs font-semibold leading-5 text-slate-300 sm:text-sm">{theme.subtitle}</p>
 
-        <div role="tablist" className="mx-auto mt-6 flex max-w-xl justify-center gap-2 rounded-2xl bg-white/5 p-1.5">
+        <div role="tablist" className="mx-auto mt-3 flex max-w-xl justify-center gap-2 rounded-2xl bg-white/5 p-1">
           {paths.map((p) => (
             <button
               key={p.id}
@@ -212,7 +214,7 @@ export default function JourneysRoadView(props: Props) {
               role="tab"
               aria-selected={p.id === path?.id}
               onClick={() => setPathId(p.id)}
-              className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-black transition ${p.id === path?.id ? theme.tab : "text-white/80 hover:bg-white/10"}`}
+              className={`flex-1 rounded-xl px-3 py-2 text-sm font-black transition ${p.id === path?.id ? theme.tab : "text-white/80 hover:bg-white/10"}`}
             >
               {p.title}
             </button>
@@ -220,7 +222,7 @@ export default function JourneysRoadView(props: Props) {
         </div>
       </section>
 
-      <section className="mt-6">
+      <section className="mt-1">
         {stations.length === 0 ? (
           <p className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-500">
             المحاضرات في هذا المسار قريبًا.
@@ -231,7 +233,7 @@ export default function JourneysRoadView(props: Props) {
       </section>
 
       {path && active ? (
-        <section className="mx-auto mt-4 max-w-4xl px-4">
+        <section className="mx-auto mt-2 max-w-4xl px-4">
           <div className="overflow-hidden rounded-2xl border bg-white shadow-sm" style={{ borderColor: `${theme.accent}66` }}>
             {kind === "professional" ? (
               (() => {

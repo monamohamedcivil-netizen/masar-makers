@@ -2,7 +2,7 @@
  * true = the new journeys pages (/journeys/*), «طرق التعلم» menu and card links
  * are visible to admins only (preview). Set to false when Mona approves the launch.
  */
-export const JOURNEYS_PAGES_PREVIEW = true;
+export const JOURNEYS_PAGES_PREVIEW = false;
 
 export type LearningModeKey = "professional" | "one-day" | "free";
 
