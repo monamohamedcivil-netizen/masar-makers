@@ -790,7 +790,7 @@ export default function MasarLanding({ v2 = false }: { v2?: boolean } = {}) {
           relative mx-auto
           min-h-[1150px] w-full max-w-[2000px]
           overflow-hidden bg-[#07152E]
-          ${v2 ? "bg-[url('/images/landing/learning-roads-bg.webp')]" : "bg-[url('/images/landing/learning-roads-bg.png')]"}
+          ${v2 ? "bg-[url('/images/landing/learning-roads-day.webp')]" : "bg-[url('/images/landing/learning-roads-bg.png')]"}
           bg-[length:100%_100%]
           bg-center bg-no-repeat
           sm:min-h-[1050px]
@@ -799,10 +799,21 @@ export default function MasarLanding({ v2 = false }: { v2?: boolean } = {}) {
           xl:min-h-[950px]
         `}
       >
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#07152E]/58 via-[#07152E]/5 to-[#07152E]/30" />
+        {v2 ? (
+          /* خلفية النهار: شادو كحلي في الثلث الأوسط فقط (منطقة المحطات) بتدرج ناعم، والعنوان والكروت على الخلفية المنورة. */
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(180deg,rgba(7,21,46,0) 0%,rgba(7,21,46,0) 7%,rgba(7,21,46,.40) 15%,rgba(7,21,46,.52) 24%,rgba(7,21,46,.62) 36%,rgba(7,21,46,.66) 50%,rgba(7,21,46,.58) 60%,rgba(7,21,46,.30) 70%,rgba(7,21,46,0) 82%,rgba(7,21,46,0) 100%)",
+            }}
+          />
+        ) : (
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#07152E]/58 via-[#07152E]/5 to-[#07152E]/30" />
+        )}
 
         <div className="relative z-20 mx-auto max-w-[1450px] px-2 pt-3 text-center sm:px-4 sm:pt-3 lg:pt-3">
-          <h1 className={`mx-auto text-[clamp(17px,4.6vw,22px)] font-black leading-[1.05] sm:max-w-[88%] md:max-w-none md:whitespace-nowrap md:text-[clamp(24px,3.2vw,42px)] ${
+          <h1 className={`mx-auto ${v2 ? "[text-shadow:0_2px_12px_rgba(7,21,46,.55)]" : ""} text-[clamp(17px,4.6vw,22px)] font-black leading-[1.05] sm:max-w-[88%] md:max-w-none md:whitespace-nowrap md:text-[clamp(24px,3.2vw,42px)] ${
               locale === "en"
                 ? "max-w-[94%] text-[clamp(15px,4.2vw,20px)]"
                 : "max-w-[96%] whitespace-nowrap text-[clamp(14px,4vw,22px)]"
@@ -814,7 +825,7 @@ export default function MasarLanding({ v2 = false }: { v2?: boolean } = {}) {
           </h1>
 
           <p
-            className={`mx-auto mt-2 max-w-3xl font-semibold text-slate-200 sm:px-8 sm:text-[13px] md:mt-2 md:px-0 md:text-[15px] md:leading-5 lg:text-[16px] ${
+            className={`mx-auto mt-2 max-w-3xl font-semibold ${v2 ? "text-white [text-shadow:0_1px_6px_rgba(7,21,46,.7)]" : "text-slate-200"} sm:px-8 sm:text-[13px] md:mt-2 md:px-0 md:text-[15px] md:leading-5 lg:text-[16px] ${
               locale === "en"
                 ? "pl-4 pr-[84px] text-[11px] leading-[14px] sm:pr-8 sm:leading-4"
                 : "px-12 text-[12px] leading-4"
@@ -825,14 +836,14 @@ export default function MasarLanding({ v2 = false }: { v2?: boolean } = {}) {
         </div>
 
         {/* أسماء المسارات: خط أصغر وأقرب للحافة على الشاشات المتوسطة حتى لا تدخل تحت إطار الفيديو */}
-        <div className="absolute left-[3%] top-[12%] z-20 hidden text-center text-[#F7B548] md:block md:left-[5%] lg:left-[6%] 2xl:left-[11%]">
+        <div className="absolute left-[3%] top-[12%] z-20 hidden text-center text-[#F7B548] [text-shadow:0_1px_8px_rgba(7,21,46,.8)] md:block md:left-[5%] lg:left-[6%] 2xl:left-[11%]">
           <p className="whitespace-nowrap text-[13px] font-black sm:text-lg lg:text-[22px] xl:text-[26px] 2xl:text-3xl">
             {tracks[1].title[locale]}
           </p>
           <div className="mx-auto mt-2 h-0.5 w-[clamp(55px,7vw,120px)] bg-[#F7B548]" />
         </div>
 
-        <div className="absolute right-[3%] top-[12%] z-20 hidden text-center text-[#F7B548] md:block md:right-[5%] lg:right-[6%]">
+        <div className="absolute right-[3%] top-[12%] z-20 hidden text-center text-[#F7B548] [text-shadow:0_1px_8px_rgba(7,21,46,.8)] md:block md:right-[5%] lg:right-[6%]">
           <p className="whitespace-nowrap text-[13px] font-black sm:text-lg lg:text-[22px] xl:text-[26px] 2xl:text-3xl">
             {tracks[0].title[locale]}
           </p>
