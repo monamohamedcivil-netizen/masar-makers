@@ -361,6 +361,10 @@ student_job_title:
 
       status: "submitted",
 
+      // مهم: عمود source افتراضيه admin_import، وده كان بيخلي مشاريع الطلاب تتسجل كأنها استيراد من الإدارة
+      // فما يوصلش إشعار للأدمن. نحدد المصدر صراحة.
+      source: "student_upload",
+
       submitted_at:
         new Date().toISOString(),
 

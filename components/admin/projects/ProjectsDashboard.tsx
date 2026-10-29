@@ -138,6 +138,7 @@ export default function ProjectsDashboard({
       coverImageId?: string;
       coverImagePath?: string;
     },
+    keepOpen = false,
   ) {
     setProcessingId(projectId);
 
@@ -154,8 +155,10 @@ export default function ProjectsDashboard({
         return;
       }
 
-      setSelectedProject(null);
-      setActiveImageIndex(0);
+      if (!keepOpen) {
+        setSelectedProject(null);
+        setActiveImageIndex(0);
+      }
       router.refresh();
     });
   }
@@ -521,6 +524,25 @@ export default function ProjectsDashboard({
                     )}
                   </div>
                 ) : null}
+
+                <p className="mt-3 text-xs font-bold text-slate-500">
+                  {selectedProject.images.length} صور
+                  {selectedProject.videoUrl ? " + فيديو" : ""}
+                </p>
+
+                {selectedProject.videoUrl ? (
+                  <div className="mt-3">
+                    <p className="mb-2 text-xs font-black text-slate-500">
+                      فيديو المشروع
+                    </p>
+                    <video
+                      src={selectedProject.videoUrl}
+                      controls
+                      preload="metadata"
+                      className="aspect-video w-full rounded-2xl bg-black"
+                    />
+                  </div>
+                ) : null}
               </div>
 
               <div className="space-y-5">
@@ -579,14 +601,20 @@ export default function ProjectsDashboard({
                               : {
                                   coverImageId: image.id,
                                 },
+                            true,
                           );
                         }}
-                        className={`rounded-xl border px-3 py-2 text-xs font-black transition ${
+                        className={`overflow-hidden rounded-xl border p-1.5 text-xs font-black transition ${
                           image.isCover
                             ? "border-[#F7B548] bg-[#FFF5DD] text-[#C88712]"
                             : "border-slate-200 bg-white text-slate-600 hover:border-[#F7B548] hover:bg-amber-50"
                         }`}
                       >
+                        <img
+                          src={image.imageUrl}
+                          alt=""
+                          className="mb-1.5 aspect-video w-full rounded-lg object-cover"
+                        />
                         {image.isCover
                           ? "الغلاف الحالي"
                           : "اختيار غلاف"}
