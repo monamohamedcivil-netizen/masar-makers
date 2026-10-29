@@ -1010,7 +1010,8 @@ export default function MasarLanding({ v2 = false }: { v2?: boolean } = {}) {
 
           <LanguageSwitch
             compact
-            className={`${locale === "en" ? "w-[150px]" : "w-[115px]"} !rounded-lg`}
+            light={v2}
+            className={`${locale === "en" ? "w-[150px]" : "w-[115px]"} !rounded-lg ${v2 ? "!border-[#F7B548] !bg-white/90 shadow-md" : ""}`}
           />
         </div>
 
