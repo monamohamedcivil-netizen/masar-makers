@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSwipe } from "@/lib/hooks/use-swipe";
 import {
   ChevronLeft,
   ChevronRight,
@@ -399,6 +400,8 @@ export default function TestimonialsFromDB() {
     );
   };
 
+  const swipe = useSwipe(next, previous, isArabic);
+
   const changeFilter = (courseId: CourseId) => {
     setActiveCourse(courseId);
     setStartIndex(0);
@@ -497,6 +500,7 @@ export default function TestimonialsFromDB() {
           </div>
         ) : visibleTestimonials.length > 0 ? (
           <div
+            {...swipe}
             className={`mx-auto grid gap-2.5 sm:gap-3 lg:gap-3.5 ${
               visibleTestimonials.length === 1
                 ? "max-w-[430px] grid-cols-1"

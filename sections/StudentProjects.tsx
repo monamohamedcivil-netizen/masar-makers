@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import AuthLink from "@/components/AuthLink";
+import { useSwipe } from "@/lib/hooks/use-swipe";
 import {
   localizeCountry,
   localizeJobTitle,
@@ -319,6 +320,8 @@ export default function StudentProjects() {
     );
   };
 
+  const swipe = useSwipe(nextProjects, previousProjects, isArabic);
+
   const categoryLabel = (
     category: ProjectCategory,
   ) =>
@@ -423,6 +426,7 @@ export default function StudentProjects() {
           ) : visibleProjects.length > 0 ? (
             <div className="relative">
              <div
+  {...swipe}
   className={`mx-auto grid h-[220px] justify-center gap-2.5 sm:h-[230px] sm:gap-3 lg:h-[240px] ${
     carouselProjects.length === 1
       ? "w-full max-w-[380px] grid-cols-1"

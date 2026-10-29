@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useSwipe } from "@/lib/hooks/use-swipe";
 import { useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -208,6 +209,8 @@ export default function PopularCourses() {
     );
   };
 
+  const swipe = useSwipe(nextCourses, previousCourses, isArabic);
+
   return (
     <section
       id="popular-courses"
@@ -257,6 +260,7 @@ export default function PopularCourses() {
 
         {/* Cards: 2 on mobile/tablet, 3 on desktop */}
         <div
+          {...swipe}
           className={`grid gap-2.5 sm:gap-3 lg:gap-3.5 ${
             visibleCount === 2
               ? "grid-cols-2"
