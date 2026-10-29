@@ -793,7 +793,7 @@ export default function MasarLanding({ v2 = false }: { v2?: boolean } = {}) {
           ${v2 ? "bg-[url('/images/landing/learning-roads-day.webp')]" : "bg-[url('/images/landing/learning-roads-bg.png')]"}
           bg-[length:100%_100%]
           bg-center bg-no-repeat
-          ${v2 ? "lg:bg-[length:100%_124%] lg:bg-bottom" : ""}
+          ${v2 ? "lg:bg-[length:100%_116%] lg:bg-bottom" : ""}
           sm:min-h-[1050px]
           md:min-h-[max(800px,calc(100svh-150px))]
           lg:min-h-[900px]
