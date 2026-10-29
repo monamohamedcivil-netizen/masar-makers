@@ -474,26 +474,29 @@ export async function getMasarPassport(
       isApprovedEnrollment(enrollment.status),
   );
 
-  const approvedProfessionalEnrollments =
+  /*
+   * اشتراكات تمنح نقاط الاستبيان والمشروع المعتمد والمشروع المميز:
+   * الاحترافي + اليوم الواحد (الرحلة المجانية لا ترفع مشروعًا).
+   * الاشتراك المرفوض/المعلّق لا يُحتسب. هذا يطابق شروط رفع المشروع
+   * وإرسال الاستبيان في create-project و submit-survey.
+   */
+  const pointsEligibleEnrollments =
     approvedEnrollments.filter((enrollment) => {
       const journeyType = normalize(
         enrollment.journey_type,
       );
 
-      return (
-        !ONE_DAY_TYPES.has(journeyType) &&
-        !FREE_TYPES.has(journeyType)
-      );
+      return !FREE_TYPES.has(journeyType);
     });
 
-  const approvedProfessionalEnrollmentIds = new Set(
-    approvedProfessionalEnrollments.map(
+  const pointsEligibleEnrollmentIds = new Set(
+    pointsEligibleEnrollments.map(
       (enrollment) => enrollment.id,
     ),
   );
 
-  const approvedProfessionalCourseIds = new Set(
-    approvedProfessionalEnrollments.map(
+  const pointsEligibleCourseIds = new Set(
+    pointsEligibleEnrollments.map(
       (enrollment) => enrollment.course_id,
     ),
   );
@@ -1059,12 +1062,12 @@ if (freeLessonIds.length > 0) {
   }
 
   /*
-   * لا تُحتسب نقاط الاستبيان إلا لكورس لديه اشتراك احترافي فعّال.
+   * لا تُحتسب نقاط الاستبيان إلا لكورس لديه اشتراك فعّال (احترافي أو يوم واحد).
    * بذلك لا تستمر نقاط استبيان أُنشئ لطلب مرفوض قبل إغلاق الثغرة.
    */
   const surveys =
     (surveysResult.data ?? []).filter((survey) =>
-      approvedProfessionalCourseIds.has(
+      pointsEligibleCourseIds.has(
         String(survey.course_id ?? ""),
       ),
     );
@@ -1089,11 +1092,11 @@ if (freeLessonIds.length > 0) {
 
   /*
    * المشروع مرتبط مباشرة بـ enrollment_id، لذلك نستخدمه كمصدر الحقيقة:
-   * المشروع لا يمنح نقاطًا إلا إذا كان اشتراك الاحتراف المرتبط به فعّالًا.
+   * المشروع لا يمنح نقاطًا إلا إذا كان اشتراكه المرتبط (احترافي أو يوم واحد) فعّالًا.
    */
   const projects =
     (projectsResult.data ?? []).filter((project) =>
-      approvedProfessionalEnrollmentIds.has(
+      pointsEligibleEnrollmentIds.has(
         String(project.enrollment_id ?? ""),
       ),
     );
