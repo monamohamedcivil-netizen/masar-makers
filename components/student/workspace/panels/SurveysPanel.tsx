@@ -104,7 +104,7 @@ export default function SurveysPanel({
 
   const paths = useMemo(
     () =>
-      (data.careerPaths ?? [])
+      (data.activityPaths ?? data.careerPaths ?? [])
         .map((path) => ({
           ...path,
           // Keep the full professional path visible.
@@ -121,7 +121,7 @@ export default function SurveysPanel({
               Boolean(station.hasOneDayAccess)),
           ),
         ),
-    [data.careerPaths],
+    [data.activityPaths, data.careerPaths],
   );
 
   const loadSurveys = useCallback(
