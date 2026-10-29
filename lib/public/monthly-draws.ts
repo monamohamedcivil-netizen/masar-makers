@@ -16,6 +16,12 @@ import {
 
 const DRAW_SPIN_SECONDS = 10;
 
+/*
+ * مهلة قصيرة قبل بدء العدّ التنازلي الفعلي، ليلتقط كل جهاز مفتوح الحالة (polling كل ثانية)
+ * ويعرض العدّ كاملًا من 10 إلى 0 بدل أن ينضم متأخرًا.
+ */
+const COUNTDOWN_LEAD_MS = 2000;
+
 const DEFAULT_MONTHLY_DRAW_TITLE =
   "سحب مكافآت Masar Makers الشهري";
 
@@ -51,6 +57,8 @@ export type PublicMonthlyDrawState = {
   countdownEndsAt: string | null;
   countdownSeconds: number;
   runningEndsAt: string | null;
+  /** وقت السيرفر لحظة الرد (للسحب الحيّ فقط) لتصحيح فرق ساعة جهاز الزائر في العدّ التنازلي. */
+  serverNow?: string;
 
   totalParticipants: number;
   totalEntries: number;
@@ -955,7 +963,9 @@ async function advanceDueDraw(
     );
 
     const countdownStartedAt =
-      new Date();
+      new Date(
+        Date.now() + COUNTDOWN_LEAD_MS,
+      );
 
     const { data, error } =
       await supabase
@@ -1607,6 +1617,11 @@ function toPublicState(
       phase === "running"
         ? runningEndsAt.toISOString()
         : null,
+
+    serverNow:
+      phase === "completed"
+        ? undefined
+        : new Date().toISOString(),
 
     totalParticipants:
       Number(
