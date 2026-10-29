@@ -242,7 +242,7 @@ const pageText = {
   ar: {
     explore: "استكشف المنصة",
     login: "تسجيل الدخول",
-    contact: "تواصل معنا",
+    contact: "اسألني",
     heroBefore: "لا تتعلم كورس فقط...",
     heroAfter: "ابنِ مسيرتك المهنية",
     heroSubtitle:
@@ -264,7 +264,7 @@ const pageText = {
   en: {
     explore: "Explore Platform",
     login: "Login",
-    contact: "Contact Us",
+    contact: "Ask me",
     heroBefore: "Don’t just take a course...",
     heroAfter: "Build your professional path",
     heroSubtitle:

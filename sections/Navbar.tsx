@@ -30,7 +30,7 @@ const labels = {
     professionalMode: "رحلات الاحتراف المتكاملة",
     oneDayMode: "رحلات اليوم الواحد",
     freeMode: "الرحلات المجانية",
-    contact: "اتصل بنا",
+    contact: "اسألني",
     login: "تسجيل الدخول",
     openMenu: "فتح القائمة",
     closeMenu: "إغلاق القائمة",
@@ -45,7 +45,7 @@ const labels = {
     professionalMode: "Integrated professional journeys",
     oneDayMode: "One-day journeys",
     freeMode: "Free journeys",
-    contact: "Contact Us",
+    contact: "Ask me",
     login: "Login",
     openMenu: "Open menu",
     closeMenu: "Close menu",
@@ -311,15 +311,12 @@ export default function Navbar({ activeItem }: NavbarProps) {
             onClick={(event) => { if (openMasarChat({ source: "contact", text: "السلام عليكم، أرغب في الاستفسار عن منصة صناع المسار." })) event.preventDefault(); }}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden h-7 w-7 items-center justify-center rounded-full bg-[#F7B548] text-[#07152E] shadow-lg transition hover:scale-110 hover:shadow-[0_0_22px_rgba(247,181,72,.55)] xl:flex"
-            aria-label={locale === "ar" ? "تواصل معنا عبر شات المنصة" : "Chat with us"}
+            className="hidden h-9 items-center gap-2 rounded-full border border-[#F7B548] bg-white/90 px-4 text-[13px] font-black text-[#07152E] shadow-md transition hover:-translate-y-0.5 hover:bg-white xl:flex"
+            aria-label={locale === "ar" ? "اسأل مسار: إجابات فورية عن المنصة" : "Ask Masar: instant answers about the platform"}
           >
-            <MessageCircleMore size={17} />
-          </a>
-
-          <span className="hidden text-[14px] font-bold text-white xl:block">
+            <MessageCircleMore size={17} className="text-[#C88712]" />
             {text.contact}
-          </span>
+          </a>
 
           <button
             type="button"
