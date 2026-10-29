@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { CalendarDays, Clock3, PlayCircle, Rocket } from "lucide-react";
+import { CalendarDays, PlayCircle, Rocket } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import CourseActionButton from "@/components/course/CourseActionButton";
@@ -28,16 +28,6 @@ const THEME = {
 
 type Station = { key: string; title: string; iconCode?: string; comingSoon?: boolean; count?: number };
 
-function duration(seconds: number) {
-  const total = Math.floor(seconds || 0);
-  if (!total) return null;
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  if (h && m) return `${h} س ${m} د`;
-  if (h) return `${h} س`;
-  return `${m || 1} د`;
-}
-
 function CourseLogo({ code, size = 28 }: { code: string; size?: number }) {
   const src = courseIcon(code);
   if (!src) return <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black text-[#07152E]">{code}</span>;
@@ -52,14 +42,11 @@ function Road({
   stations,
   active,
   onSelect,
-  kind,
 }: {
   stations: Station[];
   active: string;
   onSelect: (key: string) => void;
-  kind: Kind;
 }) {
-  const theme = THEME[kind];
   return (
     <div className="relative mx-auto max-w-6xl overflow-x-auto px-2 pb-2 [scrollbar-width:thin]">
       <div className="relative min-w-[720px] px-6 pt-4 sm:min-w-0">
@@ -77,19 +64,19 @@ function Road({
                   onClick={() => onSelect(s.key)}
                   aria-pressed={selected}
                   aria-label={s.comingSoon ? `${s.title} — قريبًا` : s.title}
-                  className={`relative flex h-[58px] w-[58px] items-center justify-center rounded-full border-4 border-white bg-[#07152E] shadow-lg transition focus:outline-none focus-visible:ring-4 ${theme.ring} ${
-                    selected ? `scale-110 ring-4 ${theme.ring}` : "hover:scale-105"
+                  className={`relative flex h-[58px] w-[58px] items-center justify-center overflow-hidden rounded-full border border-white bg-white p-2 shadow-[0_8px_18px_rgba(7,21,46,0.14)] transition-all duration-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-[#F7B548]/60 ${
+                    selected ? "scale-110 ring-4 ring-[#F7B548]" : "ring-1 ring-[#F7B548] hover:scale-105 hover:ring-2 hover:ring-[#F7B548]/55"
                   } ${s.comingSoon ? "opacity-45 grayscale" : ""}`}
                 >
                   {s.iconCode && courseIcon(s.iconCode) ? (
-                    <span className="relative h-9 w-9 overflow-hidden rounded-full bg-white">
-                      <Image src={courseIcon(s.iconCode)!} alt="" fill sizes="36px" className="object-contain p-1" />
+                    <span className="relative h-full w-full">
+                      <Image src={courseIcon(s.iconCode)!} alt="" fill sizes="42px" className="object-contain" />
                     </span>
                   ) : (
-                    <span className="text-lg font-black text-[#F7B548]">{i + 1}</span>
+                    <span className="text-lg font-black text-[#07152E]">{i + 1}</span>
                   )}
                 </button>
-                <span className={`mt-3 text-[12px] font-black leading-5 sm:text-[13px] ${selected ? theme.text : "text-[#07152E]"}`}>{s.title}</span>
+                <span className={`mt-3 text-[12px] font-black leading-5 sm:text-[13px] ${selected ? "text-[#B87508]" : "text-[#07152E]"}`}>{s.title}</span>
                 {s.comingSoon ? (
                   <span className="mt-0.5 text-[11px] font-black text-[#C88712]">قريبًا</span>
                 ) : typeof s.count === "number" ? (
@@ -105,7 +92,6 @@ function Road({
 }
 
 function LectureRow({ lecture, kind }: { lecture: TopicLecture; kind: "workshop" | "free" }) {
-  const time = duration(lecture.durationSeconds);
   return (
     <article className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_170px] sm:items-center">
       <div className="flex min-w-0 items-start gap-3">
@@ -116,11 +102,6 @@ function LectureRow({ lecture, kind }: { lecture: TopicLecture; kind: "workshop"
           </h3>
           <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-500">
             <span>{lecture.courseTitle}</span>
-            {time ? (
-              <span className="inline-flex items-center gap-1 text-[#B87508]">
-                <Clock3 size={12} /> {time}
-              </span>
-            ) : null}
           </div>
         </div>
       </div>
@@ -161,7 +142,7 @@ function ProfessionalPanel({ station }: { station: ProfessionalStation }) {
               <div key={level.key} className="rounded-2xl border p-4" style={{ borderColor: `${theme.accent}55`, background: theme.soft }}>
                 <p className="text-sm font-black text-[#07152E]">{level.title}</p>
                 <p className="mt-1 text-xs font-bold text-slate-500">
-                  {level.lessons} محاضرة{duration(level.seconds) ? ` • ${duration(level.seconds)}` : ""}
+                  {level.lessons} محاضرة
                 </p>
               </div>
             ))}
@@ -172,7 +153,7 @@ function ProfessionalPanel({ station }: { station: ProfessionalStation }) {
                 ابدأ الرحلة
               </Link>
             ) : (
-              <Link href={`/course/${station.slug}`} className="rounded-xl px-5 py-2.5 text-sm font-black text-[#07152E]" style={{ background: theme.accent }}>
+              <Link href={`/course/${station.slug}`} className="rounded-xl px-5 py-2.5 text-sm font-black text-[#07152E]" style={{ background: "#F7B548" }}>
                 {pending ? "طلب الاشتراك قيد المراجعة — تفاصيل الرحلة" : "تفاصيل الرحلة والاشتراك"}
               </Link>
             )}
@@ -229,7 +210,7 @@ export default function JourneysRoadView(props: Props) {
               aria-selected={p.id === path?.id}
               onClick={() => setPathId(p.id)}
               className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-black transition ${p.id === path?.id ? "text-[#07152E]" : "text-white/80 hover:bg-white/10"}`}
-              style={p.id === path?.id ? { background: theme.accent } : undefined}
+              style={p.id === path?.id ? { background: "#F7B548" } : undefined}
             >
               {p.title}
             </button>
@@ -243,7 +224,7 @@ export default function JourneysRoadView(props: Props) {
             المحاضرات في هذا المسار قريبًا.
           </p>
         ) : (
-          <Road stations={stations} active={active} onSelect={(key) => path && setSelectedByPath((prev) => ({ ...prev, [path.id]: key }))} kind={kind} />
+          <Road stations={stations} active={active} onSelect={(key) => path && setSelectedByPath((prev) => ({ ...prev, [path.id]: key }))} />
         )}
       </section>
 
