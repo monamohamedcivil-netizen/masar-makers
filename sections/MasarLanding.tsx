@@ -793,22 +793,14 @@ export default function MasarLanding({ v2 = false }: { v2?: boolean } = {}) {
           ${v2 ? "bg-[url('/images/landing/learning-roads-day.webp')]" : "bg-[url('/images/landing/learning-roads-bg.png')]"}
           bg-[length:100%_100%]
           bg-center bg-no-repeat
+          ${v2 ? "lg:bg-[length:100%_110%] lg:bg-bottom" : ""}
           sm:min-h-[1050px]
           md:min-h-[max(800px,calc(100svh-150px))]
           lg:min-h-[900px]
           xl:min-h-[950px]
         `}
       >
-        {v2 ? (
-          /* خلفية النهار: شادو كحلي في الثلث الأوسط فقط (منطقة المحطات) بتدرج ناعم، والعنوان والكروت على الخلفية المنورة. */
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(180deg,rgba(7,21,46,0) 0%,rgba(7,21,46,0) 7%,rgba(7,21,46,.40) 15%,rgba(7,21,46,.52) 24%,rgba(7,21,46,.62) 36%,rgba(7,21,46,.66) 50%,rgba(7,21,46,.58) 60%,rgba(7,21,46,.30) 70%,rgba(7,21,46,0) 82%,rgba(7,21,46,0) 100%)",
-            }}
-          />
-        ) : (
+        {v2 ? null : (
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#07152E]/58 via-[#07152E]/5 to-[#07152E]/30" />
         )}
 
