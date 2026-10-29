@@ -2,8 +2,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 
-/** true = the new pages (journeys by topic, new landing) are visible to admins only. */
-export const JOURNEYS_PAGES_PREVIEW = true;
+export { JOURNEYS_PAGES_PREVIEW } from "@/lib/journeys/flags";
 
 export async function isPreviewViewer() {
   try {

@@ -4,14 +4,16 @@ import { openMasarChat } from "@/lib/webchat/client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Menu, MessageCircleMore, X } from "lucide-react";
+import { ChevronDown, Menu, MessageCircleMore, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import AuthLink from "@/components/AuthLink";
+import { learningModeHref } from "@/lib/journeys/flags";
+import { useJourneysPagesEnabled } from "@/lib/journeys/use-journeys-pages";
 import NavbarUser from "@/components/auth/NavbarUser";
 import LanguageSwitch from "@/components/i18n/LanguageSwitch";
 
-type ActiveItem = "home" | "about" | "career-paths" | "journeys";
+type ActiveItem = "home" | "about" | "career-paths" | "journeys" | "learning-modes";
 type Locale = "ar" | "en";
 
 type NavbarProps = {
@@ -24,6 +26,10 @@ const labels = {
     about: "من نحن",
     careerPaths: "المسارات المهنية",
     journeys: "رحلاتي التعليمية",
+    learningModes: "طرق التعلم",
+    professionalMode: "رحلات الاحتراف المتكاملة",
+    oneDayMode: "رحلات اليوم الواحد",
+    freeMode: "الرحلات المجانية",
     contact: "اتصل بنا",
     login: "تسجيل الدخول",
     openMenu: "فتح القائمة",
@@ -35,6 +41,10 @@ const labels = {
     about: "About Us",
     careerPaths: "Career Paths",
     journeys: "My Learning Journeys",
+    learningModes: "Ways to learn",
+    professionalMode: "Integrated professional journeys",
+    oneDayMode: "One-day journeys",
+    freeMode: "Free journeys",
     contact: "Contact Us",
     login: "Login",
     openMenu: "Open menu",
@@ -44,6 +54,7 @@ const labels = {
 } as const;
 
 function detectActiveItem(pathname: string): ActiveItem {
+  if (/^\/journeys\/(professional|one-day|free)/.test(pathname)) return "learning-modes";
   if (
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/journeys") ||
@@ -69,6 +80,8 @@ export default function Navbar({ activeItem }: NavbarProps) {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [modesOpen, setModesOpen] = useState(false);
+  const journeysPagesEnabled = useJourneysPagesEnabled();
   const [locale, setLocale] = useState<Locale>("ar");
   const [localeReady, setLocaleReady] = useState(false);
 
@@ -119,7 +132,67 @@ export default function Navbar({ activeItem }: NavbarProps) {
     document.cookie = `masar-locale=${locale}; path=/; max-age=31536000; samesite=lax`;
   }, [locale, localeReady]);
 
-  useEffect(() => setMobileOpen(false), [pathname]);
+  useEffect(() => {
+    setMobileOpen(false);
+    setModesOpen(false);
+  }, [pathname]);
+
+  const modeLinks = [
+    { href: learningModeHref("professional"), label: text.professionalMode, dot: "bg-[#E2B867]" },
+    { href: learningModeHref("one-day"), label: text.oneDayMode, dot: "bg-[#5B9BEF]" },
+    { href: learningModeHref("free"), label: text.freeMode, dot: "bg-[#4CC27A]" },
+  ];
+
+  const renderModesMenu = (mobile = false) =>
+    !journeysPagesEnabled ? null : mobile ? (
+      <div key="learning-modes" className="rounded-xl border border-white/10 p-2">
+        <p className="px-2 pb-1 text-xs font-black text-[#F7B548]">{text.learningModes}</p>
+        {modeLinks.map((m) => (
+          <Link key={m.href} href={m.href} className="flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-black text-white hover:bg-white/10">
+            <span className={`h-2 w-2 rounded-full ${m.dot}`} />
+            {m.label}
+          </Link>
+        ))}
+      </div>
+    ) : (
+      <div
+        key="learning-modes"
+        className="relative"
+        onMouseEnter={() => setModesOpen(true)}
+        onMouseLeave={() => setModesOpen(false)}
+      >
+        <button
+          type="button"
+          aria-expanded={modesOpen}
+          onClick={() => setModesOpen((v) => !v)}
+          className={`${navLinkClass("learning-modes")} inline-flex items-center gap-1`}
+        >
+          {text.learningModes}
+          <ChevronDown size={15} className={`transition ${modesOpen ? "rotate-180" : ""}`} />
+          <span
+            className={`absolute -bottom-2 end-0 h-[2px] bg-[#F7B548] transition-all duration-300 ${
+              currentItem === "learning-modes" ? "w-full" : "w-0 group-hover:w-full"
+            }`}
+          />
+        </button>
+        {modesOpen ? (
+          <div className="absolute start-1/2 top-full z-[110] w-64 -translate-x-1/2 pt-3 rtl:translate-x-1/2">
+            <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#07152E] p-2 shadow-2xl">
+              {modeLinks.map((m) => (
+                <Link
+                  key={m.href}
+                  href={m.href}
+                  className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-black text-white transition hover:bg-white/10 hover:text-[#F7B548]"
+                >
+                  <span className={`h-2.5 w-2.5 rounded-full ${m.dot}`} />
+                  {m.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
 
   const links = useMemo(
     () => [
@@ -193,6 +266,7 @@ export default function Navbar({ activeItem }: NavbarProps) {
 
   return (
     <header
+      data-masar-navbar
       dir={locale === "ar" ? "rtl" : "ltr"}
       className={`fixed inset-x-0 top-0 z-[100] h-[55px] transition-all duration-500 ${
         scrolled ? "bg-[#07152E]/95 shadow-xl backdrop-blur-xl" : "bg-[#07152E]"
@@ -226,7 +300,7 @@ export default function Navbar({ activeItem }: NavbarProps) {
         </div>
 
         <nav className="hidden items-center gap-7 lg:flex xl:gap-9">
-          {links.map((link) => renderLink(link))}
+          {links.map((link) => [renderLink(link), link.id === "career-paths" ? renderModesMenu() : null])}
         </nav>
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
@@ -261,7 +335,7 @@ export default function Navbar({ activeItem }: NavbarProps) {
       {mobileOpen && (
         <div className="border-t border-white/10 bg-[#07152E]/98 px-4 pb-5 pt-4 shadow-2xl backdrop-blur-xl lg:hidden">
           <nav className="mx-auto flex max-w-[1480px] flex-col gap-2">
-            {links.map((link) => renderLink(link, true))}
+            {links.map((link) => [renderLink(link, true), link.id === "career-paths" ? renderModesMenu(true) : null])}
             <div className="mt-2 border-t border-white/10 pt-4">
               <NavbarUser locale={locale} />
             </div>

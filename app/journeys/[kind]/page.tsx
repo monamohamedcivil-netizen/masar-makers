@@ -1,31 +1,41 @@
 import { notFound } from "next/navigation";
 
-import TopicLecturesView from "@/components/journeys/TopicLecturesView";
-import { getTopicLectures, type LectureKind } from "@/lib/journeys/topic-lectures";
+import JourneysRoadView from "@/components/journeys/JourneysRoadView";
 import { isPreviewViewer, JOURNEYS_PAGES_PREVIEW } from "@/lib/journeys/preview";
+import { getProfessionalStations } from "@/lib/journeys/professional-stations";
+import { getTopicLectures } from "@/lib/journeys/topic-lectures";
 import AnnouncementBar from "@/sections/AnnouncementBar";
 import Navbar from "@/sections/Navbar";
 
 export const dynamic = "force-dynamic";
 
-const KINDS: Record<string, LectureKind> = { "one-day": "workshop", free: "free" };
+type PageProps = {
+  params: Promise<{ kind: string }>;
+  searchParams: Promise<{ path?: string }>;
+};
 
-type PageProps = { params: Promise<{ kind: string }> };
-
-export default async function JourneysByTopicPage({ params }: PageProps) {
-  const { kind: slug } = await params;
-  const kind = KINDS[slug];
-  if (!kind) notFound();
+export default async function LearningModePage({ params, searchParams }: PageProps) {
+  const { kind } = await params;
+  const { path } = await searchParams;
+  if (!["professional", "one-day", "free"].includes(kind)) notFound();
   // نسخة تجريبية: للإدارة فقط حتى تعتمدها منى.
   if (JOURNEYS_PAGES_PREVIEW && !(await isPreviewViewer())) notFound();
 
-  const paths = await getTopicLectures(kind);
+  const initialPathSlug = path ?? null;
 
   return (
     <>
       <AnnouncementBar />
       <Navbar />
-      <TopicLecturesView kind={kind} paths={paths} />
+      {kind === "professional" ? (
+        <JourneysRoadView kind="professional" paths={await getProfessionalStations()} initialPathSlug={initialPathSlug} />
+      ) : (
+        <JourneysRoadView
+          kind={kind === "free" ? "free" : "workshop"}
+          paths={await getTopicLectures(kind === "free" ? "free" : "workshop")}
+          initialPathSlug={initialPathSlug}
+        />
+      )}
     </>
   );
 }

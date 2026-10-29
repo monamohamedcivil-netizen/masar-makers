@@ -177,3 +177,10 @@
 /* Partner road animation */
 
 
+
+/* الصفحة الرئيسية + مركز الرحلات: شريط التنقل يختفي فوق الشاشة الأولى ويظهر عند مركز الرحلات. */
+body[data-landing-hero="1"] [data-masar-navbar] {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-100%);
+}

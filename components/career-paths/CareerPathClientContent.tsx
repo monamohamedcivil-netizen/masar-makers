@@ -11,6 +11,7 @@ import {
 
 import PathSwitcher from "@/components/career-paths/PathSwitcher";
 import PathRoadmap from "@/components/career-paths/PathRoadmap";
+import LearningModes from "@/sections/LearningModes";
 import type { Course } from "@/data/types";
 
 type Locale = "ar" | "en";
@@ -247,6 +248,9 @@ export default function CareerPathClientContent({
       >
         <PathRoadmap courses={roadmapCourses} locale={locale} />
       </section>
+
+      {/* طرق التعلم: كل كارت يفتح صفحته على تبويب نفس المسار. */}
+      <LearningModes pathSlug={activeSlug} onlyWhenPagesEnabled />
     </div>
   );
 }
