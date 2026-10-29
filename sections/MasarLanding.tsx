@@ -1153,7 +1153,7 @@ export default function MasarLanding({ v2 = false }: { v2?: boolean } = {}) {
               href={
                 v2
                   ? mode.key === "professional"
-                    ? "/career-path/road-design"
+                    ? "/journeys/professional"
                     : mode.key === "one-day"
                       ? "/journeys/one-day"
                       : "/journeys/free"

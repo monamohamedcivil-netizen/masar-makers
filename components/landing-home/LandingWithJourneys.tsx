@@ -26,6 +26,25 @@ export default function LandingWithJourneys() {
     return () => window.clearTimeout(idle);
   }, []);
 
+  // شريط تنقل مركز الرحلات يختفي طول ما الشاشة الأولى ظاهرة (عشان ما يغطيش أزرارها).
+  useEffect(() => {
+    const center = centerRef.current;
+    if (!center) return;
+    const update = () => {
+      const top = center.getBoundingClientRect().top;
+      if (top > 60) document.body.dataset.landingHero = "1";
+      else delete document.body.dataset.landingHero;
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      delete document.body.dataset.landingHero;
+    };
+  }, []);
+
   const inSnapZone = useCallback(() => {
     const hero = heroRef.current;
     const center = centerRef.current;

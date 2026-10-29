@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 
 import LearningModeCard from "@/components/LearningModeCard";
+import { learningModeHref, type LearningModeKey } from "@/lib/journeys/flags";
+import { useJourneysPagesEnabled } from "@/lib/journeys/use-journeys-pages";
+import { useRouter } from "next/navigation";
 import JourneyExplorerModal, {
   type JourneyExplorerType,
 } from "@/components/journeys/JourneyExplorerModal";
@@ -50,7 +53,18 @@ const labels = {
   },
 } as const;
 
-export default function LearningModes() {
+const MODE_OF: Record<string, LearningModeKey> = { one_day: "one-day", integrated: "professional", free: "free" };
+
+/**
+ * pathSlug: opens the journeys page on that path's tab (career path pages).
+ * onlyWhenPagesEnabled: hide the cards until the journeys pages are open (preview = admins).
+ */
+export default function LearningModes({
+  pathSlug,
+  onlyWhenPagesEnabled = false,
+}: { pathSlug?: string | null; onlyWhenPagesEnabled?: boolean } = {}) {
+  const router = useRouter();
+  const pagesEnabled = useJourneysPagesEnabled();
   const [locale, setLocale] = useState<Locale>("ar");
   const [selectedType, setSelectedType] =
     useState<JourneyExplorerType | null>(null);
@@ -131,6 +145,8 @@ export default function LearningModes() {
     [text],
   );
 
+  if (onlyWhenPagesEnabled && !pagesEnabled) return null;
+
   return (
     <>
       <section
@@ -158,7 +174,9 @@ export default function LearningModes() {
                 locale={locale}
                 featured={journey.featured}
                 onClick={() =>
-                  setSelectedType(journey.type)
+                  pagesEnabled
+                    ? router.push(learningModeHref(MODE_OF[journey.type], pathSlug))
+                    : setSelectedType(journey.type)
                 }
               />
               </div>
