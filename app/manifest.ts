@@ -1,12 +1,11 @@
 import type { MetadataRoute } from "next";
 
-// Lets admins "Add to Home Screen" so WhatsApp-inbox notifications work on phones (required on iPhone).
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Masar Makers",
     short_name: "Masar Makers",
     description: "منصة صناع المسار",
-    start_url: "/admin/whatsapp-inbox",
+    start_url: "/",
     scope: "/",
     display: "standalone",
     dir: "rtl",
@@ -14,8 +13,12 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#07152E",
     theme_color: "#07152E",
     icons: [
-      { src: "/images/branding/masar-makers-video-logo.png", sizes: "900x900", type: "image/png" },
-      { src: "/images/branding/masar-makers-email-logo.png", sizes: "200x200", type: "image/png" },
+      // "any": الشعار الدائري يملأ الأيقونة تقريبًا كلها
+      { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      // "maskable": خلفية كحلية للحافة وشعار داخل المنطقة الآمنة — يملأ مربع/دائرة أيقونة أندرويد
+      { src: "/icons/icon-maskable-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
+      { src: "/icons/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }

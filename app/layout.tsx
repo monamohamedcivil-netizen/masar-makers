@@ -28,6 +28,10 @@ export const metadata: Metadata = {
   title: "Masar Makers",
   description:
     "Masar Makers is a professional learning platform for transportation engineering, BIM, and infrastructure. Build your career through real projects and expert-led learning journeys.",
+  // أيقونة الشاشة الرئيسية على iPhone (أندرويد بياخدها من manifest)
+  icons: {
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({
