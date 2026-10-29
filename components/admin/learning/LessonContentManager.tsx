@@ -45,6 +45,7 @@ import {
 import {
   getAdminBunnyEmbedUrl,
 } from "@/lib/actions/admin/bunny-videos";
+import LessonTopicsField from "@/components/admin/learning/LessonTopicsField";
 
 type Row = Record<string, any>;
 type CoursePart = "single" | "fundamentals" | "advanced";
@@ -2221,6 +2222,11 @@ function LessonDialog({
               يمكن اختيار أكثر من نوع رحلة لنفس المحاضرة، ويظل الفيديو واحدًا فقط (Bunny أو YouTube).
             </p>
           </div>
+
+          <LessonTopicsField
+            lessonId={editing.id || null}
+            careerPathId={editing.career_path_id || null}
+          />
 
           <Field
             label="اسم الدرس"
