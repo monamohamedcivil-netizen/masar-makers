@@ -3,10 +3,20 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useRef, useState, useTransition } from "react";
-import { ArrowDown, ArrowUp, ExternalLink, ImageUp, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Eye, EyeOff, ExternalLink, ImageUp, Plus, Save, Trash2 } from "lucide-react";
 
 import { saveLandingPage, uploadLandingAsset } from "@/lib/actions/landing-pages";
-import { FIELD_LABELS, isImageField, type LandingContent, type LandingPageRow } from "@/lib/landing/types";
+import {
+  BUILTIN_SECTIONS,
+  FIELD_LABELS,
+  SECTION_LABELS,
+  isImageField,
+  makeSection,
+  type LandingContent,
+  type LandingPageRow,
+  type LandingSection,
+  type LandingSectionType,
+} from "@/lib/landing/types";
 import { compressImageForUpload } from "@/lib/utils/compress-image";
 
 /* =========================================================
@@ -276,6 +286,123 @@ function Field({
   );
 }
 
+/* ترتيب الأقسام: إظهار/إخفاء، تحريك لأعلى ولأسفل، حذف، وإضافة قسم. */
+function SectionsManager({
+  layout,
+  onChange,
+  pageId,
+}: {
+  layout: LandingSection[];
+  onChange: (next: LandingSection[]) => void;
+  pageId: string;
+}) {
+  const [adding, setAdding] = useState<string>("custom");
+  const missing = BUILTIN_SECTIONS.filter((type) => !layout.some((section) => section.type === type));
+
+  function move(from: number, to: number) {
+    if (to < 0 || to >= layout.length) return;
+    const next = [...layout];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    onChange(next);
+  }
+
+  function update(index: number, patch: Partial<LandingSection>) {
+    onChange(layout.map((section, i) => (i === index ? { ...section, ...patch } : section)));
+  }
+
+  function remove(index: number) {
+    const section = layout[index];
+    const label = section.type === "custom" ? section.title || SECTION_LABELS.custom : SECTION_LABELS[section.type];
+    if (!window.confirm(`حذف قسم «${label}» من الصفحة؟ (الأقسام الأساسية تقدري ترجعيها من «إضافة قسم»)`)) return;
+    onChange(layout.filter((_, i) => i !== index));
+  }
+
+  function add() {
+    const type = adding as LandingSectionType;
+    onChange([...layout, makeSection(type)]);
+    setAdding("custom");
+  }
+
+  return (
+    <div className="rounded-2xl border border-[#F7B548] bg-white p-4">
+      <h2 className="text-base font-black text-[#07152E]">ترتيب أقسام الصفحة</h2>
+      <p className="mb-3 text-sm text-slate-500">
+        البداية (العنوان والفيديو) ثابتة فوق. تحت منها الأقسام بالترتيب ده: 👁 إظهار/إخفاء، ⬆⬇ تحريك، 🗑 حذف. واضغطي «حفظ» تحت بعد التعديل.
+      </p>
+      <ol className="space-y-2">
+        {layout.map((section, index) => (
+          <li key={section.id} className={`rounded-xl border p-3 ${section.visible ? "border-slate-200" : "border-dashed border-slate-300 bg-slate-50"}`}>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-6 text-center font-mono text-xs text-slate-400">{index + 1}</span>
+              <span className={`flex-1 font-bold ${section.visible ? "text-[#07152E]" : "text-slate-400 line-through"}`}>
+                {section.type === "custom" ? `${SECTION_LABELS.custom}: ${section.title || "بدون عنوان"}` : SECTION_LABELS[section.type]}
+              </span>
+              <button
+                type="button"
+                onClick={() => update(index, { visible: !section.visible })}
+                className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-bold ${section.visible ? "border-emerald-200 text-emerald-700" : "border-slate-300 text-slate-500"}`}
+              >
+                {section.visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                {section.visible ? "ظاهر" : "مخفي"}
+              </button>
+              <button type="button" onClick={() => move(index, index - 1)} className="rounded border border-slate-200 p-1.5" aria-label="لأعلى">
+                <ArrowUp className="h-3.5 w-3.5" />
+              </button>
+              <button type="button" onClick={() => move(index, index + 1)} className="rounded border border-slate-200 p-1.5" aria-label="لأسفل">
+                <ArrowDown className="h-3.5 w-3.5" />
+              </button>
+              <button type="button" onClick={() => remove(index)} className="rounded border border-red-200 p-1.5 text-red-600" aria-label="حذف">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            {section.type === "custom" ? (
+              <div className="mt-3 grid gap-3 border-t border-slate-100 pt-3">
+                <Field
+                  name="eyebrow"
+                  value={section.eyebrow}
+                  path={[]}
+                  onChange={(_, value) => update(index, { eyebrow: String(value) })}
+                  pageId={pageId}
+                  depth={2}
+                />
+                <Field name="title" value={section.title} path={[]} onChange={(_, value) => update(index, { title: String(value) })} pageId={pageId} depth={2} />
+                <Field name="text" value={section.text} path={[]} onChange={(_, value) => update(index, { text: String(value) })} pageId={pageId} depth={2} />
+                <Field name="image" value={section.image} path={[]} onChange={(_, value) => update(index, { image: String(value) })} pageId={pageId} depth={2} />
+                <Field
+                  name="bullets"
+                  value={section.bullets}
+                  path={[]}
+                  onChange={(path, value) => update(index, { bullets: (setIn(section.bullets as unknown as Json, path, value) as unknown as string[]) ?? [] })}
+                  pageId={pageId}
+                  depth={2}
+                />
+              </div>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <select value={adding} onChange={(event) => setAdding(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm">
+          <option value="custom">قسم إضافي جديد (عنوان + نص + صورة + نقاط)</option>
+          {missing.map((type) => (
+            <option key={type} value={type}>
+              رجّعي: {SECTION_LABELS[type]}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={add}
+          className="inline-flex items-center gap-1 rounded-xl bg-[#07152E] px-4 py-2 text-sm font-bold text-white"
+        >
+          <Plus className="h-4 w-4" /> إضافة قسم
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function LandingPageEditor({ page }: { page: LandingPageRow }) {
   const [content, setContent] = useState<Json>(page.content as unknown as Json);
   const [title, setTitle] = useState(page.title);
@@ -314,7 +441,12 @@ export default function LandingPageEditor({ page }: { page: LandingPageRow }) {
     });
   }
 
-  const sections = Object.entries(content as Record<string, Json>);
+  const sections = Object.entries(content as Record<string, Json>).filter(([key]) => key !== "sections");
+  const layout = ((content as Record<string, Json>).sections ?? []) as unknown as LandingSection[];
+
+  function setLayout(next: LandingSection[]) {
+    change(["sections"], next as unknown as Json);
+  }
 
   return (
     <div className="space-y-4 pb-24">
@@ -342,6 +474,8 @@ export default function LandingPageEditor({ page }: { page: LandingPageRow }) {
           </span>
         </div>
       </div>
+
+      <SectionsManager layout={layout} onChange={setLayout} pageId={page.id} />
 
       <div className="space-y-3">
         {sections.map(([key, value]) => (

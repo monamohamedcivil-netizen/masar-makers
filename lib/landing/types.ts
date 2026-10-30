@@ -18,7 +18,74 @@ export type LandingFaq = { q: string; a: string };
 export type LandingStation = { title: string; sub: string; icon: string; current: boolean };
 export type LandingCountry = { name: string; code: string };
 
+/* ترتيب الأقسام وإظهارها/إخفاؤها. البداية (hero) ثابتة فوق. */
+export type LandingSectionType =
+  | "facts"
+  | "who"
+  | "journey"
+  | "levels"
+  | "help"
+  | "outputs"
+  | "offer"
+  | "booking"
+  | "faq"
+  | "path"
+  | "custom";
+
+export type LandingSection = {
+  id: string;
+  type: LandingSectionType;
+  visible: boolean;
+  /* الحقول دي للقسم الإضافي (custom) بس */
+  eyebrow: string;
+  title: string;
+  text: string;
+  image: string;
+  bullets: string[];
+};
+
+export const SECTION_LABELS: Record<LandingSectionType, string> = {
+  facts: "المربعات تحت الفيديو",
+  who: "الرحلة مناسبة لمين",
+  journey: "محطات الرحلة (بالصور)",
+  levels: "محاور المستويات",
+  help: "مش متأكد تبدأ منين؟",
+  outputs: "المخرجات والهدايا",
+  offer: "الحجز المبكر والمستويات",
+  booking: "نموذج الحجز",
+  faq: "الأسئلة المتكررة",
+  path: "مسار المنصة (آخر الصفحة)",
+  custom: "قسم إضافي",
+};
+
+export const BUILTIN_SECTIONS: Exclude<LandingSectionType, "custom">[] = [
+  "facts",
+  "who",
+  "journey",
+  "levels",
+  "help",
+  "outputs",
+  "offer",
+  "booking",
+  "faq",
+  "path",
+];
+
+export function makeSection(type: LandingSectionType, visible = true): LandingSection {
+  return {
+    id: type === "custom" ? `custom-${Math.random().toString(36).slice(2, 8)}` : type,
+    type,
+    visible,
+    eyebrow: "",
+    title: type === "custom" ? "عنوان القسم" : "",
+    text: "",
+    image: "",
+    bullets: [],
+  };
+}
+
 export type LandingContent = {
+  sections: LandingSection[];
   seo: { title: string; description: string };
   hero: {
     badge: string;
@@ -107,6 +174,7 @@ const IMG = "/images/landing/civil3d";
 
 /* نموذج Civil 3D (أول صفحة هبوط، اعتمدتها منى في 28 أكتوبر 2026). */
 export const CIVIL3D_TEMPLATE: LandingContent = {
+  sections: BUILTIN_SECTIONS.map((type) => makeSection(type)),
   seo: {
     title: "رحلة Civil 3D | صنّاع المسار",
     description:
@@ -297,8 +365,8 @@ export const CIVIL3D_TEMPLATE: LandingContent = {
       { name: "دولة أخرى", code: "" },
     ],
     messageIntro: "السلام عليكم، عايز أحجز مكاني في رحلة Civil 3D بخصم الحجز المبكر.",
-    button: "إرسال بياناتي على واتساب",
-    note: "هيفتح واتساب برسالة فيها بياناتك على رقمنا. اضغط إرسال بس.",
+    button: "تواصل معنا على واتساب",
+    note: "البيانات اختيارية: لو كتبتها هتتبعت في الرسالة، ولو لأ تقدر تكلمنا علطول على رقمنا.",
   },
   faq: {
     eyebrow: "أسئلة متكررة",
@@ -330,7 +398,13 @@ export const CIVIL3D_TEMPLATE: LandingContent = {
 
 /** يملأ أي حقول ناقصة في محتوى قديم من النموذج حتى لا تنكسر الصفحة. */
 export function withDefaults(content: unknown): LandingContent {
-  return deepMerge(CIVIL3D_TEMPLATE, content) as LandingContent;
+  const merged = deepMerge(CIVIL3D_TEMPLATE, content) as LandingContent;
+  const valid = new Set<string>([...BUILTIN_SECTIONS, "custom"]);
+  merged.sections = (Array.isArray(merged.sections) ? merged.sections : [])
+    .filter((section) => section && valid.has(String(section.type)))
+    .map((section) => ({ ...makeSection(section.type), ...section, bullets: Array.isArray(section.bullets) ? section.bullets : [] }));
+  if (!merged.sections.length) merged.sections = BUILTIN_SECTIONS.map((type) => makeSection(type));
+  return merged;
 }
 
 function deepMerge(base: unknown, value: unknown): unknown {
@@ -349,6 +423,7 @@ function deepMerge(base: unknown, value: unknown): unknown {
 
 /* أسماء الحقول بالعربي في محرر لوحة التحكم. */
 export const FIELD_LABELS: Record<string, string> = {
+  sections: "ترتيب الأقسام",
   seo: "عنوان الصفحة في جوجل والمشاركة",
   hero: "البداية (أعلى الصفحة)",
   facts: "المربعات تحت الفيديو",

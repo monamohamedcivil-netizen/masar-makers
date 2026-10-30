@@ -340,3 +340,34 @@ html:has(.mm-lp){scroll-behavior:smooth}
   .mm-lp .brand b{font-size:.92rem}
   .mm-lp .top-actions .btn{padding:6px 9px;font-size:.76rem}
 }
+
+/* ===== 30/10: أقسام مرتبة من لوحة التحكم + محاور المستويين جنب بعض على الموبايل ===== */
+.mm-lp .hero{padding-bottom:24px}
+.mm-lp .facts-band{padding-block:8px 24px}
+.mm-lp .facts-band .facts{margin-top:0}
+/* المحاور: الإنجليزي تحت العربي، والمستويين جنب بعض في كل المقاسات */
+.mm-lp .levels{grid-template-columns:1fr 1fr}
+.mm-lp .topics li{grid-template-columns:30px 1fr;row-gap:0}
+.mm-lp .topics li .en{grid-column:2;text-align:right;direction:ltr;justify-self:end;font-size:.72rem;line-height:1.4}
+@media (max-width:900px){.mm-lp .levels{grid-template-columns:1fr 1fr}}
+@media (max-width:620px){
+  .mm-lp .levels{gap:10px}
+  .mm-lp .level{padding:14px 12px;gap:10px}
+  .mm-lp .level header{flex-direction:column;align-items:flex-start;gap:4px}
+  .mm-lp .level h3{font-size:1rem}
+  .mm-lp .level .badge{font-size:.62rem;padding:2px 7px}
+  .mm-lp .level .out{font-size:.8rem;padding:9px 10px;line-height:1.6}
+  .mm-lp .topics li{grid-template-columns:20px 1fr;gap:6px;padding:7px 0;font-size:.82rem;line-height:1.5}
+  .mm-lp .topics li::before{font-size:.62rem}
+  .mm-lp .topics li .en{font-size:.62rem}
+}
+/* قسم إضافي (custom) */
+.mm-lp .custom{display:grid;gap:24px;align-items:center}
+.mm-lp .custom.with-img{grid-template-columns:1.1fr .9fr}
+.mm-lp .custom>img{width:100%;border-radius:var(--r);box-shadow:0 22px 44px -30px rgba(11,29,61,.55)}
+.mm-lp .custom .sec-head{margin-bottom:0}
+.mm-lp .custom .sec-head h2{white-space:normal}
+.mm-lp .custom-list{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:8px;color:var(--page-muted)}
+.mm-lp .custom-list li{display:grid;grid-template-columns:18px 1fr;gap:8px}
+.mm-lp .custom-list li::before{content:"";width:12px;height:12px;margin-top:8px;border-radius:3px;background:var(--gold)}
+@media (max-width:900px){.mm-lp .custom.with-img{grid-template-columns:1fr}}

@@ -43,7 +43,8 @@ export async function recordLandingLead(input: {
     const slug = cut(input.slug, 61).toLowerCase();
     const name = cut(input.name, 120);
     const phone = cut(input.phone, 40);
-    if (!/^[a-z0-9][a-z0-9-]{1,60}$/.test(slug) || name.length < 2 || phone.replace(/[^0-9]/g, "").length < 8) {
+    // الزائر ممكن يتواصل من غير ما يكتب بياناته، فنسجل الضغطة في كل الأحوال.
+    if (!/^[a-z0-9][a-z0-9-]{1,60}$/.test(slug)) {
       return { ok: false };
     }
 
@@ -56,14 +57,16 @@ export async function recordLandingLead(input: {
     if (!page) return { ok: false };
 
     // نفس الرقم على نفس الصفحة خلال 10 دقائق = ضغطة مكررة.
-    const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    const { count } = await supabase
-      .from("ad_landing_leads")
-      .select("id", { count: "exact", head: true })
-      .eq("page_id", page.id)
-      .eq("phone", phone)
-      .gte("created_at", since);
-    if ((count ?? 0) > 0) return { ok: true };
+    if (phone.replace(/[^0-9]/g, "").length >= 8) {
+      const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const { count } = await supabase
+        .from("ad_landing_leads")
+        .select("id", { count: "exact", head: true })
+        .eq("page_id", page.id)
+        .eq("phone", phone)
+        .gte("created_at", since);
+      if ((count ?? 0) > 0) return { ok: true };
+    }
 
     const { error } = await supabase.from("ad_landing_leads").insert({
       page_id: page.id,
