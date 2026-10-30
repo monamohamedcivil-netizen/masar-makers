@@ -15,7 +15,7 @@ export default function LandingLeadsTable({ leads }: { leads: LandingLeadRow[] }
       </summary>
       {leads.length === 0 ? (
         <p className="mt-3 text-sm text-slate-500">
-          لسه مفيش حجوزات. كل زائر يضغط «إرسال بياناتي على واتساب» هيظهر هنا بالاسم والرقم ونوع الرحلة ومصدر الإعلان.
+          لسه مفيش حجوزات. كل ضغطة على زر واتساب في الصفحة بتظهر هنا، بالبيانات اللي الزائر كتبها (لو كتب) ومصدر الإعلان.
         </p>
       ) : (
         <div className="mt-3 overflow-x-auto">
@@ -37,7 +37,7 @@ export default function LandingLeadsTable({ leads }: { leads: LandingLeadRow[] }
                   <td className="px-3 py-2 text-slate-500">
                     {new Date(lead.created_at).toLocaleString("ar-EG", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Riyadh" })}
                   </td>
-                  <td className="px-3 py-2 font-semibold text-[#07152E]">{lead.name}</td>
+                  <td className="px-3 py-2 font-semibold text-[#07152E]">{lead.name || <span className="font-normal text-slate-400">بدون بيانات</span>}</td>
                   <td className="px-3 py-2 font-mono text-xs" dir="ltr">
                     {waLink(lead.phone) ? (
                       <a href={waLink(lead.phone)} target="_blank" rel="noopener" className="text-emerald-700 underline">

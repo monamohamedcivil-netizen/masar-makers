@@ -6,7 +6,7 @@ import Script from "next/script";
 import { useEffect, useMemo, useState } from "react";
 
 import { recordLandingLead } from "@/lib/actions/landing-leads";
-import type { LandingContent, LandingGift } from "@/lib/landing/types";
+import type { LandingContent, LandingGift, LandingSection, LandingSectionType } from "@/lib/landing/types";
 
 type Props = {
   content: LandingContent;
@@ -77,7 +77,6 @@ export default function LandingView({ content: c, whatsappNumber, pixelId, isDra
   const [code, setCode] = useState(countries[0].code);
   const [country, setCountry] = useState(countries[0].name);
   const [plan, setPlan] = useState(c.booking.planOptions[0] ?? "");
-  const [error, setError] = useState("");
   const [source, setSource] = useState("");
   const [utm, setUtm] = useState({ source: "", medium: "", campaign: "", content: "" });
   const [playing, setPlaying] = useState(false);
@@ -94,47 +93,46 @@ export default function LandingView({ content: c, whatsappNumber, pixelId, isDra
     });
   }, []);
 
+  // الرسالة فيها البيانات اللي اتكتبت بس (الزائر يقدر يبعت من غير ما يملا حاجة).
   const message = useMemo(() => {
-    const lines = [
-      c.booking.messageIntro,
-      `الاسم: ${name.trim()}`,
-      `الإيميل: ${email.trim()}`,
-      `الواتساب: ${code} ${digits(phone)}`.trim(),
-      `الدولة: ${country}`,
-      `نوع الرحلة: ${plan}`,
-    ];
+    const lines = [c.booking.messageIntro];
+    if (name.trim()) lines.push(`الاسم: ${name.trim()}`);
+    if (email.trim()) lines.push(`الإيميل: ${email.trim()}`);
+    if (digits(phone)) lines.push(`الواتساب: ${code} ${digits(phone)}`.trim());
+    if (name.trim() || digits(phone)) lines.push(`الدولة: ${country}`);
+    if (plan) lines.push(`نوع الرحلة: ${plan}`);
     if (source) lines.push(`المصدر: ${source}`);
     return lines.join("\n");
   }, [c.booking.messageIntro, name, email, code, phone, country, plan, source]);
 
-  const waHref = `https://wa.me/${digits(whatsappNumber)}?text=${encodeURIComponent(message)}`;
+  const quickMessage = useMemo(() => {
+    const lines = [c.booking.messageIntro];
+    if (source) lines.push(`المصدر: ${source}`);
+    return lines.join("\n");
+  }, [c.booking.messageIntro, source]);
 
-  function onSend(event: React.MouseEvent<HTMLAnchorElement>) {
-    let problem = "";
-    if (name.trim().length < 2) problem = "اكتب اسمك عشان نعرف نكلمك.";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) problem = "الإيميل مش مكتوب صح. مثال: name@email.com";
-    else if (digits(phone).length < 8) problem = "رقم الواتساب ناقص. اكتبه من غير كود الدولة.";
-    setError(problem);
-    if (problem) {
-      event.preventDefault();
-      return;
-    }
-    // تسجيل الحجز في المنصة (بدون انتظار، واتساب يفتح في تبويب جديد).
+  const waBase = `https://wa.me/${digits(whatsappNumber)}?text=`;
+  const waHref = waBase + encodeURIComponent(message);
+  const waQuickHref = waBase + encodeURIComponent(quickMessage);
+
+  // كل ضغطة واتساب تتسجل في المنصة + حدث للبكسل (بدون انتظار، واتساب يفتح في تبويب جديد).
+  function track(kind: "form" | "header") {
+    const filled = kind === "form";
     void recordLandingLead({
       slug,
-      name: name.trim(),
-      email: email.trim(),
-      phone: `${code} ${digits(phone)}`.trim(),
-      country,
-      plan,
+      name: filled ? name.trim() : "",
+      email: filled ? email.trim() : "",
+      phone: filled && digits(phone) ? `${code} ${digits(phone)}` : "",
+      country: filled && (name.trim() || digits(phone)) ? country : "",
+      plan: filled ? plan : "زر «احجز مكانك» أعلى الصفحة",
       utmSource: utm.source,
       utmMedium: utm.medium,
       utmCampaign: utm.campaign,
       utmContent: utm.content,
     }).catch(() => undefined);
     try {
-      window.fbq?.("track", "Lead", { content_name: slug, content_category: plan });
       window.fbq?.("track", "Contact", { content_name: slug });
+      if (filled && digits(phone)) window.fbq?.("track", "Lead", { content_name: slug, content_category: plan });
     } catch {
       /* Pixel اختياري */
     }
@@ -148,111 +146,23 @@ export default function LandingView({ content: c, whatsappNumber, pixelId, isDra
 
   const plans = [...c.offer.plans].sort((a, b) => Number(b.featured) - Number(a.featured));
 
-  return (
-    <div className="mm-lp" dir="rtl" lang="ar">
-      {pixelId ? (
-        <Script id="mm-lp-pixel" strategy="afterInteractive">
-          {`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${digits(pixelId)}');fbq('track','PageView');fbq('track','ViewContent',{content_name:'${slug}'});`}
-        </Script>
-      ) : null}
-
-      {isDraft ? <div className="ribbon">مسودة — تظهر لك كأدمن فقط. انشريها من لوحة التحكم.</div> : null}
-
-      <header className="top">
+  const blocks: Record<LandingSectionType, (section: LandingSection) => React.ReactNode> = {
+    facts: () => (
+      <section className="facts-band" key="facts">
         <div className="wrap">
-          <a className="brand" href="#top" aria-label="صنّاع المسار">
-            <img src="/images/branding/masar-makers-email-logo.png" alt="" width={44} height={44} />
-            <span>
-              <b>صنّاع المسار</b>
-              <small>masarmakers.com</small>
-            </span>
-          </a>
-          <nav className="top-actions">
-            <a className="btn btn-ghost btn-sm" href="/">
-              استكشف المنصة
-            </a>
-            <a className="btn btn-gold btn-sm" href="#book">
-              احجز مكانك
-            </a>
-          </nav>
-        </div>
-      </header>
-
-      <main id="top">
-        <section className="hero">
-          <div className="wrap">
-            <div className="hero-grid">
-              <div>
-                <span className="status">
-                  <i />
-                  {c.hero.badge}
-                </span>
-                <h1>
-                  {c.hero.titleBefore} <em>{c.hero.titleHighlight}</em> {c.hero.titleAfter}
-                </h1>
-                <p className="lead">{c.hero.lead}</p>
-                {c.hero.startDate ? (
-                  <div className="start">
-                    <b>{c.hero.startLabel}</b>
-                    <span className="when">{c.hero.startDate}</span>
-                    <span>{c.hero.startNote}</span>
-                  </div>
-                ) : null}
-                <div className="hero-cta">
-                  <a className="btn btn-gold" href="#book">
-                    {c.hero.ctaBook}
-                    {c.hero.ctaBookChip ? <span className="pct-chip">{c.hero.ctaBookChip}</span> : null}
-                  </a>
-                  <a className="btn btn-ghost" href="#levels">
-                    {c.hero.ctaTopics}
-                  </a>
-                </div>
-                {c.hero.note ? <p className="hero-note">{c.hero.note}</p> : null}
+          <div className="facts" role="list">
+            {c.facts.map((fact, index) => (
+              <div className="fact" role="listitem" key={index}>
+                <b>{fact.value}</b>
+                <span>{fact.label}</span>
               </div>
-              <figure className="screen">
-                {playing && c.hero.youtubeId ? (
-                  <iframe
-                    src={`https://www.youtube-nocookie.com/embed/${encodeURIComponent(c.hero.youtubeId)}?autoplay=1&rel=0`}
-                    title={c.seo.title}
-                    allow="autoplay; encrypted-media; picture-in-picture"
-                    allowFullScreen
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    className="poster"
-                    onClick={() => setPlaying(Boolean(c.hero.youtubeId))}
-                    aria-label="تشغيل الفيديو"
-                  >
-                    <img src={c.hero.image} alt="" />
-                    {c.hero.youtubeId ? (
-                      <span className="play">
-                        <span />
-                      </span>
-                    ) : null}
-                  </button>
-                )}
-                {!playing ? (
-                  <figcaption>
-                    <span>{c.hero.caption}</span>
-                    <span>MASAR MAKERS</span>
-                  </figcaption>
-                ) : null}
-              </figure>
-            </div>
-
-            <div className="facts" role="list">
-              {c.facts.map((fact, index) => (
-                <div className="fact" role="listitem" key={index}>
-                  <b>{fact.value}</b>
-                  <span>{fact.label}</span>
-                </div>
-              ))}
-            </div>
+            ))}
           </div>
-        </section>
-
-        <section>
+        </div>
+      </section>
+    ),
+    who: () => (
+        <section key="who">
           <div className="wrap">
             <div className="sec-head">
               <span className="eyebrow-ar">{c.who.eyebrow}</span>
@@ -269,8 +179,9 @@ export default function LandingView({ content: c, whatsappNumber, pixelId, isDra
             </div>
           </div>
         </section>
-
-        <section id="journey">
+    ),
+    journey: () => (
+        <section key="journey" id="journey">
           <div className="wrap">
             <div className="sec-head">
               <span className="eyebrow">{c.journey.eyebrow}</span>
@@ -294,8 +205,9 @@ export default function LandingView({ content: c, whatsappNumber, pixelId, isDra
             </div>
           </div>
         </section>
-
-        <section id="levels">
+    ),
+    levels: () => (
+        <section key="levels" id="levels">
           <div className="wrap">
             <div className="sec-head">
               <span className="eyebrow-ar">{c.levels.eyebrow}</span>
@@ -325,8 +237,9 @@ export default function LandingView({ content: c, whatsappNumber, pixelId, isDra
             </div>
           </div>
         </section>
-
-        <section id="help">
+    ),
+    help: () => (
+        <section key="help" id="help">
           <div className="wrap">
             <div className="sec-head">
               <span className="eyebrow-ar">{c.help.eyebrow}</span>
@@ -373,8 +286,9 @@ export default function LandingView({ content: c, whatsappNumber, pixelId, isDra
             </div>
           </div>
         </section>
-
-        <section>
+    ),
+    outputs: () => (
+        <section key="outputs">
           <div className="wrap two">
             <div className="sheetbox">
               <span className="eyebrow">{c.outputs.eyebrow}</span>
@@ -411,8 +325,9 @@ export default function LandingView({ content: c, whatsappNumber, pixelId, isDra
             </div>
           </div>
         </section>
-
-        <section id="pricing">
+    ),
+    offer: () => (
+        <section key="offer" id="pricing">
           <div className="wrap">
             <div className="sec-head">
               <span className="eyebrow-ar">{c.offer.eyebrow}</span>
@@ -444,8 +359,9 @@ export default function LandingView({ content: c, whatsappNumber, pixelId, isDra
             </div>
           </div>
         </section>
-
-        <section id="book">
+    ),
+    booking: () => (
+        <section key="booking" id="book">
           <div className="wrap book">
             <div>
               <span className="eyebrow-ar">{c.booking.eyebrow}</span>
@@ -519,10 +435,7 @@ export default function LandingView({ content: c, whatsappNumber, pixelId, isDra
                   </select>
                 </label>
               </div>
-              <p className="err" role="alert">
-                {error}
-              </p>
-              <a className="btn wa" href={waHref} target="_blank" rel="noopener" onClick={onSend}>
+              <a className="btn wa" href={waHref} target="_blank" rel="noopener" onClick={() => track("form")}>
                 {WA_ICON}
                 {c.booking.button}
               </a>
@@ -532,8 +445,9 @@ export default function LandingView({ content: c, whatsappNumber, pixelId, isDra
             </form>
           </div>
         </section>
-
-        <section>
+    ),
+    faq: () => (
+        <section key="faq">
           <div className="wrap">
             <div className="sec-head">
               <span className="eyebrow-ar">{c.faq.eyebrow}</span>
@@ -549,8 +463,9 @@ export default function LandingView({ content: c, whatsappNumber, pixelId, isDra
             </div>
           </div>
         </section>
-
-        <section className="pathband">
+    ),
+    path: () => (
+        <section key="path" className="pathband">
           <img className="pathbg" src={c.path.image} alt="" />
           <div className="wrap inner">
             <span className="eyebrow-ar">{c.path.eyebrow}</span>
@@ -578,6 +493,127 @@ export default function LandingView({ content: c, whatsappNumber, pixelId, isDra
             </div>
           </div>
         </section>
+    ),
+    custom: (section) => (
+      <section className="custom-sec" key={section.id}>
+        <div className="wrap">
+          <div className={`custom${section.image ? " with-img" : ""}`}>
+            <div className="sec-head">
+              {section.eyebrow ? <span className="eyebrow-ar">{section.eyebrow}</span> : null}
+              {section.title ? <h2>{section.title}</h2> : null}
+              {section.text ? <p className="lead">{section.text}</p> : null}
+              {section.bullets.filter(Boolean).length ? (
+                <ul className="custom-list">
+                  {section.bullets.filter(Boolean).map((bullet, index) => (
+                    <li key={index}>{bullet}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+            {section.image ? <img src={section.image} alt="" loading="lazy" /> : null}
+          </div>
+        </div>
+      </section>
+    ),
+  };
+
+  return (
+    <div className="mm-lp" dir="rtl" lang="ar">
+      {pixelId ? (
+        <Script id="mm-lp-pixel" strategy="afterInteractive">
+          {`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${digits(pixelId)}');fbq('track','PageView');fbq('track','ViewContent',{content_name:'${slug}'});`}
+        </Script>
+      ) : null}
+
+      {isDraft ? <div className="ribbon">مسودة — تظهر لك كأدمن فقط. انشريها من لوحة التحكم.</div> : null}
+
+      <header className="top">
+        <div className="wrap">
+          <a className="brand" href="#top" aria-label="صنّاع المسار">
+            <img src="/images/branding/masar-makers-email-logo.png" alt="" width={44} height={44} />
+            <span>
+              <b>صنّاع المسار</b>
+              <small>masarmakers.com</small>
+            </span>
+          </a>
+          <nav className="top-actions">
+            <a className="btn btn-ghost btn-sm" href="/">
+              استكشف المنصة
+            </a>
+            <a className="btn btn-gold btn-sm" href={waQuickHref} target="_blank" rel="noopener" onClick={() => track("header")}>
+              احجز مكانك
+            </a>
+          </nav>
+        </div>
+      </header>
+
+      <main id="top">
+        <section className="hero">
+          <div className="wrap">
+            <div className="hero-grid">
+              <div>
+                <span className="status">
+                  <i />
+                  {c.hero.badge}
+                </span>
+                <h1>
+                  {c.hero.titleBefore} <em>{c.hero.titleHighlight}</em> {c.hero.titleAfter}
+                </h1>
+                <p className="lead">{c.hero.lead}</p>
+                {c.hero.startDate ? (
+                  <div className="start">
+                    <b>{c.hero.startLabel}</b>
+                    <span className="when">{c.hero.startDate}</span>
+                    <span>{c.hero.startNote}</span>
+                  </div>
+                ) : null}
+                <div className="hero-cta">
+                  <a className="btn btn-gold" href="#book">
+                    {c.hero.ctaBook}
+                    {c.hero.ctaBookChip ? <span className="pct-chip">{c.hero.ctaBookChip}</span> : null}
+                  </a>
+                  <a className="btn btn-ghost" href="#levels">
+                    {c.hero.ctaTopics}
+                  </a>
+                </div>
+                {c.hero.note ? <p className="hero-note">{c.hero.note}</p> : null}
+              </div>
+              <figure className="screen">
+                {playing && c.hero.youtubeId ? (
+                  <iframe
+                    src={`https://www.youtube-nocookie.com/embed/${encodeURIComponent(c.hero.youtubeId)}?autoplay=1&rel=0`}
+                    title={c.seo.title}
+                    allow="autoplay; encrypted-media; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="poster"
+                    onClick={() => setPlaying(Boolean(c.hero.youtubeId))}
+                    aria-label="تشغيل الفيديو"
+                  >
+                    <img src={c.hero.image} alt="" />
+                    {c.hero.youtubeId ? (
+                      <span className="play">
+                        <span />
+                      </span>
+                    ) : null}
+                  </button>
+                )}
+                {!playing ? (
+                  <figcaption>
+                    <span>{c.hero.caption}</span>
+                    <span>MASAR MAKERS</span>
+                  </figcaption>
+                ) : null}
+              </figure>
+            </div>
+
+          </div>
+        </section>
+
+        {c.sections.filter((section) => section.visible && blocks[section.type]).map((section) => blocks[section.type](section))}
       </main>
 
       <footer>
