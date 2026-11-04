@@ -41,14 +41,14 @@ const careerPaths = [
         slug: "civil-site-design",
       },
       {
-        ar: "Smart Project Deliverables",
-        en: "Smart Project Deliverables",
-        slug: "smart-project-deliverables",
-      },
-      {
         ar: "Vehicle Tracking",
         en: "Vehicle Tracking",
         slug: "vehicle-tracking",
+      },
+      {
+        ar: "Smart Project Deliverables",
+        en: "Smart Project Deliverables",
+        slug: "smart-project-deliverables",
       },
       {
         ar: "BIM for Roads",

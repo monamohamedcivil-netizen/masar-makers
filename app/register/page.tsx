@@ -15,7 +15,7 @@ import {
 
 import AuthShell from "@/components/auth/AuthShell";
 import { createClient } from "@/lib/supabase/client";
-import { countrySelectValue, typedCountry } from "@/lib/countries";
+import { countrySelectValue, jobSelectValue, typedCountry, typedJob } from "@/lib/countries";
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -164,6 +164,12 @@ export default function RegisterPage() {
 
     if (submittedCountry === "Other") {
       setError("يرجى كتابة اسم الدولة.");
+      setLoading(false);
+      return;
+    }
+
+    if (jobTitle.trim() === "Other") {
+      setError("يرجى كتابة مسماك الوظيفي.");
       setLoading(false);
       return;
     }
@@ -512,6 +518,7 @@ export default function RegisterPage() {
               <option value="Libya">ليبيا</option>
               <option value="Sudan">السودان</option>
               <option value="Syria">سوريا</option>
+              <option value="Lebanon">لبنان</option>
               <option value="Nigeria">نيجيريا</option>
               <option value="Other">دولة أخرى</option>
             </select>
@@ -554,7 +561,7 @@ export default function RegisterPage() {
           <select
             id="jobTitle"
             name="jobTitle"
-            value={jobTitle}
+            value={jobSelectValue(jobTitle)}
             onChange={(event) =>
               setJobTitle(event.target.value)
             }
@@ -574,6 +581,29 @@ export default function RegisterPage() {
             <option value="Trainer">مدرب</option>
             <option value="Other">أخرى</option>
           </select>
+
+          {jobSelectValue(jobTitle) === "Other" ? (
+            <input
+              id="jobTitleOther"
+              value={typedJob(jobTitle)}
+              onChange={(event) =>
+                setJobTitle(event.target.value || "Other")
+              }
+              placeholder="اكتب مسماك الوظيفي"
+              maxLength={60}
+              className="
+                mt-2 h-[46px] w-full
+                rounded-[16px]
+                border border-[#D8DEE7]
+                bg-[#F8FAFC]
+                px-4
+                text-[12px] font-medium
+                text-[#07152E] outline-none
+                transition focus:border-[#F7B548]
+                focus:bg-white
+              "
+            />
+          ) : null}
         </div>
 
         {/* Experience */}

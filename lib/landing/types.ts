@@ -387,8 +387,8 @@ export const CIVIL3D_TEMPLATE: LandingContent = {
     stations: [
       { title: "Civil 3D", sub: "تصميم الطرق باحتراف", icon: "/images/courses/icons/civil3d.png", current: true },
       { title: "Civil Site Design", sub: "تصميم شبكات الطرق بسرعة", icon: "/images/courses/icons/csd.png", current: false },
-      { title: "Smart Project Deliverables", sub: "لوحات مشروعات الطرق", icon: "/images/courses/icons/spd.png", current: false },
       { title: "Vehicle Tracking", sub: "حركة المركبات والدوران", icon: "/images/courses/icons/vehicle-tracking.png", current: false },
+      { title: "Smart Project Deliverables", sub: "لوحات مشروعات الطرق", icon: "/images/courses/icons/spd.png", current: false },
       { title: "BIM Roads", sub: "نموذج ثلاثي الأبعاد", icon: "/images/courses/icons/bim-roads.png", current: false },
     ],
     cta: "استكشف منصتنا التعليمية ومحطاتنا الاحترافية",
