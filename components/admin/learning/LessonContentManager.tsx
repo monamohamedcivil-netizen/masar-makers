@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import {
+  useEffect,
   useMemo,
   useState,
   useTransition,
@@ -389,6 +390,8 @@ if (!supabaseUrl) {
   return preparedData.path;
 }
 
+const LESSONS_UI_STATE_KEY = "masar-lessons-ui-state";
+
 export default function LessonContentManager({
   initialLessons,
   courses,
@@ -494,37 +497,19 @@ export default function LessonContentManager({
     title: string;
   } | null>(null);
 
+  // كل القوائم تبدأ مغلقة عند فتح/تحديث الصفحة؛ وبعد حفظ محاضرة نرجّع آخر وضع (انظر reloadKeepingState).
   const [
     openPaths,
     setOpenPaths,
   ] = useState<Set<string>>(
-    () =>
-      new Set(
-        careerPaths
-          .filter(
-            (path) =>
-              path.is_active !== false,
-          )
-          .map((path) => path.id),
-      ),
+    () => new Set(),
   );
 
   const [
     openStations,
     setOpenStations,
   ] = useState<Set<string>>(
-    () =>
-      new Set(
-        stations
-          .filter(
-            (station) =>
-              station.is_active !== false,
-          )
-          .map(
-            (station) =>
-              station.id,
-          ),
-      ),
+    () => new Set(),
   );
 
   const [
@@ -533,6 +518,62 @@ export default function LessonContentManager({
   ] = useState<Set<string>>(
     () => new Set(),
   );
+
+  // نحفظ الوضع الحالي (القوائم المفتوحة + مكان التمرير) ثم نحدّث الصفحة لتجلب البيانات الجديدة.
+  function reloadKeepingState() {
+    try {
+      window.sessionStorage.setItem(
+        LESSONS_UI_STATE_KEY,
+        JSON.stringify({
+          paths: [...openPaths],
+          stations: [...openStations],
+          sections: [...openSections],
+          scrollY: window.scrollY,
+        }),
+      );
+    } catch {
+      // التخزين غير متاح: نحدّث بدون حفظ الوضع.
+    }
+
+    window.location.reload();
+  }
+
+  // بعد التحديث الناتج عن «حفظ» فقط: نرجّع القوائم المفتوحة ومكان التمرير. التحديث اليدوي لا يجد شيئًا فتبقى مغلقة.
+  useEffect(() => {
+    try {
+      const raw =
+        window.sessionStorage.getItem(
+          LESSONS_UI_STATE_KEY,
+        );
+
+      if (!raw) return;
+
+      window.sessionStorage.removeItem(
+        LESSONS_UI_STATE_KEY,
+      );
+
+      const saved = JSON.parse(raw) as {
+        paths?: string[];
+        stations?: string[];
+        sections?: string[];
+        scrollY?: number;
+      };
+
+      setOpenPaths(new Set(saved.paths ?? []));
+      setOpenStations(new Set(saved.stations ?? []));
+      setOpenSections(new Set(saved.sections ?? []));
+
+      const scrollY = Number(saved.scrollY) || 0;
+
+      window.requestAnimationFrame(() =>
+        window.requestAnimationFrame(() =>
+          window.scrollTo(0, scrollY),
+        ),
+      );
+    } catch {
+      // تجاهل أي بيانات تالفة.
+    }
+  }, []);
 
   const [dragged, setDragged] =
     useState<string | null>(null);
@@ -1049,7 +1090,7 @@ export default function LessonContentManager({
         }
 
         setEditing(null);
-        window.location.reload();
+        reloadKeepingState();
       },
     );
   }
@@ -1927,9 +1968,7 @@ export default function LessonContentManager({
           close={() =>
             setResourceLesson(null)
           }
-          refresh={() =>
-            window.location.reload()
-          }
+          refresh={reloadKeepingState}
           remove={async (
             id: string,
           ) => {
@@ -1970,9 +2009,7 @@ export default function LessonContentManager({
           close={() =>
             setSectionTarget(null)
           }
-          refresh={() =>
-            window.location.reload()
-          }
+          refresh={reloadKeepingState}
           remove={async (
             id: string,
           ) => {
