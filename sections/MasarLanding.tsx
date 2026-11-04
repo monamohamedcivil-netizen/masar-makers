@@ -118,6 +118,19 @@ const tracks: Track[] = [
         },
       },
       {
+        title: "Vehicle Tracking",
+        aliases: ["vehicle tracking", "autodesk vehicle tracking", "vt"],
+        icon: "/images/courses/icons/vehicle-tracking.png",
+        note: {
+          ar: "اختبر حركة المركبات",
+          en: "Test vehicle movements",
+        },
+        description: {
+          ar: "تحليل مسارات المركبات والمناورات ومتطلبات التصميم باستخدام Vehicle Tracking.",
+          en: "Analyze vehicle paths, maneuvers and design requirements using Vehicle Tracking.",
+        },
+      },
+      {
         title: "Smart Deliverables",
         aliases: [
           "smart deliverables",
@@ -133,19 +146,6 @@ const tracks: Track[] = [
         description: {
           ar: "منهجية منظمة لإنتاج مئات اللوحات والتسليمات بسرعة ودقة بدل العمل اليدوي المتكرر.",
           en: "Use an organized workflow to produce hundreds of drawings and deliverables quickly and accurately.",
-        },
-      },
-      {
-        title: "Vehicle Tracking",
-        aliases: ["vehicle tracking", "autodesk vehicle tracking", "vt"],
-        icon: "/images/courses/icons/vehicle-tracking.png",
-        note: {
-          ar: "اختبر حركة المركبات",
-          en: "Test vehicle movements",
-        },
-        description: {
-          ar: "تحليل مسارات المركبات والمناورات ومتطلبات التصميم باستخدام Vehicle Tracking.",
-          en: "Analyze vehicle paths, maneuvers and design requirements using Vehicle Tracking.",
         },
       },
       {

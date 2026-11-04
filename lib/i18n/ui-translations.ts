@@ -85,6 +85,7 @@ const exactEnglish: Record<string, string> = {
   "ليبيا": "Libya",
   "السودان": "Sudan",
   "سوريا": "Syria",
+  "لبنان": "Lebanon",
   "نيجيريا": "Nigeria",
   "دولة أخرى": "Other Country",
   "المسمى الوظيفي": "Job Title",

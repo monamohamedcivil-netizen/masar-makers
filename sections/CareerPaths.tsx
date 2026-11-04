@@ -60,14 +60,14 @@ const paths = [
         href: "/course/civil-site-design",
       },
       {
-        title: "Smart Project\nDeliverables",
-        icon: "/images/courses/icons/spd.png",
-        href: "/course/smart-project-deliverables",
-      },
-      {
         title: "Vehicle Tracking",
         icon: "/images/courses/icons/vehicle-tracking.png",
         href: "/course/vehicle-tracking",
+      },
+      {
+        title: "Smart Project\nDeliverables",
+        icon: "/images/courses/icons/spd.png",
+        href: "/course/smart-project-deliverables",
       },
       {
         title: "BIM for Roads",

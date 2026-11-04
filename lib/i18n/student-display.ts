@@ -76,6 +76,7 @@ const COUNTRIES: Array<{ ar: string[]; en: string }> = [
   { ar: ["فلسطين"], en: "Palestine" },
   { ar: ["لبنان"], en: "Lebanon" },
   { ar: ["سوريا", "سورية"], en: "Syria" },
+  { ar: ["لبنان"], en: "Lebanon" },
   { ar: ["اليمن"], en: "Yemen" },
   { ar: ["الجزائر"], en: "Algeria" },
   { ar: ["المغرب"], en: "Morocco" },

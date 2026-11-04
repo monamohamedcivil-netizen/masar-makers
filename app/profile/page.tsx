@@ -18,7 +18,7 @@ import { useRouter } from "next/navigation";
 import Navbar from "@/sections/Navbar";
 import AnnouncementBar from "@/sections/AnnouncementBar";
 import { createClient } from "@/lib/supabase/client";
-import { countrySelectValue, typedCountry } from "@/lib/countries";
+import { countrySelectValue, jobSelectValue, typedCountry, typedJob } from "@/lib/countries";
 
 type ProfileForm = {
   fullName: string;
@@ -292,6 +292,11 @@ export default function ProfilePage() {
 
     if (country === "Other") {
       setError("يرجى كتابة اسم الدولة.");
+      return;
+    }
+
+    if (form.jobTitle.trim() === "Other") {
+      setError("يرجى كتابة مسماك الوظيفي.");
       return;
     }
 
@@ -662,6 +667,9 @@ export default function ProfilePage() {
                     <option value="Syria">
                       سوريا
                     </option>
+                    <option value="Lebanon">
+                      لبنان
+                    </option>
                     <option value="Nigeria">
                       نيجيريا
                     </option>
@@ -690,7 +698,7 @@ export default function ProfilePage() {
                   icon={BriefcaseBusiness}
                 >
                   <select
-                    value={form.jobTitle}
+                    value={jobSelectValue(form.jobTitle)}
                     onChange={(event) =>
                       updateField(
                         "jobTitle",
@@ -721,6 +729,20 @@ export default function ProfilePage() {
                       أخرى
                     </option>
                   </select>
+                  {jobSelectValue(form.jobTitle) === "Other" ? (
+                    <input
+                      value={typedJob(form.jobTitle)}
+                      onChange={(event) =>
+                        updateField(
+                          "jobTitle",
+                          event.target.value || "Other",
+                        )
+                      }
+                      placeholder="اكتب مسماك الوظيفي"
+                      maxLength={60}
+                      className={`${INPUT} mt-2`}
+                    />
+                  ) : null}
                 </Field>
 
                 <Field
