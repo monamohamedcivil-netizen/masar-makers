@@ -3,6 +3,7 @@
 import {
   createAdminClient,
 } from "@/lib/supabase/server";
+import { projectMediaUrl } from "./media-url";
 import { getStudentRegistrationInfo } from "@/lib/students/registration-info";
 
 export type HomeProjectCategory =
@@ -125,25 +126,8 @@ async function getProjectImageUrl(
     return normalizedImageUrl;
   }
 
- const supabase = createAdminClient();
-
-  const { data, error } = await supabase.storage
-    .from("student-projects")
-    .createSignedUrl(
-      normalizedStoragePath,
-      60 * 60,
-    );
-
-  if (error) {
-    console.error(
-      "PROJECT IMAGE SIGNED URL ERROR:",
-      error.message,
-    );
-
-    return normalizedImageUrl;
-  }
-
-  return data?.signedUrl ?? normalizedImageUrl;
+  // رابط ثابت من المنصة نفسها (يحفظه المتصفح) بدل رابط Supabase الموقّع المتغيّر.
+  return projectMediaUrl(normalizedStoragePath);
 }
 
 function normalizeImportedProjectImages(

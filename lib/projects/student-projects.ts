@@ -8,6 +8,7 @@ import type {
   StudentProjectImage,
 } from "./types";
 
+import { projectMediaUrl } from "./media-url";
 import { getStudentRegistrationInfo } from "@/lib/students/registration-info";
 import {
   createAdminClient,
@@ -198,28 +199,8 @@ async function getSignedImageUrl(
     return null;
   }
 
-  // Course pages can be viewed outside the image owner's session.
-  // Sign private project media on the server with the admin client.
-  const supabase =
-    createAdminClient();
-
-  const { data, error } =
-    await supabase.storage
-      .from("student-projects")
-      .createSignedUrl(
-        storagePath,
-        60 * 60,
-      );
-
-  if (error) {
-    console.error(
-      "GET SIGNED PROJECT IMAGE URL ERROR:",
-      error.message,
-    );
-    return null;
-  }
-
-  return data.signedUrl;
+  // رابط ثابت من المنصة نفسها (يحفظه المتصفح) بدل رابط Supabase الموقّع المتغيّر.
+  return projectMediaUrl(storagePath);
 }
 
 async function getSignedVideoUrl(

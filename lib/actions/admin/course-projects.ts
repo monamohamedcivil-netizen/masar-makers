@@ -1,5 +1,6 @@
 "use server";
 
+import { projectMediaUrl } from "@/lib/projects/media-url";
 import {
   createAdminClient,
   createClient,
@@ -70,18 +71,13 @@ async function requireAdmin() {
 }
 
 async function createProjectImageUrl(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  _supabase: Awaited<ReturnType<typeof createClient>>,
   storagePath: string | null,
   imageUrl: string | null,
 ) {
   if (storagePath) {
-    const { data } = await supabase.storage
-      .from("student-projects")
-      .createSignedUrl(storagePath, 60 * 60);
-
-    if (data?.signedUrl) {
-      return data.signedUrl;
-    }
+    // رابط ثابت من المنصة نفسها (يحفظه المتصفح) بدل رابط Supabase الموقّع المتغيّر.
+    return projectMediaUrl(storagePath);
   }
 
   return imageUrl?.trim() || "";

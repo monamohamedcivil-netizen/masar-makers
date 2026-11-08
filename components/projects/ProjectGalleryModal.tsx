@@ -162,9 +162,10 @@ export default function ProjectGalleryModal({
               <video
                 key={activeMedia.url}
                 src={activeMedia.url}
+                poster={images[0]}
                 controls
                 playsInline
-                preload="metadata"
+                preload="none"
                 className="h-full w-full object-contain"
               />
             ) : activeMedia?.type === "image" ? (
