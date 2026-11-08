@@ -465,8 +465,9 @@ export default function ProjectsDashboard({
                     </p>
                     <video
                       src={selectedProject.videoUrl}
+                      poster={selectedProject.images[0]?.imageUrl || undefined}
                       controls
-                      preload="metadata"
+                      preload="none"
                       className="aspect-video w-full rounded-2xl bg-black"
                     />
                   </div>

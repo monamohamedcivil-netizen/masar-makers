@@ -1059,7 +1059,7 @@ export default function ProjectDialog({
               </div>
             ) : project?.videoUrl && !removeExistingVideo ? (
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-950">
-                <video src={project.videoUrl} controls preload="metadata" className="max-h-[320px] w-full" />
+                <video src={project.videoUrl} poster={existingImages[0]?.imageUrl || undefined} controls preload="none" className="max-h-[320px] w-full" />
                 <div className="flex justify-end bg-white p-3">
                   <button type="button" onClick={() => setRemoveExistingVideo(true)} disabled={submitting} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600">{isArabic ? "حذف الفيديو الحالي" : "Remove Current Video"}</button>
                 </div>

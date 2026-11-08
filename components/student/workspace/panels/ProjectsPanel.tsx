@@ -1254,7 +1254,7 @@ function ProjectViewer({
                   <PlayCircle className="h-4 w-4 text-[#C88712]" />
                   فيديو المشروع
                 </h3>
-                <video src={project.videoUrl} controls preload="metadata" className="max-h-[260px] w-full rounded-xl bg-slate-950" />
+                <video src={project.videoUrl} poster={project.images[0]?.imageUrl || undefined} controls preload="none" className="max-h-[260px] w-full rounded-xl bg-slate-950" />
               </div>
             ) : null}
 
