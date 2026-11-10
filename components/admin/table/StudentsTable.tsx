@@ -83,6 +83,9 @@ availableDrawEntries: number;
   studentCurrencySource?: string | null;
   /** مقيم في مصر (البلد مصر والرقم ليس أجنبيًا) → يرى أسعار الجنيه الأصلية. */
   egyptResident?: boolean;
+  /** تاريخ تسجيل الطالب في المنصة، وآخر تسجيل دخول له (ISO). */
+  registeredAt?: string | null;
+  lastSignInAt?: string | null;
 }
 
 interface StudentsTableProps {
@@ -242,16 +245,18 @@ function BasicStudentsTable({
 
   const basicColGroup = (
     <colgroup>
-      <col className="w-[20%]" />
-      <col className="w-[13%]" />
-      <col className="w-[8%]" />
-      <col className="w-[9%]" />
-      <col className="w-[7%]" />
-      <col className="w-[7%]" />
-      <col className="w-[6%]" />
-      <col className="w-[6%]" />
-      <col className="w-[7%]" />
       <col className="w-[17%]" />
+      <col className="w-[12%]" />
+      <col className="w-[7%]" />
+      <col className="w-[8%]" />
+      <col className="w-[6%]" />
+      <col className="w-[6%]" />
+      <col className="w-[5%]" />
+      <col className="w-[5%]" />
+      <col className="w-[6%]" />
+      <col className="w-[14%]" />
+      <col className="w-[7%]" />
+      <col className="w-[7%]" />
     </colgroup>
   );
 
@@ -267,6 +272,8 @@ function BasicStudentsTable({
       <TableHead>قيد المراجعة</TableHead>
       <TableHead>الحالة</TableHead>
       <TableHead>عرض</TableHead>
+      <TableHead>تاريخ التسجيل</TableHead>
+      <TableHead>آخر دخول</TableHead>
     </tr>
   );
 
@@ -372,6 +379,30 @@ function BasicStudentsTable({
                 suspended={!student.accountActive}
                 reason={student.suspensionReason}
               />
+
+              <TableCell>
+                {student.registeredAt ? (
+                  <span dir="ltr" className="font-bold text-slate-600">
+                    {formatRiyadhDate(student.registeredAt)}
+                  </span>
+                ) : (
+                  <EmptyValue />
+                )}
+              </TableCell>
+
+              <td className="px-2 py-3 text-center text-xs">
+                {student.lastSignInAt ? (
+                  <span dir="ltr" className="inline-block font-bold leading-5 text-slate-600">
+                    {formatRiyadhDate(student.lastSignInAt)}
+                    <br />
+                    <span className="text-[10px] font-semibold text-slate-400">
+                      {formatRiyadhTime(student.lastSignInAt)}
+                    </span>
+                  </span>
+                ) : (
+                  <EmptyValue />
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -379,6 +410,25 @@ function BasicStudentsTable({
       </div>
     </>
   );
+}
+
+/** تاريخ ووقت بتوقيت الرياض بأرقام لاتينية (ثابت بين السيرفر والمتصفح). */
+function formatRiyadhDate(iso: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Riyadh",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(iso));
+}
+
+function formatRiyadhTime(iso: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Riyadh",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(iso));
 }
 
 function StudentJourneyTable({
