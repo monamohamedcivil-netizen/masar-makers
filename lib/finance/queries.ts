@@ -44,6 +44,8 @@ export interface FinanceData {
   services: FinanceService[];
   /** مصروفات كل سنة بالجنيه (محسوبة تلقائيًا حتى اليوم) */
   expensesByYear: Record<string, number>;
+  /** مصروفات كل شهر بالجنيه (مفتاح YYYY-MM) */
+  expensesByMonth: Record<string, number>;
   otherIncome: FinanceOtherIncome[];
 }
 
@@ -397,6 +399,7 @@ export async function getFinanceData(): Promise<FinanceData> {
   const serviceById = new Map(services.map((sv) => [sv.id, sv]));
 
   const expensesByYear: Record<string, number> = {};
+  const expensesByMonth: Record<string, number> = {};
   const expenses: FinanceExpense[] = (
     (expensesRes.data ?? []) as Array<Record<string, unknown>>
   ).map((e) => {
@@ -425,6 +428,9 @@ export async function getFinanceData(): Promise<FinanceData> {
     const totals = computeExpenseTotals(base, today, rates);
     for (const [y, v] of Object.entries(totals.byYear)) {
       expensesByYear[y] = Math.round(((expensesByYear[y] ?? 0) + v) * 100) / 100;
+    }
+    for (const [m, v] of Object.entries(totals.byMonth)) {
+      expensesByMonth[m] = Math.round(((expensesByMonth[m] ?? 0) + v) * 100) / 100;
     }
 
     return {
@@ -484,6 +490,7 @@ export async function getFinanceData(): Promise<FinanceData> {
     expenses,
     services,
     expensesByYear,
+    expensesByMonth,
     otherIncome: ((incomeRes.data ?? []) as Array<Record<string, unknown>>).map(
       (i) => ({
         ...(i as unknown as FinanceOtherIncome),

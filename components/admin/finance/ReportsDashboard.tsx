@@ -111,9 +111,23 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
     byCourse.set(course, c);
   }
 
-  const months = [...byMonth.keys()].filter((k) => k !== "—").sort();
+  // الدخل الشهري يشمل الدخل الآخر، والمصروف الشهري من الاشتراكات والخدمات (حتى اليوم).
+  const otherByMonth = new Map<string, number>();
+  for (const i of otherIncome) {
+    const k = (i.month ?? "").slice(0, 7);
+    if (k) otherByMonth.set(k, (otherByMonth.get(k) ?? 0) + i.total_egp);
+  }
+  const expByMonth = data.expensesByMonth ?? {};
+  const monthSet = new Set<string>([
+    ...[...byMonth.keys()].filter((k) => k !== "—"),
+    ...Object.keys(expByMonth),
+    ...otherByMonth.keys(),
+  ]);
+  const months = [...monthSet].sort();
+  const monthIncome = (k: string) => (byMonth.get(k)?.income ?? 0) + (otherByMonth.get(k) ?? 0);
+  const monthExpense = (k: string) => expByMonth[k] ?? 0;
 
-  const maxMonth = Math.max(1, ...months.map((k) => byMonth.get(k)!.income));
+  const maxMonth = Math.max(1, ...months.map((k) => Math.max(monthIncome(k), monthExpense(k))));
   const courses = [...byCourse.entries()].sort((a, b) => b[1].income - a[1].income);
   const maxCourse = Math.max(1, ...courses.map(([, v]) => v.income));
 
@@ -229,29 +243,62 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
         />
       </div>
 
-      {/* الدخل لكل شهر */}
-      <Card title="الدخل وعدد الاشتراكات لكل شهر">
+      {/* الدخل والمصروف لكل شهر */}
+      <Card title="الدخل والمصروف وصافي الربح وعدد الاشتراكات لكل شهر">
         {months.length === 0 ? (
           <Empty />
         ) : (
-          <div className="flex h-56 items-end gap-3 overflow-x-auto pb-2">
-            {months.map((k) => {
-              const v = byMonth.get(k)!;
-              return (
-                <div key={k} className="flex min-w-[64px] flex-1 flex-col items-center justify-end gap-1">
-                  <span className="text-[11px] font-black text-[#07152E]">{fmt(v.income)}</span>
-                  <div
-                    className="w-full max-w-[56px] rounded-t-lg bg-[#07152E]"
-                    style={{ height: `${Math.max(4, (v.income / maxMonth) * 150)}px` }}
-                  />
-                  <span className="text-[11px] font-bold text-slate-500">{monthLabel(k)}</span>
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-800">
-                    {v.count} اشتراك
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          <>
+            <div className="mb-3 flex flex-wrap items-center gap-4 text-[11px] font-bold text-slate-600">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded-sm bg-[#07152E]" /> الدخل (يشمل الدخل الآخر)
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded-sm bg-rose-500" /> المصروف
+              </span>
+              <span className="text-slate-400">الأرقام بالجنيه</span>
+            </div>
+            <div className="flex items-end gap-3 overflow-x-auto pb-2">
+              {months.map((k) => {
+                const inc = monthIncome(k);
+                const exp = monthExpense(k);
+                const net = inc - exp;
+                const count = byMonth.get(k)?.count ?? 0;
+                return (
+                  <div key={k} className="flex min-w-[96px] flex-1 flex-col items-center justify-end gap-1">
+                    <div className="flex h-[190px] w-full items-end justify-center gap-1.5">
+                      <div className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+                        <span className="text-[10px] font-black text-[#07152E]">{fmt(inc)}</span>
+                        <div
+                          className="w-full max-w-[34px] rounded-t-lg bg-[#07152E]"
+                          style={{ height: `${Math.max(4, (inc / maxMonth) * 140)}px` }}
+                        />
+                      </div>
+                      <div className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+                        <span className="text-[10px] font-black text-rose-600">{fmt(exp)}</span>
+                        <div
+                          className="w-full max-w-[34px] rounded-t-lg bg-rose-500"
+                          style={{ height: `${Math.max(4, (exp / maxMonth) * 140)}px` }}
+                        />
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-500">{monthLabel(k)}</span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-black ${
+                        net >= 0 ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-700"
+                      }`}
+                      title="صافي الربح = الدخل − المصروف"
+                    >
+                      ربح {net < 0 ? "-" : ""}{fmt(Math.abs(net))}
+                    </span>
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-800">
+                      {count} اشتراك
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </Card>
 
