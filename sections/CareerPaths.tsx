@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import AuthLink from "@/components/AuthLink";
+import useCurrentUser from "@/hooks/useCurrentUser";
 
 type Locale = "ar" | "en";
 
@@ -119,6 +120,21 @@ const paths = [
 
 export default function CareerPaths() {
   const router = useRouter();
+  const { user: currentUser, loading: userLoading } = useCurrentUser();
+
+  // الضغط على البطاقة كلها يفتح صفحة المسار (مثل زر «استكشف») ما عدا الروابط/الأزرار داخلها.
+  function openPathCard(
+    event: React.MouseEvent<HTMLElement>,
+    link: string,
+  ) {
+    if ((event.target as HTMLElement).closest("a,button")) return;
+    if (userLoading) return;
+    router.push(
+      currentUser
+        ? link
+        : `/login?next=${encodeURIComponent(link)}`,
+    );
+  }
 
   const [activeCourse, setActiveCourse] = useState([
     0,
@@ -220,8 +236,12 @@ export default function CareerPaths() {
               return (
                 <article
                   key={path.key}
+                  onClick={(event) =>
+                    openPathCard(event, path.link)
+                  }
                   className={`
                     group relative mx-auto
+                    cursor-pointer
                     w-full
                     overflow-hidden
                     rounded-[24px]

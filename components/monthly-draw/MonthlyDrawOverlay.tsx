@@ -920,6 +920,28 @@ export default function MonthlyDrawOverlay() {
 
   const currentDraw = draw;
 
+  /*
+   * في آخر 10 أيام قبل السحب القادم (نهاية الشهر) وبعد إعلان الفائز:
+   * نعرض جائزة الشهر القادم مع تشجيع لزيادة النقاط.
+   */
+  const msToNextDraw =
+    new Date(currentDraw.nextDrawAt).getTime() - Date.now();
+
+  const nextPrizeRaw =
+    currentDraw.nextPrizeTitle?.trim() || "";
+
+  const showNextPrize =
+    currentDraw.phase === "completed" &&
+    Boolean(nextPrizeRaw) &&
+    Number.isFinite(msToNextDraw) &&
+    msToNextDraw > 0 &&
+    msToNextDraw <= 10 * 24 * 60 * 60 * 1000;
+
+  const nextPrizeText = isEnglish
+    ? currentDraw.nextPrizeTitleEn?.trim() ||
+      translatePrizeTitleToEnglish(nextPrizeRaw)
+    : nextPrizeRaw;
+
   closeOnEscapeRef.current =
     closeOverlay;
 
@@ -1123,6 +1145,14 @@ export default function MonthlyDrawOverlay() {
                     </div>
                   ) : null}
 
+                  {showNextPrize ? (
+                    <NextPrizeNotice
+                      isEnglish={isEnglish}
+                      title={nextPrizeText}
+                      compact
+                    />
+                  ) : null}
+
                   <div className="rounded-[14px] border border-[#E5BE62] bg-[#FFFDF8] px-3 py-2.5 shadow-sm">
                     <div className="mb-2 flex items-center justify-center gap-1.5">
                       <CalendarClock size={14} className="text-[#C88712]" />
@@ -1294,6 +1324,13 @@ export default function MonthlyDrawOverlay() {
                         </p>
                       ) : null}
                     </div>
+                  ) : null}
+
+                  {showNextPrize ? (
+                    <NextPrizeNotice
+                      isEnglish={isEnglish}
+                      title={nextPrizeText}
+                    />
                   ) : null}
 
                   <div className="mt-4 rounded-[20px] border border-[#E5BE62] bg-[#FFFDF8] px-4 py-4 shadow-sm">
@@ -1476,6 +1513,52 @@ export default function MonthlyDrawOverlay() {
         </div>
       ) : null}
     </>
+  );
+}
+
+function NextPrizeNotice({
+  isEnglish,
+  title,
+  compact = false,
+}: {
+  isEnglish: boolean;
+  title: string;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-[14px] border border-dashed border-[#E5BE62] bg-gradient-to-l from-[#FFF6DF] to-white shadow-sm ${
+        compact ? "mt-0 px-3 py-2.5" : "mt-4 rounded-[20px] px-4 py-4"
+      }`}
+    >
+      <p
+        className={`font-black text-[#C88712] ${
+          compact ? "text-[11px]" : "text-[13px]"
+        }`}
+      >
+        {isEnglish ? "Next month's prize" : "جائزة الشهر القادم"}
+      </p>
+
+      <p
+        className={`mt-0.5 font-black text-[#07152E] ${
+          compact
+            ? "line-clamp-2 text-[13px] leading-5"
+            : "text-[17px] leading-7"
+        }`}
+      >
+        {title}
+      </p>
+
+      <p
+        className={`mt-1 font-bold text-[#07152E]/70 ${
+          compact ? "text-[11px] leading-4" : "text-[12px] leading-5"
+        }`}
+      >
+        {isEnglish
+          ? "Earn more points now to increase your chances in the next monthly draw!"
+          : "اجمع نقاطًا أكثر الآن لتزيد فرصك في السحب الشهري القادم!"}
+      </p>
+    </div>
   );
 }
 
