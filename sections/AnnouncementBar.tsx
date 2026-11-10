@@ -213,6 +213,29 @@ const { data, error } = await supabase
   const isWhatsAppLink = /(?:wa\.me|whatsapp\.com)\//i.test(href);
   const opensChat = Boolean(item?.opens_chat) || isWhatsAppLink;
 
+  // رابط «كيف أزيد نقاطي؟»: مثل https://masarmakers.com/?points=1 أو /?points=1
+  // يفتح شاشة السحب الشهري ونافذة طرق زيادة النقاط بدل الانتقال لصفحة.
+  const opensPoints = (() => {
+    if (!href || href === "#") return false;
+    try {
+      const url = new URL(href, window.location.origin);
+      return (
+        url.origin === window.location.origin &&
+        url.searchParams.get("points") === "1"
+      );
+    } catch {
+      return false;
+    }
+  })();
+
+  function openPointsScreen() {
+    window.dispatchEvent(
+      new CustomEvent("masar:open-monthly-draw", {
+        detail: { points: true },
+      }),
+    );
+  }
+
   function openAnnouncementChat() {
     if (!item) return;
     let visitorText = "";
@@ -282,10 +305,10 @@ const { data, error } = await supabase
                 </div>
 
                 <div className="shrink-0">
-                  {opensChat ? (
+                  {opensChat || opensPoints ? (
                     <button
                       type="button"
-                      onClick={openAnnouncementChat}
+                      onClick={opensPoints ? openPointsScreen : openAnnouncementChat}
                       className={ctaClassMobile}
                     >
                       <span className="truncate">{buttonText}</span>
@@ -410,10 +433,10 @@ const { data, error } = await supabase
                   isArabic ? "left-6" : "right-6"
                 }`}
               >
-                {opensChat ? (
+                {opensChat || opensPoints ? (
                   <button
                     type="button"
-                    onClick={openAnnouncementChat}
+                    onClick={opensPoints ? openPointsScreen : openAnnouncementChat}
                     className={ctaClassDesktop}
                   >
                     {buttonText}

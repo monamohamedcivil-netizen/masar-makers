@@ -317,8 +317,33 @@ export default function MonthlyDrawOverlay() {
     draw?.phase,
   ]);
 
+  // فتح الرابط مباشرة: masarmakers.com/?points=1
   useEffect(() => {
-    function handleOpenMonthlyDraw() {
+    try {
+      const url = new URL(window.location.href);
+
+      if (url.searchParams.get("points") === "1") {
+        setOpen(true);
+        setShowPointsModal(true);
+
+        url.searchParams.delete("points");
+        window.history.replaceState(
+          null,
+          "",
+          url.pathname +
+            (url.search ? url.search : "") +
+            url.hash,
+        );
+      }
+    } catch {
+      // تجاهل: لا يؤثر على بقية الصفحة
+    }
+  }, []);
+
+  useEffect(() => {
+    function handleOpenMonthlyDraw(
+      event?: Event,
+    ) {
       setOpen(true);
 
       if (
@@ -326,6 +351,17 @@ export default function MonthlyDrawOverlay() {
         "completed"
       ) {
         setShowWinner(true);
+      }
+
+      // رابط «كيف أزيد نقاطي؟» يفتح نافذة طرق زيادة النقاط فوق شاشة السحب.
+      const detail = (
+        event as CustomEvent<{
+          points?: boolean;
+        }> | undefined
+      )?.detail;
+
+      if (detail?.points) {
+        setShowPointsModal(true);
       }
     }
 
