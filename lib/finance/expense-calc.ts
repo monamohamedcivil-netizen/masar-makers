@@ -84,6 +84,7 @@ export interface ExpenseTotals {
   totalAmount: number;
   totalEgp: number;
   byYear: Record<string, number>; // بالجنيه
+  byMonth: Record<string, number>; // بالجنيه (مفتاح YYYY-MM)
 }
 
 export function computeExpenseTotals(
@@ -94,14 +95,18 @@ export function computeExpenseTotals(
   const dates = expenseCharges(source, today);
   const perChargeEgp = toEgp(source.amount, source.currency, rates);
   const byYear: Record<string, number> = {};
+  const byMonth: Record<string, number> = {};
   for (const d of dates) {
     const y = d.slice(0, 4);
+    const m = d.slice(0, 7);
     byYear[y] = Math.round(((byYear[y] ?? 0) + perChargeEgp) * 100) / 100;
+    byMonth[m] = Math.round(((byMonth[m] ?? 0) + perChargeEgp) * 100) / 100;
   }
   return {
     count: dates.length,
     totalAmount: Math.round(dates.length * source.amount * 100) / 100,
     totalEgp: Math.round(dates.length * perChargeEgp * 100) / 100,
     byYear,
+    byMonth,
   };
 }
