@@ -44,7 +44,7 @@ async function saveLocale(db: Db, session: AnyRow, locale: Locale) {
 export type WebChatStart = { ok: true; sessionId: string; token: string; code: string; messages: ChatMessage[] } | { ok: false; error: string };
 export type WebChatReply = { ok: true; messages: ChatMessage[] } | { ok: false; error: string };
 export type WebChatLoad =
-  | { ok: true; sessionId: string; token: string; code: string; messages: ChatMessage[]; hasUnseen: boolean }
+  | { ok: true; sessionId: string; token: string; code: string; messages: ChatMessage[]; hasUnseen: boolean; unseenCount: number }
   | { ok: false; error: string };
 
 const MAX_MESSAGES_PER_SESSION = 300;
@@ -369,7 +369,19 @@ export async function loadWebChat(sessionId: string, token: string | null, markS
       ...(Array.isArray(m.buttons) && m.buttons.length ? { buttons: m.buttons as ChatButton[] } : {}),
     }));
     if (markSeen && session.has_unseen) await db.from("web_chat_sessions").update({ has_unseen: false }).eq("id", session.id);
-    return { ok: true, sessionId: session.id, token: session.token, code: session.code, messages, hasUnseen: Boolean(session.has_unseen) };
+    // عدد رسائل المساعد غير المقروءة = رسائله المتتالية بعد آخر رد من الزائر (يظهر كعدّاد على أيقونة الشات).
+    let trailingBot = 0;
+    for (let i = messages.length - 1; i >= 0 && messages[i].from === "bot"; i -= 1) trailingBot += 1;
+    const hasUnseen = Boolean(session.has_unseen);
+    return {
+      ok: true,
+      sessionId: session.id,
+      token: session.token,
+      code: session.code,
+      messages,
+      hasUnseen,
+      unseenCount: hasUnseen ? Math.max(1, trailingBot) : 0,
+    };
   } catch (error) {
     console.error("loadWebChat failed:", error);
     return { ok: false, error: "تعذّر تحميل المحادثة." };

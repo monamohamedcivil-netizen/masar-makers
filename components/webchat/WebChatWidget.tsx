@@ -162,7 +162,7 @@ export default function WebChatWidget() {
   const [enabled, setEnabled] = useState(false);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [unseen, setUnseen] = useState(false);
+  const [unseen, setUnseen] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [state, setState] = useState<Stored | null>(null);
   const [locale, setLocale] = useState<Locale>("ar");
@@ -198,7 +198,7 @@ export default function WebChatWidget() {
     const result = await loadWebChat(sessionId, token, markSeen);
     if (!result.ok) return false;
     save({ sessionId: result.sessionId, token: result.token, code: result.code, messages: result.messages });
-    setUnseen(!markSeen && result.hasUnseen);
+    setUnseen(!markSeen && result.hasUnseen ? Math.max(1, result.unseenCount) : 0);
     return true;
   }, []);
 
@@ -206,7 +206,7 @@ export default function WebChatWidget() {
     setOpen(true);
     setBusy(true);
     setError(null);
-    setUnseen(false);
+    setUnseen(0);
     const visitorFirst: ChatMessage[] = context.text ? [{ from: "visitor", text: context.text }] : [];
     setState({ sessionId: "", token: "", code: "", messages: visitorFirst });
     const result = await startWebChat({
@@ -310,7 +310,7 @@ export default function WebChatWidget() {
   const openPanel = () => {
     setOpen(true);
     if (state?.sessionId && unseen) {
-      setUnseen(false);
+      setUnseen(0);
       void reload(state.sessionId, state.token, true);
     }
   };
@@ -412,7 +412,14 @@ export default function WebChatWidget() {
         aria-label={ui.title}
       >
         {open ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
-        {unseen && !open && <span className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-red-500" />}
+        {unseen > 0 && !open && (
+          <span
+            className="absolute -right-1.5 -top-1.5 flex h-6 min-w-[24px] items-center justify-center rounded-full border-2 border-white bg-red-600 px-1 text-[12px] font-black leading-none text-white shadow-md"
+            aria-label={`${unseen} رسالة جديدة`}
+          >
+            {unseen > 99 ? "99+" : unseen}
+          </span>
+        )}
       </button>
 
       {video && <VideoModal url={video} onClose={() => setVideo(null)} closeLabel={ui.close} title={ui.video} />}
