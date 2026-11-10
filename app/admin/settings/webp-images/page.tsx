@@ -1,4 +1,5 @@
 import AdminPageHeader from "@/components/admin/layout/AdminPageHeader";
+import ProjectWebpImagesTool from "@/components/admin/settings/ProjectWebpImagesTool";
 import WebpImagesTool from "@/components/admin/settings/WebpImagesTool";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +13,7 @@ export default function WebpImagesPage() {
         breadcrumbs={[{ label: "الإعدادات", href: "/admin/settings" }, { label: "تحويل الصور إلى WebP" }]}
       />
       <WebpImagesTool />
+      <ProjectWebpImagesTool />
     </div>
   );
 }

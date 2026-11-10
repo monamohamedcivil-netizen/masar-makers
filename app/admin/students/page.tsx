@@ -100,6 +100,27 @@ lastBonusReason:
   };
 }
 
+/**
+ * آخر تسجيل دخول لكل طالب من نظام الدخول نفسه (يُحدَّث تلقائيًا عند الدخول، بلا أي كتابة إضافية).
+ * قراءة واحدة خفيفة لصفحة الإدارة فقط؛ إن فشلت تظهر الخلية فارغة دون كسر الصفحة.
+ */
+async function getLastSignIns(admin: ReturnType<typeof createAdminClient>) {
+  const result = new Map<string, string>();
+  try {
+    for (let page = 1; page <= 20; page += 1) {
+      const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+      if (error || !data?.users?.length) break;
+      for (const user of data.users) {
+        if (user.last_sign_in_at) result.set(user.id, user.last_sign_in_at);
+      }
+      if (data.users.length < 1000) break;
+    }
+  } catch {
+    // تجاهل: العمود يظهر فارغًا
+  }
+  return result;
+}
+
 export default async function StudentsPage() {
   const students =
     await getStudentsSummary();
@@ -107,12 +128,19 @@ export default async function StudentsPage() {
   // «عملة الطالب» + هل يرى أسعار الجنيه المصرية (مقيم في مصر) أم الجنيه المحسوب من الريال.
   const admin = createAdminClient();
   const ids = students.map((s) => s.userId);
-  const [currencies, { data: profiles }] = await Promise.all([
+  const [currencies, { data: profiles }, lastSignIns] = await Promise.all([
     getStudentCurrencies(admin, ids).catch(() => new Map()),
     ids.length
-      ? admin.from("profiles").select("id,country,phone").in("id", ids)
+      ? admin.from("profiles").select("id,country,phone,created_at").in("id", ids)
       : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
+    getLastSignIns(admin),
   ]);
+  const registeredAt = new Map(
+    ((profiles ?? []) as Array<Record<string, unknown>>).map((p) => [
+      String(p.id),
+      typeof p.created_at === "string" ? p.created_at : null,
+    ]),
+  );
   const resident = new Map(
     ((profiles ?? []) as Array<Record<string, unknown>>).map((p) => [
       String(p.id),
@@ -125,6 +153,8 @@ export default async function StudentsPage() {
     studentCurrency: currencies.get(student.userId)?.currency ?? null,
     studentCurrencySource: currencies.get(student.userId)?.source ?? null,
     egyptResident: resident.get(student.userId) ?? false,
+    registeredAt: registeredAt.get(student.userId) ?? null,
+    lastSignInAt: lastSignIns.get(student.userId) ?? null,
   }));
 
   return (
