@@ -427,9 +427,9 @@ export default function PathRoadmap({
                       flex
                       h-[34px]
                       w-[34px]
+                      cursor-pointer
                       items-center
                       justify-center
-                      overflow-hidden
                       rounded-full
                       border
                       border-white
@@ -441,9 +441,14 @@ export default function PathRoadmap({
                       transition-all
                       duration-300
 
-                      group-hover:scale-105
-                      group-hover:ring-2
-                      group-hover:ring-[#F7B548]/55
+                      after:absolute
+                      after:-inset-3
+                      after:content-['']
+
+                      group-hover:scale-125
+                      group-hover:ring-4
+                      group-hover:ring-[#F7B548]/60
+                      group-hover:shadow-[0_10px_24px_rgba(247,181,72,0.45)]
 
                       sm:h-[42px]
                       sm:w-[42px]
@@ -459,7 +464,7 @@ export default function PathRoadmap({
                       alt={course.title}
                       width={42}
                       height={42}
-                      className="h-full w-full object-contain"
+                      className="h-full w-full rounded-full object-contain"
                     />
                   </Link>
 

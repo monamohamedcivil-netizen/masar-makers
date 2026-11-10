@@ -67,7 +67,7 @@ function Road({
                   onClick={() => onSelect(s.key)}
                   aria-pressed={selected}
                   aria-label={s.comingSoon ? `${s.title} — قريبًا` : s.title}
-                  className={`relative flex h-[58px] w-[58px] items-center justify-center overflow-hidden rounded-full border border-white bg-white p-2 shadow-[0_8px_18px_rgba(7,21,46,0.14)] transition-all duration-300 focus:outline-none focus-visible:ring-4 ${
+                  className={`relative flex h-[58px] w-[58px] cursor-pointer items-center justify-center overflow-hidden rounded-full border border-white bg-white p-2 shadow-[0_8px_18px_rgba(7,21,46,0.14)] transition-all duration-300 focus:outline-none focus-visible:ring-4 ${
                     selected ? `scale-110 ring-4 ${theme.ring}` : `${theme.thin} hover:scale-105`
                   } ${s.comingSoon ? "opacity-45 grayscale" : ""}`}
                 >

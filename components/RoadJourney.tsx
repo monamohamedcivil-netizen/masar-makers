@@ -167,6 +167,7 @@ export default function RoadJourney({
               }
               className="
                 group
+                cursor-pointer
                 flex
                 min-w-0
                 flex-1
@@ -193,6 +194,7 @@ export default function RoadJourney({
                   bg-white
                   transition-all
                   duration-500
+                  group-hover:scale-110
 
                   ${
                     isActive
@@ -304,8 +306,8 @@ export default function RoadJourney({
                     isActive
                       ? "text-[9px] text-[#F7B548] sm:text-[11px] lg:text-[13px]"
                       : isDone
-                        ? "text-[8px] text-white sm:text-[10px] lg:text-[12px]"
-                        : "text-[8px] text-slate-300 sm:text-[10px] lg:text-[12px]"
+                        ? "text-[8px] text-white group-hover:text-[#F7B548] sm:text-[10px] lg:text-[12px]"
+                        : "text-[8px] text-slate-300 group-hover:text-[#F7B548] sm:text-[10px] lg:text-[12px]"
                   }
                 `}
               >

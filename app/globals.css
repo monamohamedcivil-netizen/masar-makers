@@ -184,3 +184,12 @@ body[data-landing-hero="1"] [data-masar-navbar] {
   pointer-events: none;
   transform: translateY(-100%);
 }
+
+
+/* الأزرار تعرض يد المؤشر (Tailwind 4 لا يضيفها تلقائيًا). */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}

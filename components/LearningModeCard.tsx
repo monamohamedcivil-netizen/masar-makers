@@ -88,8 +88,21 @@ export default function LearningModeCard({
   return (
     <article
       dir={locale === "ar" ? "rtl" : "ltr"}
+      role="button"
+      tabIndex={0}
+      aria-label={title}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (
+          event.target === event.currentTarget &&
+          (event.key === "Enter" || event.key === " ")
+        ) {
+          event.preventDefault();
+          onClick?.();
+        }
+      }}
       className={`
-        group relative flex min-w-0 flex-col bg-white
+        group relative flex min-w-0 cursor-pointer flex-col bg-white
         rounded-[24px] border
         transition-all duration-500
         hover:-translate-y-1
@@ -278,9 +291,9 @@ export default function LearningModeCard({
   {description}
 </p>
 
+        {/* الضغط على الزر يمرّ للبطاقة كلها (لا نكرر onClick حتى لا ينفَّذ مرتين). */}
         <button
           type="button"
-          onClick={onClick}
           className={`
             mt-auto flex w-full items-center justify-center gap-1.5
             rounded-[11px] px-2 py-1.5
