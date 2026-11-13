@@ -73,6 +73,12 @@ export default async function DashboardPage() {
           <div className="flex flex-wrap items-center gap-2">
           <PushToggle />
           <Link
+            href="/admin/prices"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#F7B548] px-4 py-3 text-sm font-black text-[#07152E] transition hover:bg-[#07152E] hover:text-white"
+          >
+            جدول الأسعار
+          </Link>
+          <Link
             href="/admin/students/enrollment-requests"
             className="inline-flex items-center gap-2 rounded-xl bg-[#07152E] px-4 py-3 text-sm font-black text-white transition hover:bg-[#F7B548] hover:text-[#07152E]"
           >
