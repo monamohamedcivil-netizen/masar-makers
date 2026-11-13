@@ -10,6 +10,8 @@ export interface MediaUploadResult {
 }
 
 const BUCKET_NAME = "course-media";
+/** Offer popup images go to the existing public bucket used by the WebP tool ("course-media" does not exist in this project). */
+const OFFERS_BUCKET = "course-images";
 
 const ALLOWED_IMAGE_TYPES = [
   "image/jpeg",
@@ -107,11 +109,14 @@ export async function uploadCourseMedia(
       sanitized.name || "image",
     ].join("-");
 
+    const bucket = folder === "offers" ? OFFERS_BUCKET : BUCKET_NAME;
     const filePath =
-      `${folder}/${user.id}/${uniqueName}.${sanitized.extension}`;
+      folder === "offers"
+        ? `${user.id}/offers/${uniqueName}.${sanitized.extension}`
+        : `${folder}/${user.id}/${uniqueName}.${sanitized.extension}`;
 
     const { error: uploadError } = await supabase.storage
-      .from(BUCKET_NAME)
+      .from(bucket)
       .upload(filePath, file, {
         cacheControl: "3600",
         upsert: false,
@@ -126,7 +131,7 @@ export async function uploadCourseMedia(
     }
 
     const { data } = supabase.storage
-      .from(BUCKET_NAME)
+      .from(bucket)
       .getPublicUrl(filePath);
 
     return {
