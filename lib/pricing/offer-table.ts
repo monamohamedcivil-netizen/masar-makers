@@ -50,6 +50,8 @@ export type PriceTableData = {
   rows: OfferRow[];
   courses: PriceCourse[];
   variants: PriceVariant[];
+  /** Published lecture count per chat course / variant: key = `${courseId}|${variantId ?? "-"}`. */
+  lectureCounts: Record<string, number>;
 };
 
 export const EMPTY_PRICE_TABLE: PriceTableData = {
@@ -59,6 +61,7 @@ export const EMPTY_PRICE_TABLE: PriceTableData = {
   rows: [],
   courses: [],
   variants: [],
+  lectureCounts: {},
 };
 
 export function rowKey(kind: PriceKind, courseId: string, variantId: string | null, currency: string) {
