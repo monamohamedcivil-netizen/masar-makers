@@ -7,13 +7,16 @@ import WhatsAppSalesManager from "@/components/admin/whatsapp/WhatsAppSalesManag
 import {
   getWhatsAppSalesAdminData,
 } from "@/lib/queries/whatsapp-sales";
+import { getPriceTableData } from "@/lib/pricing/price-table-data";
 
 export const dynamic =
   "force-dynamic";
 
 export default async function WhatsAppSalesPage() {
-  const data =
-    await getWhatsAppSalesAdminData();
+  const [data, priceTable] = await Promise.all([
+    getWhatsAppSalesAdminData(),
+    getPriceTableData(),
+  ]);
 
   return (
     <div className="space-y-8">
@@ -30,6 +33,7 @@ export default async function WhatsAppSalesPage() {
 
       <WhatsAppSalesManager
         {...data}
+        priceTable={priceTable}
       />
     </div>
   );

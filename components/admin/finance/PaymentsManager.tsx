@@ -15,7 +15,6 @@ import {
   deleteOffer,
   deleteOtherIncome,
   deletePayment,
-  saveCoursePriceCell,
   saveExchangeRate,
   saveOffer,
   saveOtherIncome,
@@ -825,67 +824,6 @@ function PricingPanel({
     setOffers((prev) => prev.filter((o) => o.id !== id));
   };
 
-  // تعديل السعر الأساسي هنا يعدّل سعر الكورس في «قوائم الشات والأسعار» (نفس المصدر).
-  const saveBasePrice = async (
-    item: FinancePriceItem,
-    field: "price_egp" | "price_sar" | "price_usd",
-    value: number | string | boolean | null,
-  ) => {
-    const currency = field === "price_egp" ? "EGP" : field === "price_sar" ? "SAR" : "USD";
-    const amount = value === "" || value == null ? null : Number(value);
-    const result = await saveCoursePriceCell({ code: item.code, currency, value: amount });
-    if (!result.success) {
-      flash(result.message || "تعذر الحفظ");
-      return false;
-    }
-    setPriceItems((prev) =>
-      prev.map((x) => (x.code === item.code ? { ...x, [field]: amount } : x)),
-    );
-    flash("تم تحديث السعر في قوائم الشات والأسعار");
-    return true;
-  };
-
-  // جدول «السعر بعد العروض»: عروض لها نسبة خصم + عروض بسعر ثابت مكتوب في «قوائم الشات والأسعار».
-  const [afterCurrency, setAfterCurrency] = useState<"EGP" | "SAR" | "USD">("EGP");
-  const priceField =
-    afterCurrency === "EGP" ? "price_egp" : afterCurrency === "SAR" ? "price_sar" : "price_usd";
-  const currencyName =
-    afterCurrency === "EGP" ? "جنيه" : afterCurrency === "SAR" ? "ريال" : "دولار";
-  const afterColumns = (() => {
-    const cols: Array<{ name: string; percent: number }> = [];
-    const seen = new Set<string>();
-    for (const o of offers) {
-      const name = o.name.trim();
-      if (!o.is_active || !(Number(o.discount_percent) > 0) || seen.has(name)) continue;
-      seen.add(name);
-      cols.push({ name, percent: Number(o.discount_percent) });
-    }
-    for (const item of priceItems) {
-      for (const fo of item.fixed_offers ?? []) {
-        if (seen.has(fo.label)) continue;
-        seen.add(fo.label);
-        cols.push({ name: fo.label, percent: 0 });
-      }
-    }
-    return cols;
-  })();
-  const afterRows = priceItems.filter(
-    (item) =>
-      item[priceField] != null ||
-      (item.fixed_offers ?? []).some((fo) => fo.currency === afterCurrency),
-  );
-  const priceAfter = (item: FinancePriceItem, col: { name: string; percent: number }) => {
-    const fixed = (item.fixed_offers ?? []).find(
-      (fo) => fo.label === col.name && fo.currency === afterCurrency,
-    );
-    if (fixed) return { value: fixed.price, fixed: true };
-    const base = item[priceField];
-    if (base != null && col.percent > 0) {
-      return { value: base * (1 - col.percent / 100), fixed: false };
-    }
-    return null;
-  };
-
   const saveRate = async (currency: string, value: number | string | boolean | null) => {
     const result = await saveExchangeRate(currency, Number(value));
     if (!result.success) {
@@ -963,123 +901,21 @@ function PricingPanel({
         </div>
       </div>
 
-      {/* قائمة الأسعار */}
-      <div className="overflow-x-auto">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-black text-[#07152E]">أسعار الكورسات الأساسية</h3>
-          <a
-            href="/admin/whatsapp-sales"
-            className="rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-[#07152E] hover:bg-amber-50"
-          >
-            فتح «قوائم الشات والأسعار»
-          </a>
-        </div>
-        <table className="w-full text-right">
-          <thead>
-            <tr className="border-b border-slate-200 text-[11px] font-black text-slate-500">
-              <th className="px-1 py-2">الكورس</th>
-              <th className="px-1 py-2">جنيه</th>
-              <th className="px-1 py-2">ريال</th>
-              <th className="px-1 py-2">دولار</th>
-            </tr>
-          </thead>
-          <tbody>
-            {priceItems.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="px-1 py-4 text-center text-xs text-slate-400">
-                  لا توجد أسعار مفعّلة في «قوائم الشات والأسعار».
-                </td>
-              </tr>
-            ) : (
-              priceItems.map((item) => (
-                <tr key={item.code} className="border-b border-slate-100 text-xs">
-                  <td className="px-1 py-1.5 font-bold text-[#07152E]">{item.label}</td>
-                  {(["price_egp", "price_sar", "price_usd"] as const).map((f) => (
-                    <td key={f} className="px-1 py-1">
-                      <EditableCell
-                        value={item[f]}
-                        type="number"
-                        width={80}
-                        onSave={(v) => saveBasePrice(item, f, v)}
-                      />
-                    </td>
-                  ))}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-
-        <div className="mb-2 mt-6 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-black text-[#07152E]">
-            السعر بعد العروض (بال{currencyName})
-          </h3>
-          <div className="flex gap-1">
-            {(["EGP", "SAR", "USD"] as const).map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setAfterCurrency(c)}
-                className={`rounded-lg px-2.5 py-1 text-[11px] font-bold ${
-                  afterCurrency === c
-                    ? "bg-[#07152E] text-white"
-                    : "bg-slate-100 text-[#07152E] hover:bg-amber-50"
-                }`}
-              >
-                {c === "EGP" ? "جنيه" : c === "SAR" ? "ريال" : "دولار"}
-              </button>
-            ))}
+      {/* جدول الأسعار الموحّد */}
+      <div>
+        <h3 className="mb-2 text-sm font-black text-[#07152E]">أسعار الكورسات والعروض</h3>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs font-bold leading-6 text-slate-600">
+          أسعار الكورسات وأسعارها بعد العروض تُعدَّل الآن من مكان واحد فقط: صفحة «جدول الأسعار».
+          أي تعديل هناك ينتقل تلقائيًا للشات والمدفوعات وباقي الجداول.
+          <div className="mt-3">
+            <a
+              href="/admin/prices"
+              className="inline-flex h-9 items-center rounded-lg bg-[#07152E] px-4 text-xs font-black text-white hover:bg-[#F7B548] hover:text-[#07152E]"
+            >
+              فتح جدول الأسعار
+            </a>
           </div>
         </div>
-        <table className="w-full min-w-[520px] text-right">
-          <thead>
-            <tr className="border-b border-slate-200 text-[11px] font-black text-slate-500">
-              <th className="px-1 py-2">الكورس</th>
-              <th className="px-1 py-2">السعر الأساسي</th>
-              {afterColumns.map((col) => (
-                <th key={col.name} className="px-1 py-2" title={col.name}>
-                  <span className="block max-w-[110px] truncate">{col.name}</span>
-                  <span className="text-[#C88712]">
-                    {col.percent > 0 ? `${col.percent}%` : "سعر ثابت"}
-                  </span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {afterRows.length === 0 ? (
-              <tr>
-                <td colSpan={afterColumns.length + 2} className="px-1 py-4 text-center text-xs text-slate-400">
-                  لا توجد أسعار بهذه العملة.
-                </td>
-              </tr>
-            ) : (
-              afterRows.map((item) => (
-                <tr key={item.code} className="border-b border-slate-100 text-xs">
-                  <td className="px-1 py-1.5 font-bold">{item.label}</td>
-                  <td className="px-1 py-1.5 text-slate-500">
-                    {item[priceField] != null ? fmt(item[priceField] as number) : "—"}
-                  </td>
-                  {afterColumns.map((col) => {
-                    const after = priceAfter(item, col);
-                    return (
-                      <td
-                        key={col.name}
-                        className={`px-1 py-1.5 ${after?.fixed ? "font-bold text-[#C88712]" : ""}`}
-                      >
-                        {after ? fmt(after.value) : "—"}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-        <p className="mt-2 text-[11px] text-slate-400">
-          الأسعار الأساسية هي نفس أسعار «قوائم الشات والأسعار» (السعر قبل الخصم): أي تعديل هنا يظهر هناك، وأي كورس أو سعر جديد هناك يظهر هنا.
-          السعر بعد العرض: للعروض التي لها نسبة = السعر الأساسي × (1 − النسبة)، وللعروض بسعر ثابت (باللون الذهبي) = السعر المكتوب للعرض في «قوائم الشات والأسعار» إذا كان العرض مفعّلًا. «—» = العرض غير مطبق على هذا الكورس بهذه العملة.
-        </p>
       </div>
     </div>
   );
