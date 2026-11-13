@@ -2,6 +2,8 @@
 
 import { FormEvent, useMemo, useState, useTransition } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
   CalendarClock,
   CheckCircle2,
   Copy,
@@ -17,6 +19,7 @@ import {
 import {
   createPlatformAnnouncement,
   deletePlatformAnnouncement,
+  reorderPlatformAnnouncements,
   togglePlatformAnnouncement,
   updatePlatformAnnouncement,
   type PlatformAnnouncement,
@@ -119,6 +122,21 @@ function toInputDate(value: string | null) {
   return local.toISOString().slice(0, 16);
 }
 
+/** الحالة الفعلية: مفعّل لكن انتهى تاريخه ≠ نشط (لا يظهر في شريط المنصة). */
+function effectiveStatus(item: PlatformAnnouncement, now: number) {
+  if (!item.is_active) return "stopped" as const;
+  if (item.ends_at && new Date(item.ends_at).getTime() <= now) return "ended" as const;
+  if (item.starts_at && new Date(item.starts_at).getTime() > now) return "scheduled" as const;
+  return "live" as const;
+}
+
+const STATUS_BADGE = {
+  live: { label: "نشط", className: "bg-emerald-50 text-emerald-700" },
+  ended: { label: "منتهي", className: "bg-red-50 text-red-600" },
+  scheduled: { label: "مجدول", className: "bg-sky-50 text-sky-700" },
+  stopped: { label: "متوقف", className: "bg-slate-100 text-slate-500" },
+} as const;
+
 export default function AnnouncementsManager({
   initialAnnouncements,
   pageOptions,
@@ -145,13 +163,44 @@ export default function AnnouncementsManager({
   const [isPending, startTransition] =
     useTransition();
 
-  const activeCount = useMemo(
-    () =>
-      announcements.filter(
-        (item) => item.is_active,
-      ).length,
-    [announcements],
-  );
+  const activeCount = useMemo(() => {
+    const now = Date.now();
+    return announcements.filter(
+      (item) => effectiveStatus(item, now) === "live",
+    ).length;
+  }, [announcements]);
+
+  const [now] = useState(() => Date.now());
+
+  function moveAnnouncement(index: number, delta: -1 | 1) {
+    const target = index + delta;
+    if (target < 0 || target >= announcements.length) return;
+
+    const next = [...announcements];
+    [next[index], next[target]] = [next[target], next[index]];
+    const renumbered = next.map((item, position) => ({
+      ...item,
+      display_order: (position + 1) * 10,
+    }));
+    const changed = renumbered
+      .filter((item) => announcements.find((old) => old.id === item.id)?.display_order !== item.display_order)
+      .map((item) => ({ id: item.id, displayOrder: item.display_order }));
+
+    const previous = announcements;
+    setAnnouncements(renumbered);
+    setError("");
+    setMessage("");
+
+    startTransition(async () => {
+      const result = await reorderPlatformAnnouncements(changed);
+      if (!result.success) {
+        setAnnouncements(previous);
+        setError(result.message);
+        return;
+      }
+      setMessage(result.message);
+    });
+  }
 
   function resetForm() {
     setEditingId(null);
@@ -932,11 +981,34 @@ export default function AnnouncementsManager({
         ) : (
           <div className="divide-y divide-slate-100">
             {announcements.map(
-              (item) => (
+              (item, index) => (
                 <article
                   key={item.id}
-                  className="grid gap-4 px-5 py-4 lg:grid-cols-[minmax(0,1fr)_170px_auto] lg:items-center"
+                  className="grid gap-4 px-5 py-4 lg:grid-cols-[auto_minmax(0,1fr)_170px_auto] lg:items-center"
                 >
+                  <div className="flex items-center gap-1 lg:flex-col">
+                    <button
+                      type="button"
+                      title="تحريك لأعلى (يظهر أولًا)"
+                      aria-label="تحريك لأعلى"
+                      disabled={isPending || index === 0}
+                      onClick={() => moveAnnouncement(index, -1)}
+                      className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:border-[#F7B548] hover:text-[#07152E] disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      <ArrowUp size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      title="تحريك لأسفل"
+                      aria-label="تحريك لأسفل"
+                      disabled={isPending || index === announcements.length - 1}
+                      onClick={() => moveAnnouncement(index, 1)}
+                      className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:border-[#F7B548] hover:text-[#07152E] disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      <ArrowDown size={12} />
+                    </button>
+                  </div>
+
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-full bg-[#FFF4DF] px-2.5 py-1 text-[9px] font-black text-[#A66F09]">
@@ -948,15 +1020,9 @@ export default function AnnouncementsManager({
                       </span>
 
                       <span
-                        className={`rounded-full px-2.5 py-1 text-[9px] font-black ${
-                          item.is_active
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-slate-100 text-slate-500"
-                        }`}
+                        className={`rounded-full px-2.5 py-1 text-[9px] font-black ${STATUS_BADGE[effectiveStatus(item, now)].className}`}
                       >
-                        {item.is_active
-                          ? "نشط"
-                          : "متوقف"}
+                        {STATUS_BADGE[effectiveStatus(item, now)].label}
                       </span>
 
                       <span className="text-[9px] font-bold text-slate-400">

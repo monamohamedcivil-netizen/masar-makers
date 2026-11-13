@@ -349,3 +349,38 @@ export async function deletePlatformAnnouncement(
     message: "تم حذف الإعلان.",
   };
 }
+/** حفظ ترتيب ظهور الإعلانات (الأقل أولًا). يستقبل الصفوف التي تغيّر ترتيبها فقط. */
+export async function reorderPlatformAnnouncements(
+  items: Array<{ id: string; displayOrder: number }>,
+): Promise<AnnouncementActionResult> {
+  const supabase = await requireAdmin();
+
+  const list = Array.isArray(items) ? items.slice(0, 200) : [];
+  const uuid = /^[0-9a-f-]{36}$/i;
+  if (
+    list.some(
+      (item) =>
+        !uuid.test(String(item?.id ?? "")) ||
+        !Number.isInteger(item.displayOrder) ||
+        item.displayOrder < 0 ||
+        item.displayOrder > 100000,
+    )
+  ) {
+    return { success: false, message: "بيانات الترتيب غير صحيحة." };
+  }
+
+  for (const item of list) {
+    const { error } = await supabase
+      .from("platform_announcements")
+      .update({ display_order: item.displayOrder })
+      .eq("id", item.id);
+    if (error) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  revalidatePath("/admin/content/announcements");
+  revalidatePath("/");
+
+  return { success: true, message: "تم حفظ ترتيب الإعلانات." };
+}
