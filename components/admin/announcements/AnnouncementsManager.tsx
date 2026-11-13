@@ -43,6 +43,7 @@ import {
 type Props = {
   initialAnnouncements: PlatformAnnouncement[];
   pageOptions: PageOption[];
+  chatCourses: Array<{ id: string; label: string }>;
 };
 
 type FormState = {
@@ -57,6 +58,8 @@ type FormState = {
   opensChat: boolean;
   chatReply: string;
   chatReplyEn: string;
+  /** الكورس الذي يفتح الشات تفاصيله (فارغ = الرسالة الترحيبية). */
+  chatCourseId: string;
   isActive: boolean;
   displayOrder: number;
   startsAt: string;
@@ -80,6 +83,7 @@ const EMPTY_FORM: FormState = {
   opensChat: false,
   chatReply: "",
   chatReplyEn: "",
+  chatCourseId: "",
   isActive: true,
   displayOrder: 0,
   startsAt: "",
@@ -118,6 +122,7 @@ function toInputDate(value: string | null) {
 export default function AnnouncementsManager({
   initialAnnouncements,
   pageOptions,
+  chatCourses,
 }: Props) {
   const [announcements, setAnnouncements] =
     useState(initialAnnouncements);
@@ -179,6 +184,7 @@ export default function AnnouncementsManager({
       opensChat: Boolean(item.opens_chat),
       chatReply: item.chat_reply ?? "",
       chatReplyEn: item.chat_reply_en ?? "",
+      chatCourseId: item.chat_course_id ?? "",
       isActive: true,
       displayOrder:
         item.display_order ?? 0,
@@ -221,6 +227,7 @@ export default function AnnouncementsManager({
       opensChat: Boolean(item.opens_chat),
       chatReply: item.chat_reply ?? "",
       chatReplyEn: item.chat_reply_en ?? "",
+      chatCourseId: item.chat_course_id ?? "",
       isActive: item.is_active,
       displayOrder:
         item.display_order ?? 0,
@@ -266,6 +273,7 @@ export default function AnnouncementsManager({
         opensChat: form.opensChat,
         chatReply: form.chatReply,
         chatReplyEn: form.chatReplyEn,
+        chatCourseId: form.chatCourseId,
         isActive: form.isActive,
         displayOrder:
           form.displayOrder,
@@ -682,6 +690,26 @@ export default function AnnouncementsManager({
                   className={`${INPUT} h-auto min-h-[84px] py-3`}
                   placeholder="مثال: أهلًا بك 👋 التسجيل في رحلة Civil 3D مفتوح الآن. اختر من القائمة لمعرفة التفاصيل والسعر 👇"
                 />
+              </Field>
+
+              <Field label="الكورس المرتبط بالزر (يفتح الشات تفاصيله مباشرة)" className="md:col-span-2">
+                <select
+                  value={form.chatCourseId}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      chatCourseId: event.target.value,
+                    }))
+                  }
+                  className={INPUT}
+                >
+                  <option value="">تلقائي (حسب عنوان الإعلان) أو الرسالة الترحيبية</option>
+                  {chatCourses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.label}
+                    </option>
+                  ))}
+                </select>
               </Field>
 
               <Field label="رد الشات بالإنجليزية" className="md:col-span-2">

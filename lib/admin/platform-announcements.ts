@@ -33,6 +33,8 @@ export type PlatformAnnouncement = {
   /** شاشة العروض المنبثقة (jsonb) ووجهة الزر المختارة (jsonb). */
   offer_popup?: unknown;
   link_config?: unknown;
+  /** الكورس الذي يفتح الشات تفاصيله عند الضغط على الزر. */
+  chat_course_id?: string | null;
 };
 
 export type AnnouncementActionResult = {
@@ -120,6 +122,7 @@ export async function createPlatformAnnouncement(input: {
   opensChat?: boolean;
   chatReply?: string;
   chatReplyEn?: string;
+  chatCourseId?: string;
   isActive?: boolean;
   displayOrder?: number;
   startsAt?: string;
@@ -171,6 +174,7 @@ export async function createPlatformAnnouncement(input: {
       display_order: Number(input.displayOrder ?? 0),
       starts_at: startsAt,
       ends_at: endsAt,
+      ...(input.chatCourseId !== undefined ? { chat_course_id: input.chatCourseId.trim() || null } : {}),
       ...(input.offerPopup !== undefined ? { offer_popup: input.offerPopup } : {}),
       ...(input.linkConfig !== undefined ? { link_config: input.linkConfig } : {}),
     })
@@ -208,6 +212,7 @@ export async function updatePlatformAnnouncement(
     opensChat?: boolean;
     chatReply?: string;
     chatReplyEn?: string;
+    chatCourseId?: string;
     isActive?: boolean;
     displayOrder?: number;
     startsAt?: string;
@@ -266,6 +271,7 @@ export async function updatePlatformAnnouncement(
       display_order: Number(input.displayOrder ?? 0),
       starts_at: startsAt,
       ends_at: endsAt,
+      ...(input.chatCourseId !== undefined ? { chat_course_id: input.chatCourseId.trim() || null } : {}),
       ...(input.offerPopup !== undefined ? { offer_popup: input.offerPopup } : {}),
       ...(input.linkConfig !== undefined ? { link_config: input.linkConfig } : {}),
     })

@@ -13,11 +13,12 @@ const text = (value: unknown) => String(value ?? "").trim();
 export default async function AnnouncementsPage() {
   const db = createAdminClient();
 
-  const [announcements, campaigns, stationsResult, pathsResult] = await Promise.all([
+  const [announcements, campaigns, stationsResult, pathsResult, chatCoursesResult] = await Promise.all([
     getAdminPlatformAnnouncements(),
     listRecentEmailCampaigns(),
     db.from("course_stations").select("slug,title,short_title,display_order").order("display_order"),
     db.from("career_paths").select("slug,title,title_ar,display_order").order("display_order"),
+    db.from("whatsapp_courses").select("id,title,whatsapp_label,sort_order").eq("is_active", true).order("sort_order"),
   ]);
 
   // قائمة الصفحات في «وجهة الزر»: كورسات (محطات) ومسارات مهنية، بالإضافة للصفحات الثابتة.
@@ -40,6 +41,10 @@ export default async function AnnouncementsPage() {
       <AnnouncementsManager
         initialAnnouncements={announcements}
         pageOptions={pageOptions}
+        chatCourses={((chatCoursesResult.data ?? []) as Row[]).map((row) => ({
+          id: text(row.id),
+          label: text(row.whatsapp_label) || text(row.title),
+        }))}
       />
 
       <CustomEmailComposer recentCampaigns={campaigns} />

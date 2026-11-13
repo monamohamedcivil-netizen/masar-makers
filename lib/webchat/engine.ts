@@ -257,14 +257,24 @@ export class WebChatEngine {
     // Announcement bar button: the reply written on that announcement, then the main menu.
     if (entryKey === "announcement") {
       let reply = "";
+      let linkedCourseId: string | null = null;
       if (context.announcementId) {
+        // chat_course_id: عمود اختياري (قد لا يكون موجودًا قبل تطبيق التغييرات)، فنقرأه بالاستعلام الكامل.
         const { data } = await this.db
           .from("platform_announcements")
-          .select("chat_reply,chat_reply_en")
+          .select("*")
           .eq("id", String(context.announcementId))
           .maybeSingle();
         reply = this.f(data, "chat_reply");
+        linkedCourseId = clean(data?.chat_course_id) || null;
       }
+
+      // الزر يفتح تفاصيل كورس الإعلان مباشرة: الكورس المربوط بالإعلان، وإلا نطابق عنوان الإعلان بكورس.
+      const course = linkedCourseId
+        ? await this.course(linkedCourseId)
+        : await this.matchCourse(clean(context.actionLabel) || clean(context.text));
+      if (course) return this.openCourse(course.id, reply);
+
       return this.mainMenu(reply || (await this.entryText("contact")));
     }
 
