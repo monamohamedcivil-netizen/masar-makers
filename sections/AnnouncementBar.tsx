@@ -5,6 +5,9 @@ import AuthLink from "@/components/AuthLink";
 import NotificationCenter from "@/components/notifications/NotificationCenter";
 import { createClient } from "@/lib/supabase/client";
 import { openMasarChat } from "@/lib/webchat/client";
+import OffersGiftButton from "@/components/offers/OffersGiftButton";
+import OffersModal from "@/components/offers/OffersModal";
+import { useOffers } from "@/components/offers/useOffers";
 
 import {
   Gift,
@@ -111,6 +114,9 @@ export default function AnnouncementBar() {
   }, []);
 
   const text = labels[locale];
+  // شاشة العروض المنبثقة وزر «جميع العروض» (علبة الهدايا).
+  const offersState = useOffers();
+  const giftLabel = locale === "en" ? "All offers" : "جميع العروض";
   const isArabic = locale === "ar";
   const CTAArrow = isArabic ? ArrowLeft : ArrowRight;
 
@@ -304,7 +310,13 @@ const { data, error } = await supabase
                   ) : null}
                 </div>
 
-                <div className="shrink-0">
+                <div className="flex shrink-0 items-center gap-2">
+                  <OffersGiftButton
+                    count={offersState.offers.length}
+                    onClick={offersState.show}
+                    label={giftLabel}
+                    compact
+                  />
                   {opensChat || opensPoints ? (
                     <button
                       type="button"
@@ -364,7 +376,19 @@ const { data, error } = await supabase
             <NotificationCenter />
           </div>
 
-          {!loading && !item ? null : item ? (
+          {!loading && !item ? (
+            <div
+              className={`absolute top-1/2 flex -translate-y-1/2 items-center ${
+                isArabic ? "left-6" : "right-6"
+              }`}
+            >
+              <OffersGiftButton
+                count={offersState.offers.length}
+                onClick={offersState.show}
+                label={giftLabel}
+              />
+            </div>
+          ) : item ? (
             <>
               <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center">
                 <div className="grid grid-cols-[115px_40px_420px] items-center gap-3">
@@ -429,10 +453,15 @@ const { data, error } = await supabase
               </div>
 
               <div
-                className={`absolute top-1/2 flex -translate-y-1/2 ${
+                className={`absolute top-1/2 flex -translate-y-1/2 items-center gap-3 ${
                   isArabic ? "left-6" : "right-6"
                 }`}
               >
+                <OffersGiftButton
+                  count={offersState.offers.length}
+                  onClick={offersState.show}
+                  label={giftLabel}
+                />
                 {opensChat || opensPoints ? (
                   <button
                     type="button"
@@ -463,6 +492,12 @@ const { data, error } = await supabase
           ) : null}
         </div>
       </div>
+      <OffersModal
+        offers={offersState.offers}
+        open={offersState.open}
+        onClose={offersState.close}
+        locale={locale}
+      />
     </section>
   );
 }

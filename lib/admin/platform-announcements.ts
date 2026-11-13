@@ -30,6 +30,9 @@ export type PlatformAnnouncement = {
   ends_at: string | null;
   created_at: string;
   updated_at: string;
+  /** شاشة العروض المنبثقة (jsonb) ووجهة الزر المختارة (jsonb). */
+  offer_popup?: unknown;
+  link_config?: unknown;
 };
 
 export type AnnouncementActionResult = {
@@ -121,6 +124,9 @@ export async function createPlatformAnnouncement(input: {
   displayOrder?: number;
   startsAt?: string;
   endsAt?: string;
+  /** اختياري: لا يُكتب في قاعدة البيانات إلا إذا أُرسل. */
+  offerPopup?: unknown;
+  linkConfig?: unknown;
 }): Promise<AnnouncementActionResult> {
   const supabase = await requireAdmin();
 
@@ -165,6 +171,8 @@ export async function createPlatformAnnouncement(input: {
       display_order: Number(input.displayOrder ?? 0),
       starts_at: startsAt,
       ends_at: endsAt,
+      ...(input.offerPopup !== undefined ? { offer_popup: input.offerPopup } : {}),
+      ...(input.linkConfig !== undefined ? { link_config: input.linkConfig } : {}),
     })
     .select("id")
     .single();
@@ -204,6 +212,8 @@ export async function updatePlatformAnnouncement(
     displayOrder?: number;
     startsAt?: string;
     endsAt?: string;
+    offerPopup?: unknown;
+    linkConfig?: unknown;
   },
 ): Promise<AnnouncementActionResult> {
   const supabase = await requireAdmin();
@@ -256,6 +266,8 @@ export async function updatePlatformAnnouncement(
       display_order: Number(input.displayOrder ?? 0),
       starts_at: startsAt,
       ends_at: endsAt,
+      ...(input.offerPopup !== undefined ? { offer_popup: input.offerPopup } : {}),
+      ...(input.linkConfig !== undefined ? { link_config: input.linkConfig } : {}),
     })
     .eq("id", id);
 

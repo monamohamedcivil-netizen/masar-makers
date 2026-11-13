@@ -22,6 +22,19 @@ import {
   type PlatformAnnouncement,
   type PlatformAnnouncementType,
 } from "@/lib/admin/platform-announcements";
+import DestinationPicker from "@/components/admin/announcements/DestinationPicker";
+import OfferPopupFields from "@/components/admin/announcements/OfferPopupFields";
+import {
+  buildHref,
+  parseLinkConfig,
+  type LinkConfig,
+  type PageOption,
+} from "@/lib/links/destinations";
+import {
+  EMPTY_OFFER_POPUP,
+  parseOfferPopup,
+  type OfferPopupConfig,
+} from "@/lib/offers/types";
 import {
   broadcastAnnouncement,
   getBroadcastAudienceCount,
@@ -29,6 +42,7 @@ import {
 
 type Props = {
   initialAnnouncements: PlatformAnnouncement[];
+  pageOptions: PageOption[];
 };
 
 type FormState = {
@@ -49,6 +63,9 @@ type FormState = {
   endsAt: string;
   notifyStudents: boolean;
   emailStudents: boolean;
+  /** وجهة الزر المختارة من القائمة (null = رابط قديم مكتوب يدويًا). */
+  linkConfig: LinkConfig | null;
+  offerPopup: OfferPopupConfig;
 };
 
 const EMPTY_FORM: FormState = {
@@ -69,6 +86,8 @@ const EMPTY_FORM: FormState = {
   endsAt: "",
   notifyStudents: false,
   emailStudents: false,
+  linkConfig: null,
+  offerPopup: EMPTY_OFFER_POPUP,
 };
 
 const TYPE_LABELS: Record<PlatformAnnouncementType, string> = {
@@ -98,6 +117,7 @@ function toInputDate(value: string | null) {
 
 export default function AnnouncementsManager({
   initialAnnouncements,
+  pageOptions,
 }: Props) {
   const [announcements, setAnnouncements] =
     useState(initialAnnouncements);
@@ -166,6 +186,8 @@ export default function AnnouncementsManager({
       endsAt: "",
       notifyStudents: false,
       emailStudents: false,
+      linkConfig: parseLinkConfig(item.link_config),
+      offerPopup: parseOfferPopup(item.offer_popup),
     });
 
     setError("");
@@ -210,6 +232,8 @@ export default function AnnouncementsManager({
       ),
       notifyStudents: false,
       emailStudents: false,
+      linkConfig: parseLinkConfig(item.link_config),
+      offerPopup: parseOfferPopup(item.offer_popup),
     });
 
     setError("");
@@ -247,6 +271,11 @@ export default function AnnouncementsManager({
           form.displayOrder,
         startsAt: form.startsAt,
         endsAt: form.endsAt,
+        // الرابط النهائي يُبنى من الوجهة المختارة؛ والإعدادان الجديدان يُحفظان للتعديل لاحقًا.
+        ...(form.linkConfig && !form.opensChat
+          ? { href: buildHref(form.linkConfig), linkConfig: form.linkConfig }
+          : {}),
+        offerPopup: form.offerPopup,
       };
 
       const wantsBroadcast =
@@ -687,21 +716,30 @@ export default function AnnouncementsManager({
               </Field>
             </>
           ) : (
-            <Field label="رابط الزر" className="md:col-span-2">
-              <input
-                value={form.href}
-                onChange={(event) =>
+            <Field label="وجهة الزر (اختاري من القائمة)" className="md:col-span-2">
+              <DestinationPicker
+                value={
+                  form.linkConfig ?? { kind: "custom", url: form.href === "#" ? "" : form.href }
+                }
+                onChange={(next) =>
                   setForm((current) => ({
                     ...current,
-                    href: event.target.value,
+                    linkConfig: next,
+                    href: buildHref(next),
                   }))
                 }
-                dir="ltr"
-                className={`${INPUT} text-left`}
-                placeholder="/course/example"
+                pages={pageOptions}
               />
             </Field>
           )}
+
+          <OfferPopupFields
+            value={form.offerPopup}
+            onChange={(next) =>
+              setForm((current) => ({ ...current, offerPopup: next }))
+            }
+            pages={pageOptions}
+          />
 
           <Field label="يبدأ في">
             <input

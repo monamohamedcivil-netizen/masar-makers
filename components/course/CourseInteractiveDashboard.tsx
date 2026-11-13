@@ -84,6 +84,8 @@ export type PlatformPageMode =
 type CourseInteractiveDashboardProps = {
   mode?: PlatformPageMode;
   initialJourneyType?: "integrated" | "one_day" | "free";
+  /** تبويب يُفتح مباشرة (من ?tab= في الرابط). */
+  initialPanelParam?: string;
   stationId: string;
   builderPage?: CatalogBuiltTemplatePage;
   course: Course;
@@ -266,6 +268,7 @@ function MobileCourseTabs({
 export default function CourseInteractiveDashboard({
   mode = "student",
   initialJourneyType = "integrated",
+  initialPanelParam,
   stationId,
   course,
   enrollmentStatuses,
@@ -425,6 +428,10 @@ export default function CourseInteractiveDashboard({
     "professional";
 
   const requestedInitialPanel = useMemo<CoursePanelTab>(() => {
+    if (initialPanelParam) {
+      return initialPanelParam as CoursePanelTab;
+    }
+
     if (initialJourneyType === "one_day") {
       return "workshop";
     }
@@ -434,7 +441,7 @@ export default function CourseInteractiveDashboard({
     }
 
     return "professional";
-  }, [initialJourneyType]);
+  }, [initialJourneyType, initialPanelParam]);
 
   const availablePanelIds = useMemo(
     () => [

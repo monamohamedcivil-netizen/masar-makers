@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import Navbar from "@/sections/Navbar";
 import AnnouncementBar from "@/sections/AnnouncementBar";
+import { COURSE_TAB_IDS } from "@/lib/links/destinations";
 
 import {
   CourseInteractiveDashboard,
@@ -87,6 +88,7 @@ type CoursePageProps = {
   searchParams?: Promise<{
     lesson?: string | string[];
     journey?: string | string[];
+    tab?: string | string[];
   }>;
 };
 
@@ -170,6 +172,15 @@ export default async function CoursePage({
   )
     ? resolvedSearchParams.journey[0]
     : resolvedSearchParams.journey;
+
+  // ?tab= يفتح تبويبًا بعينه (آراء المتدربين، المشاريع، الرحلات المجانية…) — يُستخدم من أزرار الإعلانات.
+  const requestedTab = Array.isArray(resolvedSearchParams.tab)
+    ? resolvedSearchParams.tab[0]
+    : resolvedSearchParams.tab;
+
+  const initialPanelParam = COURSE_TAB_IDS.includes(String(requestedTab ?? ""))
+    ? requestedTab
+    : undefined;
 
   const initialJourneyType =
     requestedJourney === "one_day" ||
@@ -276,6 +287,7 @@ const courseProjects = pageData
   }
   initialPanelContents={initialPanelContents}
   initialJourneyType={initialJourneyType}
+  initialPanelParam={initialPanelParam}
 />
     </main>
   );
