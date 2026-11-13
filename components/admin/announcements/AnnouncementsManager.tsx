@@ -22,6 +22,19 @@ import {
   type PlatformAnnouncement,
   type PlatformAnnouncementType,
 } from "@/lib/admin/platform-announcements";
+import DestinationPicker from "@/components/admin/announcements/DestinationPicker";
+import OfferPopupFields from "@/components/admin/announcements/OfferPopupFields";
+import {
+  buildHref,
+  parseLinkConfig,
+  type LinkConfig,
+  type PageOption,
+} from "@/lib/links/destinations";
+import {
+  EMPTY_OFFER_POPUP,
+  parseOfferPopup,
+  type OfferPopupConfig,
+} from "@/lib/offers/types";
 import {
   broadcastAnnouncement,
   getBroadcastAudienceCount,
@@ -29,6 +42,8 @@ import {
 
 type Props = {
   initialAnnouncements: PlatformAnnouncement[];
+  pageOptions: PageOption[];
+  chatCourses: Array<{ id: string; label: string }>;
 };
 
 type FormState = {
@@ -43,12 +58,17 @@ type FormState = {
   opensChat: boolean;
   chatReply: string;
   chatReplyEn: string;
+  /** الكورس الذي يفتح الشات تفاصيله (فارغ = الرسالة الترحيبية). */
+  chatCourseId: string;
   isActive: boolean;
   displayOrder: number;
   startsAt: string;
   endsAt: string;
   notifyStudents: boolean;
   emailStudents: boolean;
+  /** وجهة الزر المختارة من القائمة (null = رابط قديم مكتوب يدويًا). */
+  linkConfig: LinkConfig | null;
+  offerPopup: OfferPopupConfig;
 };
 
 const EMPTY_FORM: FormState = {
@@ -63,12 +83,15 @@ const EMPTY_FORM: FormState = {
   opensChat: false,
   chatReply: "",
   chatReplyEn: "",
+  chatCourseId: "",
   isActive: true,
   displayOrder: 0,
   startsAt: "",
   endsAt: "",
   notifyStudents: false,
   emailStudents: false,
+  linkConfig: null,
+  offerPopup: EMPTY_OFFER_POPUP,
 };
 
 const TYPE_LABELS: Record<PlatformAnnouncementType, string> = {
@@ -98,6 +121,8 @@ function toInputDate(value: string | null) {
 
 export default function AnnouncementsManager({
   initialAnnouncements,
+  pageOptions,
+  chatCourses,
 }: Props) {
   const [announcements, setAnnouncements] =
     useState(initialAnnouncements);
@@ -159,6 +184,7 @@ export default function AnnouncementsManager({
       opensChat: Boolean(item.opens_chat),
       chatReply: item.chat_reply ?? "",
       chatReplyEn: item.chat_reply_en ?? "",
+      chatCourseId: item.chat_course_id ?? "",
       isActive: true,
       displayOrder:
         item.display_order ?? 0,
@@ -166,6 +192,8 @@ export default function AnnouncementsManager({
       endsAt: "",
       notifyStudents: false,
       emailStudents: false,
+      linkConfig: parseLinkConfig(item.link_config),
+      offerPopup: parseOfferPopup(item.offer_popup),
     });
 
     setError("");
@@ -199,6 +227,7 @@ export default function AnnouncementsManager({
       opensChat: Boolean(item.opens_chat),
       chatReply: item.chat_reply ?? "",
       chatReplyEn: item.chat_reply_en ?? "",
+      chatCourseId: item.chat_course_id ?? "",
       isActive: item.is_active,
       displayOrder:
         item.display_order ?? 0,
@@ -210,6 +239,8 @@ export default function AnnouncementsManager({
       ),
       notifyStudents: false,
       emailStudents: false,
+      linkConfig: parseLinkConfig(item.link_config),
+      offerPopup: parseOfferPopup(item.offer_popup),
     });
 
     setError("");
@@ -242,11 +273,17 @@ export default function AnnouncementsManager({
         opensChat: form.opensChat,
         chatReply: form.chatReply,
         chatReplyEn: form.chatReplyEn,
+        chatCourseId: form.chatCourseId,
         isActive: form.isActive,
         displayOrder:
           form.displayOrder,
         startsAt: form.startsAt,
         endsAt: form.endsAt,
+        // الرابط النهائي يُبنى من الوجهة المختارة؛ والإعدادان الجديدان يُحفظان للتعديل لاحقًا.
+        ...(form.linkConfig && !form.opensChat
+          ? { href: buildHref(form.linkConfig), linkConfig: form.linkConfig }
+          : {}),
+        offerPopup: form.offerPopup,
       };
 
       const wantsBroadcast =
@@ -655,6 +692,26 @@ export default function AnnouncementsManager({
                 />
               </Field>
 
+              <Field label="الكورس المرتبط بالزر (يفتح الشات تفاصيله مباشرة)" className="md:col-span-2">
+                <select
+                  value={form.chatCourseId}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      chatCourseId: event.target.value,
+                    }))
+                  }
+                  className={INPUT}
+                >
+                  <option value="">تلقائي (حسب عنوان الإعلان) أو الرسالة الترحيبية</option>
+                  {chatCourses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
               <Field label="رد الشات بالإنجليزية" className="md:col-span-2">
                 <textarea
                   rows={3}
@@ -687,21 +744,30 @@ export default function AnnouncementsManager({
               </Field>
             </>
           ) : (
-            <Field label="رابط الزر" className="md:col-span-2">
-              <input
-                value={form.href}
-                onChange={(event) =>
+            <Field label="وجهة الزر (اختاري من القائمة)" className="md:col-span-2">
+              <DestinationPicker
+                value={
+                  form.linkConfig ?? { kind: "custom", url: form.href === "#" ? "" : form.href }
+                }
+                onChange={(next) =>
                   setForm((current) => ({
                     ...current,
-                    href: event.target.value,
+                    linkConfig: next,
+                    href: buildHref(next),
                   }))
                 }
-                dir="ltr"
-                className={`${INPUT} text-left`}
-                placeholder="/course/example"
+                pages={pageOptions}
               />
             </Field>
           )}
+
+          <OfferPopupFields
+            value={form.offerPopup}
+            onChange={(next) =>
+              setForm((current) => ({ ...current, offerPopup: next }))
+            }
+            pages={pageOptions}
+          />
 
           <Field label="يبدأ في">
             <input

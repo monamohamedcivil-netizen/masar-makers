@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { CalendarDays, PlayCircle, Rocket } from "lucide-react";
+import { CalendarDays, Gift, PlayCircle, Rocket } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import CourseActionButton from "@/components/course/CourseActionButton";
+import { openOffersScreen } from "@/components/offers/useOffers";
 import type { EnrollmentStatus } from "@/lib/actions/enroll";
 import { courseIcon } from "@/lib/journeys/course-icons";
 import type { ProfessionalPath, ProfessionalStation } from "@/lib/journeys/professional-stations";
@@ -205,6 +206,15 @@ export default function JourneysRoadView(props: Props) {
           <h1 className="text-lg font-black sm:text-2xl">{theme.title}</h1>
         </div>
         <p className="mx-auto mt-1 max-w-2xl text-xs font-semibold leading-5 text-slate-300 sm:text-sm">{theme.subtitle}</p>
+
+        <button
+          type="button"
+          onClick={openOffersScreen}
+          className="mx-auto mt-2 inline-flex cursor-pointer items-center gap-2 rounded-full bg-[#F7B548] px-4 py-1.5 text-xs font-black text-[#07152E] shadow-md transition hover:scale-105 hover:bg-[#FFC766]"
+        >
+          <Gift className="h-4 w-4" />
+          جميع العروض
+        </button>
 
         <div role="tablist" className="mx-auto mt-3 flex max-w-xl justify-center gap-2 rounded-2xl bg-white/5 p-1">
           {paths.map((p) => (
