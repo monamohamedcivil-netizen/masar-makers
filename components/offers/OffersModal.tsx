@@ -77,17 +77,17 @@ export default function OffersModal({
       role="dialog"
       aria-modal="true"
       aria-label={text.title}
-      className="fixed inset-0 z-[400] flex items-center justify-center bg-[#07152E]/80 p-3 backdrop-blur-sm sm:p-6"
+      className="fixed inset-0 z-[400] flex items-center justify-center overflow-hidden bg-[#07152E]/80 p-3 backdrop-blur-sm sm:p-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="relative flex w-full max-w-[560px] flex-col items-center">
+      <div className="relative flex w-full max-w-[1400px] flex-col items-center">
         <button
           type="button"
           onClick={onClose}
           aria-label={text.close}
-          className="absolute -top-2 right-0 z-[60] flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-white text-[#07152E] shadow-lg transition hover:bg-[#F7B548]"
+          className="fixed right-4 top-4 z-[200] flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-white text-[#07152E] shadow-lg transition hover:bg-[#F7B548]"
         >
           <X size={18} />
         </button>
@@ -96,20 +96,23 @@ export default function OffersModal({
           🎁 {text.title} · {front + 1} {text.of} {count}
         </p>
 
-        {/* الصفحات المتتالية */}
+        {/* الصفحات المتتالية: كل العروض ظاهرة ورا بعض على الجانبين */}
         <div className="relative h-[min(62vh,520px)] w-full">
           {offers.map((offer, index) => {
-            // الترتيب بالنسبة للعرض الأمامي (دائري): 0 = الأمامي.
-            const depth = (index - front + count) % count;
-            const isFront = depth === 0;
-            const shown = Math.min(depth, 3);
+            // المسافة الدائرية من العرض الأمامي: 0 = الأمامي، سالب/موجب = على الجانبين.
+            let d = (index - front + count) % count;
+            if (d > count / 2) d -= count;
+            const level = Math.abs(d);
+            const isFront = level === 0;
+            const dir = rtl ? -Math.sign(d) : Math.sign(d);
+            // أول عرض خلفي يبعد 56% من عرض الصورة، وكل مستوى بعده 15% إضافية.
+            const shift = isFront ? 0 : dir * (56 + (level - 1) * 15);
+            const scale = isFront ? 1 : 0.84 * Math.pow(0.93, level - 1);
             const style: React.CSSProperties = {
-              transform: `translateY(${-shown * 16}px) scale(${1 - shown * 0.07})`,
-              opacity: isFront ? 1 : Math.max(0.18, 0.6 - (shown - 1) * 0.2),
-              filter: isFront ? "none" : `brightness(${0.7 - (shown - 1) * 0.1}) saturate(0.7)`,
-              zIndex: 40 - shown,
-              pointerEvents: depth > 3 ? "none" : "auto",
-              visibility: depth > 3 ? "hidden" : "visible",
+              transform: `translateX(calc(-50% + ${shift}%)) scale(${scale})`,
+              opacity: isFront ? 1 : Math.max(0.3, 0.85 - (level - 1) * 0.12),
+              filter: isFront ? "none" : `grayscale(1) brightness(${Math.max(0.4, 0.66 - (level - 1) * 0.07)})`,
+              zIndex: 100 - level,
             };
 
             return (
@@ -121,8 +124,8 @@ export default function OffersModal({
                 onClick={isFront ? undefined : () => setFront(index)}
                 onKeyDown={isFront ? undefined : (event) => event.key === "Enter" && setFront(index)}
                 style={style}
-                className={`absolute inset-0 overflow-hidden rounded-[22px] bg-white shadow-[0_24px_70px_rgba(0,0,0,0.45)] transition-all duration-500 ease-out ${
-                  isFront ? "" : "cursor-pointer hover:brightness-90"
+                className={`absolute left-1/2 top-0 h-full w-[min(78vw,440px)] overflow-hidden rounded-[22px] bg-white shadow-[0_24px_70px_rgba(0,0,0,0.5)] transition-all duration-700 ease-out ${
+                  isFront ? "" : "cursor-pointer"
                 }`}
               >
                 <img
