@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import OffersShowcase from "@/components/offers/OffersShowcase";
 import MasarLanding from "@/sections/MasarLanding";
 
 // مركز الرحلات يتحمّل بعد ظهور الصفحة الأولى (الشاشة الأولى تفضل سريعة).
@@ -113,6 +114,7 @@ export default function LandingWithJourneys() {
     <>
       <div ref={heroRef}>
         <MasarLanding v2 />
+        <OffersShowcase />
       </div>
       <div ref={centerRef} id="journeys-center" className="scroll-mt-0">
         {mounted ? <JourneysCenter /> : <div className="min-h-[60vh] bg-[#F7F8FA]" />}
