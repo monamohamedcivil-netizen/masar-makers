@@ -426,6 +426,7 @@ export default function PriceTable({ data, kind: initialKind, kindSwitch = false
             <tr>
               <th className="px-2 py-2.5">الكورس</th>
               <th className="px-2 py-2.5">النوع</th>
+              <th className="px-2 py-2.5">عدد المحاضرات</th>
               <th className="px-2 py-2.5">السعر الأصلي</th>
               <th className="px-2 py-2.5">نسبة الخصم</th>
               <th className="px-2 py-2.5">السعر بعد الخصم</th>
@@ -451,6 +452,11 @@ export default function PriceTable({ data, kind: initialKind, kindSwitch = false
                   <tr key={`${line.courseId}-${line.variantId ?? "main"}`} className="border-t border-slate-100 text-xs">
                     <td className="px-2 py-1.5 font-black text-[#07152E]">{line.course}</td>
                     <td className="px-2 py-1.5 font-bold text-slate-600">{line.type}</td>
+                    <td className="px-2 py-1.5 text-center font-bold tabular-nums text-slate-600">
+                      {(kind === "course"
+                        ? data.lectureCounts?.[`${line.courseId}|${line.variantId ?? "-"}`]
+                        : data.oneDayLectureCounts?.[line.courseId]) ?? "—"}
+                    </td>
                     <td className="px-2 py-1.5">
                       <NumCell value={row?.original_price ?? null} onSave={(v) => void saveCell(line, "original_price", v)} />
                     </td>
