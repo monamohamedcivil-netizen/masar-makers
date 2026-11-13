@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/server";
+import { getOneDayLessons } from "@/lib/queries/whatsapp-sales";
 import { findChatCourse, variantStageOf } from "@/lib/webchat/courses";
 import {
   EMPTY_PRICE_TABLE,
@@ -61,6 +62,7 @@ export async function getPriceTableData(): Promise<PriceTableData> {
     }));
     // Lecture counts: published platform lessons, matched to the chat courses by name.
     const lectureCounts: Record<string, number> = {};
+    const oneDayLectureCounts: Record<string, number> = {};
     try {
       const { data: platform } = await db.from("courses").select("id,title,title_ar,is_active");
       const chatList = ((coursesRes.data ?? []) as Array<Record<string, unknown>>).map((c) => ({
@@ -88,6 +90,10 @@ export async function getPriceTableData(): Promise<PriceTableData> {
         else if (part === "advanced") cur.adv += 1;
         byPlatform.set(key, cur);
       }
+      const oneDay = await getOneDayLessons(chatList as unknown as Parameters<typeof getOneDayLessons>[0]).catch(() => []);
+      for (const l of oneDay) {
+        oneDayLectureCounts[l.chat_course_id] = (oneDayLectureCounts[l.chat_course_id] ?? 0) + 1;
+      }
       for (const [chatId, platformId] of platformByChat) {
         const counts = byPlatform.get(platformId);
         if (!counts) continue;
@@ -109,6 +115,7 @@ export async function getPriceTableData(): Promise<PriceTableData> {
       courses,
       variants,
       lectureCounts,
+      oneDayLectureCounts,
     };
   } catch {
     return EMPTY_PRICE_TABLE;

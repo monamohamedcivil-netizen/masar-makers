@@ -129,7 +129,7 @@ export type WhatsAppSession = {
 };
 
 /** One-day lectures of every platform course, grouped under the matching chat course. */
-async function getOneDayLessons(chatCourses: WhatsAppCourse[]): Promise<WhatsAppOneDayLesson[]> {
+export async function getOneDayLessons(chatCourses: WhatsAppCourse[]): Promise<WhatsAppOneDayLesson[]> {
   const db = createAdminClient();
   const { data: courses } = await db.from("courses").select("id,title").eq("is_active", true);
   const chatCourseOf = new Map<string, string>();
