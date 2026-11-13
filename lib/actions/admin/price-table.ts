@@ -82,7 +82,7 @@ export async function savePriceCell(input: PriceCellInput): Promise<Result<Offer
     if (input.field === "offer_active") offerActive = Boolean(input.value);
     else if (input.field === "currency_active") currencyActive = Boolean(input.value);
     else {
-      const n = input.value == null || input.value === "" ? null : Number(input.value);
+      const n = typeof input.value === "number" ? input.value : null;
       if (n == null || !Number.isFinite(n) || n < 0) throw new Error("اكتب رقمًا صحيحًا");
       if (input.field === "original_price") {
         if (n <= 0) throw new Error("اكتب سعرًا أكبر من صفر");
