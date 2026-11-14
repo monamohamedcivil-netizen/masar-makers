@@ -20,13 +20,17 @@ import {
   getInternalAccountUserIds,
   getInternalPaymentMatcher,
 } from "@/lib/admin/internal-accounts";
+import { getSubscribedPeopleCount, percentOf } from "@/lib/finance/subscribed-people";
 import { getAdminDashboardStats } from "@/lib/queries/admin-dashboard";
 import { createAdminClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const stats = await getAdminDashboardStats();
+  const [stats, subscribedPeople] = await Promise.all([
+    getAdminDashboardStats(),
+    getSubscribedPeopleCount(),
+  ]);
   // طلبات خدمة العملاء من شات المنصة (تحويل لواتساب بسبب «خدمة العملاء» أو «عملة أخرى») آخر 7 أيام.
   const supportSince = new Date(Date.now() - 7 * 86400000).toISOString();
   const { data: supportSessions } = await createAdminClient()
@@ -119,6 +123,15 @@ export default async function DashboardPage() {
           value={stats.students}
           icon={Users}
           tone="navy"
+          extra={
+            <p className="mt-3 border-t border-white/15 pt-3 text-xs font-bold leading-5 text-white/80">
+              المشتركون فعلًا في كورسات:{" "}
+              <span className="text-base font-black text-[#F7B548]">{subscribedPeople}</span> شخص
+              <span className="mr-2 rounded-full bg-white/15 px-2 py-0.5 text-[11px] font-black text-white">
+                {percentOf(subscribedPeople, stats.students)} من المسجلين
+              </span>
+            </p>
+          }
         />
 
         <StatCard
@@ -283,7 +296,8 @@ function StatCard({
   value,
   icon: Icon,
   tone,
-}: StatCardProps) {
+  extra,
+}: StatCardProps & { extra?: React.ReactNode }) {
   const tones = {
     navy: "bg-[#07152E] text-white",
     gold: "bg-[#F7B548] text-[#07152E]",
@@ -311,6 +325,7 @@ function StatCard({
           <Icon className="h-6 w-6" />
         </div>
       </div>
+      {extra}
     </article>
   );
 }

@@ -33,7 +33,13 @@ const monthLabel = (key: string) => {
   return `${MONTHS[Number(m) - 1] ?? m} ${y}`;
 };
 
-export default function ReportsDashboard({ data }: { data: FinanceData }) {
+export default function ReportsDashboard({
+  data,
+  registeredStudents = 0,
+}: {
+  data: FinanceData;
+  registeredStudents?: number;
+}) {
   const { payments, expenses, otherIncome, paths } = data;
   const today = new Date().toISOString().slice(0, 10);
   const thisYear = today.slice(0, 4);
@@ -231,8 +237,13 @@ export default function ReportsDashboard({ data }: { data: FinanceData }) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi label="عدد الاشتراكات"
           href="/admin/finance/payments" value={String(payments.length)} />
-        <Kpi label="عدد الأشخاص"
-          href="/admin/finance/payments" value={String(people)} />
+        <Kpi label="عدد الأشخاص المشتركين"
+          href="/admin/finance/payments" value={String(people)}
+          note={
+            registeredStudents > 0
+              ? `نسبتهم من المسجلين في المنصة: ${Math.round((people / registeredStudents) * 1000) / 10}% (${people} من ${registeredStudents})`
+              : undefined
+          } />
         <Kpi label="متوسط سعر الاشتراك"
           href="/admin/finance/payments" value={fmt(avgPrice)} unit="جنيه" />
         <Kpi

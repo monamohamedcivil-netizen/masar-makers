@@ -311,3 +311,9 @@ Promise<AdminDashboardStats> {
     surveysReceived,
   };
 }
+
+/** عدد المسجّلين في المنصة (نفس رقم «إجمالي الطلاب» في لوحة التحكم). */
+export async function getRegisteredStudentsCount(): Promise<number> {
+  const internalUserIds = await getInternalAccountUserIds();
+  return countRows("student_registry", [], { userIds: internalUserIds });
+}
