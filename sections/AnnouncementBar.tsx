@@ -269,7 +269,7 @@ const { data, error } = await supabase
     "inline-flex h-8 max-w-[104px] items-center gap-1 whitespace-nowrap rounded-full bg-gradient-to-b from-[#FFCB45] to-[#F5A31A] px-2.5 text-[10px] font-black text-[#07152E] shadow-[0_4px_12px_rgba(245,163,26,0.45)] ring-1 ring-[#E18F0C]/40 transition hover:scale-105 hover:from-[#FFD766] hover:to-[#FFB02E]";
 
   const ctaClassDesktop =
-    "flex items-center gap-2 rounded-full bg-gradient-to-b from-[#FFCB45] to-[#F5A31A] px-5 py-2 text-sm font-black text-[#07152E] shadow-[0_6px_16px_rgba(245,163,26,0.5)] ring-1 ring-[#E18F0C]/40 transition duration-300 hover:scale-105 hover:from-[#FFD766] hover:to-[#FFB02E] hover:shadow-[0_8px_20px_rgba(245,163,26,0.6)]";
+    "flex items-center gap-2 whitespace-nowrap rounded-full bg-gradient-to-b from-[#FFCB45] to-[#F5A31A] px-5 py-2 text-sm font-black text-[#07152E] shadow-[0_6px_16px_rgba(245,163,26,0.5)] ring-1 ring-[#E18F0C]/40 transition duration-300 hover:scale-105 hover:from-[#FFD766] hover:to-[#FFB02E] hover:shadow-[0_8px_20px_rgba(245,163,26,0.6)]";
 
   return (
     <section
@@ -367,21 +367,13 @@ const { data, error } = await supabase
         </div>
 
         {/* Desktop / tablet layout */}
-        <div className="relative hidden h-full sm:block">
-          <div
-            className={`absolute top-1/2 z-20 -translate-y-1/2 ${
-              isArabic ? "right-6" : "left-6"
-            }`}
-          >
+        <div className="hidden h-full items-center gap-4 px-6 sm:flex">
+          <div className="relative z-20 shrink-0">
             <NotificationCenter />
           </div>
 
           {!loading && !item ? (
-            <div
-              className={`absolute top-1/2 flex -translate-y-1/2 items-center ${
-                isArabic ? "left-6" : "right-6"
-              }`}
-            >
+            <div className="ms-auto flex shrink-0 items-center">
               <OffersGiftButton
                 count={offersState.offers.length}
                 onClick={offersState.show}
@@ -390,24 +382,24 @@ const { data, error } = await supabase
             </div>
           ) : item ? (
             <>
-              <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center">
-                <div className="grid grid-cols-[115px_40px_420px] items-center gap-3">
-                  <div className="flex justify-end">
+              <div className="flex min-w-0 flex-1 flex-col items-center">
+                <div className="flex max-w-full min-w-0 items-center gap-3">
+                  <div className="hidden shrink-0 lg:flex">
                     <div className="whitespace-nowrap rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 shadow-sm">
                       {text.counter} {current + 1} {text.from} {announcements.length}
                     </div>
                   </div>
 
                   <div
-                    className="flex h-9 w-9 items-center justify-center rounded-full"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
                     style={{ background: theme.bg, color: theme.color }}
                   >
                     {theme.icon}
                   </div>
 
-                  <div className={`${isArabic ? "text-right" : "text-left"} leading-tight`}>
+                  <div className={`${isArabic ? "text-right" : "text-left"} min-w-0 leading-tight`}>
                     <h3
-                      className="whitespace-nowrap font-extrabold"
+                      className="truncate font-extrabold"
                       style={{
                         color: theme.color,
                         fontSize: getAnnouncementFontSize(title, "title", isArabic),
@@ -418,7 +410,7 @@ const { data, error } = await supabase
 
                     {description ? (
                       <p
-                        className="whitespace-nowrap text-slate-600"
+                        className="truncate text-slate-600"
                         style={{
                           fontSize: getAnnouncementFontSize(
                             description,
@@ -452,11 +444,7 @@ const { data, error } = await supabase
                 ) : null}
               </div>
 
-              <div
-                className={`absolute top-1/2 flex -translate-y-1/2 items-center gap-3 ${
-                  isArabic ? "left-6" : "right-6"
-                }`}
-              >
+              <div className="flex shrink-0 items-center gap-3">
                 <OffersGiftButton
                   count={offersState.offers.length}
                   onClick={offersState.show}
