@@ -55,6 +55,13 @@ export async function applyActiveOffer(admin: Admin): Promise<{ updated: number;
           offer_start: offer.starts_at ?? null,
           offer_end: offer.ends_at ?? null,
           is_active: Boolean(o.currency_active),
+          // تعمل فقط بعد تطبيق ملف الأعمدة الجديدة (وجود المفتاح في الصف).
+          ...("egp_equiv_price" in l
+            ? {
+                egp_equiv_original: o.egp_equiv_original == null ? null : Number(o.egp_equiv_original),
+                egp_equiv_price: o.egp_equiv_price == null ? null : Number(o.egp_equiv_price),
+              }
+            : {}),
         };
       } else {
         const original = l.original_price == null ? 0 : Number(l.original_price);
@@ -91,6 +98,12 @@ export async function applyActiveOffer(admin: Admin): Promise<{ updated: number;
           offer_start: offer.starts_at ?? null,
           offer_end: offer.ends_at ?? null,
           is_active: Boolean(o.currency_active),
+          ...(o.egp_equiv_original != null || o.egp_equiv_price != null
+            ? {
+                egp_equiv_original: o.egp_equiv_original == null ? null : Number(o.egp_equiv_original),
+                egp_equiv_price: o.egp_equiv_price == null ? null : Number(o.egp_equiv_price),
+              }
+            : {}),
           sort_order: SORT[code] ?? 40,
           updated_at: now,
         };

@@ -42,12 +42,19 @@ function listPriceOf(row: AnyRow) {
   return Number.isFinite(current) && current > 0 ? current : null;
 }
 
+const EGP_EQUIV = "EGP_EQUIV";
+
 function byCurrency(rows: AnyRow[]): CurrencyPrices {
   const out: CurrencyPrices = {};
   for (const r of rows) {
     const code = String(r.currency_code ?? "").toUpperCase();
     const price = listPriceOf(r);
     if (code && price != null && out[code] == null) out[code] = price;
+    // «الجنيه المكافئ» اليدوي لسعر الريال (لغير المقيمين في مصر) — يُستهلك في forStudent ولا يظهر خارجه.
+    if (code === "SAR" && out[EGP_EQUIV] == null) {
+      const eq = Number(r.egp_equiv_original ?? r.egp_equiv_price);
+      if (Number.isFinite(eq) && eq > 0) out[EGP_EQUIV] = eq;
+    }
   }
   return out;
 }
@@ -69,8 +76,8 @@ export async function suggestListPrices(
       db.from("courses").select("id,title,course_code,level").in("id", courseIds),
       db.from("whatsapp_courses").select("id,course_key,title,whatsapp_label,has_variants"),
       db.from("whatsapp_course_variants").select("id,course_id,variant_key,title,title_en"),
-      db.from("whatsapp_course_prices").select("course_id,variant_id,currency_code,current_price,original_price,is_active,sort_order").eq("is_active", true).order("sort_order"),
-      db.from("whatsapp_oneday_prices").select("course_id,lesson_id,currency_code,current_price,original_price,is_active,sort_order").eq("is_active", true).order("sort_order"),
+      db.from("whatsapp_course_prices").select("*").eq("is_active", true).order("sort_order"),
+      db.from("whatsapp_oneday_prices").select("*").eq("is_active", true).order("sort_order"),
     ]);
 
   // Pound prices for students not living in Egypt come from the riyal price.
@@ -86,10 +93,12 @@ export async function suggestListPrices(
   );
   const rate = Number((sarRate as AnyRow | null)?.rate_to_egp);
   const forStudent = (userId: string | null | undefined, prices: CurrencyPrices): CurrencyPrices => {
-    if (!userId || resident.get(String(userId)) !== false) return prices;
     const out = { ...prices };
+    delete out[EGP_EQUIV];
+    if (!userId || resident.get(String(userId)) !== false) return out;
     delete out.EGP;
-    if (prices.SAR != null && Number.isFinite(rate) && rate > 0) out.EGP = egpFromSar(prices.SAR, rate);
+    if (prices[EGP_EQUIV] != null) out.EGP = prices[EGP_EQUIV];
+    else if (prices.SAR != null && Number.isFinite(rate) && rate > 0) out.EGP = egpFromSar(prices.SAR, rate);
     return out;
   };
   const setFor = (e: EnrollmentForPricing, s: ListPriceSuggestion) =>
