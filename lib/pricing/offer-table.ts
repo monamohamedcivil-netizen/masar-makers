@@ -54,6 +54,8 @@ export type PriceTableData = {
   lectureCounts: Record<string, number>;
   /** One-day lecture count per chat course (lectures of its one-day journeys). */
   oneDayLectureCounts: Record<string, number>;
+  /** سعر الصرف: كم جنيه = 1 وحدة من العملة (finance_exchange_rates). */
+  rates: Record<string, number>;
 };
 
 export const EMPTY_PRICE_TABLE: PriceTableData = {
@@ -65,6 +67,7 @@ export const EMPTY_PRICE_TABLE: PriceTableData = {
   variants: [],
   lectureCounts: {},
   oneDayLectureCounts: {},
+  rates: {},
 };
 
 export function rowKey(kind: PriceKind, courseId: string, variantId: string | null, currency: string) {
