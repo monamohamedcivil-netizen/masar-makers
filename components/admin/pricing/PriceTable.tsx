@@ -15,6 +15,7 @@ import {
   CURRENCY_LABEL,
   discountPercent,
   findOverlaps,
+  roundForCurrency,
   rowKey,
   trackOf,
   type CurrencyCode,
@@ -252,7 +253,7 @@ export default function PriceTable({ data, kind: initialKind, kindSwitch = false
   const toEgp = (value: number | null) =>
     value == null || !rate
       ? "—"
-      : new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(Math.round(value * rate * 100) / 100);
+      : new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(roundForCurrency(value * rate, "EGP"));
   const colCount = 14;
 
   return (
@@ -473,8 +474,8 @@ export default function PriceTable({ data, kind: initialKind, kindSwitch = false
                     ? {
                         ...sarRow,
                         currency_code: "USD",
-                        original_price: sarRow.original_price == null ? null : Math.round((sarRow.original_price / SAR_PER_USD) * 100) / 100,
-                        offer_price: Math.round((sarRow.offer_price / SAR_PER_USD) * 100) / 100,
+                        original_price: sarRow.original_price == null ? null : roundForCurrency(sarRow.original_price / SAR_PER_USD, "USD"),
+                        offer_price: roundForCurrency(sarRow.offer_price / SAR_PER_USD, "USD"),
                         currency_active: false,
                       }
                     : undefined
@@ -542,7 +543,7 @@ export default function PriceTable({ data, kind: initialKind, kindSwitch = false
         </table>
       </div>
       <p className="text-[11px] font-bold text-slate-400">
-        اكتبي السعر الأصلي ثم الخصم % أو السعر بعد الخصم (يحسب الآخر تلقائيًا). تغيير السعر الأصلي يبقي نسبة الخصم كما هي.
+        الأسعار تتقرّب تلقائيًا: الجنيه والريال لأقرب 10، والدولار لأقرب 5. اكتبي السعر الأصلي ثم الخصم % أو السعر بعد الخصم (يحسب الآخر تلقائيًا). تغيير السعر الأصلي يبقي نسبة الخصم كما هي.
         سعر جديد لم يُسعَّر من قبل يظهر «—»: اكتبي سعره الأصلي لإنشائه. العملة الجديدة (الدولار) تبدأ غير مفعّلة في الشات.
       </p>
     </div>

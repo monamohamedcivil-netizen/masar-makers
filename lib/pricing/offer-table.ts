@@ -87,6 +87,13 @@ export function trackOf(value: string | null | undefined): PriceTrack {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/** التقريب التلقائي: الجنيه والريال لأقرب 10، والدولار لأقرب 5 (لا يقل عن خطوة واحدة). */
+export function roundForCurrency(value: number, currency: string): number {
+  const step = String(currency).toUpperCase() === "USD" ? 5 : 10;
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  return Math.max(step, Math.round(value / step) * step);
+}
+
 export function discountPercent(original: number | null, price: number): number {
   if (!original || original <= 0 || price >= original) return 0;
   return Math.round(((original - price) / original) * 1000) / 10;
