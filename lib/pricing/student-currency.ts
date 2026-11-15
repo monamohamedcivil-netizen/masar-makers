@@ -1,10 +1,9 @@
 /*
  * Student pricing rules (chat + enrollment requests + payments).
  *
- * Egyptian-pound LIST prices are only for students living in Egypt:
- *   country = Egypt AND the phone is not clearly a foreign number.
- * Everyone else who pays in pounds gets: riyal price × SAR rate (finance_exchange_rates),
- * rounded to the nearest 50 pounds.
+ * Egyptian-pound LIST prices are for everyone except the Gulf.
+ * A student from the Gulf (country OR phone is a Gulf one) who pays in pounds gets:
+ *   riyal price × SAR rate (finance_exchange_rates), rounded to the nearest 50 pounds.
  * Plain module (no "use server"), safe to import from the server and the browser.
  */
 
@@ -39,9 +38,42 @@ export function isEgyptianLikePhone(phone: unknown) {
   return !FOREIGN_CODES.some((code) => d.startsWith(code));
 }
 
-/** Lives in Egypt → sees the Egyptian-pound price list. */
+const GULF_NAMES = [
+  "saudi", "ksa", "السعودية", "السعودیة",
+  "emirates", "uae", "الإمارات", "الامارات",
+  "kuwait", "الكويت",
+  "qatar", "قطر",
+  "bahrain", "البحرين",
+  "oman", "عمان", "عُمان",
+];
+const GULF_CODES = ["966", "971", "965", "974", "973", "968"];
+const GULF_COUNTRY_CODES = ["sa", "ae", "kw", "qa", "bh", "om"];
+
+/** Country is one of the Gulf (GCC) countries. */
+export function isGulfCountry(country: unknown) {
+  const c = String(country ?? "").trim().toLowerCase();
+  if (!c) return false;
+  return GULF_COUNTRY_CODES.includes(c) || GULF_NAMES.some((name) => c.includes(name));
+}
+
+/** Phone is a Gulf number: +966/00971… or a local Gulf mobile (05…). Egyptian numbers start with 01/02. */
+export function isGulfPhone(phone: unknown) {
+  const raw = String(phone ?? "").trim();
+  const digits = raw.replace(/[^0-9]/g, "");
+  if (!digits) return false;
+  const international = raw.startsWith("+") || digits.startsWith("00");
+  const d = digits.replace(/^00/, "");
+  if (international) return GULF_CODES.some((code) => d.startsWith(code));
+  return /^05\d{7,}$/.test(d);
+}
+
+/**
+ * Sees the regular Egyptian-pound price list. Only students from the Gulf (country OR phone is a
+ * Gulf one) get the riyal price converted to pounds; everyone else gets the regular pound price.
+ * (Name kept: it is used by the chat, list prices and the students table.)
+ */
 export function isEgyptResident(country: unknown, phone: unknown) {
-  return isEgyptCountry(country) && isEgyptianLikePhone(phone);
+  return !(isGulfCountry(country) || isGulfPhone(phone));
 }
 
 /** Riyal amount shown in pounds: × rate, rounded to the nearest 50. */

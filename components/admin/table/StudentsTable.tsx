@@ -81,7 +81,7 @@ availableDrawEntries: number;
   /** «عملة الطالب» (الشات + طلبات الاشتراك + المدفوعات). */
   studentCurrency?: string | null;
   studentCurrencySource?: string | null;
-  /** مقيم في مصر (البلد مصر والرقم ليس أجنبيًا) → يرى أسعار الجنيه الأصلية. */
+  /** يرى أسعار الجنيه الأصلية (كل الطلاب ما عدا الخليج: البلد أو الهاتف خليجي → الجنيه المحوَّل من الريال). */
   egyptResident?: boolean;
   /** تاريخ تسجيل الطالب في المنصة، وآخر تسجيل دخول له (ISO). */
   registeredAt?: string | null;
