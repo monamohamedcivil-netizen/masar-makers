@@ -53,6 +53,8 @@ function toLocalInput(v: string | null) {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 }
 
+const SAR_PER_USD = 3.75;
+
 const field =
   "h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-[#07152E] outline-none focus:border-[#F7B548]";
 
@@ -246,6 +248,7 @@ export default function PriceTable({ data, kind: initialKind, kindSwitch = false
   // عملة غير الجنيه: أعمدة السعر محوّلًا للجنيه بسعر الصرف الحالي.
   const rate = data.rates?.[currency] ?? 0;
   const showEgp = currency !== "EGP";
+  const usdFromSar = currency === "USD";
   const toEgp = (value: number | null) =>
     value == null || !rate
       ? "—"
@@ -417,10 +420,16 @@ export default function PriceTable({ data, kind: initialKind, kindSwitch = false
           </select>
         ) : null}
         <span className="text-[11px] font-bold text-slate-400">
-          {currency} · أسعار مستقلة لكل عملة (بدون تحويل تلقائي)
+          {usdFromSar ? "USD = SAR ÷ 3.75" : `${currency} · أسعار مستقلة لكل عملة`}
           {showEgp && rate ? ` · سعر الصرف: 1 ${currency} = ${rate} جنيه` : ""}
         </span>
       </div>
+
+      {usdFromSar ? (
+        <p className="rounded-xl bg-sky-50 p-2.5 text-[11px] font-bold text-sky-800">
+          أسعار الدولار محسوبة تلقائيًا من أسعار الريال ÷ {SAR_PER_USD} (للعرض فقط). للتعديل غيّري سعر الريال.
+        </p>
+      ) : null}
 
       {view && !isViewActive ? (
         <p className="rounded-xl bg-slate-50 p-2.5 text-[11px] font-bold text-slate-600">
@@ -457,7 +466,19 @@ export default function PriceTable({ data, kind: initialKind, kindSwitch = false
               </tr>
             ) : (
               lines.map((line) => {
-                const row = rowMap.get(rowKey(kind, line.courseId, line.variantId, currency));
+                const sarRow = rowMap.get(rowKey(kind, line.courseId, line.variantId, "SAR"));
+                // الدولار = الريال ÷ 3.75 (محسوب للعرض فقط ولا يُخزَّن).
+                const row: OfferRow | undefined = usdFromSar
+                  ? sarRow
+                    ? {
+                        ...sarRow,
+                        currency_code: "USD",
+                        original_price: sarRow.original_price == null ? null : Math.round((sarRow.original_price / SAR_PER_USD) * 100) / 100,
+                        offer_price: Math.round((sarRow.offer_price / SAR_PER_USD) * 100) / 100,
+                        currency_active: false,
+                      }
+                    : undefined
+                  : rowMap.get(rowKey(kind, line.courseId, line.variantId, currency));
                 return (
                   <tr key={`${line.courseId}-${line.variantId ?? "main"}`} className="border-t border-slate-100 text-xs">
                     <td className="px-2 py-1.5 font-black text-[#07152E]">{line.course}</td>
@@ -468,18 +489,18 @@ export default function PriceTable({ data, kind: initialKind, kindSwitch = false
                         : data.oneDayLectureCounts?.[line.courseId]) ?? "—"}
                     </td>
                     <td className="px-2 py-1.5">
-                      <NumCell value={row?.original_price ?? null} onSave={(v) => void saveCell(line, "original_price", v)} />
+                      <NumCell value={row?.original_price ?? null} disabled={usdFromSar} onSave={(v) => void saveCell(line, "original_price", v)} />
                     </td>
                     <td className="px-2 py-1.5">
                       <NumCell
                         value={row ? discountPercent(row.original_price, row.offer_price) : null}
                         suffix="%"
-                        disabled={!row}
+                        disabled={!row || usdFromSar}
                         onSave={(v) => void saveCell(line, "discount_percent", v)}
                       />
                     </td>
                     <td className="px-2 py-1.5">
-                      <NumCell value={row?.offer_price ?? null} onSave={(v) => void saveCell(line, "offer_price", v)} />
+                      <NumCell value={row?.offer_price ?? null} disabled={usdFromSar} onSave={(v) => void saveCell(line, "offer_price", v)} />
                     </td>
                     {showEgp ? (
                       <td className="px-2 py-1.5 text-center text-xs font-bold tabular-nums text-slate-600">
@@ -498,7 +519,7 @@ export default function PriceTable({ data, kind: initialKind, kindSwitch = false
                       <input
                         type="checkbox"
                         checked={row?.offer_active ?? false}
-                        disabled={!row}
+                        disabled={!row || usdFromSar}
                         onChange={(e) => void saveCell(line, "offer_active", e.target.checked)}
                         className="h-4 w-4 accent-[#F7B548]"
                       />
@@ -507,7 +528,7 @@ export default function PriceTable({ data, kind: initialKind, kindSwitch = false
                       <input
                         type="checkbox"
                         checked={row?.currency_active ?? false}
-                        disabled={!row}
+                        disabled={!row || usdFromSar}
                         onChange={(e) => void saveCell(line, "currency_active", e.target.checked)}
                         className="h-4 w-4 accent-[#F7B548]"
                       />
