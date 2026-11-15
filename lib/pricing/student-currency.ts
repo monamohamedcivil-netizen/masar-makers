@@ -1,10 +1,11 @@
 /*
  * Student pricing rules (chat + enrollment requests + payments).
  *
- * Egyptian-pound LIST prices are only for students living in Egypt:
- *   country = Egypt AND the phone is not clearly a foreign number.
- * Everyone else who pays in pounds gets: riyal price × SAR rate (finance_exchange_rates),
- * rounded to the nearest 50 pounds.
+ * Egyptian-pound LIST prices are for students living in Egypt
+ *   (country = Egypt AND the phone is not clearly a foreign number)
+ * and for students from Libya, Yemen, Sudan, Iraq and Jordan.
+ * Everyone else (Saudi Arabia, the Gulf and the rest) who pays in pounds gets:
+ *   riyal price × SAR rate (finance_exchange_rates), rounded to the nearest 50 pounds.
  * Plain module (no "use server"), safe to import from the server and the browser.
  */
 
@@ -39,8 +40,36 @@ export function isEgyptianLikePhone(phone: unknown) {
   return !FOREIGN_CODES.some((code) => d.startsWith(code));
 }
 
-/** Lives in Egypt → sees the Egyptian-pound price list. */
+/** Countries that also see the regular Egyptian-pound list (not the riyal-converted pound). */
+const EGP_LIST_COUNTRIES = [
+  "libya", "ليبيا", "ly",
+  "yemen", "اليمن", "ye",
+  "sudan", "السودان", "sd",
+  "iraq", "العراق", "iq",
+  "jordan", "الأردن", "الاردن", "jo",
+];
+/** Calling codes of those countries (used only when the country is blank). */
+const EGP_LIST_PHONE_CODES = ["218", "967", "249", "964", "962"];
+
+export function isEgpListCountry(country: unknown) {
+  return EGP_LIST_COUNTRIES.includes(String(country ?? "").trim().toLowerCase());
+}
+
+function hasEgpListPhoneCode(phone: unknown) {
+  const raw = String(phone ?? "").trim();
+  const digits = raw.replace(/[^0-9]/g, "");
+  if (!digits || !(raw.startsWith("+") || digits.startsWith("00"))) return false;
+  const d = digits.replace(/^00/, "");
+  return EGP_LIST_PHONE_CODES.some((code) => d.startsWith(code));
+}
+
+/**
+ * Sees the regular Egyptian-pound price list: lives in Egypt, or comes from Libya / Yemen /
+ * Sudan / Iraq / Jordan. (Name kept: it is used by the chat, list prices and the students table.)
+ */
 export function isEgyptResident(country: unknown, phone: unknown) {
+  if (isEgpListCountry(country)) return true;
+  if (!String(country ?? "").trim() && hasEgpListPhoneCode(phone)) return true;
   return isEgyptCountry(country) && isEgyptianLikePhone(phone);
 }
 
