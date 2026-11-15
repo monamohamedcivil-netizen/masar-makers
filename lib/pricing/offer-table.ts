@@ -31,6 +31,9 @@ export type OfferRow = {
   offer_price: number;
   offer_active: boolean;
   currency_active: boolean;
+  /** «الجنيه المكافئ» (لصفوف الريال فقط): ما يراه الطالب غير المقيم في مصر. null = تلقائي. */
+  egp_equiv_original?: number | null;
+  egp_equiv_price?: number | null;
   updated_at: string | null;
 };
 

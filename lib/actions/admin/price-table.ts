@@ -40,7 +40,14 @@ export type PriceCellInput = {
   courseId: string;
   variantId: string | null;
   currency: string;
-  field: "original_price" | "offer_price" | "discount_percent" | "offer_active" | "currency_active";
+  field:
+    | "original_price"
+    | "offer_price"
+    | "discount_percent"
+    | "offer_active"
+    | "currency_active"
+    | "egp_equiv_original"
+    | "egp_equiv_price";
   value: number | boolean | null;
 };
 
@@ -79,7 +86,20 @@ export async function savePriceCell(input: PriceCellInput): Promise<Result<Offer
     const currentPercent =
       original && original > 0 && price < original ? ((original - price) / original) * 100 : 0;
 
-    if (input.field === "offer_active") offerActive = Boolean(input.value);
+    const isEquivField = input.field === "egp_equiv_original" || input.field === "egp_equiv_price";
+    let equivOriginal: number | null = existing?.egp_equiv_original == null ? null : Number(existing.egp_equiv_original);
+    let equivPrice: number | null = existing?.egp_equiv_price == null ? null : Number(existing.egp_equiv_price);
+
+    if (isEquivField) {
+      if (currency !== "SAR") throw new Error("الجنيه المكافئ خاص بأسعار الريال");
+      if (!existing) throw new Error("اكتبي سعر الريال أولًا");
+      // قيمة فارغة = العودة للحساب التلقائي.
+      const n = typeof input.value === "number" ? input.value : null;
+      const rounded = n == null ? null : roundForCurrency(n, "EGP");
+      if (n != null && (!Number.isFinite(n) || n <= 0)) throw new Error("اكتب رقمًا أكبر من صفر");
+      if (input.field === "egp_equiv_original") equivOriginal = rounded;
+      else equivPrice = rounded;
+    } else if (input.field === "offer_active") offerActive = Boolean(input.value);
     else if (input.field === "currency_active") currencyActive = Boolean(input.value);
     else {
       const n = typeof input.value === "number" ? input.value : null;
@@ -109,6 +129,9 @@ export async function savePriceCell(input: PriceCellInput): Promise<Result<Offer
       offer_price: price,
       offer_active: offerActive,
       currency_active: currencyActive,
+      ...(isEquivField || (existing && "egp_equiv_price" in existing)
+        ? { egp_equiv_original: equivOriginal, egp_equiv_price: equivPrice }
+        : {}),
       updated_at: new Date().toISOString(),
     };
     const res = existing

@@ -16,7 +16,7 @@ export async function getPriceTableData(): Promise<PriceTableData> {
     const db = createAdminClient();
     const [offersRes, rowsRes, settingsRes, coursesRes, variantsRes] = await Promise.all([
       db.from("finance_offers").select("id,name,name_en,discount_percent,starts_at,ends_at,is_active,sort_order").order("sort_order").order("created_at"),
-      db.from("price_offer_rows").select("offer_id,kind,course_id,variant_id,currency_code,original_price,offer_price,offer_active,currency_active,updated_at"),
+      db.from("price_offer_rows").select("*"),
       db.from("price_offer_settings").select("active_offer_id").eq("id", 1).maybeSingle(),
       db.from("whatsapp_courses").select("id,course_key,title,whatsapp_label,track,has_variants,sort_order").eq("is_active", true).order("sort_order"),
       db.from("whatsapp_course_variants").select("id,course_id,title,sort_order").eq("is_active", true).order("sort_order"),
@@ -45,6 +45,8 @@ export async function getPriceTableData(): Promise<PriceTableData> {
       offer_price: Number(r.offer_price ?? 0),
       offer_active: r.offer_active !== false,
       currency_active: r.currency_active !== false,
+      egp_equiv_original: num(r.egp_equiv_original),
+      egp_equiv_price: num(r.egp_equiv_price),
       updated_at: (r.updated_at as string | null) ?? null,
     }));
     const courses: PriceCourse[] = ((coursesRes.data ?? []) as Array<Record<string, unknown>>).map((c) => ({

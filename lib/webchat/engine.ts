@@ -34,7 +34,16 @@ export type Viewer = {
   contact: AnyRow | null; // web_chat_contacts row
 };
 
-type ShownPrice = { variant: string | null; variantId: string | null; amount: number; original: number | null; offer: string | null };
+type ShownPrice = {
+  variant: string | null;
+  variantId: string | null;
+  amount: number;
+  original: number | null;
+  offer: string | null;
+  /** «الجنيه المكافئ» المحدّد يدويًا لأسعار الريال (للطالب غير المقيم في مصر). */
+  egpAmount?: number | null;
+  egpOriginal?: number | null;
+};
 type LastPrice = { course: string; courseId: string; currency: string; currencyLabel: string; rows: ShownPrice[] };
 /** Chat opened from a one-day journey button: prices come from whatsapp_oneday_prices (kept in session.context.oneDay). */
 type OneDay = { courseId: string; lessonId: string | null };
@@ -68,7 +77,12 @@ function shown(price: AnyRow, variant: AnyRow | null, en = false): ShownPrice {
   const current = Number(price.current_price);
   const original = price.original_price == null || price.original_price === "" ? null : Number(price.original_price);
   const offer = isActiveOffer(price) && original != null && original > current;
+  const eq = (v: unknown) => (v == null || v === "" || !Number.isFinite(Number(v)) || Number(v) <= 0 ? null : Number(v));
+  const eqOriginal = eq(price.egp_equiv_original);
+  const eqPrice = eq(price.egp_equiv_price);
   return {
+    egpAmount: offer ? eqPrice : eqOriginal ?? eqPrice,
+    egpOriginal: offer ? eqOriginal : null,
     variant: variant ? (en && clean(variant.title_en) ? clean(variant.title_en) : clean(variant.title)) : null,
     variantId: variant ? String(variant.id) : null,
     amount: offer ? current : original ?? current,
@@ -82,8 +96,8 @@ function converted(price: ShownPrice, factor: number): ShownPrice {
   if (factor === 1) return price;
   return {
     ...price,
-    amount: egpFromSar(price.amount, factor),
-    original: price.original == null ? null : egpFromSar(price.original, factor),
+    amount: price.egpAmount ?? egpFromSar(price.amount, factor),
+    original: price.original == null ? null : price.egpOriginal ?? egpFromSar(price.original, factor),
   };
 }
 

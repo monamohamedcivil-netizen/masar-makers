@@ -10,6 +10,7 @@ import {
   setActiveOffer,
   type PriceCellInput,
 } from "@/lib/actions/admin/price-table";
+import { egpFromSar } from "@/lib/pricing/student-currency";
 import {
   CURRENCIES,
   CURRENCY_LABEL,
@@ -64,11 +65,16 @@ function NumCell({
   suffix,
   disabled,
   onSave,
+  onReset,
+  overridden,
 }: {
   value: number | null;
   suffix?: string;
   disabled?: boolean;
   onSave: (v: number) => void;
+  /** يظهر زر «↺» للعودة للحساب التلقائي عندما تكون القيمة معدّلة يدويًا. */
+  onReset?: () => void;
+  overridden?: boolean;
 }) {
   const shown = value == null ? "" : String(value);
   return (
@@ -90,8 +96,20 @@ function NumCell({
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();
         }}
-        className={`${field} w-24 text-center tabular-nums disabled:bg-slate-50`}
+        className={`${field} w-24 text-center tabular-nums disabled:bg-slate-50 ${
+          overridden ? "border-[#F7B548] bg-[#FFFBF2]" : ""
+        }`}
       />
+      {overridden && onReset ? (
+        <button
+          type="button"
+          title="العودة للحساب التلقائي (الريال × سعر الصرف)"
+          onClick={onReset}
+          className="cursor-pointer rounded-md px-1 text-sm font-black text-slate-400 hover:text-[#07152E]"
+        >
+          ↺
+        </button>
+      ) : null}
       {suffix ? <span className="text-[11px] font-bold text-slate-400">{suffix}</span> : null}
     </div>
   );
@@ -175,7 +193,7 @@ export default function PriceTable({ data, kind: initialKind, kindSwitch = false
   const saveCell = async (
     line: { courseId: string; variantId: string | null },
     fieldName: PriceCellInput["field"],
-    value: number | boolean,
+    value: number | boolean | null,
   ) => {
     if (!viewId) return;
     const result = await savePriceCell({
@@ -254,6 +272,9 @@ export default function PriceTable({ data, kind: initialKind, kindSwitch = false
     value == null || !rate
       ? "—"
       : new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(roundForCurrency(value * rate, "EGP"));
+  // «الجنيه المكافئ» للريال: القيمة اليدوية إن وُجدت، وإلا الحساب التلقائي الفعلي (الريال × الصرف لأقرب 50).
+  const equivOf = (sar: number | null, manual: number | null) =>
+    manual != null ? manual : sar == null || !rate ? null : egpFromSar(sar, rate);
   const colCount = 14;
 
   return (
@@ -426,6 +447,13 @@ export default function PriceTable({ data, kind: initialKind, kindSwitch = false
         </span>
       </div>
 
+      {currency === "SAR" ? (
+        <p className="rounded-xl bg-amber-50 p-2.5 text-[11px] font-bold text-amber-900">
+          عمودا «بالجنيه» هما السعر الذي يراه <b>طلاب الخليج فقط</b> (بلدهم أو رقم هاتفهم خليجي) عند اختيار الجنيه؛ باقي الدول يرون سعر الجنيه العادي. القيمة التلقائية = الريال × سعر الصرف (لأقرب 50)،
+          وعدّليها يدويًا لأي كورس (تُقرَّب لأقرب 10) والزر ↺ يرجعها للتلقائي.
+        </p>
+      ) : null}
+
       {usdFromSar ? (
         <p className="rounded-xl bg-sky-50 p-2.5 text-[11px] font-bold text-sky-800">
           أسعار الدولار محسوبة تلقائيًا من أسعار الريال ÷ {SAR_PER_USD} (للعرض فقط). للتعديل غيّري سعر الريال.
@@ -504,13 +532,37 @@ export default function PriceTable({ data, kind: initialKind, kindSwitch = false
                       <NumCell value={row?.offer_price ?? null} disabled={usdFromSar} onSave={(v) => void saveCell(line, "offer_price", v)} />
                     </td>
                     {showEgp ? (
-                      <td className="px-2 py-1.5 text-center text-xs font-bold tabular-nums text-slate-600">
-                        {toEgp(row?.original_price ?? null)}
+                      <td className="px-2 py-1.5">
+                        {currency === "SAR" ? (
+                          <NumCell
+                            value={equivOf(row?.original_price ?? null, row?.egp_equiv_original ?? null)}
+                            disabled={!row}
+                            overridden={row?.egp_equiv_original != null}
+                            onSave={(v) => void saveCell(line, "egp_equiv_original", v)}
+                            onReset={() => void saveCell(line, "egp_equiv_original", null)}
+                          />
+                        ) : (
+                          <span className="block text-center text-xs font-bold tabular-nums text-slate-600">
+                            {toEgp(row?.original_price ?? null)}
+                          </span>
+                        )}
                       </td>
                     ) : null}
                     {showEgp ? (
-                      <td className="px-2 py-1.5 text-center text-xs font-black tabular-nums text-[#07152E]">
-                        {toEgp(row ? row.offer_price : null)}
+                      <td className="px-2 py-1.5">
+                        {currency === "SAR" ? (
+                          <NumCell
+                            value={equivOf(row ? row.offer_price : null, row?.egp_equiv_price ?? null)}
+                            disabled={!row}
+                            overridden={row?.egp_equiv_price != null}
+                            onSave={(v) => void saveCell(line, "egp_equiv_price", v)}
+                            onReset={() => void saveCell(line, "egp_equiv_price", null)}
+                          />
+                        ) : (
+                          <span className="block text-center text-xs font-black tabular-nums text-[#07152E]">
+                            {toEgp(row ? row.offer_price : null)}
+                          </span>
+                        )}
                       </td>
                     ) : null}
                     <td className="px-2 py-1.5 font-bold text-[#9A6711]">{row ? view?.name : "—"}</td>
