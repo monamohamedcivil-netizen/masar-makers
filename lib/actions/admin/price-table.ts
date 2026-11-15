@@ -7,6 +7,7 @@ import { applyActiveOffer } from "@/lib/pricing/apply-active-offer";
 import {
   CURRENCIES,
   priceFromDiscount,
+  roundForCurrency,
   type OfferInfo,
   type OfferRow,
   type PriceKind,
@@ -16,7 +17,6 @@ import { createAdminClient } from "@/lib/supabase/server";
 type Result<T = undefined> = { success: boolean; message?: string; data?: T };
 
 const UUID = /^[0-9a-f-]{36}$/i;
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 function fail(error: unknown): Result<never> {
   return { success: false, message: error instanceof Error ? error.message : "تعذر الحفظ" };
@@ -86,16 +86,16 @@ export async function savePriceCell(input: PriceCellInput): Promise<Result<Offer
       if (n == null || !Number.isFinite(n) || n < 0) throw new Error("اكتب رقمًا صحيحًا");
       if (input.field === "original_price") {
         if (n <= 0) throw new Error("اكتب سعرًا أكبر من صفر");
-        original = round2(n);
-        price = priceFromDiscount(original, currentPercent); // keeps the discount %
+        original = roundForCurrency(n, currency);
+        price = roundForCurrency(priceFromDiscount(original, currentPercent), currency); // keeps the discount %
       } else if (input.field === "offer_price") {
         if (n <= 0) throw new Error("اكتب سعرًا أكبر من صفر");
-        price = round2(n);
+        price = roundForCurrency(n, currency);
         if (original == null || original < price) original = price;
       } else {
         if (n > 100) throw new Error("نسبة الخصم من 0 إلى 100");
         if (original == null || original <= 0) throw new Error("اكتب السعر الأصلي أولًا");
-        price = priceFromDiscount(original, n);
+        price = roundForCurrency(priceFromDiscount(original, n), currency);
       }
     }
 
