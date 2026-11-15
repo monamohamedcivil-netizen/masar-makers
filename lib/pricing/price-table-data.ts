@@ -61,6 +61,16 @@ export async function getPriceTableData(): Promise<PriceTableData> {
       sort_order: Number(v.sort_order ?? 0),
     }));
     // Lecture counts: published platform lessons, matched to the chat courses by name.
+    const rates: Record<string, number> = { EGP: 1 };
+    try {
+      const { data: rateRows } = await db.from("finance_exchange_rates").select("currency,rate_to_egp");
+      for (const r of (rateRows ?? []) as Array<Record<string, unknown>>) {
+        const rate = Number(r.rate_to_egp);
+        if (Number.isFinite(rate) && rate > 0) rates[String(r.currency).toUpperCase()] = rate;
+      }
+    } catch {
+      // بدون أسعار صرف تظهر أعمدة الجنيه «—»
+    }
     const lectureCounts: Record<string, number> = {};
     const oneDayLectureCounts: Record<string, number> = {};
     try {
@@ -116,6 +126,7 @@ export async function getPriceTableData(): Promise<PriceTableData> {
       variants,
       lectureCounts,
       oneDayLectureCounts,
+      rates,
     };
   } catch {
     return EMPTY_PRICE_TABLE;

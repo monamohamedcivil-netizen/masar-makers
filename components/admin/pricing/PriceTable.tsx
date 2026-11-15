@@ -243,7 +243,14 @@ export default function PriceTable({ data, kind: initialKind, kindSwitch = false
   };
 
   const isViewActive = viewId !== null && viewId === activeId;
-  const colCount = 12;
+  // عملة غير الجنيه: أعمدة السعر محوّلًا للجنيه بسعر الصرف الحالي.
+  const rate = data.rates?.[currency] ?? 0;
+  const showEgp = currency !== "EGP";
+  const toEgp = (value: number | null) =>
+    value == null || !rate
+      ? "—"
+      : new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(Math.round(value * rate * 100) / 100);
+  const colCount = 14;
 
   return (
     <div dir="rtl" className="space-y-3">
@@ -411,6 +418,7 @@ export default function PriceTable({ data, kind: initialKind, kindSwitch = false
         ) : null}
         <span className="text-[11px] font-bold text-slate-400">
           {currency} · أسعار مستقلة لكل عملة (بدون تحويل تلقائي)
+          {showEgp && rate ? ` · سعر الصرف: 1 ${currency} = ${rate} جنيه` : ""}
         </span>
       </div>
 
@@ -421,7 +429,7 @@ export default function PriceTable({ data, kind: initialKind, kindSwitch = false
       ) : null}
 
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full min-w-[1100px] text-right">
+        <table className="w-full min-w-[1250px] text-right">
           <thead className="bg-slate-50 text-[11px] font-black text-slate-500">
             <tr>
               <th className="px-2 py-2.5">الكورس</th>
@@ -430,6 +438,8 @@ export default function PriceTable({ data, kind: initialKind, kindSwitch = false
               <th className="px-2 py-2.5">السعر الأصلي</th>
               <th className="px-2 py-2.5">نسبة الخصم</th>
               <th className="px-2 py-2.5">السعر بعد الخصم</th>
+              {showEgp ? <th className="px-2 py-2.5">الأصلي بالجنيه</th> : null}
+              {showEgp ? <th className="px-2 py-2.5">بعد الخصم بالجنيه</th> : null}
               <th className="px-2 py-2.5">اسم العرض</th>
               <th className="px-2 py-2.5">بداية العرض</th>
               <th className="px-2 py-2.5">نهاية العرض</th>
@@ -471,6 +481,16 @@ export default function PriceTable({ data, kind: initialKind, kindSwitch = false
                     <td className="px-2 py-1.5">
                       <NumCell value={row?.offer_price ?? null} onSave={(v) => void saveCell(line, "offer_price", v)} />
                     </td>
+                    {showEgp ? (
+                      <td className="px-2 py-1.5 text-center text-xs font-bold tabular-nums text-slate-600">
+                        {toEgp(row?.original_price ?? null)}
+                      </td>
+                    ) : null}
+                    {showEgp ? (
+                      <td className="px-2 py-1.5 text-center text-xs font-black tabular-nums text-[#07152E]">
+                        {toEgp(row ? row.offer_price : null)}
+                      </td>
+                    ) : null}
                     <td className="px-2 py-1.5 font-bold text-[#9A6711]">{row ? view?.name : "—"}</td>
                     <td className="px-2 py-1.5 text-[11px] text-slate-500">{row ? fmtDate(view?.starts_at ?? null) : "—"}</td>
                     <td className="px-2 py-1.5 text-[11px] text-slate-500">{row ? fmtDate(view?.ends_at ?? null) : "—"}</td>
