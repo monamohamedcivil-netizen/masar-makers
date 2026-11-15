@@ -135,13 +135,14 @@ export class WebChatEngine {
   private egyptLocalCache: boolean | null = null;
 
   /**
-   * Egyptian-pound list prices are only for students living in Egypt (country Egypt and a
-   * phone that is not clearly foreign — see lib/pricing/student-currency.ts). Anyone else who
-   * chooses the pound sees the riyal price × the SAR exchange rate (finance_exchange_rates).
+   * Egyptian-pound list prices are for everyone except the Gulf (country OR phone is a Gulf one —
+   * see lib/pricing/student-currency.ts). A Gulf student who chooses the pound sees the riyal
+   * price × the SAR exchange rate (finance_exchange_rates).
    */
   private async egyptLocal(): Promise<boolean> {
     if (this.egyptLocalCache !== null) return this.egyptLocalCache;
-    let local = false;
+    // الجنيه الأصلي للجميع ما عدا الخليج؛ الزائر المجهول يرى الجنيه الأصلي.
+    let local = true;
     if (this.viewer.userId) {
       const { data } = await this.db.from("profiles").select("country,phone").eq("id", this.viewer.userId).maybeSingle();
       local = isEgyptResident(data?.country, data?.phone);
