@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { WebChatEngine, type ChatButton, type ChatMessage, type Locale } from "@/lib/webchat/engine";
 import { isBotUserAgent } from "@/lib/webchat/bots";
+import { isTeamChat, takeOverFollowups } from "@/lib/webchat/followups";
 import { notifyWebChatAdmins } from "@/lib/webchat/notify";
 
 /* =========================================================
@@ -130,7 +131,13 @@ async function attachViewer(db: Db, session: AnyRow, userId: string | null) {
     await db.from("web_chat_sessions").update(patch).eq("id", session.id);
     Object.assign(session, patch);
   }
-  return { userId: session.user_id ?? userId ?? null, contact };
+  const viewerId = session.user_id ?? userId ?? null;
+  return { userId: viewerId, contact, isTeam: await isTeamChat(db, viewerId, contact?.id ?? session.contact_id ?? null) };
+}
+
+async function followupDays(db: Db) {
+  const { data: cfg } = await db.from("web_chat_settings").select("followup_every_days").eq("id", 1).maybeSingle();
+  return Math.max(1, Number(cfg?.followup_every_days ?? 3));
 }
 
 async function log(db: Db, sessionId: string, rows: { sender: "visitor" | "bot"; body: string; action_id?: string | null; buttons?: ChatButton[] | null }[]) {
@@ -206,21 +213,17 @@ export async function startWebChat(input: WebChatContext): Promise<WebChatStart>
     }
     if (!session) return { ok: false, error: toLocale(input?.locale) === "en" ? "Couldn't start the chat." : "تعذّر بدء المحادثة." };
 
-    // One follow-up per student: a new chat replaces the older ones
-    // (a silent ad chat replaces them only once the visitor answers).
-    if (contact?.id && !quiet) {
-      await db
-        .from("web_chat_sessions")
-        .update({ followup_status: "closed", followup_closed_reason: "new_chat", followup_closed_at: new Date().toISOString(), followup_next_at: null })
-        .eq("contact_id", contact.id)
-        .eq("followup_status", "active")
-        .neq("id", session.id);
-    }
+    // Team / Mona: the bot answers normally but never follows up.
+    const isTeam = await isTeamChat(db, userId, contact?.id ?? null);
+
+    // One follow-up per student: a new chat takes over the older ones together with ALL
+    // their courses (a silent ad chat does it only once the visitor answers).
+    if (contact?.id && !quiet && !isTeam) await takeOverFollowups(db, String(contact.id), session, () => followupDays(db));
 
     const entryKey = ENTRY_KEYS.has(ctx.source!) ? ctx.source! : "launcher";
     const locale = toLocale(input?.locale);
     await saveLocale(db, session, locale);
-    const engine = new WebChatEngine(db, session, { userId, contact }, locale);
+    const engine = new WebChatEngine(db, session, { userId, contact, isTeam }, locale);
     const messages = await engine.opening(entryKey, ctx);
 
     await log(db, session.id, [
@@ -283,9 +286,12 @@ export async function webChatAct(sessionId: string, token: string, actionId: str
     const now = new Date();
     const patch: AnyRow = { last_visitor_at: now.toISOString(), has_unseen: false };
     const reopen = session.followup_status === "closed" && session.followup_closed_reason === "no_reply";
-    if (session.followup_status === "active" || reopen) {
-      const { data: cfg } = await db.from("web_chat_settings").select("followup_every_days").eq("id", 1).maybeSingle();
-      const days = Math.max(1, Number(cfg?.followup_every_days ?? 3));
+    if (viewer.isTeam) {
+      if (session.followup_status === "active") {
+        Object.assign(patch, { followup_status: "closed", followup_closed_reason: "team", followup_closed_at: now.toISOString(), followup_next_at: null });
+      }
+    } else if (session.followup_status === "active" || reopen) {
+      const days = await followupDays(db);
       Object.assign(patch, {
         followup_status: "active",
         followup_count: 0,
@@ -298,26 +304,18 @@ export async function webChatAct(sessionId: string, token: string, actionId: str
     const waking = Boolean(session.context?.quiet);
     if (waking) {
       patch.context = { ...(session.context ?? {}), quiet: false };
-      if (session.current_course_id && session.followup_status === "none") {
-        const { data: cfg } = await db.from("web_chat_settings").select("followup_every_days").eq("id", 1).maybeSingle();
-        const days = Math.max(1, Number(cfg?.followup_every_days ?? 3));
+      if (session.current_course_id && session.followup_status === "none" && !viewer.isTeam) {
+        const days = await followupDays(db);
         Object.assign(patch, {
           followup_status: "active",
           followup_count: 0,
           followup_next_at: new Date(now.getTime() + days * 86400000).toISOString(),
         });
       }
-      if (session.contact_id) {
-        await db
-          .from("web_chat_sessions")
-          .update({ followup_status: "closed", followup_closed_reason: "new_chat", followup_closed_at: now.toISOString(), followup_next_at: null })
-          .eq("contact_id", session.contact_id)
-          .eq("followup_status", "active")
-          .neq("id", session.id);
-      }
     }
     await db.from("web_chat_sessions").update(patch).eq("id", session.id);
     Object.assign(session, patch);
+    if (waking && session.contact_id && !viewer.isTeam) await takeOverFollowups(db, String(session.contact_id), session, () => followupDays(db));
 
     if (waking) {
       let who = "زائر غير مسجّل";

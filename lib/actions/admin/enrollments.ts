@@ -1012,17 +1012,33 @@ async function closeChatFollowupsForEnrollment(userId: string, courseId: string)
     ? `user_id.eq.${userId},contact_id.in.(${contactIds.join(",")})`
     : `user_id.eq.${userId}`;
 
-  await admin
+  // A follow-up can cover several courses: drop only this course, and close it when nothing is left.
+  const { data: sessions } = await admin
     .from("web_chat_sessions")
-    .update({
-      followup_status: "closed",
-      followup_closed_reason: "enrolled",
-      followup_closed_at: new Date().toISOString(),
-      followup_next_at: null,
-    })
+    .select("*")
     .eq("followup_status", "active")
-    .eq("current_course_id", chatCourse.id)
     .or(owner);
+  for (const s of sessions ?? []) {
+    const ids: string[] = Array.isArray(s.course_ids) && s.course_ids.length
+      ? s.course_ids.map(String)
+      : s.current_course_id ? [String(s.current_course_id)] : [];
+    if (!ids.includes(String(chatCourse.id))) continue;
+    const left = ids.filter((id) => id !== String(chatCourse.id));
+    if (!left.length) {
+      await admin
+        .from("web_chat_sessions")
+        .update({ followup_status: "closed", followup_closed_reason: "enrolled", followup_closed_at: new Date().toISOString(), followup_next_at: null })
+        .eq("id", s.id);
+    } else {
+      await admin
+        .from("web_chat_sessions")
+        .update({
+          course_ids: left,
+          ...(String(s.current_course_id) === String(chatCourse.id) ? { current_course_id: left[left.length - 1], variant_id: null } : {}),
+        })
+        .eq("id", s.id);
+    }
+  }
 }
 
 export async function rejectEnrollment(
