@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { egpFromSar, isEgyptResident } from "@/lib/pricing/student-currency";
 import { findChatCourse, isOneDayJourneyType } from "@/lib/webchat/courses";
+import { rememberCourse } from "@/lib/webchat/followups";
 import { notifyWebChatAdmins } from "@/lib/webchat/notify";
 
 /* =========================================================
@@ -14,7 +15,8 @@ import { notifyWebChatAdmins } from "@/lib/webchat/notify";
    - Choices only (no free typing). Free questions → "خدمة العملاء" → WhatsApp with a summary.
    - Menu items marked web_visibility = 'members' answer registered students only.
    - The first currency a student picks is locked on the student (admin can change it).
-   - Opening a course starts the follow-up (every N days, max M, then auto-close).
+   - Opening a course starts the follow-up (every N days, max M, then auto-close);
+     it covers every course asked about, and never runs for the team / Mona.
 ========================================================= */
 
 type AnyRow = Record<string, any>;
@@ -32,6 +34,8 @@ export type ChatMessage = {
 export type Viewer = {
   userId: string | null;
   contact: AnyRow | null; // web_chat_contacts row
+  /** Masar Makers team / Mona: the bot answers normally but never follows up. */
+  isTeam?: boolean;
 };
 
 type ShownPrice = {
@@ -244,6 +248,7 @@ export class WebChatEngine {
 
   /** Opening a course (or asking to subscribe) starts the follow-up. */
   private async startFollowup() {
+    if (this.viewer.isTeam) return;
     if (this.session.followup_status !== "none") return;
     const days = await this.followupSettings();
     await this.patchSession({
@@ -255,7 +260,11 @@ export class WebChatEngine {
 
   private async setCourse(courseId: string | null) {
     await this.patchSession({ current_course_id: courseId, ...(courseId !== this.session.current_course_id ? { variant_id: null } : {}) });
-    if (courseId) await this.startFollowup();
+    if (courseId) {
+      // Every course asked about is kept → the follow-up mentions all of them, not only the last one.
+      await rememberCourse(this.db, this.session, courseId);
+      await this.startFollowup();
+    }
   }
 
   /* ---------- course matching from the page the visitor came from ---------- */
