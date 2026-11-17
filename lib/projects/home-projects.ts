@@ -4,6 +4,7 @@ import {
   createAdminClient,
 } from "@/lib/supabase/server";
 import { projectMediaUrl } from "./media-url";
+import { PROJECT_BUCKET } from "./constants";
 import { getStudentRegistrationInfo } from "@/lib/students/registration-info";
 
 export type HomeProjectCategory =
@@ -128,6 +129,50 @@ async function getProjectImageUrl(
 
   // رابط ثابت من المنصة نفسها (يحفظه المتصفح) بدل رابط Supabase الموقّع المتغيّر.
   return projectMediaUrl(normalizedStoragePath);
+}
+
+/*
+ * رابط فيديو المشروع.
+ * مسار /api/project-media للصور فقط ويرفض الفيديو، فالفيديو يحتاج رابطًا موقّعًا
+ * من Supabase (نفس طريقة صفحة الكورس). الفيديو عنده preload="none"، فلا يُحمَّل
+ * إلا عند الضغط على تشغيل.
+ */
+async function getProjectVideoUrl(
+  storagePath: string | null,
+  videoUrl: string | null,
+) {
+  const normalizedStoragePath =
+    storagePath?.trim() || "";
+
+  const normalizedVideoUrl =
+    videoUrl?.trim() || "";
+
+  if (
+    normalizedStoragePath.startsWith("http://") ||
+    normalizedStoragePath.startsWith("https://")
+  ) {
+    return normalizedStoragePath;
+  }
+
+  if (!normalizedStoragePath) {
+    return normalizedVideoUrl || null;
+  }
+
+  const supabase = createAdminClient();
+
+  const { data, error } = await supabase.storage
+    .from(PROJECT_BUCKET)
+    .createSignedUrl(normalizedStoragePath, 60 * 60);
+
+  if (error || !data?.signedUrl) {
+    console.error(
+      "GET HOME PROJECT VIDEO URL ERROR:",
+      error?.message,
+    );
+    return normalizedVideoUrl || null;
+  }
+
+  return data.signedUrl;
 }
 
 function normalizeImportedProjectImages(
@@ -402,7 +447,7 @@ const courseTitle =
       courseTitle,
     );
 
-    const videoUrl = await getProjectImageUrl(
+    const videoUrl = await getProjectVideoUrl(
       row.video_storage_path,
       row.video_url,
     );
