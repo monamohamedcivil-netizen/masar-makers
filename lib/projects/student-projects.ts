@@ -909,6 +909,9 @@ export async function getCourseProjects(
       studentNameEn: project.user_id
         ? registrationInfo.get(project.user_id)?.nameEn || ""
         : "",
+      // رابط المشروع الخارجي (مثل بوست لينكد إن) خاص بصاحبه والإدارة فقط؛
+      // الزوار يشوفوا الصور والفيديو فقط.
+      projectLink: null,
     });
   }
 
