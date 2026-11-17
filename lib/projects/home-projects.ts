@@ -187,7 +187,6 @@ export async function getHomeProjects(): Promise<
       id,
       project_title,
       project_description,
-      project_link,
       video_storage_path,
       video_url,
       student_name,
@@ -447,7 +446,8 @@ const courseTitle =
       featured: Boolean(row.featured),
       video: Boolean(videoUrl),
       videoUrl,
-      projectLink: row.project_link,
+      // الرابط الخارجي خاص بصاحب المشروع والإدارة، ولا يُرسل للزوار.
+      projectLink: null,
     });
   }
 console.log(

@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useRef, useState, type MouseEvent, type PointerEvent } from "react";
 
 type JourneyItem = {
   title: string;
@@ -18,8 +19,51 @@ export default function RoadJourney({
   onChange: (index: number) => void;
   direction?: "rtl" | "ltr";
 }) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  // المحطة القريبة من الماوس (التفاعل بالاقتراب، مش بس بالمرور فوق الأيقونة).
+  const [near, setNear] = useState<number | null>(null);
+
+  const handlePointerMove = (
+    event: PointerEvent<HTMLDivElement>,
+  ) => {
+    if (event.pointerType !== "mouse") return;
+    const circles =
+      rootRef.current?.querySelectorAll<HTMLElement>("[data-station]");
+    if (!circles || circles.length === 0) return;
+
+    let best: number | null = null;
+    let bestDist = Infinity;
+    for (let index = 0; index < circles.length; index += 1) {
+      const r = circles[index].getBoundingClientRect();
+      const d = Math.hypot(
+        event.clientX - (r.left + r.width / 2),
+        event.clientY - (r.top + r.height / 2),
+      );
+      // نطاق الاقتراب: نص قطر الأيقونة + هامش.
+      if (d < r.width / 2 + 26 && d < bestDist) {
+        best = index;
+        bestDist = d;
+      }
+    }
+    setNear((prev) => (prev === best ? prev : best));
+  };
+
+  const handleRootClick = (
+    event: MouseEvent<HTMLDivElement>,
+  ) => {
+    if (near == null) return;
+    // الضغط على الزر نفسه يتعامل معه الزر؛ هنا نغطي منطقة الاقتراب حوله.
+    if ((event.target as HTMLElement).closest("button")) return;
+    onChange(near);
+  };
+
   return (
     <div
+      ref={rootRef}
+      onPointerMove={handlePointerMove}
+      onPointerLeave={() => setNear(null)}
+      onClick={handleRootClick}
+      style={near != null ? { cursor: "pointer" } : undefined}
       className="
         relative
         h-[96px]
@@ -158,6 +202,8 @@ export default function RoadJourney({
           const isDone =
             index < activeIndex;
 
+          const isNear = near === index;
+
           return (
             <button
               key={item.title}
@@ -183,6 +229,7 @@ export default function RoadJourney({
               "
             >
               <div
+                data-station
                 className={`
                   relative
                   z-20
@@ -193,8 +240,12 @@ export default function RoadJourney({
                   rounded-full
                   bg-white
                   transition-all
-                  duration-500
-                  group-hover:scale-110
+                  duration-300
+                  ${
+                    isNear
+                      ? "scale-[1.2] !border-[#F7B548] !shadow-[0_0_30px_rgba(247,181,72,0.95)] ring-4 ring-[#F7B548]/40"
+                      : "group-hover:scale-110"
+                  }
 
                   ${
                     isActive
@@ -296,6 +347,8 @@ export default function RoadJourney({
                   text-center
                   font-black
                   leading-[11px]
+                  transition-colors
+                  ${isNear ? "!text-[#F7B548]" : ""}
 
                   sm:mt-2
                   sm:leading-[13px]

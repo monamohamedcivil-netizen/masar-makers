@@ -1109,7 +1109,7 @@ export default function MasarLanding({ v2 = false }: { v2?: boolean } = {}) {
           onActivateVideo={() => setManualPaused(true)}
         />
 
-        <div className="absolute left-1/2 top-[70%] z-20 -translate-x-1/2 text-center md:top-[65%]">
+        <div className="absolute left-1/2 top-[66%] z-20 -translate-x-1/2 text-center md:top-[60%]">
           <div
             className={`
               relative whitespace-nowrap

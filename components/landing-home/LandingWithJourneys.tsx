@@ -19,6 +19,7 @@ export default function LandingWithJourneys() {
   const heroRef = useRef<HTMLDivElement>(null);
   const centerRef = useRef<HTMLDivElement>(null);
   const animating = useRef(false);
+  const lastY = useRef(0);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -55,22 +56,94 @@ export default function LandingWithJourneys() {
     return viewBottom >= heroBottom - 48 && window.scrollY < center.offsetTop - 8;
   }, []);
 
-  const goToCenter = useCallback(() => {
+  const rafId = useRef<number | null>(null);
+
+  // حركة ناعمة بمنحنى تسارع/تباطؤ، مدتها ثابتة بغض النظر عن المسافة.
+  const glideTo = useCallback((targetY: number) => {
     if (animating.current) return;
+    const startY = window.scrollY;
+    const distance = targetY - startY;
+    if (Math.abs(distance) < 2) return;
+
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      window.scrollTo(0, targetY);
+      return;
+    }
+
     animating.current = true;
+    const duration = 1000;
+    const t0 = performance.now();
+    const ease = (t: number) =>
+      t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+    const step = (now: number) => {
+      const t = Math.min(1, (now - t0) / duration);
+      window.scrollTo(0, startY + distance * ease(t));
+      if (t < 1) {
+        rafId.current = window.requestAnimationFrame(step);
+      } else {
+        rafId.current = null;
+        animating.current = false;
+        lastY.current = window.scrollY;
+      }
+    };
+    rafId.current = window.requestAnimationFrame(step);
+  }, []);
+
+  const goToCenter = useCallback(() => {
     setMounted(true);
     window.requestAnimationFrame(() => {
-      centerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      window.setTimeout(() => {
-        animating.current = false;
-      }, 900);
+      const center = centerRef.current;
+      if (center) glideTo(center.offsetTop);
     });
-  }, []);
+  }, [glideTo]);
+
+  const goToHeroEnd = useCallback(() => {
+    const hero = heroRef.current;
+    if (!hero) return;
+    const heroBottom = hero.offsetTop + hero.offsetHeight;
+    glideTo(Math.max(0, heroBottom - window.innerHeight));
+  }, [glideTo]);
+
+  // لو الزائر وقف بين الشاشتين (نص من الرئيسية ونص من مركز الرحلات)،
+  // نكمّل الحركة تلقائيًا في اتجاه سحبه لحد ما تظهر شاشة كاملة.
+  useEffect(() => {
+    let timer: number | undefined;
+    const onScroll = () => {
+      if (animating.current) {
+        lastY.current = window.scrollY;
+        return;
+      }
+      const goingDown = window.scrollY >= lastY.current;
+      lastY.current = window.scrollY;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        const center = centerRef.current;
+        if (!center || animating.current) return;
+        const top = center.getBoundingClientRect().top;
+        const straddling = top > 8 && top < window.innerHeight - 8;
+        if (!straddling) return;
+        if (goingDown) goToCenter();
+        else goToHeroEnd();
+      }, 140);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.clearTimeout(timer);
+      if (rafId.current != null) window.cancelAnimationFrame(rafId.current);
+    };
+  }, [goToCenter, goToHeroEnd]);
 
   useEffect(() => {
     let touchY: number | null = null;
 
     const onWheel = (event: WheelEvent) => {
+      if (animating.current) {
+        event.preventDefault();
+        return;
+      }
       if (event.deltaY > 8 && inSnapZone()) {
         event.preventDefault();
         goToCenter();
@@ -80,6 +153,10 @@ export default function LandingWithJourneys() {
       touchY = event.touches[0]?.clientY ?? null;
     };
     const onTouchMove = (event: TouchEvent) => {
+      if (animating.current) {
+        event.preventDefault();
+        return;
+      }
       if (touchY == null) return;
       const dy = touchY - (event.touches[0]?.clientY ?? touchY);
       if (dy > 24 && inSnapZone()) {
