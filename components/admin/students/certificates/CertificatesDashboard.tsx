@@ -27,6 +27,7 @@ import type {
   CertificatesDashboardData,
   CertificatesDashboardRow,
 } from "@/lib/actions/admin/certificates-dashboard";
+import { updatePayment } from "@/lib/actions/admin/finance";
 import { CERTIFICATE_ELIGIBLE_PERCENT } from "@/lib/certificates/threshold";
 
 type TabId = "pending" | "issued";
@@ -530,7 +531,7 @@ function PendingTable({
             </Cell>
 
             <Cell>
-              <DeliveryBadge value={row.deliveryType} />
+              <DeliveryCell row={row} />
             </Cell>
 
             <Cell>{getJourneyLabel(row)}</Cell>
@@ -625,7 +626,7 @@ function IssuedTable({
             </Cell>
 
             <Cell>
-              <DeliveryBadge value={row.deliveryType} />
+              <DeliveryCell row={row} />
             </Cell>
 
             <Cell>
@@ -763,21 +764,56 @@ function Cell({
   );
 }
 
-function DeliveryBadge({
-  value,
-}: {
-  value: "interactive" | "recorded" | null;
-}) {
-  if (!value) return <span className="text-slate-300">—</span>;
+/** نوع الاشتراك قابل للتغيير مباشرة (يُحفظ في دفعة الإدارة المالية الخاصة بالطالب). */
+function DeliveryCell({ row }: { row: CertificatesDashboardRow }) {
+  const [value, setValue] = useState<string>(row.deliveryType ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  return value === "interactive" ? (
-    <span className="inline-flex rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-black text-violet-700">
-      تفاعلي
-    </span>
-  ) : (
-    <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
-      مسجل
-    </span>
+  if (!row.deliveryPaymentId) {
+    return (
+      <span className="text-slate-300" title="لا توجد دفعة لهذا الاشتراك في الإدارة المالية">
+        —
+      </span>
+    );
+  }
+
+  const change = async (next: string) => {
+    const previous = value;
+    setValue(next);
+    setSaving(true);
+    setError(null);
+    const result = await updatePayment(row.deliveryPaymentId as string, {
+      delivery_type: next || null,
+    });
+    setSaving(false);
+    if (!result.success) {
+      setValue(previous);
+      setError("تعذر الحفظ");
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <select
+        value={value}
+        disabled={saving}
+        onChange={(event) => void change(event.target.value)}
+        aria-label="نوع الاشتراك"
+        className={`h-8 rounded-full border px-3 text-xs font-black outline-none disabled:opacity-50 ${
+          value === "interactive"
+            ? "border-violet-200 bg-violet-50 text-violet-700"
+            : value === "recorded"
+              ? "border-slate-200 bg-slate-50 text-slate-600"
+              : "border-slate-200 bg-white text-slate-400"
+        }`}
+      >
+        <option value="">—</option>
+        <option value="interactive">تفاعلي</option>
+        <option value="recorded">مسجل</option>
+      </select>
+      {error ? <span className="text-[10px] font-bold text-red-600">{error}</span> : null}
+    </div>
   );
 }
 
