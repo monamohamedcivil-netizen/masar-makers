@@ -152,18 +152,23 @@ function SearchBar({
 }) {
   const theme = THEME[kind];
   const [query, setQuery] = useState("");
+  // typing = الطالب يكتب الآن؛ غير ذلك نعرض الموضوع المختار داخل الخانة.
+  const [typing, setTyping] = useState(false);
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const selectedLabel = selected ? (selected.titleEn ? `${selected.title}  ${selected.titleEn}` : selected.title) : "";
+
   const filtered = useMemo(() => {
-    const q = normalizeSearch(query);
+    const q = typing ? normalizeSearch(query) : "";
     if (!q) return terms;
     return terms.filter((t) => normalizeSearch(`${t.title} ${t.titleEn}`).includes(q));
-  }, [terms, query]);
+  }, [terms, query, typing]);
 
   const choose = (term: SearchTerm) => {
     onSelect(term);
     setQuery("");
+    setTyping(false);
     setOpen(false);
     inputRef.current?.blur();
   };
@@ -177,13 +182,23 @@ function SearchBar({
         <Search className="h-5 w-5 shrink-0" style={{ color: theme.accent }} aria-hidden="true" />
         <input
           ref={inputRef}
-          value={query}
+          value={typing ? query : selectedLabel}
           onChange={(e) => {
             setQuery(e.target.value);
+            setTyping(true);
             setOpen(true);
           }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+          onFocus={(e) => {
+            setOpen(true);
+            if (selected && !typing) e.currentTarget.select();
+          }}
+          onBlur={() =>
+            window.setTimeout(() => {
+              setOpen(false);
+              setTyping(false);
+              setQuery("");
+            }, 120)
+          }
           onKeyDown={(e) => {
             if (e.key === "Enter" && filtered[0]) {
               e.preventDefault();
@@ -198,7 +213,11 @@ function SearchBar({
         {selected ? (
           <button
             type="button"
-            onClick={onClear}
+            onClick={() => {
+              setQuery("");
+              setTyping(false);
+              onClear();
+            }}
             className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-[#07152E] hover:bg-slate-200"
           >
             <X className="h-3.5 w-3.5" /> مسح البحث
