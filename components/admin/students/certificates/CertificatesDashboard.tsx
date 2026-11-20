@@ -502,6 +502,7 @@ function PendingTable({
         "المسار",
         "الكورس",
         "كود الكورس",
+        "نوع الاشتراك",
         "نوع الرحلة",
         "نوع الشهادة",
         "حالة الاستحقاق",
@@ -526,6 +527,10 @@ function PendingTable({
 
             <Cell>
               <CodeBadge value={row.courseCode} />
+            </Cell>
+
+            <Cell>
+              <DeliveryBadge value={row.deliveryType} />
             </Cell>
 
             <Cell>{getJourneyLabel(row)}</Cell>
@@ -592,6 +597,7 @@ function IssuedTable({
         "المسار",
         "الكورس",
         "كود الكورس",
+        "نوع الاشتراك",
         "نوع الشهادة",
         "التقدم",
         "تاريخ الإصدار",
@@ -616,6 +622,10 @@ function IssuedTable({
 
             <Cell>
               <CodeBadge value={row.courseCode} />
+            </Cell>
+
+            <Cell>
+              <DeliveryBadge value={row.deliveryType} />
             </Cell>
 
             <Cell>
@@ -721,7 +731,7 @@ function TableShell({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[1250px] text-center">
+      <table className="w-full min-w-[1350px] text-center">
         <thead className="bg-slate-50">
           <tr>
             {headers.map((header) => (
@@ -750,6 +760,24 @@ function Cell({
     <td className="whitespace-nowrap px-4 py-4 text-sm font-bold text-slate-600">
       {children}
     </td>
+  );
+}
+
+function DeliveryBadge({
+  value,
+}: {
+  value: "interactive" | "recorded" | null;
+}) {
+  if (!value) return <span className="text-slate-300">—</span>;
+
+  return value === "interactive" ? (
+    <span className="inline-flex rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-black text-violet-700">
+      تفاعلي
+    </span>
+  ) : (
+    <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
+      مسجل
+    </span>
   );
 }
 
