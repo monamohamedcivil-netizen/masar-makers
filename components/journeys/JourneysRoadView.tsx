@@ -112,11 +112,10 @@ function LectureRow({ lecture, kind }: { lecture: TopicLecture; kind: "workshop"
             {lecture.title}
           </h3>
           <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-500">
-            <span>
-              {lecture.courseTitle}
-              {PART_LABEL[lecture.coursePart] ? (
-                <span dir="ltr">{` - ${PART_LABEL[lecture.coursePart]}`}</span>
-              ) : null}
+            <span dir="auto" style={{ unicodeBidi: "isolate" }}>
+              {PART_LABEL[lecture.coursePart]
+                ? `${lecture.courseTitle} - ${PART_LABEL[lecture.coursePart]}`
+                : lecture.courseTitle}
             </span>
           </div>
         </div>
