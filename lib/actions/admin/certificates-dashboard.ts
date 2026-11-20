@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 import {
   getCourseStudentsForCertificates,
@@ -15,6 +15,10 @@ export type CertificatesDashboardRow = CourseCertificateStudent & {
   pathSlug: string | null;
   courseCode: string | null;
   certificateNumber: string | null;
+  /** نوع اشتراك الطالب من الإدارة المالية: تفاعلي أو مسجل (null = غير مسجّل في المالية) */
+  deliveryType: "interactive" | "recorded" | null;
+  /** دفعة الإدارة المالية التي يُعدَّل عليها نوع الاشتراك (null = لا توجد دفعة) */
+  deliveryPaymentId: string | null;
 };
 
 export type CertificatesDashboardStatistics = {
@@ -272,6 +276,8 @@ Promise<GetCertificatesDashboardResult> {
           pathTitle: getPathTitle(path),
           pathSlug: path?.slug ?? null,
           certificateNumber: null,
+          deliveryType: null,
+          deliveryPaymentId: null,
         });
       }
     }
@@ -321,6 +327,36 @@ Promise<GetCertificatesDashboardResult> {
         (data ?? []) as CertificateLookupRow[];
     }
 
+    /*
+     * نوع الاشتراك (تفاعلي/مسجل) يُسجَّل في دفعات الإدارة المالية.
+     * نربطه بالاشتراك مباشرة، وإن لم يوجد نربطه بالطالب والكورس (الدفعات المستوردة).
+     */
+    type Delivery = { type: "interactive" | "recorded" | null; paymentId: string };
+    const deliveryByEnrollment = new Map<string, Delivery>();
+    const deliveryByUserCourse = new Map<string, Delivery>();
+    {
+      const { data: payments } = await createAdminClient()
+        .from("finance_payments")
+        .select("id,enrollment_id,user_id,course_id,delivery_type,created_at")
+        .order("created_at", { ascending: false })
+        .limit(5000);
+
+      for (const payment of payments ?? []) {
+        const type =
+          payment.delivery_type === "interactive" || payment.delivery_type === "recorded"
+            ? payment.delivery_type
+            : null;
+        const entry: Delivery = { type, paymentId: String(payment.id) };
+        if (payment.enrollment_id && !deliveryByEnrollment.has(String(payment.enrollment_id))) {
+          deliveryByEnrollment.set(String(payment.enrollment_id), entry);
+        }
+        if (payment.user_id && payment.course_id) {
+          const key = `${payment.user_id}:${payment.course_id}`;
+          if (!deliveryByUserCourse.has(key)) deliveryByUserCourse.set(key, entry);
+        }
+      }
+    }
+
     const certificateMap = new Map(
       certificateRows.map((certificate) => [
         `${certificate.enrollment_id}:${certificate.certificate_type}`,
@@ -345,6 +381,16 @@ Promise<GetCertificatesDashboardResult> {
           certificateIssuedAt:
             certificate?.issued_at ??
             row.certificateIssuedAt,
+          ...(() => {
+            const delivery =
+              deliveryByEnrollment.get(row.enrollmentId) ??
+              deliveryByUserCourse.get(`${row.studentId}:${row.courseId}`) ??
+              null;
+            return {
+              deliveryType: delivery?.type ?? null,
+              deliveryPaymentId: delivery?.paymentId ?? null,
+            };
+          })(),
         };
       })
       .sort((first, second) => {
