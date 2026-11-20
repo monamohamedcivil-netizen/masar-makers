@@ -47,6 +47,7 @@ import {
   getAdminBunnyEmbedUrl,
 } from "@/lib/actions/admin/bunny-videos";
 import LessonTopicsField from "@/components/admin/learning/LessonTopicsField";
+import LessonSearchTermsField from "@/components/admin/learning/LessonSearchTermsField";
 
 type Row = Record<string, any>;
 type CoursePart = "single" | "fundamentals" | "advanced";
@@ -2261,6 +2262,11 @@ function LessonDialog({
           </div>
 
           <LessonTopicsField
+            lessonId={editing.id || null}
+            careerPathId={editing.career_path_id || null}
+          />
+
+          <LessonSearchTermsField
             lessonId={editing.id || null}
             careerPathId={editing.career_path_id || null}
           />

@@ -1,5 +1,7 @@
 import AdminPageHeader from "@/components/admin/layout/AdminPageHeader";
 import LessonContentManager from "@/components/admin/learning/LessonContentManager";
+import LessonTaxonomyManager from "@/components/admin/learning/LessonTaxonomyManager";
+import Link from "next/link";
 import {
   createAdminClient,
   createClient,
@@ -8,7 +10,46 @@ import { getInternalAccountUserIds } from "@/lib/admin/internal-accounts";
 
 export const dynamic = "force-dynamic";
 
-export default async function LessonsPage() {
+function LessonsTabs({ active }: { active: "lessons" | "taxonomy" }) {
+  const base = "rounded-xl px-4 py-2 text-sm font-black transition";
+  return (
+    <nav className="mb-4 flex flex-wrap gap-2" aria-label="أقسام الدروس والمحتوى">
+      <Link
+        href="/admin/learning/lessons"
+        className={`${base} ${active === "lessons" ? "bg-[#07152E] text-white" : "bg-white text-[#07152E] ring-1 ring-slate-200 hover:bg-slate-50"}`}
+      >
+        المحاضرات
+      </Link>
+      <Link
+        href="/admin/learning/lessons?tab=taxonomy"
+        className={`${base} ${active === "taxonomy" ? "bg-[#07152E] text-white" : "bg-white text-[#07152E] ring-1 ring-slate-200 hover:bg-slate-50"}`}
+      >
+        تصنيف الرحلات (المحطات وكلمات البحث)
+      </Link>
+    </nav>
+  );
+}
+
+export default async function LessonsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab } = await searchParams;
+
+  if (tab === "taxonomy") {
+    return (
+      <>
+        <AdminPageHeader
+          title="الدروس والمحتوى"
+          description="محطات رحلات اليوم الواحد والمجانية وكلمات البحث: تعديل وإضافة وإعادة ترتيب."
+        />
+        <LessonsTabs active="taxonomy" />
+        <LessonTaxonomyManager />
+      </>
+    );
+  }
+
   const supabase = await createClient();
 
   const [
@@ -259,6 +300,8 @@ export default async function LessonsPage() {
         title="الدروس والمحتوى"
         description="إدارة الدروس والفيديوهات والمرفقات وترتيب المحتوى حسب المسار والمحطة وقسم الكورس."
       />
+
+      <LessonsTabs active="lessons" />
 
       <LessonContentManager
         courseEnrollmentCounts={courseEnrollmentCounts}

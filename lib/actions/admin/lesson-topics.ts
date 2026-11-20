@@ -130,8 +130,7 @@ export async function reorderLessonTopics(careerPathId: string, orderedIds: stri
     const { data: current, error } = await db
       .from("lesson_topics")
       .select("id,sort_order")
-      .eq("career_path_id", careerPathId)
-      .eq("is_active", true);
+      .eq("career_path_id", careerPathId);
     if (error) throw error;
     const valid = new Map(((current ?? []) as AnyRow[]).map((t) => [String(t.id), Number(t.sort_order ?? 0)]));
     const ids = [...new Set(orderedIds.map(String))].filter((id) => valid.has(id));
@@ -147,6 +146,30 @@ export async function reorderLessonTopics(careerPathId: string, orderedIds: stri
         .eq("career_path_id", careerPathId);
       if (updError) throw updError;
     }
+    refresh();
+    return { ok: true };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/** Edits a topic (station): Arabic name, English name, and show/hide. Nothing is deleted. */
+export async function updateLessonTopic(
+  topicId: string,
+  patch: { title?: string; titleEn?: string | null; isActive?: boolean },
+): Promise<Result> {
+  try {
+    const db = await admin();
+    const row: AnyRow = { updated_at: new Date().toISOString() };
+    if (patch.title !== undefined) {
+      const name = patch.title.trim();
+      if (!name) throw new Error("اكتبي اسم المحطة.");
+      row.title = name;
+    }
+    if (patch.titleEn !== undefined) row.title_en = patch.titleEn?.trim() || null;
+    if (patch.isActive !== undefined) row.is_active = patch.isActive;
+    const { error } = await db.from("lesson_topics").update(row).eq("id", topicId);
+    if (error) throw error;
     refresh();
     return { ok: true };
   } catch (error) {
