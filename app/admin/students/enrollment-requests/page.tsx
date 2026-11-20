@@ -23,6 +23,7 @@ function toTableRow(
     suggestedListPriceAdvanced: extra.suggestion?.advanced ?? {},
     subscriptionPriceAdvanced: request.subscriptionPriceAdvanced,
     id: request.id,
+    userId: request.userId,
     studentName: request.student.name,
     studentEmail: request.student.email,
     studentPhone: request.student.phone ?? "",

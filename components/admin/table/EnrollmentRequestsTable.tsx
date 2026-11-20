@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Fragment, useMemo, useState } from "react";
 import {
   CalendarDays,
@@ -26,6 +27,8 @@ import EnrollmentPaymentDraftForm from "./EnrollmentPaymentDraftForm";
 
 export interface EnrollmentRequestRow {
   id: string;
+  /** لفتح صفحة بيانات الطالب عند الضغط على اسمه */
+  userId?: string | null;
   studentName: string;
   studentEmail: string;
   studentPhone: string;
@@ -530,10 +533,20 @@ export default function EnrollmentRequestsTable({
                         </div>
 
                         <div>
-                          <p className="font-bold text-[#07152E]">
-                            {request.studentName ||
-                              "طالب بدون اسم"}
-                          </p>
+                          {request.userId ? (
+                            <Link
+                              href={`/admin/students/${request.userId}`}
+                              className="font-bold text-[#07152E] hover:text-[#C88712]"
+                            >
+                              {request.studentName ||
+                                "طالب بدون اسم"}
+                            </Link>
+                          ) : (
+                            <p className="font-bold text-[#07152E]">
+                              {request.studentName ||
+                                "طالب بدون اسم"}
+                            </p>
+                          )}
 
                           <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
                             <Mail className="h-3.5 w-3.5" />
