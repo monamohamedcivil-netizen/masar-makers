@@ -95,6 +95,13 @@ function Road({
   );
 }
 
+/** الكورسات ذات المرحلتين: نوضّح المحاضرة جاية من أساسيات ولا متقدم (مثال: Civil 3D - Fundamentals). */
+const PART_LABEL: Record<string, string> = {
+  fundamentals: "Fundamentals",
+  fundamental: "Fundamentals",
+  advanced: "Advanced",
+};
+
 function LectureRow({ lecture, kind }: { lecture: TopicLecture; kind: "workshop" | "free" }) {
   return (
     <article className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_170px] sm:items-center">
@@ -105,7 +112,12 @@ function LectureRow({ lecture, kind }: { lecture: TopicLecture; kind: "workshop"
             {lecture.title}
           </h3>
           <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-500">
-            <span>{lecture.courseTitle}</span>
+            <span>
+              {lecture.courseTitle}
+              {PART_LABEL[lecture.coursePart] ? (
+                <span dir="ltr">{` - ${PART_LABEL[lecture.coursePart]}`}</span>
+              ) : null}
+            </span>
           </div>
         </div>
       </div>
