@@ -118,3 +118,61 @@ export async function addLessonTopic(careerPathId: string, title: string): Promi
     return fail(error);
   }
 }
+
+/**
+ * Saves a new order for the path's topics (the order shown on the one-day and free journey pages).
+ * Renumbers sort_order as 10, 20, 30… and writes only the rows that changed.
+ */
+export async function reorderLessonTopics(careerPathId: string, orderedIds: string[]): Promise<Result> {
+  try {
+    const db = await admin();
+    if (!careerPathId) throw new Error("اختاري المسار أولًا.");
+    const { data: current, error } = await db
+      .from("lesson_topics")
+      .select("id,sort_order")
+      .eq("career_path_id", careerPathId);
+    if (error) throw error;
+    const valid = new Map(((current ?? []) as AnyRow[]).map((t) => [String(t.id), Number(t.sort_order ?? 0)]));
+    const ids = [...new Set(orderedIds.map(String))].filter((id) => valid.has(id));
+    if (!ids.length) throw new Error("لا توجد أقسام لإعادة ترتيبها.");
+    const now = new Date().toISOString();
+    for (let i = 0; i < ids.length; i += 1) {
+      const next = (i + 1) * 10;
+      if (valid.get(ids[i]) === next) continue;
+      const { error: updError } = await db
+        .from("lesson_topics")
+        .update({ sort_order: next, updated_at: now })
+        .eq("id", ids[i])
+        .eq("career_path_id", careerPathId);
+      if (updError) throw updError;
+    }
+    refresh();
+    return { ok: true };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/** Edits a topic (station): Arabic name, English name, and show/hide. Nothing is deleted. */
+export async function updateLessonTopic(
+  topicId: string,
+  patch: { title?: string; titleEn?: string | null; isActive?: boolean },
+): Promise<Result> {
+  try {
+    const db = await admin();
+    const row: AnyRow = { updated_at: new Date().toISOString() };
+    if (patch.title !== undefined) {
+      const name = patch.title.trim();
+      if (!name) throw new Error("اكتبي اسم المحطة.");
+      row.title = name;
+    }
+    if (patch.titleEn !== undefined) row.title_en = patch.titleEn?.trim() || null;
+    if (patch.isActive !== undefined) row.is_active = patch.isActive;
+    const { error } = await db.from("lesson_topics").update(row).eq("id", topicId);
+    if (error) throw error;
+    refresh();
+    return { ok: true };
+  } catch (error) {
+    return fail(error);
+  }
+}

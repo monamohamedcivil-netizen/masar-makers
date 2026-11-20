@@ -1,11 +1,12 @@
 "use client";
 
-import { Check, Pencil, Plus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Pencil, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import {
   addLessonTopic,
   getLessonTopics,
+  reorderLessonTopics,
   renameLessonTopic,
   setLessonTopics,
   type LessonTopicOption,
@@ -77,6 +78,26 @@ export default function LessonTopicsField({ lessonId, careerPathId }: { lessonId
     flash("تمت إضافة القسم ✓");
   };
 
+  const move = async (index: number, delta: -1 | 1) => {
+    const target = index + delta;
+    if (!careerPathId || target < 0 || target >= topics.length || busy) return;
+    const previous = topics;
+    const next = [...topics];
+    [next[index], next[target]] = [next[target], next[index]];
+    setTopics(next);
+    setBusy(true);
+    const result = await reorderLessonTopics(
+      careerPathId,
+      next.map((t) => t.id),
+    );
+    setBusy(false);
+    if (!result.ok) {
+      setTopics(previous);
+      return flash(result.error);
+    }
+    flash("تم حفظ الترتيب ✓ ويظهر في صفحات اليوم الواحد والمجانية");
+  };
+
   const names = topics.filter((t) => selected.includes(t.id)).map((t) => t.title);
 
   return (
@@ -96,7 +117,7 @@ export default function LessonTopicsField({ lessonId, careerPathId }: { lessonId
           </button>
           {open ? (
             <div className="space-y-1 border-t border-slate-100 p-3">
-              {topics.map((t) => (
+              {topics.map((t, index) => (
                 <div key={t.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50">
                   {editingId === t.id ? (
                     <>
@@ -119,6 +140,24 @@ export default function LessonTopicsField({ lessonId, careerPathId }: { lessonId
                         <input type="checkbox" checked={selected.includes(t.id)} onChange={() => void toggle(t.id)} className="h-4 w-4 accent-[#F7B548]" />
                         <span className="truncate">{t.title}</span>
                       </label>
+                      <button
+                        type="button"
+                        disabled={busy || index === 0}
+                        onClick={() => void move(index, -1)}
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-[#07152E] disabled:opacity-30"
+                        aria-label="تحريك القسم لأعلى"
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy || index === topics.length - 1}
+                        onClick={() => void move(index, 1)}
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-[#07152E] disabled:opacity-30"
+                        aria-label="تحريك القسم لأسفل"
+                      >
+                        <ArrowDown className="h-4 w-4" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
@@ -150,7 +189,7 @@ export default function LessonTopicsField({ lessonId, careerPathId }: { lessonId
         </div>
       )}
       {message ? <p className="mt-2 text-xs font-bold text-slate-500">{message}</p> : null}
-      <p className="mt-1 text-xs text-slate-500">يمكن اختيار أكثر من قسم. تغيير اسم قسم أو إضافة قسم يظهر في كل محاضرات المسار.</p>
+      <p className="mt-1 text-xs text-slate-500">يمكن اختيار أكثر من قسم. تغيير اسم قسم أو إضافة قسم أو ترتيبه بالأسهم يظهر في كل محاضرات المسار.</p>
     </div>
   );
 }

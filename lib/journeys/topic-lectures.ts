@@ -25,7 +25,15 @@ export type TopicLecture = {
 };
 
 export type LectureTopic = { id: string | null; title: string; lectures: TopicLecture[] };
-export type LecturePath = { id: string; slug: string; title: string; topics: LectureTopic[] };
+export type SearchTerm = { id: string; title: string; titleEn: string; lectures: TopicLecture[] };
+export type LecturePath = {
+  id: string;
+  slug: string;
+  title: string;
+  topics: LectureTopic[];
+  /** كلمات البحث التي لها محاضرات في هذا النوع (يوم واحد/مجانية) لهذا المسار */
+  searchTerms: SearchTerm[];
+};
 
 const KIND_TYPES: Record<LectureKind, string[]> = {
   workshop: ["workshop", "one_day", "one-day", "one_day_workshop", "one-day-workshop"],
@@ -52,7 +60,7 @@ export async function getTopicLectures(kind: LectureKind): Promise<LecturePath[]
   const lessonIds = [...new Set(((links ?? []) as AnyRow[]).map((l) => String(l.lesson_id)))];
   if (!lessonIds.length) return [];
 
-  const [{ data: lessons }, { data: topicLinks }, { data: topics }] = await Promise.all([
+  const [{ data: lessons }, { data: topicLinks }, { data: topics }, { data: searchTerms }, { data: searchLinks }] = await Promise.all([
     db
       .from("lessons")
       .select("id,course_id,title,title_ar,course_part,sort_order,video_duration_seconds,status")
@@ -60,6 +68,9 @@ export async function getTopicLectures(kind: LectureKind): Promise<LecturePath[]
       .eq("status", "published"),
     db.from("lesson_topic_links").select("lesson_id,topic_id").in("lesson_id", lessonIds),
     db.from("lesson_topics").select("id,career_path_id,title,sort_order,is_active").eq("is_active", true).order("sort_order"),
+    // قبل تشغيل ملف SQL الخاص بكلمات البحث يرجع الاستعلام خطأ، فنتجاهله ونعرض الصفحة بدون خانة بحث.
+    db.from("lesson_search_terms").select("id,career_path_id,title,title_en,sort_order").eq("is_active", true).order("sort_order"),
+    db.from("lesson_search_term_links").select("lesson_id,term_id").in("lesson_id", lessonIds),
   ]);
 
   // Current student's subscriptions (to show «ابدأ / شاهد» instead of «اشترك»).
@@ -114,6 +125,7 @@ export async function getTopicLectures(kind: LectureKind): Promise<LecturePath[]
     })
     .filter((x) => x.pathId);
 
+  const sortOrderById = new Map(lectures.map((x) => [x.lecture.id, x.lecture.sortOrder]));
   const partRank = (p: string) => (norm(p).startsWith("fund") ? 1 : norm(p) === "advanced" ? 2 : 0);
   const sortLectures = (list: Array<TopicLecture & { sortOrder: number }>) =>
     list.sort(
@@ -137,11 +149,29 @@ export async function getTopicLectures(kind: LectureKind): Promise<LecturePath[]
       .filter((t) => t.lectures.length);
     const others = mine.filter((x) => !x.topicIds.some((id) => topicIds.has(id))).map((x) => x.lecture);
     if (others.length) grouped.push({ id: null, title: "محاضرات أخرى", lectures: strip(others) });
+    const mineById = new Map(mine.map((x) => [x.lecture.id, x.lecture]));
+    const termLectures = new Map<string, TopicLecture[]>();
+    for (const l of (searchLinks ?? []) as AnyRow[]) {
+      const lecture = mineById.get(String(l.lesson_id));
+      if (!lecture) continue;
+      const list = termLectures.get(String(l.term_id)) ?? [];
+      list.push(lecture);
+      termLectures.set(String(l.term_id), list);
+    }
+    const pathSearchTerms: SearchTerm[] = ((searchTerms ?? []) as AnyRow[])
+      .filter((t) => String(t.career_path_id) === pathId && (termLectures.get(String(t.id))?.length ?? 0) > 0)
+      .map((t) => ({
+        id: String(t.id),
+        title: String(t.title),
+        titleEn: String(t.title_en ?? ""),
+        lectures: strip((termLectures.get(String(t.id)) ?? []).map((lecture) => ({ ...lecture, sortOrder: sortOrderById.get(lecture.id) ?? 0 }))),
+      }));
     return {
       id: pathId,
       slug: String(p.slug ?? ""),
       title: String(p.title_ar || p.title || ""),
       topics: grouped,
+      searchTerms: pathSearchTerms,
     };
   });
 }

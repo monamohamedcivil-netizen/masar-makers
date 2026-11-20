@@ -2,15 +2,15 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { CalendarDays, Gift, PlayCircle, Rocket } from "lucide-react";
-import { useMemo, useState } from "react";
+import { CalendarDays, Gift, PlayCircle, Rocket, Search, X } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 
 import CourseActionButton from "@/components/course/CourseActionButton";
 import { openOffersScreen } from "@/components/offers/useOffers";
 import type { EnrollmentStatus } from "@/lib/actions/enroll";
 import { courseIcon } from "@/lib/journeys/course-icons";
 import type { ProfessionalPath, ProfessionalStation } from "@/lib/journeys/professional-stations";
-import type { LecturePath, TopicLecture } from "@/lib/journeys/topic-lectures";
+import type { LecturePath, SearchTerm, TopicLecture } from "@/lib/journeys/topic-lectures";
 
 /* =========================================================
    صفحات طرق التعلم بشكل «مسار طريق»:
@@ -124,6 +124,120 @@ function LectureRow({ lecture, kind }: { lecture: TopicLecture; kind: "workshop"
   );
 }
 
+/* تطبيع النص العربي/الإنجليزي للبحث: تشكيل، تطويل، همزات، تاء مربوطة، ياء. */
+function normalizeSearch(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, "")
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** خانة بحث كبيرة بقائمة ثابتة (عربي + English في سطر واحد) تتصفّى أثناء الكتابة. */
+function SearchBar({
+  terms,
+  selected,
+  onSelect,
+  onClear,
+  kind,
+}: {
+  terms: SearchTerm[];
+  selected: SearchTerm | null;
+  onSelect: (term: SearchTerm) => void;
+  onClear: () => void;
+  kind: "workshop" | "free";
+}) {
+  const theme = THEME[kind];
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const filtered = useMemo(() => {
+    const q = normalizeSearch(query);
+    if (!q) return terms;
+    return terms.filter((t) => normalizeSearch(`${t.title} ${t.titleEn}`).includes(q));
+  }, [terms, query]);
+
+  const choose = (term: SearchTerm) => {
+    onSelect(term);
+    setQuery("");
+    setOpen(false);
+    inputRef.current?.blur();
+  };
+
+  return (
+    <div className="relative mx-auto max-w-3xl px-4">
+      <div
+        className="flex items-center gap-3 rounded-2xl border-2 bg-white px-4 shadow-[0_8px_24px_rgba(7,21,46,0.10)] transition focus-within:shadow-[0_10px_30px_rgba(7,21,46,0.18)]"
+        style={{ borderColor: theme.accent }}
+      >
+        <Search className="h-5 w-5 shrink-0" style={{ color: theme.accent }} aria-hidden="true" />
+        <input
+          ref={inputRef}
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && filtered[0]) {
+              e.preventDefault();
+              choose(filtered[0]);
+            }
+            if (e.key === "Escape") setOpen(false);
+          }}
+          placeholder="ابحث عن موضوع… مثال: الدوارات أو Roundabout"
+          aria-label="ابحث عن موضوع في المحاضرات"
+          className="h-14 min-w-0 flex-1 bg-transparent text-base font-bold text-[#07152E] outline-none placeholder:text-slate-400 sm:h-16 sm:text-lg"
+        />
+        {selected ? (
+          <button
+            type="button"
+            onClick={onClear}
+            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-[#07152E] hover:bg-slate-200"
+          >
+            <X className="h-3.5 w-3.5" /> مسح البحث
+          </button>
+        ) : null}
+      </div>
+
+      {open ? (
+        <ul
+          role="listbox"
+          className="absolute inset-x-4 top-full z-30 mt-2 max-h-72 overflow-y-auto rounded-2xl border border-slate-200 bg-white py-1 shadow-[0_16px_40px_rgba(7,21,46,0.18)]"
+        >
+          {filtered.length === 0 ? <li className="px-4 py-3 text-sm font-bold text-slate-400">لا يوجد موضوع بهذا الاسم.</li> : null}
+          {filtered.map((t) => (
+            <li key={t.id} role="option" aria-selected={selected?.id === t.id}>
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => choose(t)}
+                className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-right transition hover:bg-slate-50"
+              >
+                <span className="flex min-w-0 items-baseline gap-3">
+                  <span className="shrink-0 text-sm font-black text-[#07152E]">{t.title}</span>
+                  {t.titleEn ? (
+                    <span dir="ltr" className="truncate text-xs font-bold text-slate-500">
+                      {t.titleEn}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="shrink-0 text-[11px] font-bold text-slate-400">{t.lectures.length} محاضرة</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 function ProfessionalPanel({ station }: { station: ProfessionalStation }) {
   const theme = THEME.professional;
   const enrolled = station.enrollment && ["active", "completed"].includes(station.enrollment.status);
@@ -193,6 +307,10 @@ export default function JourneysRoadView(props: Props) {
   }, [path, kind]);
 
   const [selectedByPath, setSelectedByPath] = useState<Record<string, string>>({});
+  // الموضوع المختار من خانة البحث (لكل مسار). عند اختياره تُعرض كل محاضراته تحت الطريق.
+  const [termByPath, setTermByPath] = useState<Record<string, string | null>>({});
+  const searchTerms = kind === "professional" || !path ? [] : (path as LecturePath).searchTerms ?? [];
+  const activeTerm = (path && searchTerms.find((t) => t.id === termByPath[path.id])) || null;
   const firstOpen = stations.find((s) => !s.comingSoon)?.key ?? stations[0]?.key ?? "";
   const active = (path && selectedByPath[path.id]) || firstOpen;
 
@@ -232,17 +350,57 @@ export default function JourneysRoadView(props: Props) {
         </div>
       </section>
 
+      {kind !== "professional" && searchTerms.length > 0 && path ? (
+        <section className="mt-4">
+          <SearchBar
+            key={path.id}
+            kind={kind}
+            terms={searchTerms}
+            selected={activeTerm}
+            onSelect={(term) => setTermByPath((prev) => ({ ...prev, [path.id]: term.id }))}
+            onClear={() => setTermByPath((prev) => ({ ...prev, [path.id]: null }))}
+          />
+        </section>
+      ) : null}
+
       <section className="mt-1">
         {stations.length === 0 ? (
           <p className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-500">
             المحاضرات في هذا المسار قريبًا.
           </p>
         ) : (
-          <Road stations={stations} active={active} onSelect={(key) => path && setSelectedByPath((prev) => ({ ...prev, [path.id]: key }))} kind={kind} />
+          <Road stations={stations} active={active} onSelect={(key) => {
+              if (!path) return;
+              setSelectedByPath((prev) => ({ ...prev, [path.id]: key }));
+              setTermByPath((prev) => ({ ...prev, [path.id]: null }));
+            }} kind={kind} />
         )}
       </section>
 
-      {path && active ? (
+      {kind !== "professional" && activeTerm ? (
+        <section className="mx-auto mt-2 max-w-4xl px-4">
+          <div className="overflow-hidden rounded-2xl border bg-white shadow-sm" style={{ borderColor: `${theme.accent}66` }}>
+            <div className="flex items-center justify-between gap-3 px-4 py-3" style={{ background: theme.soft }}>
+              <h2 className="flex min-w-0 flex-wrap items-baseline gap-x-3 text-base font-black text-[#07152E]">
+                <span>نتائج البحث: {activeTerm.title}</span>
+                {activeTerm.titleEn ? (
+                  <span dir="ltr" className="text-xs font-bold text-slate-500">
+                    {activeTerm.titleEn}
+                  </span>
+                ) : null}
+              </h2>
+              <span className={`shrink-0 text-xs font-black ${theme.text}`}>{activeTerm.lectures.length} محاضرة</span>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {activeTerm.lectures.map((lecture) => (
+                <LectureRow key={`search:${activeTerm.id}:${lecture.id}`} lecture={lecture} kind={kind as "workshop" | "free"} />
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {path && active && !(kind !== "professional" && activeTerm) ? (
         <section className="mx-auto mt-2 max-w-4xl px-4">
           <div className="overflow-hidden rounded-2xl border bg-white shadow-sm" style={{ borderColor: `${theme.accent}66` }}>
             {kind === "professional" ? (
