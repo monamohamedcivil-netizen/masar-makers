@@ -47,6 +47,7 @@ import {
   getAdminBunnyEmbedUrl,
 } from "@/lib/actions/admin/bunny-videos";
 import LessonTopicsField from "@/components/admin/learning/LessonTopicsField";
+import { LessonTaxonomyCells, type TaxonomyOption } from "@/components/admin/learning/LessonTaxonomyCells";
 import LessonSearchTermsField from "@/components/admin/learning/LessonSearchTermsField";
 
 type Row = Record<string, any>;
@@ -403,7 +404,15 @@ export default function LessonContentManager({
   lessonJourneys,
   lessonStats = {},
   courseEnrollmentCounts = {},
+  taxonomy,
 }: {
+  /** أقسام (محطات) وكلمات بحث كل مسار وروابطها بالمحاضرات، لعرضها وتعديلها من الجدول مباشرة */
+  taxonomy?: {
+    topics: (TaxonomyOption & { pathId: string })[];
+    terms: (TaxonomyOption & { pathId: string })[];
+    topicLinks: Record<string, string[]>;
+    termLinks: Record<string, string[]>;
+  };
   courseEnrollmentCounts?: Record<
     string,
     { professional: number; oneDay: number; free: number }
@@ -1753,7 +1762,7 @@ export default function LessonContentManager({
                                                           lesson.id,
                                                         )
                                                       }
-                                                      className="grid gap-3 bg-white px-4 py-3 lg:grid-cols-[34px_minmax(0,1fr)_auto]"
+                                                      className="grid gap-3 bg-white px-4 py-3 lg:grid-cols-[34px_minmax(0,1fr)_auto] xl:grid-cols-[34px_minmax(0,1fr)_190px_190px_auto]"
                                                     >
                                                       <div className="flex items-start justify-center pt-1 text-slate-300">
                                                         <GripVertical className="h-4 w-4 cursor-grab" />
@@ -1842,6 +1851,38 @@ export default function LessonContentManager({
                                                           </span>
                                                         </div>
                                                       </div>
+
+                                                      {(() => {
+                                                        const labels = lessonJourneyLabels(lesson);
+                                                        const inOneDayOrFree =
+                                                          labels.includes("يوم واحد") ||
+                                                          labels.includes("مجانية");
+                                                        const pathId =
+                                                          courses.find((c) => c.id === lesson.course_id)?.career_path_id;
+
+                                                        if (!taxonomy || !inOneDayOrFree || !pathId) {
+                                                          return (
+                                                            <>
+                                                              <div className="hidden xl:block" />
+                                                              <div className="hidden xl:block" />
+                                                            </>
+                                                          );
+                                                        }
+
+                                                        const topicIds = taxonomy.topicLinks[lesson.id] ?? [];
+                                                        const termIds = taxonomy.termLinks[lesson.id] ?? [];
+
+                                                        return (
+                                                          <LessonTaxonomyCells
+                                                            key={`${lesson.id}:${topicIds.join(",")}:${termIds.join(",")}`}
+                                                            lessonId={lesson.id}
+                                                            topics={taxonomy.topics.filter((t) => t.pathId === pathId)}
+                                                            terms={taxonomy.terms.filter((t) => t.pathId === pathId)}
+                                                            topicIds={topicIds}
+                                                            termIds={termIds}
+                                                          />
+                                                        );
+                                                      })()}
 
                                                       <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                                                         {lesson.video_asset_id ? (

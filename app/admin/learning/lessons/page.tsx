@@ -294,6 +294,36 @@ export default async function LessonsPage({
     };
   }
 
+  // أقسام (محطات) وكلمات بحث المحاضرات لعرضها وتعديلها من الجدول.
+  // قبل تشغيل SQL كلمات البحث يرجع استعلامها خطأ فنكمل بقائمة فاضية.
+  const [topicsRes, topicLinksRes, termsRes, termLinksRes] = await Promise.all([
+    supabase.from("lesson_topics").select("id,career_path_id,title,sort_order").eq("is_active", true).order("sort_order"),
+    supabase.from("lesson_topic_links").select("lesson_id,topic_id"),
+    supabase.from("lesson_search_terms").select("id,career_path_id,title,title_en,sort_order").eq("is_active", true).order("sort_order"),
+    supabase.from("lesson_search_term_links").select("lesson_id,term_id"),
+  ]);
+
+  const groupLinks = (rows: { lesson_id: unknown; [key: string]: unknown }[] | null, key: string) => {
+    const out: Record<string, string[]> = {};
+    for (const row of rows ?? []) {
+      const lessonId = String(row.lesson_id);
+      (out[lessonId] ??= []).push(String(row[key]));
+    }
+    return out;
+  };
+
+  const taxonomy = {
+    topics: (topicsRes.data ?? []).map((t) => ({ id: String(t.id), pathId: String(t.career_path_id), title: String(t.title) })),
+    terms: (termsRes.data ?? []).map((t) => ({
+      id: String(t.id),
+      pathId: String(t.career_path_id),
+      title: String(t.title),
+      titleEn: String(t.title_en ?? ""),
+    })),
+    topicLinks: groupLinks(topicLinksRes.data, "topic_id"),
+    termLinks: groupLinks(termLinksRes.data, "term_id"),
+  };
+
   return (
     <>
       <AdminPageHeader
@@ -304,6 +334,7 @@ export default async function LessonsPage({
       <LessonsTabs active="lessons" />
 
       <LessonContentManager
+        taxonomy={taxonomy}
         courseEnrollmentCounts={courseEnrollmentCounts}
         lessonStats={lessonStats}
         initialLessons={lessons ?? []}
