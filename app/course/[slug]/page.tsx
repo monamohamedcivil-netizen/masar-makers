@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { getStudentRegistrationInfo } from "@/lib/students/registration-info";
 import { notFound } from "next/navigation";
 
 import Navbar from "@/sections/Navbar";
@@ -28,10 +27,11 @@ import {
   getCourseScreenContent,
 } from "@/lib/actions/course-screen-content";
 
+import { mapStoredProfessionalContent } from "@/lib/course/stored-professional-content";
+import { loadPublishedCourseReviews } from "@/lib/course/published-reviews";
+
 import type {
   ProfessionalPanelDraft,
-  ProfessionalContentBlock,
-  ProfessionalJourneyColumn,
 } from "@/components/course/editor";
 
 import {
@@ -74,10 +74,6 @@ import CourseActionButton from "@/components/course/CourseActionButton";
 import CourseJourneyHeaderLocale from "@/components/course/CourseJourneyHeaderLocale";
 import BunnyVideoPlayer from "@/components/student/player/BunnyVideoPlayer";
 import { getCourseEnrollmentAccess } from "@/lib/actions/enroll";
-import {
-  createAdminClient,
-} from "@/lib/supabase/server";
-
 import {
   getCourseProjects,
 } from "@/lib/projects/student-projects";
@@ -646,132 +642,6 @@ return {
    Professional screen content
 ================================================== */
 
-type StoredCourseScreenContent = {
-  screen_title?: string | null;
-  column_count?: number | null;
-  column_one_title?: string | null;
-  column_two_title?: string | null;
-  content?: unknown;
-};
-
-function mapStoredProfessionalContent(
-  row: StoredCourseScreenContent | null
-): Partial<ProfessionalPanelDraft> | null {
-  if (!row) {
-    return null;
-  }
-
-  const rawContent =
-    row.content &&
-    typeof row.content === "object"
-      ? (row.content as Record<string, unknown>)
-      : {};
-
-  /*
-   * الشكل الجديد:
-   * يتم حفظ ProfessionalPanelDraft كاملًا داخل content.
-   */
-  if (Array.isArray(rawContent.blocks)) {
-    return {
-      ...(rawContent as Partial<ProfessionalPanelDraft>),
-      screenTitle:
-        typeof rawContent.screenTitle === "string"
-          ? rawContent.screenTitle
-          : row.screen_title ?? undefined,
-      columnCount:
-        rawContent.columnCount === 2 ||
-        row.column_count === 2
-          ? 2
-          : 1,
-      columnOneTitle:
-        typeof rawContent.columnOneTitle === "string"
-          ? rawContent.columnOneTitle
-          : row.column_one_title ?? undefined,
-      columnTwoTitle:
-        typeof rawContent.columnTwoTitle === "string"
-          ? rawContent.columnTwoTitle
-          : row.column_two_title ?? undefined,
-    };
-  }
-
-  /*
-   * دعم البيانات التي حُفظت قبل هذا التعديل، وكان شكلها:
-   * content: { columns: [{ title, blocks }, ...] }
-   */
-  const columns = Array.isArray(rawContent.columns)
-    ? rawContent.columns
-    : [];
-
-  const blocks = columns.flatMap(
-    (column, columnIndex) => {
-      if (
-        !column ||
-        typeof column !== "object"
-      ) {
-        return [];
-      }
-
-      const record =
-        column as Record<string, unknown>;
-
-      if (!Array.isArray(record.blocks)) {
-        return [];
-      }
-
-      const journey: ProfessionalJourneyColumn =
-  columnIndex === 0
-    ? "fundamental"
-    : "advanced";
-
-return record.blocks.map(
-  (block): ProfessionalContentBlock => ({
-    ...(block as ProfessionalContentBlock),
-    journey,
-  })
-);
-    }
-  );
-
-  return {
-    screenTitle:
-      row.screen_title ??
-      "رحلة الاحتراف المتكاملة",
-    columnCount:
-      row.column_count === 2 ? 2 : 1,
-    columnOneTitle:
-      row.column_one_title ??
-      getStoredColumnTitle(columns, 0) ??
-      "رحلة الأساسيات",
-    columnTwoTitle:
-      row.column_two_title ??
-      getStoredColumnTitle(columns, 1) ??
-      "الرحلة المتقدمة",
-    blocks,
-  };
-}
-
-function getStoredColumnTitle(
-  columns: unknown[],
-  index: number
-): string | null {
-  const column = columns[index];
-
-  if (
-    !column ||
-    typeof column !== "object"
-  ) {
-    return null;
-  }
-
-  const title =
-    (column as Record<string, unknown>)
-      .title;
-
-  return typeof title === "string"
-    ? title
-    : null;
-}
-
 /* ==================================================
    Build Course Variant
 ================================================== */
@@ -1041,189 +911,6 @@ function getVariantType(
     نعامل كورسها كرحلة متكاملة.
   */
   return "integrated";
-}
-
-type CourseReviewRow = {
-  id: string;
-  user_id: string | null;
-  rating: number | string | null;
-  comment: string | null;
-  submitted_at: string | null;
-
-  student_name: string | null;
-  student_job_title: string | null;
-  student_country: string | null;
-};
-
-type CourseReviewProfileRow = {
-  id: string;
-  full_name: string | null;
-  country: string | null;
-};
-
-async function loadPublishedCourseReviews(
-  courseId: string,
-  pathSlug: PathSlug,
-  courseSlug: string,
-): Promise<Review[]> {
-  const supabase = createAdminClient();
-
-  /*
-   * أولًا:
-   * قراءة التقييمات المنشورة لهذا الكورس.
-   *
-   * لا نستخدم profiles(...) هنا لأن student_surveys.user_id
-   * ليس Foreign Key مباشرًا إلى profiles.id.
-   */
-  const { data, error } = await supabase
-    .from("student_surveys")
-    .select(`
-      id,
-      user_id,
-      rating,
-      comment,
-      submitted_at,
-      student_name,
-      student_job_title,
-      student_country
-    `)
-    .eq("course_id", courseId)
-    .eq("show_on_course", true)
-    .eq("status", "approved")
-    .order("submitted_at", {
-      ascending: false,
-    });
-
-  if (error) {
-    console.error(
-      "Failed to load published course reviews:",
-      error.message,
-    );
-
-    return [];
-  }
-
-  const rows =
-    (data ?? []) as CourseReviewRow[];
-
-  /*
-   * ثانيًا:
-   * نجمع الحسابات المسجلة المرتبطة بالتقييمات.
-   */
-  const userIds = Array.from(
-    new Set(
-      rows
-        .map((row) => row.user_id)
-        .filter(
-          (id): id is string =>
-            typeof id === "string" &&
-            id.length > 0,
-        ),
-    ),
-  );
-
-  let profileRows: CourseReviewProfileRow[] = [];
-
-  if (userIds.length > 0) {
-    const {
-      data: profilesData,
-      error: profilesError,
-    } = await supabase
-      .from("profiles")
-      .select(`
-  id,
-  full_name,
-  country
-`)
-      .in("id", userIds);
-
-    if (profilesError) {
-      console.error(
-        "Failed to load review profiles:",
-        profilesError.message,
-      );
-    } else {
-      profileRows =
-        (profilesData ?? []) as CourseReviewProfileRow[];
-    }
-  }
-
-  const profilesMap = new Map(
-    profileRows.map((profile) => [
-      profile.id,
-      profile,
-    ]),
-  );
-
-  /*
-   * ثالثًا:
-   * إذا كان التقييم مربوطًا بحساب حقيقي،
-   * نعطي بيانات الحساب الأولوية.
-   *
-   * وإذا كان الطالب مستوردًا ولم يسجل بعد،
-   * نستخدم البيانات المحفوظة في student_surveys.
-   */
-  const registrationInfo =
-    await getStudentRegistrationInfo(userIds);
-
-  return rows
-    .filter(
-      (row) =>
-        Number(row.rating ?? 0) > 0,
-    )
-    .map((row, index) => {
-      const profile = row.user_id
-        ? profilesMap.get(row.user_id)
-        : undefined;
-
-      return {
-        id: index + 1,
-
-        studentName:
-          profile?.full_name?.trim() ||
-          row.student_name?.trim() ||
-          "أحد متدربي Masar Makers",
-
-        studentNameEn: row.user_id
-          ? registrationInfo.get(row.user_id)?.nameEn || ""
-          : "",
-
-        studentRole:
-  row.student_job_title?.trim() ||
-  (row.user_id
-    ? registrationInfo.get(row.user_id)?.jobTitle
-    : "") ||
-  "",
-
-        country:
-          profile?.country?.trim() ||
-          row.student_country?.trim() ||
-          "",
-
-        pathSlug,
-        courseSlug,
-
-        rating: Math.max(
-          1,
-          Math.min(
-            5,
-            Math.round(
-              Number(row.rating ?? 0),
-            ),
-          ),
-        ),
-
-        review:
-          row.comment?.trim() || "",
-
-        approved: true,
-        featured: false,
-
-        createdAt:
-          row.submitted_at ??
-          new Date().toISOString(),
-      };
-    });
 }
 
 /* ==================================================
