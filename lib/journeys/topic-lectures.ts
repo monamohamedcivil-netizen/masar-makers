@@ -24,7 +24,7 @@ export type TopicLecture = {
   enrollmentStatus: string | null;
 };
 
-export type LectureTopic = { id: string | null; title: string; lectures: TopicLecture[] };
+export type LectureTopic = { id: string | null; title: string; titleEn: string; lectures: TopicLecture[] };
 export type SearchTerm = { id: string; title: string; titleEn: string; lectures: TopicLecture[] };
 export type LecturePath = {
   id: string;
@@ -67,7 +67,7 @@ export async function getTopicLectures(kind: LectureKind): Promise<LecturePath[]
       .in("id", lessonIds)
       .eq("status", "published"),
     db.from("lesson_topic_links").select("lesson_id,topic_id").in("lesson_id", lessonIds),
-    db.from("lesson_topics").select("id,career_path_id,title,sort_order,is_active").eq("is_active", true).order("sort_order"),
+    db.from("lesson_topics").select("id,career_path_id,title,title_en,sort_order,is_active").eq("is_active", true).order("sort_order"),
     // قبل تشغيل ملف SQL الخاص بكلمات البحث يرجع الاستعلام خطأ، فنتجاهله ونعرض الصفحة بدون خانة بحث.
     db.from("lesson_search_terms").select("id,career_path_id,title,title_en,sort_order").eq("is_active", true).order("sort_order"),
     db.from("lesson_search_term_links").select("lesson_id,term_id").in("lesson_id", lessonIds),
@@ -144,11 +144,12 @@ export async function getTopicLectures(kind: LectureKind): Promise<LecturePath[]
       .map((t) => ({
         id: String(t.id),
         title: String(t.title),
+        titleEn: String(t.title_en ?? ""),
         lectures: strip(mine.filter((x) => x.topicIds.includes(String(t.id))).map((x) => x.lecture)),
       }))
       .filter((t) => t.lectures.length);
     const others = mine.filter((x) => !x.topicIds.some((id) => topicIds.has(id))).map((x) => x.lecture);
-    if (others.length) grouped.push({ id: null, title: "محاضرات أخرى", lectures: strip(others) });
+    if (others.length) grouped.push({ id: null, title: "محاضرات أخرى", titleEn: "Other lectures", lectures: strip(others) });
     const mineById = new Map(mine.map((x) => [x.lecture.id, x.lecture]));
     const termLectures = new Map<string, TopicLecture[]>();
     for (const l of (searchLinks ?? []) as AnyRow[]) {

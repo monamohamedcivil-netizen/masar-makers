@@ -6,6 +6,7 @@ import { CalendarDays, Gift, PlayCircle, Rocket, Search, X } from "lucide-react"
 import { useMemo, useRef, useState } from "react";
 
 import CourseActionButton from "@/components/course/CourseActionButton";
+import useMasarLocale from "@/components/i18n/useMasarLocale";
 import StationSections from "@/components/journeys/StationSections";
 import { openOffersScreen } from "@/components/offers/useOffers";
 import type { EnrollmentStatus } from "@/lib/actions/enroll";
@@ -327,6 +328,7 @@ export default function JourneysRoadView(props: Props) {
   const Icon = theme.icon;
   const paths = props.paths as Array<LecturePath | ProfessionalPath>;
   const initial = paths.find((p) => p.slug === props.initialPathSlug) ?? paths[0];
+  const locale = useMasarLocale();
   const [pathId, setPathId] = useState(initial?.id ?? "");
   const path = paths.find((p) => p.id === pathId) ?? paths[0];
 
@@ -335,8 +337,8 @@ export default function JourneysRoadView(props: Props) {
     if (kind === "professional") {
       return (path as ProfessionalPath).stations.map((s) => ({ key: s.id, title: s.title, iconCode: s.courseCode, comingSoon: s.comingSoon }));
     }
-    return (path as LecturePath).topics.map((t) => ({ key: t.id ?? "other", title: t.title, count: t.lectures.length }));
-  }, [path, kind]);
+    return (path as LecturePath).topics.map((t) => ({ key: t.id ?? "other", title: locale === "en" && t.titleEn ? t.titleEn : t.title, count: t.lectures.length }));
+  }, [path, kind, locale]);
 
   const [selectedByPath, setSelectedByPath] = useState<Record<string, string>>({});
   // الموضوع المختار من خانة البحث (لكل مسار). عند اختياره تُعرض كل محاضراته تحت الطريق.
@@ -414,8 +416,8 @@ export default function JourneysRoadView(props: Props) {
           <div className="overflow-hidden rounded-2xl border bg-white shadow-sm" style={{ borderColor: `${theme.accent}66` }}>
             <div className="flex items-center justify-between gap-3 px-4 py-3" style={{ background: theme.soft }}>
               <h2 className="flex min-w-0 flex-wrap items-baseline gap-x-3 text-base font-black text-[#07152E]">
-                <span>نتائج البحث: {activeTerm.title}</span>
-                {activeTerm.titleEn ? (
+                <span>نتائج البحث: {locale === "en" && activeTerm.titleEn ? activeTerm.titleEn : activeTerm.title}</span>
+                {locale !== "en" && activeTerm.titleEn ? (
                   <span dir="ltr" className="text-xs font-bold text-slate-500">
                     {activeTerm.titleEn}
                   </span>
@@ -447,7 +449,7 @@ export default function JourneysRoadView(props: Props) {
                 return (
                   <>
                     <div className="flex items-center justify-between gap-3 px-4 py-3" style={{ background: theme.soft }}>
-                      <h2 className="text-base font-black text-[#07152E]">{topic.title}</h2>
+                      <h2 className="text-base font-black text-[#07152E]">{locale === "en" && topic.titleEn ? topic.titleEn : topic.title}</h2>
                       <span className={`text-xs font-black ${theme.text}`}>{topic.lectures.length} محاضرة</span>
                     </div>
                     <div className="divide-y divide-slate-100">
