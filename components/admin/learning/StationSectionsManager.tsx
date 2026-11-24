@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Eye, EyeOff, Plus, Youtube, Video } from "lucide-react";
+import { ArrowDown, ArrowUp, Eye, EyeOff, Plus, PlayCircle, Video } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -159,7 +159,7 @@ export default function StationSectionsManager() {
                     <ArrowDown className="h-4 w-4" />
                   </button>
                 </div>
-                {item.kind === "youtube" ? <Youtube className="h-5 w-5 shrink-0 text-red-600" /> : <Video className="h-5 w-5 shrink-0 text-[#2463C7]" />}
+                {item.kind === "youtube" ? <PlayCircle className="h-5 w-5 shrink-0 text-red-600" /> : <Video className="h-5 w-5 shrink-0 text-[#2463C7]" />}
                 <div className="min-w-0 flex-1">
                   <input
                     defaultValue={item.title}
