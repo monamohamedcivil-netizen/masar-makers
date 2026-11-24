@@ -3,9 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { CalendarDays, Gift, PlayCircle, Rocket, Search, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import CourseActionButton from "@/components/course/CourseActionButton";
+import useMasarLocale from "@/components/i18n/useMasarLocale";
 import StationSections from "@/components/journeys/StationSections";
 import { openOffersScreen } from "@/components/offers/useOffers";
 import type { EnrollmentStatus } from "@/lib/actions/enroll";
@@ -27,22 +28,6 @@ const THEME = {
   free: { accent: "#2FA36B", soft: "#E8F6EF", ring: "ring-[#2FA36B]", thin: "ring-1 ring-[#2FA36B]/70 hover:ring-2 hover:ring-[#2FA36B]/60", tab: "bg-gradient-to-r from-[#55C766] to-[#2E8547] text-white shadow-[0_6px_16px_rgba(46,133,71,.35)]", text: "text-[#1F8455]", bg: "bg-[#2FA36B]", title: "الرحلات المجانية", subtitle: "ابدأ مجانًا واتعرف على أسلوب التعلم في صناع المسار. المحاضرات مرتبة حسب خطوات تصميم المشروع.", action: "شاهد الآن", icon: PlayCircle },
   professional: { accent: "#D4A24C", soft: "#FBF3E2", ring: "ring-[#D4A24C]", thin: "ring-1 ring-[#F7B548] hover:ring-2 hover:ring-[#F7B548]/55", tab: "bg-gradient-to-r from-[#F7B548] to-[#D99B22] text-[#07152E] shadow-[0_6px_16px_rgba(217,155,34,.35)]", text: "text-[#A9761F]", bg: "bg-[#D4A24C]", title: "رحلات الاحتراف المتكاملة", subtitle: "رحلة متدرجة لكل برنامج، من الأساسيات حتى المخرجات الاحترافية، على مشروع حقيقي. اختار محطتك.", action: "", icon: CalendarDays },
 } as const;
-
-function useLocale(): "ar" | "en" {
-  const [locale, setLocale] = useState<"ar" | "en">("ar");
-  useEffect(() => {
-    const read = () => setLocale(window.localStorage.getItem("masar-locale") === "en" ? "en" : "ar");
-    read();
-    const onChange = (event: Event) => {
-      const next = (event as CustomEvent<{ locale?: string }>).detail?.locale;
-      if (next === "ar" || next === "en") setLocale(next);
-      else read();
-    };
-    window.addEventListener("masar:locale-change", onChange);
-    return () => window.removeEventListener("masar:locale-change", onChange);
-  }, []);
-  return locale;
-}
 
 type Station = { key: string; title: string; iconCode?: string; comingSoon?: boolean; count?: number };
 
@@ -343,7 +328,7 @@ export default function JourneysRoadView(props: Props) {
   const Icon = theme.icon;
   const paths = props.paths as Array<LecturePath | ProfessionalPath>;
   const initial = paths.find((p) => p.slug === props.initialPathSlug) ?? paths[0];
-  const locale = useLocale();
+  const locale = useMasarLocale();
   const [pathId, setPathId] = useState(initial?.id ?? "");
   const path = paths.find((p) => p.id === pathId) ?? paths[0];
 

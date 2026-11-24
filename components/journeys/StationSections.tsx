@@ -3,6 +3,8 @@
 import { useEffect, useState, useTransition } from "react";
 import { Loader2, PlayCircle } from "lucide-react";
 
+import useMasarLocale from "@/components/i18n/useMasarLocale";
+
 import CourseJourneyLessonsPanel from "@/components/course/CourseJourneyLessonsPanel";
 import ProfessionalPanelViewer from "@/components/course/ProfessionalPanelViewer";
 import SuccessStoriesPanel from "@/components/course/SuccessStoriesPanel";
@@ -19,14 +21,15 @@ import {
 /* أقسام المحطة الخمسة تحت كارت المحطة في «رحلة الاحتراف المتكاملة»،
    ومحتوى كل قسم هو نفسه محتوى التبويب المقابل في صفحة الكورس. */
 
-type SectionKey = "professional" | "outcome" | "gifts" | "free" | "reviews";
+type SectionKey = "professional" | "outcome" | "gifts" | "free" | "reviews" | "intro";
 
-const SECTIONS: Array<{ key: SectionKey; label: string }> = [
-  { key: "professional", label: "محاور الرحلة" },
-  { key: "outcome", label: "نتائج الرحلة" },
-  { key: "gifts", label: "هدايا الرحلة" },
-  { key: "free", label: "المحاضرة الأولى" },
-  { key: "reviews", label: "مشاريع المتدربين" },
+const SECTIONS: Array<{ key: SectionKey; label: string; labelEn: string }> = [
+  { key: "professional", label: "محاور الرحلة", labelEn: "Journey Topics" },
+  { key: "outcome", label: "نتائج الرحلة", labelEn: "Journey Outcomes" },
+  { key: "gifts", label: "هدايا الرحلة", labelEn: "Journey Gifts" },
+  { key: "free", label: "محاضرات الرحلة المجانية", labelEn: "Free Journey Lectures" },
+  { key: "reviews", label: "مشاريع المتدربين", labelEn: "Trainee Projects" },
+  { key: "intro", label: "تعرف على الرحلة أكثر", labelEn: "Learn More About the Journey" },
 ];
 
 function YoutubeCard({ item }: { item: PublicSectionItem }) {
@@ -91,6 +94,7 @@ export default function StationSections({
   accent: string;
   soft: string;
 }) {
+  const en = useMasarLocale() === "en";
   const [open, setOpen] = useState<SectionKey | null>(null);
   const [cache, setCache] = useState<Record<string, StationSectionsData>>({});
   const [failed, setFailed] = useState(false);
@@ -134,15 +138,21 @@ export default function StationSections({
     }
 
     if (failed) {
-      return <p className="p-6 text-center text-sm font-bold text-slate-500">تعذر تحميل المحتوى، حاول مرة أخرى.</p>;
+      return <p className="p-6 text-center text-sm font-bold text-slate-500">{en ? "Could not load the content. Please try again." : "تعذر تحميل المحتوى، حاول مرة أخرى."}</p>;
     }
 
     if (!data) {
       return (
         <p className="flex items-center justify-center gap-2 p-6 text-sm font-bold text-slate-500">
           <Loader2 className="h-4 w-4 animate-spin" />
-          جاري التحميل...
+          {en ? "Loading..." : "جاري التحميل..."}
         </p>
+      );
+    }
+
+    if (open === "intro") {
+      return itemsFor.length ? null : (
+        <p className="p-6 text-center text-sm font-bold text-slate-500">{en ? "Content coming soon." : "المحتوى قريبًا."}</p>
       );
     }
 
@@ -155,7 +165,7 @@ export default function StationSections({
 
     if (value.blocks.length === 0) {
       if (itemsFor.length) return null;
-      return <p className="p-6 text-center text-sm font-bold text-slate-500">المحتوى قريبًا.</p>;
+      return <p className="p-6 text-center text-sm font-bold text-slate-500">{en ? "Content coming soon." : "المحتوى قريبًا."}</p>;
     }
 
     return (
@@ -194,7 +204,7 @@ export default function StationSections({
                 background: active ? accent : soft,
               }}
             >
-              {section.label}
+              {en ? section.labelEn : section.label}
             </button>
           );
         })}
