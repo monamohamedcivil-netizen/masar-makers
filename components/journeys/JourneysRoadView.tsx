@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { CalendarDays, Gift, PlayCircle, Rocket, Search, X } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import CourseActionButton from "@/components/course/CourseActionButton";
 import StationSections from "@/components/journeys/StationSections";
@@ -27,6 +27,22 @@ const THEME = {
   free: { accent: "#2FA36B", soft: "#E8F6EF", ring: "ring-[#2FA36B]", thin: "ring-1 ring-[#2FA36B]/70 hover:ring-2 hover:ring-[#2FA36B]/60", tab: "bg-gradient-to-r from-[#55C766] to-[#2E8547] text-white shadow-[0_6px_16px_rgba(46,133,71,.35)]", text: "text-[#1F8455]", bg: "bg-[#2FA36B]", title: "الرحلات المجانية", subtitle: "ابدأ مجانًا واتعرف على أسلوب التعلم في صناع المسار. المحاضرات مرتبة حسب خطوات تصميم المشروع.", action: "شاهد الآن", icon: PlayCircle },
   professional: { accent: "#D4A24C", soft: "#FBF3E2", ring: "ring-[#D4A24C]", thin: "ring-1 ring-[#F7B548] hover:ring-2 hover:ring-[#F7B548]/55", tab: "bg-gradient-to-r from-[#F7B548] to-[#D99B22] text-[#07152E] shadow-[0_6px_16px_rgba(217,155,34,.35)]", text: "text-[#A9761F]", bg: "bg-[#D4A24C]", title: "رحلات الاحتراف المتكاملة", subtitle: "رحلة متدرجة لكل برنامج، من الأساسيات حتى المخرجات الاحترافية، على مشروع حقيقي. اختار محطتك.", action: "", icon: CalendarDays },
 } as const;
+
+function useLocale(): "ar" | "en" {
+  const [locale, setLocale] = useState<"ar" | "en">("ar");
+  useEffect(() => {
+    const read = () => setLocale(window.localStorage.getItem("masar-locale") === "en" ? "en" : "ar");
+    read();
+    const onChange = (event: Event) => {
+      const next = (event as CustomEvent<{ locale?: string }>).detail?.locale;
+      if (next === "ar" || next === "en") setLocale(next);
+      else read();
+    };
+    window.addEventListener("masar:locale-change", onChange);
+    return () => window.removeEventListener("masar:locale-change", onChange);
+  }, []);
+  return locale;
+}
 
 type Station = { key: string; title: string; iconCode?: string; comingSoon?: boolean; count?: number };
 
@@ -327,6 +343,7 @@ export default function JourneysRoadView(props: Props) {
   const Icon = theme.icon;
   const paths = props.paths as Array<LecturePath | ProfessionalPath>;
   const initial = paths.find((p) => p.slug === props.initialPathSlug) ?? paths[0];
+  const locale = useLocale();
   const [pathId, setPathId] = useState(initial?.id ?? "");
   const path = paths.find((p) => p.id === pathId) ?? paths[0];
 
@@ -335,8 +352,8 @@ export default function JourneysRoadView(props: Props) {
     if (kind === "professional") {
       return (path as ProfessionalPath).stations.map((s) => ({ key: s.id, title: s.title, iconCode: s.courseCode, comingSoon: s.comingSoon }));
     }
-    return (path as LecturePath).topics.map((t) => ({ key: t.id ?? "other", title: t.title, count: t.lectures.length }));
-  }, [path, kind]);
+    return (path as LecturePath).topics.map((t) => ({ key: t.id ?? "other", title: locale === "en" && t.titleEn ? t.titleEn : t.title, count: t.lectures.length }));
+  }, [path, kind, locale]);
 
   const [selectedByPath, setSelectedByPath] = useState<Record<string, string>>({});
   // الموضوع المختار من خانة البحث (لكل مسار). عند اختياره تُعرض كل محاضراته تحت الطريق.
@@ -414,8 +431,8 @@ export default function JourneysRoadView(props: Props) {
           <div className="overflow-hidden rounded-2xl border bg-white shadow-sm" style={{ borderColor: `${theme.accent}66` }}>
             <div className="flex items-center justify-between gap-3 px-4 py-3" style={{ background: theme.soft }}>
               <h2 className="flex min-w-0 flex-wrap items-baseline gap-x-3 text-base font-black text-[#07152E]">
-                <span>نتائج البحث: {activeTerm.title}</span>
-                {activeTerm.titleEn ? (
+                <span>نتائج البحث: {locale === "en" && activeTerm.titleEn ? activeTerm.titleEn : activeTerm.title}</span>
+                {locale !== "en" && activeTerm.titleEn ? (
                   <span dir="ltr" className="text-xs font-bold text-slate-500">
                     {activeTerm.titleEn}
                   </span>
@@ -447,7 +464,7 @@ export default function JourneysRoadView(props: Props) {
                 return (
                   <>
                     <div className="flex items-center justify-between gap-3 px-4 py-3" style={{ background: theme.soft }}>
-                      <h2 className="text-base font-black text-[#07152E]">{topic.title}</h2>
+                      <h2 className="text-base font-black text-[#07152E]">{locale === "en" && topic.titleEn ? topic.titleEn : topic.title}</h2>
                       <span className={`text-xs font-black ${theme.text}`}>{topic.lectures.length} محاضرة</span>
                     </div>
                     <div className="divide-y divide-slate-100">

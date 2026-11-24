@@ -1,6 +1,31 @@
 export type MasarLocale = "ar" | "en";
 
 const exactEnglish: Record<string, string> = {
+  // Journeys road pages
+  "رحلات الاحتراف المتكاملة": "Integrated Professional Journeys",
+  "محاضرة واحدة مركّزة في موضوع محدد، مرتبة حسب خطوات تصميم المشروع. اختار المحطة اللي محتاجها وابدأ.": "One focused lecture on a specific topic, arranged by project design steps. Pick the station you need and start.",
+  "ابدأ مجانًا واتعرف على أسلوب التعلم في صناع المسار. المحاضرات مرتبة حسب خطوات تصميم المشروع.": "Start for free and get to know the Masar Makers learning style. Lectures are arranged by project design steps.",
+  "رحلة متدرجة لكل برنامج، من الأساسيات حتى المخرجات الاحترافية، على مشروع حقيقي. اختار محطتك.": "A step-by-step journey for each program, from the fundamentals to professional deliverables, on a real project. Choose your station.",
+  "جميع العروض": "All Offers",
+  "ابحث عن موضوع… مثال: الدوارات أو Roundabout": "Search for a topic… e.g. Roundabout",
+  "ابحث عن موضوع في المحاضرات": "Search for a topic in the lectures",
+  "مسح البحث": "Clear search",
+  "لا يوجد موضوع بهذا الاسم.": "No topic with this name.",
+  "المحاضرات في هذا المسار قريبًا.": "Lectures in this path are coming soon.",
+  "رحلة هذه المحطة قريبًا.": "This station's journey is coming soon.",
+  "نتائج البحث:": "Search results:",
+  "تفاصيل الرحلة والاشتراك": "Journey Details & Enrollment",
+  "طلب الاشتراك قيد المراجعة — تفاصيل الرحلة": "Enrollment request under review — journey details",
+  "صفحة الكورس": "Course Page",
+  "الأساسيات": "Fundamentals",
+  "المتقدم": "Advanced",
+  "المتكاملة (الأساسيات + المتقدم)": "Integrated (Fundamentals + Advanced)",
+  "محاور الرحلة": "Journey Topics",
+  "هدايا الرحلة": "Journey Gifts",
+  "المحاضرة الأولى": "First Lecture",
+  "المحتوى قريبًا.": "Content coming soon.",
+  "جاري التحميل...": "Loading...",
+  "تعذر تحميل المحتوى، حاول مرة أخرى.": "Could not load the content. Please try again.",
   // Navigation / common
   "مركز الرحلات": "Journey Center",
   "من نحن": "About Us",
