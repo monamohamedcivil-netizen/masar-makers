@@ -311,14 +311,20 @@ export default function Hero() {
           <Image
             src={
               locale === "ar"
-                ? "/images/hero-road-v4.jpg"
-                : "/images/hero-road-eng.jpg"
+                ? "/images/hero-road-v5.jpg"
+                : "/images/hero-road-eng3.jpg"
             }
             alt="Masar Makers"
             fill
             priority
             sizes="100vw"
-            className="object-cover object-center"
+            className="object-cover"
+            style={{
+              objectPosition:
+                locale === "ar"
+                  ? "center 4%"
+                  : "center 30%",
+            }}
           />
 
           <div

@@ -6,6 +6,7 @@ import { CalendarDays, Gift, PlayCircle, Rocket, Search, X } from "lucide-react"
 import { useMemo, useRef, useState } from "react";
 
 import CourseActionButton from "@/components/course/CourseActionButton";
+import StationSections from "@/components/journeys/StationSections";
 import { openOffersScreen } from "@/components/offers/useOffers";
 import type { EnrollmentStatus } from "@/lib/actions/enroll";
 import { courseIcon } from "@/lib/journeys/course-icons";
@@ -309,6 +310,7 @@ function ProfessionalPanel({ station }: { station: ProfessionalStation }) {
               صفحة الكورس
             </Link>
           </div>
+          <StationSections stationId={station.id} stationSlug={station.slug} accent={theme.accent} soft={theme.soft} />
         </>
       )}
     </div>

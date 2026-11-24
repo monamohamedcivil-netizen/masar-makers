@@ -1,6 +1,7 @@
 import AdminPageHeader from "@/components/admin/layout/AdminPageHeader";
 import LessonContentManager from "@/components/admin/learning/LessonContentManager";
 import LessonTaxonomyManager from "@/components/admin/learning/LessonTaxonomyManager";
+import StationSectionsManager from "@/components/admin/learning/StationSectionsManager";
 import Link from "next/link";
 import {
   createAdminClient,
@@ -10,7 +11,7 @@ import { getInternalAccountUserIds } from "@/lib/admin/internal-accounts";
 
 export const dynamic = "force-dynamic";
 
-function LessonsTabs({ active }: { active: "lessons" | "taxonomy" }) {
+function LessonsTabs({ active }: { active: "lessons" | "taxonomy" | "sections" }) {
   const base = "rounded-xl px-4 py-2 text-sm font-black transition";
   return (
     <nav className="mb-4 flex flex-wrap gap-2" aria-label="أقسام الدروس والمحتوى">
@@ -26,6 +27,12 @@ function LessonsTabs({ active }: { active: "lessons" | "taxonomy" }) {
       >
         تصنيف الرحلات (المحطات وكلمات البحث)
       </Link>
+      <Link
+        href="/admin/learning/lessons?tab=sections"
+        className={`${base} ${active === "sections" ? "bg-[#07152E] text-white" : "bg-white text-[#07152E] ring-1 ring-slate-200 hover:bg-slate-50"}`}
+      >
+        أقسام المحطات (رحلة الاحتراف)
+      </Link>
     </nav>
   );
 }
@@ -36,6 +43,19 @@ export default async function LessonsPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const { tab } = await searchParams;
+
+  if (tab === "sections") {
+    return (
+      <>
+        <AdminPageHeader
+          title="الدروس والمحتوى"
+          description="فيديوهات الأقسام الخمسة تحت كل محطة في رحلة الاحتراف المتكاملة: إضافة وترتيب وإخفاء."
+        />
+        <LessonsTabs active="sections" />
+        <StationSectionsManager />
+      </>
+    );
+  }
 
   if (tab === "taxonomy") {
     return (
