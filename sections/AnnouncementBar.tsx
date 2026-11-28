@@ -311,12 +311,6 @@ const { data, error } = await supabase
                 </div>
 
                 <div className="flex shrink-0 items-center gap-2">
-                  <OffersGiftButton
-                    count={offersState.offers.length}
-                    onClick={offersState.show}
-                    label={giftLabel}
-                    compact
-                  />
                   {opensChat || opensPoints ? (
                     <button
                       type="button"
@@ -342,6 +336,14 @@ const { data, error } = await supabase
                       <CTAArrow size={12} className="shrink-0" />
                     </AuthLink>
                   )}
+                  <span className="ms-1 flex">
+                  <OffersGiftButton
+                    count={offersState.offers.length}
+                    onClick={offersState.show}
+                    label={giftLabel}
+                    compact
+                  />
+                  </span>
                 </div>
               </>
             ) : null}
@@ -445,11 +447,6 @@ const { data, error } = await supabase
               </div>
 
               <div className="flex shrink-0 items-center gap-3">
-                <OffersGiftButton
-                  count={offersState.offers.length}
-                  onClick={offersState.show}
-                  label={giftLabel}
-                />
                 {opensChat || opensPoints ? (
                   <button
                     type="button"
@@ -475,6 +472,13 @@ const { data, error } = await supabase
                     <CTAArrow size={15} />
                   </AuthLink>
                 )}
+                <span className="ms-4 flex">
+                  <OffersGiftButton
+                    count={offersState.offers.length}
+                    onClick={offersState.show}
+                    label={giftLabel}
+                  />
+                </span>
               </div>
             </>
           ) : null}
