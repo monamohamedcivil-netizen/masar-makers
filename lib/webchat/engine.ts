@@ -282,6 +282,7 @@ export class WebChatEngine {
     if (entryKey === "announcement") {
       let reply = "";
       let linkedCourseId: string | null = null;
+      let options = "";
       if (context.announcementId) {
         // chat_course_id: عمود اختياري (قد لا يكون موجودًا قبل تطبيق التغييرات)، فنقرأه بالاستعلام الكامل.
         const { data } = await this.db
@@ -291,18 +292,16 @@ export class WebChatEngine {
           .maybeSingle();
         reply = this.f(data, "chat_reply");
         linkedCourseId = clean(data?.chat_course_id) || null;
+        options = clean(data?.chat_options);
       }
+
+      // الأدمن يحدد الاختيارات تحت رسالته: «main» = القائمة الرئيسية للشات، «course» = اختيارات الكورس.
+      if (options === "main") return this.mainMenu(reply || (await this.entryText("contact")));
 
       // الزر يفتح تفاصيل كورس الإعلان مباشرة: الكورس المربوط بالإعلان، وإلا نطابق عنوان الإعلان بكورس.
       const course = linkedCourseId
         ? await this.course(linkedCourseId)
         : await this.matchCourse(clean(context.actionLabel) || clean(context.text));
-      // لو للإعلان رسالة مكتوبة: تظهر رسالتك ثم قائمة الشات الرئيسية تحتها مباشرة،
-      // ومعها زر الكورس المربوط (إن وُجد) بدل تفاصيل الكورس الكاملة.
-      if (course && reply) {
-        await this.setCourse(String(course.id));
-        return this.mainMenu(reply, [{ id: `course:${course.id}`, label: `📘 ${clean(course.whatsapp_label || course.title)}` }]);
-      }
       if (course) return this.openCourse(course.id, reply);
 
       return this.mainMenu(reply || (await this.entryText("contact")));
