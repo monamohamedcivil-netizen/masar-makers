@@ -319,12 +319,22 @@ export class WebChatEngine {
         const oneDay: OneDay = { courseId: String(course.id), lessonId: await this.oneDayLesson(course.id, context) };
         await this.patchSession({ context: { ...(this.session.context ?? {}), oneDay } });
       }
-      // Enrollment button: answer = the price right away (members only; enrollment needs login anyway).
+      // زر «طلب اشتراك»: تأكيد تسجيل الطلب فقط (بدون أسعار) ثم التحويل لخدمة العملاء لإتمام الاشتراك.
       if (entryKey === "enrollment" && this.isMember) {
-        if (this.currency) return this.price(this.currency, welcome);
-        const ask = await this.currencyStep();
-        ask[0].text = [welcome, `📘 *${course.whatsapp_label || course.title}*`, ask[0].text].filter(Boolean).join("\n\n");
-        return ask;
+        const title = clean(course.whatsapp_label || course.title);
+        return [
+          {
+            from: "bot",
+            text: this.t(
+              `✅ تم تسجيل طلب اشتراكك في *${title}* بنجاح.\n\nتواصل مع خدمة العملاء لإتمام إجراءات الاشتراك 👇`,
+              `✅ Your subscription request for *${title}* has been registered successfully.\n\nPlease contact customer service to complete the subscription 👇`,
+            ),
+            buttons: [
+              { id: "handoff:subscribe", label: this.t("👩‍💼 التواصل مع خدمة العملاء (واتساب)", "👩‍💼 Contact customer service (WhatsApp)"), kind: "handoff" },
+              { id: "main", label: this.t("↩️ القائمة الرئيسية", "↩️ Main menu") },
+            ],
+          },
+        ];
       }
       return this.openCourse(course.id, welcome);
     }
