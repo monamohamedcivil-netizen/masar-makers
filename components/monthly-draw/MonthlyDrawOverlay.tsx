@@ -1024,7 +1024,7 @@ export default function MonthlyDrawOverlay() {
           }}
           className="fixed inset-0 z-[400] flex items-center justify-center overflow-y-auto bg-[#020817]/75 p-3 backdrop-blur-sm animate-in fade-in duration-500 sm:p-4"
         >
-          <div className="relative my-auto w-[94vw] animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-500 max-w-[430px] overflow-hidden rounded-[20px] sm:w-[92vw] sm:max-w-[620px] lg:w-full lg:max-w-[1040px] lg:[zoom:0.82] lg:rounded-[30px] border border-[#F7B548]/35 bg-[#061127] shadow-[0_30px_90px_rgba(0,0,0,0.58)] sm:rounded-[26px] lg:my-0 lg:rounded-[30px]">
+          <div className="relative my-auto w-[94vw] animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-500 max-w-[430px] overflow-hidden rounded-[20px] sm:w-[92vw] sm:max-w-[620px] lg:w-full lg:max-w-[1040px] lg:rounded-[30px] border border-[#F7B548]/35 bg-[#061127] shadow-[0_30px_90px_rgba(0,0,0,0.58)] sm:rounded-[26px] lg:my-0 lg:rounded-[30px]">
             <button
               type="button"
               onClick={closeOverlay}
