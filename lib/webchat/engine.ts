@@ -297,6 +297,12 @@ export class WebChatEngine {
       const course = linkedCourseId
         ? await this.course(linkedCourseId)
         : await this.matchCourse(clean(context.actionLabel) || clean(context.text));
+      // لو للإعلان رسالة مكتوبة: تظهر رسالتك ثم قائمة الشات الرئيسية تحتها مباشرة،
+      // ومعها زر الكورس المربوط (إن وُجد) بدل تفاصيل الكورس الكاملة.
+      if (course && reply) {
+        await this.setCourse(String(course.id));
+        return this.mainMenu(reply, [{ id: `course:${course.id}`, label: `📘 ${clean(course.whatsapp_label || course.title)}` }]);
+      }
       if (course) return this.openCourse(course.id, reply);
 
       return this.mainMenu(reply || (await this.entryText("contact")));
