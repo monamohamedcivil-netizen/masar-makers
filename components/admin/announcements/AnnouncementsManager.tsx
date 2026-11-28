@@ -105,6 +105,14 @@ const TYPE_LABELS: Record<PlatformAnnouncementType, string> = {
   alert: "تنبيه",
 };
 
+/** يحوّل قيمة datetime-local (بتوقيت جهاز الأدمن) إلى ISO بتوقيت UTC قبل الإرسال للسيرفر،
+ *  وإلا يفسّرها السيرفر (UTC) كأنها بتوقيته فتتأخر بفارق التوقيت (3 ساعات للسعودية). */
+function localInputToIso(value: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+}
+
 function toInputDate(value: string | null) {
   if (!value) return "";
 
@@ -326,8 +334,8 @@ export default function AnnouncementsManager({
         isActive: form.isActive,
         displayOrder:
           form.displayOrder,
-        startsAt: form.startsAt,
-        endsAt: form.endsAt,
+        startsAt: localInputToIso(form.startsAt),
+        endsAt: localInputToIso(form.endsAt),
         // الرابط النهائي يُبنى من الوجهة المختارة؛ والإعدادان الجديدان يُحفظان للتعديل لاحقًا.
         ...(form.linkConfig && !form.opensChat
           ? { href: buildHref(form.linkConfig), linkConfig: form.linkConfig }
