@@ -137,6 +137,24 @@ export default function Home() {
     setActiveSection(section);
   }
 
+  /* رابط مباشر لقسم: /home?section=cta (من أزرار الإعلانات). */
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("section");
+
+    if (!requested || !(requested in sectionContent)) {
+      return;
+    }
+
+    const timer = window.setTimeout(
+      () => scrollToSection(requested as SectionKey),
+      600,
+    );
+
+    return () => window.clearTimeout(timer);
+    // مرة واحدة عند فتح الصفحة.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     const mainElement =
       mainRef.current;
