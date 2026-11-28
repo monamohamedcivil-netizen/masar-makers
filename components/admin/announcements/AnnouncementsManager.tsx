@@ -1,7 +1,7 @@
 "use client";
 
 import AccordionPanel from "@/components/admin/common/AccordionPanel";
-import { FormEvent, useMemo, useState, useTransition } from "react";
+import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import {
   ArrowDown,
   ArrowUp,
