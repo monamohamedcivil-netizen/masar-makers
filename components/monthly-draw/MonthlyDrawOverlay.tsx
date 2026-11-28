@@ -1145,28 +1145,12 @@ export default function MonthlyDrawOverlay() {
                     </div>
                   ) : null}
 
-                  {showNextPrize ? (
-                    <NextPrizeNotice
-                      isEnglish={isEnglish}
-                      title={nextPrizeText}
-                      compact
-                    />
-                  ) : null}
-
-                  <div className="rounded-[14px] border border-[#E5BE62] bg-[#FFFDF8] px-3 py-2.5 shadow-sm">
-                    <div className="mb-2 flex items-center justify-center gap-1.5">
-                      <CalendarClock size={14} className="text-[#C88712]" />
-                      <p className="text-[11px] font-black text-[#C88712]">
-                        {isEnglish ? "Next draw in" : "السحب القادم بعد"}
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-1.5">
-                      <TimeBox value={nextDrawRemaining.days} label={isEnglish ? "Day" : "يوم"} />
-                      <TimeBox value={nextDrawRemaining.hours} label={isEnglish ? "Hour" : "ساعة"} />
-                      <TimeBox value={nextDrawRemaining.minutes} label={isEnglish ? "Min" : "دقيقة"} />
-                    </div>
-                  </div>
+                  <NextDrawCard
+                    isEnglish={isEnglish}
+                    title={showNextPrize ? nextPrizeText : ""}
+                    remaining={nextDrawRemaining}
+                    compact
+                  />
 
                   {isGuest ? (
                     <JoinDrawCta
@@ -1326,45 +1310,11 @@ export default function MonthlyDrawOverlay() {
                     </div>
                   ) : null}
 
-                  {showNextPrize ? (
-                    <NextPrizeNotice
-                      isEnglish={isEnglish}
-                      title={nextPrizeText}
-                    />
-                  ) : null}
-
-                  <div className="mt-4 rounded-[20px] border border-[#E5BE62] bg-[#FFFDF8] px-4 py-4 shadow-sm">
-                    <div className="flex items-center justify-center gap-2">
-                      <CalendarClock
-                        size={17}
-                        className="text-[#F7B548]"
-                      />
-                      <p className="text-[15px] font-black text-[#F7B548]">
-                        {isEnglish ? "Next draw in" : "السحب القادم بعد"}
-                      </p>
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-3 gap-2">
-                      <TimeBox
-                        value={
-                          nextDrawRemaining.days
-                        }
-                        label={isEnglish ? "Day" : "يوم"}
-                      />
-                      <TimeBox
-                        value={
-                          nextDrawRemaining.hours
-                        }
-                        label={isEnglish ? "Hour" : "ساعة"}
-                      />
-                      <TimeBox
-                        value={
-                          nextDrawRemaining.minutes
-                        }
-                        label={isEnglish ? "Min" : "دقيقة"}
-                      />
-                    </div>
-                  </div>
+                  <NextDrawCard
+                    isEnglish={isEnglish}
+                    title={showNextPrize ? nextPrizeText : ""}
+                    remaining={nextDrawRemaining}
+                  />
 
                   <div className="mt-5 space-y-2.5">
                     {isGuest ? (
@@ -1516,48 +1466,69 @@ export default function MonthlyDrawOverlay() {
   );
 }
 
-function NextPrizeNotice({
+/** جائزة الشهر القادم + الوقت المتبقي للسحب القادم في بطاقة واحدة بلون داكن يلفت الانتباه. */
+function NextDrawCard({
   isEnglish,
   title,
+  remaining,
   compact = false,
 }: {
   isEnglish: boolean;
   title: string;
+  remaining: { days: number; hours: number; minutes: number };
   compact?: boolean;
 }) {
+  const units = [
+    { value: remaining.days, label: isEnglish ? "Day" : "يوم" },
+    { value: remaining.hours, label: isEnglish ? "Hour" : "ساعة" },
+    { value: remaining.minutes, label: isEnglish ? "Min" : "دقيقة" },
+  ];
+
   return (
     <div
-      className={`rounded-[14px] border border-dashed border-[#E5BE62] bg-gradient-to-l from-[#FFF6DF] to-white shadow-sm ${
-        compact ? "mt-0 px-3 py-2.5" : "mt-4 rounded-[20px] px-4 py-4"
+      className={`relative overflow-hidden border border-[#F7B548]/60 bg-gradient-to-br from-[#0B1E45] via-[#07152E] to-[#12285A] shadow-[0_10px_26px_rgba(7,21,46,0.35)] ${
+        compact ? "rounded-[14px] px-3 py-3" : "mt-4 rounded-[20px] px-4 py-5"
       }`}
     >
-      <p
-        className={`font-black text-[#C88712] ${
-          compact ? "text-[11px]" : "text-[13px]"
-        }`}
-      >
-        {isEnglish ? "Next month's prize" : "جائزة الشهر القادم"}
-      </p>
+      <div className="pointer-events-none absolute -top-10 left-1/2 h-24 w-40 -translate-x-1/2 rounded-full bg-[#F7B548]/20 blur-2xl" />
 
-      <p
-        className={`mt-0.5 font-black text-[#07152E] ${
-          compact
-            ? "line-clamp-2 text-[13px] leading-5"
-            : "text-[17px] leading-7"
-        }`}
-      >
-        {title}
-      </p>
+      {title ? (
+        <div className="relative text-center">
+          <p className={`inline-flex items-center gap-1.5 font-black text-[#F7B548] ${compact ? "text-[11px]" : "text-[13px]"}`}>
+            <Sparkles size={compact ? 12 : 14} />
+            {isEnglish ? "Next month's prize" : "جائزة الشهر القادم"}
+          </p>
+          <p className={`mt-1 font-black text-white ${compact ? "line-clamp-2 text-[14px] leading-5" : "text-[19px] leading-7"}`}>
+            {title}
+          </p>
+          <p className={`mt-1 font-bold text-white/65 ${compact ? "text-[10.5px] leading-4" : "text-[12px] leading-5"}`}>
+            {isEnglish
+              ? "Earn more points now to increase your chances!"
+              : "اجمع نقاطًا أكثر الآن لتزيد فرصك في السحب القادم!"}
+          </p>
+        </div>
+      ) : null}
 
-      <p
-        className={`mt-1 font-bold text-[#07152E]/70 ${
-          compact ? "text-[11px] leading-4" : "text-[12px] leading-5"
-        }`}
-      >
-        {isEnglish
-          ? "Earn more points now to increase your chances in the next monthly draw!"
-          : "اجمع نقاطًا أكثر الآن لتزيد فرصك في السحب الشهري القادم!"}
-      </p>
+      <div className={`relative flex items-center justify-center gap-1.5 ${title ? (compact ? "mt-2.5" : "mt-4") : ""}`}>
+        <CalendarClock size={compact ? 13 : 16} className="text-[#F7B548]" />
+        <p className={`font-black text-white/90 ${compact ? "text-[11px]" : "text-[14px]"}`}>
+          {isEnglish ? "Next draw in" : "السحب القادم بعد"}
+        </p>
+      </div>
+
+      <div className={`relative grid grid-cols-3 ${compact ? "mt-1.5 gap-1.5" : "mt-2.5 gap-2"}`}>
+        {units.map((unit) => (
+          <div
+            key={unit.label}
+            className={`rounded-xl border border-[#F7B548]/45 bg-white/10 text-center backdrop-blur-sm ${compact ? "px-1 py-1.5" : "px-2 py-2.5"}`}
+          >
+            <p className={`font-black leading-none text-[#F7B548] ${compact ? "text-[18px]" : "text-[24px]"}`}>
+              {String(unit.value).padStart(2, "0")}
+            </p>
+            <p className={`mt-1 font-black text-white/80 ${compact ? "text-[10.5px]" : "text-[12px]"}`}>{unit.label}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
