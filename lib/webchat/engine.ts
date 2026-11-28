@@ -282,6 +282,7 @@ export class WebChatEngine {
     if (entryKey === "announcement") {
       let reply = "";
       let linkedCourseId: string | null = null;
+      let options = "";
       if (context.announcementId) {
         // chat_course_id: عمود اختياري (قد لا يكون موجودًا قبل تطبيق التغييرات)، فنقرأه بالاستعلام الكامل.
         const { data } = await this.db
@@ -291,7 +292,11 @@ export class WebChatEngine {
           .maybeSingle();
         reply = this.f(data, "chat_reply");
         linkedCourseId = clean(data?.chat_course_id) || null;
+        options = clean(data?.chat_options);
       }
+
+      // الأدمن يحدد الاختيارات تحت رسالته: «main» = القائمة الرئيسية للشات، «course» = اختيارات الكورس.
+      if (options === "main") return this.mainMenu(reply || (await this.entryText("contact")));
 
       // الزر يفتح تفاصيل كورس الإعلان مباشرة: الكورس المربوط بالإعلان، وإلا نطابق عنوان الإعلان بكورس.
       const course = linkedCourseId

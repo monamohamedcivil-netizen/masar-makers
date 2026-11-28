@@ -63,6 +63,7 @@ type FormState = {
   chatReplyEn: string;
   /** الكورس الذي يفتح الشات تفاصيله (فارغ = الرسالة الترحيبية). */
   chatCourseId: string;
+  chatOptions: "main" | "course";
   isActive: boolean;
   displayOrder: number;
   startsAt: string;
@@ -87,6 +88,7 @@ const EMPTY_FORM: FormState = {
   chatReply: "",
   chatReplyEn: "",
   chatCourseId: "",
+  chatOptions: "main",
   isActive: true,
   displayOrder: 0,
   startsAt: "",
@@ -242,6 +244,7 @@ export default function AnnouncementsManager({
       chatReply: item.chat_reply ?? "",
       chatReplyEn: item.chat_reply_en ?? "",
       chatCourseId: item.chat_course_id ?? "",
+      chatOptions: item.chat_options === "course" || (!item.chat_options && item.chat_course_id) ? "course" : "main",
       isActive: true,
       displayOrder:
         item.display_order ?? 0,
@@ -285,6 +288,7 @@ export default function AnnouncementsManager({
       chatReply: item.chat_reply ?? "",
       chatReplyEn: item.chat_reply_en ?? "",
       chatCourseId: item.chat_course_id ?? "",
+      chatOptions: item.chat_options === "course" || (!item.chat_options && item.chat_course_id) ? "course" : "main",
       isActive: item.is_active,
       displayOrder:
         item.display_order ?? 0,
@@ -331,6 +335,7 @@ export default function AnnouncementsManager({
         chatReply: form.chatReply,
         chatReplyEn: form.chatReplyEn,
         chatCourseId: form.chatCourseId,
+        ...(form.opensChat ? { chatOptions: form.chatOptions } : {}),
         isActive: form.isActive,
         displayOrder:
           form.displayOrder,
@@ -766,6 +771,22 @@ export default function AnnouncementsManager({
                       {course.label}
                     </option>
                   ))}
+                </select>
+              </Field>
+
+              <Field label="الاختيارات اللي تظهر تحت رسالة الشات" className="md:col-span-2">
+                <select
+                  value={form.chatOptions}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      chatOptions: event.target.value === "course" ? "course" : "main",
+                    }))
+                  }
+                  className={INPUT}
+                >
+                  <option value="main">القائمة الرئيسية للشات (للإعلان العام)</option>
+                  <option value="course">اختيارات الكورس (للإعلان عن كورس معين)</option>
                 </select>
               </Field>
 
