@@ -24,7 +24,6 @@ import {
   ShieldCheck,
   Star,
   Users,
-  Video,
   X,
 } from "lucide-react";
 
@@ -149,16 +148,6 @@ const navigationGroups: NavigationGroup[] = [
         icon: Megaphone,
       },
       {
-        title: "إعلانات صفحة البداية",
-        href: "/admin/content/landing-promos",
-        icon: Video,
-      },
-      {
-        title: "صفحات هبوط الإعلانات",
-        href: "/admin/content/landing-pages",
-        icon: FileImage,
-      },
-      {
         title: "السحب الشهري",
         href: "/admin/content/monthly-draw",
         icon: Gift,
@@ -197,6 +186,11 @@ export default function AdminSidebar({
   const pathname = usePathname();
 
   const isActive = (href: string) => {
+    // صفحة «الإعلانات» تضم الآن إعلانات صفحة البداية وصفحات الهبوط أيضًا.
+    if (href === "/admin/content/announcements" && (pathname.startsWith("/admin/content/landing-pages") || pathname.startsWith("/admin/content/landing-promos"))) {
+      return true;
+    }
+
     const exactMatchRoutes = [
       "/admin/dashboard",
       "/admin/students",

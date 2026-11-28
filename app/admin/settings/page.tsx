@@ -54,8 +54,8 @@ const rows: { title: string; tools: Tool[] }[] = [
     title: "الإعلانات",
     tools: [
       { href: "/admin/content/announcements", title: "الإعلانات", description: "إعلانات المنصة للطلاب.", icon: Megaphone },
-      { href: "/admin/content/landing-promos", title: "إعلانات صفحة البداية", description: "فيديوهات الكورسات في صفحة البداية.", icon: Video },
-      { href: "/admin/content/landing-pages", title: "صفحات هبوط الإعلانات", description: "صفحات الإعلانات المدفوعة (/lp/…) وإنشاء صفحة لإعلان جديد.", icon: FileImage },
+      { href: "/admin/content/announcements?tab=promos", title: "إعلانات صفحة البداية", description: "فيديوهات الكورسات في صفحة البداية.", icon: Video },
+      { href: "/admin/content/announcements?tab=landing", title: "صفحات هبوط الإعلانات", description: "صفحات الإعلانات المدفوعة (/lp/…) وإنشاء صفحة لإعلان جديد.", icon: FileImage },
     ],
   },
 ];

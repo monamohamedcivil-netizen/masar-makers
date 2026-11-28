@@ -1,5 +1,6 @@
 "use client";
 
+import AccordionPanel from "@/components/admin/common/AccordionPanel";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, Search, Send } from "lucide-react";
@@ -59,8 +60,11 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const [openCampaign, setOpenCampaign] = useState<string | null>(null);
+  const [openNew, setOpenNew] = useState(false);
+  const [openPrevious, setOpenPrevious] = useState(false);
 
   function applyTemplate(c: EmailCampaignRow) {
+    setOpenNew(true);
     setSubject(c.subject);
     setBody(c.body);
     setButtonText(c.button_text ?? "");
@@ -206,7 +210,14 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
   }
 
   return (
-    <section id="custom-email-composer" className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="space-y-5">
+    <AccordionPanel
+      title="إيميل جديد"
+      hint="إرسال رسالة (إيميل و/أو إشعار) لكل الطلاب أو لطلاب محددين"
+      open={openNew}
+      onToggle={() => setOpenNew((v) => !v)}
+    >
+    <section id="custom-email-composer" className="overflow-hidden">
       <header className="flex items-center justify-between gap-4 border-b border-slate-200 bg-[#F8FAFC] px-5 py-4">
         <div>
           <p className="text-[10px] font-black text-[#C88712]">
@@ -445,7 +456,22 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
           </button>
         </div>
 
-        {recentCampaigns.length > 0 && (
+      </div>
+    </section>
+    </AccordionPanel>
+
+    <AccordionPanel
+      title="الإيميلات السابقة"
+      hint="آخر الإيميلات المرسلة، ويمكن استخدام أي منها كقالب"
+      open={openPrevious}
+      onToggle={() => setOpenPrevious((v) => !v)}
+    >
+      <div className="p-5">
+        {recentCampaigns.length === 0 ? (
+          <p className="text-center text-[12px] font-bold text-slate-500">لا توجد إيميلات سابقة.</p>
+        ) : (
+          <>
+
           <div className="border-t border-slate-100 pt-4">
             <p className="mb-2 text-[11px] font-black text-[#07152E]">
               آخر الإيميلات المرسلة
@@ -500,8 +526,11 @@ export default function CustomEmailComposer({ recentCampaigns }: Props) {
               ))}
             </div>
           </div>
+        
+          </>
         )}
       </div>
-    </section>
+    </AccordionPanel>
+    </div>
   );
 }
