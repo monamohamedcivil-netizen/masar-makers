@@ -27,7 +27,7 @@ export default async function LandingPageEditPage({ params }: PageProps) {
         title={page.title}
         description="عدّلي أي نص أو صورة، واضغطي «حفظ». التعديل يظهر على الصفحة فورًا بعد الحفظ."
         breadcrumbs={[
-          { label: "صفحات هبوط الإعلانات", href: "/admin/content/landing-pages" },
+          { label: "صفحات هبوط الإعلانات", href: "/admin/content/announcements?tab=landing" },
           { label: page.title },
         ]}
       />

@@ -1,5 +1,6 @@
 "use client";
 
+import AccordionPanel from "@/components/admin/common/AccordionPanel";
 import { FormEvent, useMemo, useState, useTransition } from "react";
 import {
   ArrowDown,
@@ -166,6 +167,14 @@ export default function AnnouncementsManager({
 
   const [message, setMessage] =
     useState("");
+
+  const [openNew, setOpenNew] = useState(false);
+  const [openPrevious, setOpenPrevious] = useState(false);
+
+  // عند تعديل إعلان أو نسخه كقالب يُفتح شريط «إعلان جديد» تلقائيًا.
+  useEffect(() => {
+    if (editingId || templateTitle) setOpenNew(true);
+  }, [editingId, templateTitle]);
 
   const [error, setError] =
     useState("");
@@ -537,6 +546,12 @@ export default function AnnouncementsManager({
         />
       </section>
 
+      <AccordionPanel
+        title={editingId ? "تعديل إعلان" : "إعلان جديد"}
+        hint="أضيفي إعلانًا جديدًا إلى شريط المنصة"
+        open={openNew}
+        onToggle={() => setOpenNew((v) => !v)}
+      >
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <header className="flex items-center justify-between gap-4 border-b border-slate-200 bg-[#F8FAFC] px-5 py-4">
           <div>
@@ -980,6 +995,14 @@ export default function AnnouncementsManager({
         </form>
       </section>
 
+      </AccordionPanel>
+
+      <AccordionPanel
+        title="الإعلانات السابقة"
+        hint="الإعلانات الحالية والسابقة: تعديل، نسخ كقالب، إيقاف"
+        open={openPrevious}
+        onToggle={() => setOpenPrevious((v) => !v)}
+      >
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <header className="flex items-center justify-between border-b border-slate-200 bg-[#F8FAFC] px-5 py-4">
           <div>
@@ -1182,6 +1205,7 @@ export default function AnnouncementsManager({
           </div>
         )}
       </section>
+      </AccordionPanel>
     </div>
   );
 }
